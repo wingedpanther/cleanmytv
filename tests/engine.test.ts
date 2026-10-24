@@ -123,6 +123,19 @@ describe('upstream lists', () => {
     expect(all[1].score).toBeGreaterThan(0)
   })
 
+  it('offers a family-inferred list for unlisted models of a known brand', () => {
+    const all = D.lists({ host: '', model: 'MiTV-MSSP1', device: 'huangshan_mssp1', product: 'mssp1', manufacturer: 'Xiaomi', release: '9', sdk: 28, build: '', adbSecure: '1' })
+    const inferred = all.find((l) => l.title.startsWith('Inferred for your Xiaomi'))
+    expect(inferred).toBeDefined()
+    expect(inferred!.id).toBe('xiaomi-mitv-mssp3')
+  })
+
+  it('does not infer a family when a list already matches exactly', () => {
+    const all = D.lists({ host: '', model: 'MiTV-MSSP3', device: 'mssp3', product: 'mssp3', manufacturer: 'Xiaomi', release: '9', sdk: 28, build: '', adbSecure: '1' })
+    expect(all.find((l) => l.title.startsWith('Inferred for your'))).toBeUndefined()
+    expect(all.find((l) => l.id === 'xiaomi-mitv-mssp3')!.score).toBeGreaterThanOrEqual(5)
+  })
+
   it('reads notes and commented-out packages', () => {
     const p = D.parseList('﻿# Header line\r\n# second\r\ncom.a.b   # ads\r\n# com.c.d   # keep this\r\n# Stock launcher: com.e.f\r\n')
     expect(p.header).toEqual(['Header line', 'second'])

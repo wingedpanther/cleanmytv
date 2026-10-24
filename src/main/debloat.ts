@@ -148,7 +148,45 @@ export function lists(probe: Probe | undefined): DebloatListSummary[] {
     score: probe ? matchScore(l.id, l.parsed.header, probe) : 0
   }))
   all.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
-  return [{ id: 'custom', title: 'My TV is not listed: pick from packages other TVs disable', score: 0 }, ...all]
+  const out: DebloatListSummary[] = [...all]
+  // Device-family fallback (#2): when no list matches the TV on model/device (best exact score
+  // < 5), infer one from the manufacturer so unlisted models of a known family still start from
+  // that family's list instead of the generic one. The entry keeps the base list's id (so
+  // selecting it loads the real list) and is clearly marked as inferred.
+  const bestExact = all[0]?.score ?? 0
+  if (probe && bestExact < 5) {
+    const family = familyFor(probe)
+    const base = family ? upstreamLists().find((l) => l.id === family.baseListId) : undefined
+    if (family && base && !all.some((l) => l.id === base.id && l.score >= 5)) {
+      out.push({
+        id: base.id,
+        title: `Inferred for your ${family.label} device — review each package`,
+        score: 0
+      })
+    }
+  }
+  return [{ id: 'custom', title: 'My TV is not listed: pick from packages other TVs disable', score: 0 }, ...out]
+}
+
+/**
+ * Known device families: maps a TV's manufacturer (and model-code prefix) to the upstream list
+ * that best represents the family. Real owner reports can promote an inferred match into a
+ * dedicated upstream list over time; keep this list small and evidence-based.
+ */
+const DEVICE_FAMILIES: Array<{ label: string; manufacturers: string[]; modelPrefixes: string[]; baseListId: string }> = [
+  { label: 'Xiaomi / Mi TV', manufacturers: ['xiaomi', 'redmi'], modelPrefixes: ['mitv', 'mssp', 'mftr'], baseListId: 'xiaomi-mitv-mssp3' },
+  { label: 'TCL', manufacturers: ['tcl', 'thomson'], modelPrefixes: [], baseListId: 'tcl-c755-google-tv' }
+]
+
+function familyFor(probe: Pick<Probe, 'model' | 'device' | 'product' | 'manufacturer'>): { label: string; baseListId: string } | null {
+  const brand = probe.manufacturer.trim().toLowerCase().split(/\s+/)[0]
+  const model = probe.model.trim().toLowerCase()
+  for (const f of DEVICE_FAMILIES) {
+    const mfrHit = brand && f.manufacturers.some((m) => brand === m || brand.includes(m))
+    const modelHit = model && f.modelPrefixes.some((p) => model.startsWith(p))
+    if (mfrHit || modelHit) return { label: f.label, baseListId: f.baseListId }
+  }
+  return null
 }
 
 // ---- the saved list and its recovery record -------------------------------------------------------
