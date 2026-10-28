@@ -57,7 +57,9 @@ export function installMock(): void {
   let homeIsHome = false
   const prefs = { preview: false }
   const homeConfig: HomeConfig = {
-    accent: '#FF3000', focus: 'glow', background: '#0B1E2A', wallpaper_dim: 35,
+    layout: 'shelf', sections: ['dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
+    rows: [{ name: 'Watch', apps: ['com.netflix.ninja', 'com.google.android.youtube.tv'] }], folders: [], dock_scale: 100, tile_scale: 100,
+    accent: '#4CAF50', focus: 'glow', background: '#1C2A1F', wallpaper_dim: 35,
     order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, clock: 'time_date', greeting: '',
     visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100,
     has_wallpaper: false
@@ -332,6 +334,10 @@ export function installMock(): void {
       homeIsHome = true
       launcherHome = false
       return ok('Switched. Press Home on the remote to see it.')
+    },
+    async homeApps() {
+      await wait(200)
+      return apps
     },
     async readHomeConfig() {
       await wait(200)

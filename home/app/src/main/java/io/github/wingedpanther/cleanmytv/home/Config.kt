@@ -7,12 +7,24 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
+/** A named group of apps: a row on the home screen, or a folder. */
+data class Group(val name: String, val apps: List<String>)
+
 /** Everything CleanMyTV can change. The desktop app sends any subset; the rest keeps its value. */
 data class HomeConfig(
-    // Look
-    val accent: Long = 0xFFFF3000,
+    // Arrangement
+    val layout: String = "shelf", // shelf, split, rail
+    val sections: List<String> = listOf("dock", "rows", "folders", "grid"), // top to bottom; absent = hidden
+    val topSpace: Int = 25, // percent of the screen left open above the apps (shelf)
+    val quick: List<String> = listOf("inputs", "wifi", "settings"), // quick-settings icons, in order
+    val rows: List<Group> = emptyList(),
+    val folders: List<Group> = emptyList(),
+    val dockScale: Int = 100, // percent
+    val tileScale: Int = 100, // percent
+    // Look: CleanMyTV's dark green-and-earth world by default
+    val accent: Long = 0xFF4CAF50,
     val focus: String = "glow", // glow, outline, none
-    val background: Long = 0xFF0B1E2A,
+    val background: Long = 0xFF1C2A1F,
     val wallpaperDim: Int = 35, // percent of black over the wallpaper
     // Layout
     val order: List<String> = emptyList(), // apps first in this order, the rest alphabetically
@@ -33,6 +45,14 @@ data class HomeConfig(
     val vizSensitivity: Int = 100, // percent
 ) {
     fun toJson(): JSONObject = JSONObject()
+        .put("layout", layout)
+        .put("sections", JSONArray(sections))
+        .put("top_space", topSpace)
+        .put("quick", JSONArray(quick))
+        .put("rows", groupsJson(rows))
+        .put("folders", groupsJson(folders))
+        .put("dock_scale", dockScale)
+        .put("tile_scale", tileScale)
         .put("accent", hex(accent))
         .put("focus", focus)
         .put("background", hex(background))
@@ -58,6 +78,10 @@ data class HomeConfig(
         private val PKG = Regex("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")
 
         private fun hex(c: Long) = "#%06X".format(c and 0xFFFFFF)
+        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search")
+        private val SECTIONS = setOf("dock", "rows", "folders", "grid")
+
+        private fun groupsJson(gs: List<Group>) = JSONArray(gs.map { JSONObject().put("name", it.name).put("apps", JSONArray(it.apps)) })
 
         /** Unknown keys are ignored and bad values keep what was there, so an old or new desktop app can't break Home. */
         fun fromJson(o: JSONObject, base: HomeConfig = HomeConfig()): HomeConfig {
@@ -70,7 +94,26 @@ data class HomeConfig(
             fun pkgs(key: String): List<String>? = o.optJSONArray(key)?.let { a ->
                 (0 until minOf(a.length(), 500)).map { a.optString(it) }.filter { PKG.matches(it) }.distinct()
             }
+            fun strings(key: String, allowed: Set<String>): List<String>? = o.optJSONArray(key)?.let { a ->
+                (0 until a.length()).map { a.optString(it) }.filter { it in allowed }.distinct()
+            }
+            fun groups(key: String, max: Int): List<Group>? = o.optJSONArray(key)?.let { a ->
+                (0 until minOf(a.length(), max)).mapNotNull { i ->
+                    val g = a.optJSONObject(i) ?: return@mapNotNull null
+                    val name = g.optString("name").replace(Regex("[\\p{Cntrl}]"), "").trim().take(30)
+                    val apps = g.optJSONArray("apps")?.let { x -> (0 until minOf(x.length(), 60)).map { x.optString(it) }.filter { PKG.matches(it) }.distinct() } ?: emptyList()
+                    if (name.isEmpty()) null else Group(name, apps)
+                }
+            }
             return base.copy(
+                layout = choice("layout", base.layout, setOf("shelf", "split", "rail")),
+                sections = strings("sections", SECTIONS) ?: base.sections,
+                topSpace = int("top_space", base.topSpace, 0, 40),
+                quick = strings("quick", QUICK) ?: base.quick,
+                rows = groups("rows", 8) ?: base.rows,
+                folders = groups("folders", 12) ?: base.folders,
+                dockScale = int("dock_scale", base.dockScale, 60, 150),
+                tileScale = int("tile_scale", base.tileScale, 60, 150),
                 accent = colour("accent", base.accent),
                 focus = choice("focus", base.focus, setOf("glow", "outline", "none")),
                 background = colour("background", base.background),

@@ -140,8 +140,32 @@ export interface HomeStatus {
   bundledVersion?: string
 }
 
+export type HomeLayout = 'shelf' | 'split' | 'rail'
+export type HomeSection = 'dock' | 'rows' | 'folders' | 'grid'
+export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search'
+
+/** A named row of apps, or a folder. */
+export interface HomeGroup {
+  name: string
+  apps: string[]
+}
+
 /** CleanMyTV Home's settings, as its ConfigProvider holds them. Snake case, as on the TV. */
 export interface HomeConfig {
+  // Arrangement
+  layout: HomeLayout
+  /** Top to bottom; a section left out is hidden. */
+  sections: HomeSection[]
+  /** Percent of the screen left open above the apps (Shelf), 0 to 40. */
+  top_space: number
+  /** Quick-settings icons, in order. */
+  quick: QuickId[]
+  rows: HomeGroup[]
+  folders: HomeGroup[]
+  /** Percent, 60 to 150. */
+  dock_scale: number
+  /** Row and folder tiles, percent, 60 to 150. */
+  tile_scale: number
   // Look
   /** #RRGGBB, for the focus glow or outline and the music bars. */
   accent: string
@@ -356,6 +380,8 @@ export interface CytvApi {
   installHome(): Promise<InstallResult>
   /** Make the installed CleanMyTV Home the Home screen. */
   useHome(): Promise<ApplyResult>
+  /** The apps CleanMyTV Home shows, named as on the TV. */
+  homeApps(): Promise<TvApp[]>
   readHomeConfig(): Promise<HomeConfig>
   /** Applies on the TV straight away; returns what the launcher now has. */
   setHomeConfig(change: Partial<HomeConfig>): Promise<HomeConfig>

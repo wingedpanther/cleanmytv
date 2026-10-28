@@ -97,6 +97,20 @@ fun loadApps(pm: PackageManager, self: String): List<TvApp> {
     return out
 }
 
+/** The same apps as loadApps, names only, for the desktop app's editor. */
+fun listApps(pm: PackageManager, self: String): org.json.JSONArray {
+    val seen = HashSet<String>()
+    val out = org.json.JSONArray()
+    for ((category, isTv) in listOf(Intent.CATEGORY_LEANBACK_LAUNCHER to true, Intent.CATEGORY_LAUNCHER to false)) {
+        for (ri in pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(category), 0)) {
+            val pkg = ri.activityInfo.packageName
+            if (pkg == self || !seen.add(pkg)) continue
+            out.put(org.json.JSONObject().put("pkg", pkg).put("label", ri.loadLabel(pm).toString()).put("tv", isTv))
+        }
+    }
+    return out
+}
+
 /** The order from CleanMyTV first, then everything else alphabetically; hidden apps left out. */
 fun arrange(apps: List<TvApp>, cfg: HomeConfig): List<TvApp> {
     val byPkg = apps.associateBy { it.pkg }

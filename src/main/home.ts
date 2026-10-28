@@ -7,7 +7,7 @@ import { paths } from './paths'
 import { log } from './log'
 import * as T from './tv'
 import { HOME_PKG, detectStock, handOver } from './launcher'
-import type { HomeConfig, HomeStatus, InstallResult } from '@shared/api'
+import type { HomeConfig, HomeGroup, HomeStatus, InstallResult, TvApp } from '@shared/api'
 
 const TASK = 'install'
 const MAIN = `${HOME_PKG}/.MainActivity`
@@ -15,19 +15,33 @@ const URI = `content://${HOME_PKG}.config`
 const HEX = /^#[0-9A-Fa-f]{6}$/
 
 export const DEFAULTS: HomeConfig = {
-  accent: '#FF3000', focus: 'glow', background: '#0B1E2A', wallpaper_dim: 35,
+  layout: 'shelf', sections: ['dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
+  rows: [], folders: [], dock_scale: 100, tile_scale: 100,
+  accent: '#4CAF50', focus: 'glow', background: '#1C2A1F', wallpaper_dim: 35,
   order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, clock: 'time_date', greeting: '',
   visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
 }
 
 const CHOICES = {
+  layout: ['shelf', 'split', 'rail'],
   focus: ['glow', 'outline', 'none'],
   clock: ['time_date', 'time', 'off'],
   viz_style: ['bars', 'mirror', 'wave'],
   viz_colour: ['accent', 'rainbow', 'white']
 } as const
 
+const LISTS = {
+  sections: ['dock', 'rows', 'folders', 'grid'],
+  quick: ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search']
+} as const
+
+const GROUPS = { rows: 8, folders: 12 } as const
+
+// eslint-disable-next-line no-control-regex
+const plain = (s: string, max: number): string => s.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max)
+
 const RANGES = {
+  top_space: [0, 40], dock_scale: [60, 150], tile_scale: [60, 150],
   wallpaper_dim: [0, 80], dock_size: [0, 8], columns: [3, 8],
   viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300]
 } as const
@@ -118,9 +132,22 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
     if (Array.isArray(o[k]) && (o[k] as unknown[]).length <= 500 && (o[k] as unknown[]).every((p) => typeof p === 'string' && T.PACKAGE_RE.test(p))) out[k] = [...new Set(o[k] as string[])]
     else bad(`${k} must be a list of package names`)
   }
+  for (const [k, allowed] of Object.entries(LISTS)) {
+    if (o[k] === undefined) continue
+    if (Array.isArray(o[k]) && (o[k] as unknown[]).every((v) => (allowed as readonly unknown[]).includes(v))) out[k] = [...new Set(o[k] as string[])]
+    else bad(`${k} must be a list of ${allowed.join(', ')}`)
+  }
+  for (const [k, max] of Object.entries(GROUPS)) {
+    if (o[k] === undefined) continue
+    const v = o[k]
+    const ok = Array.isArray(v) && v.length <= max && v.every((g) =>
+      g && typeof g === 'object' && typeof g.name === 'string' && plain(g.name, 30) !== '' &&
+      Array.isArray(g.apps) && g.apps.length <= 60 && g.apps.every((p: unknown) => typeof p === 'string' && T.PACKAGE_RE.test(p)))
+    if (ok) out[k] = (v as HomeGroup[]).map((g) => ({ name: plain(g.name, 30), apps: [...new Set(g.apps)] }))
+    else bad(`${k} must be up to ${max} named groups of package names`)
+  }
   if (o.greeting !== undefined) {
-    // eslint-disable-next-line no-control-regex
-    if (typeof o.greeting === 'string') out.greeting = o.greeting.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40)
+    if (typeof o.greeting === 'string') out.greeting = plain(o.greeting, 40)
     else bad('greeting must be text')
   }
   return out as Partial<HomeConfig>
@@ -131,6 +158,20 @@ function call(method: string, arg?: string, task = 'theme'): Promise<string> {
   if (arg !== undefined && !/^[A-Za-z0-9+/=]*$/.test(arg)) throw new Error('internal: argument must be base64 or hex')
   const cmd = `content call --uri ${URI} --method ${method}${arg !== undefined ? ` --arg ${arg}` : ''}`
   return arg && arg.length > 200 ? T.tv().shell(cmd) : T.sh(task, cmd)
+}
+
+/** The apps CleanMyTV Home shows, with the names the TV gives them. */
+export async function apps(): Promise<TvApp[]> {
+  const out = await T.tv().shell(`content call --uri ${URI} --method apps`)
+  const m = /apps=(\[.*\])\}\]/.exec(out)
+  if (!m) throw new Error(`CleanMyTV Home didn't list its apps: ${out.trim().slice(0, 200) || 'no output'}`)
+  const list = JSON.parse(m[1]) as unknown[]
+  return list.flatMap((a) => {
+    const o = a as Record<string, unknown>
+    if (typeof o.pkg !== 'string' || !T.PACKAGE_RE.test(o.pkg)) return []
+    const label = typeof o.label === 'string' && o.label.trim() ? o.label.slice(0, 60) : o.pkg
+    return [{ pkg: o.pkg, label, tv: o.tv === true }]
+  })
 }
 
 export async function readConfig(): Promise<HomeConfig> {

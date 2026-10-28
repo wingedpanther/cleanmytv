@@ -12,8 +12,8 @@ android {
         // Android 9: the Mi Box S and nearly every TV still in use.
         minSdk = 28
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0-preview"
+        versionCode = 3
+        versionName = "0.3.0-preview"
     }
 
     buildTypes {
@@ -40,4 +40,6 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.tv:tv-material:1.1.0")
     implementation("androidx.activity:activity-compose:1.13.0")
+    // Drawn icons for the quick-settings bar; R8 keeps only the few used.
+    implementation("androidx.compose.material:material-icons-extended")
 }

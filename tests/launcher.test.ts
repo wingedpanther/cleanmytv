@@ -139,6 +139,26 @@ describe('launcher and theme', () => {
     await expect(H.setConfig({ order: ['ok.pkg', 'bad;pkg'] })).rejects.toThrow(/package/)
   })
 
+  it('sends layouts, quick settings, rows and folders, and refuses bad ones', async () => {
+    const cfg = await H.setConfig({
+      layout: 'rail', quick: ['settings', 'wifi'], sections: ['grid', 'dock'], top_space: 90,
+      rows: [{ name: '  Watch\n', apps: ['com.netflix.ninja', 'com.netflix.ninja'] }],
+      folders: [{ name: "Kids' stuff", apps: ['com.google.android.youtube.tv'] }]
+    })
+    expect(cfg).toMatchObject({ layout: 'rail', quick: ['settings', 'wifi'], sections: ['grid', 'dock'], top_space: 40 })
+    expect(cfg.rows).toEqual([{ name: 'Watch', apps: ['com.netflix.ninja'] }])
+    expect(cfg.folders[0].name).toBe("Kids' stuff")
+    await expect(H.setConfig({ layout: 'grid' as never })).rejects.toThrow(/layout/)
+    await expect(H.setConfig({ quick: ['settings', 'reboot' as never] })).rejects.toThrow(/quick/)
+    await expect(H.setConfig({ folders: [{ name: '', apps: [] }] })).rejects.toThrow(/folders/)
+    await expect(H.setConfig({ rows: [{ name: 'x', apps: ['bad;pkg'] }] })).rejects.toThrow(/rows/)
+    await expect(H.setConfig({ rows: Array.from({ length: 9 }, (_, i) => ({ name: `r${i}`, apps: [] })) })).rejects.toThrow(/rows/)
+  })
+
+  it("lists the launcher's own apps and drops malformed entries", async () => {
+    expect((await H.apps()).map((a) => a.pkg)).toEqual(['com.netflix.ninja', 'com.google.android.youtube.tv'])
+  })
+
   it('uploads a wallpaper in pieces and removes it', async () => {
     const jpeg = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(150 * 1024)])
     const cfg = await H.setWallpaper(jpeg.toString('base64'))

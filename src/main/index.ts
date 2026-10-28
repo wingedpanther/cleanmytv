@@ -160,6 +160,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
     if (!st.installed) return { ok: false, summary: 'CleanMyTV Home is not installed yet.', warnings: [] }
     return launcher.switchTo(`${launcher.HOME_PKG}/.MainActivity`)
   },
+  homeApps: () => home.apps(),
   readHomeConfig: () => home.readConfig(),
   setHomeConfig: (change) => home.setConfig(change ?? {}),
   setHomeWallpaper: (jpeg) => home.setWallpaper(jpeg),

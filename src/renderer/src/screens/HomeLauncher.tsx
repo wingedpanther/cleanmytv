@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ApplyResult, HomeConfig, HomeStatus, TvApp } from '@shared/api'
+import type { ApplyResult, HomeConfig, HomeGroup, HomeLayout, HomeSection, HomeStatus, QuickId, TvApp } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { AppOrder } from '../components/AppOrder'
+import { HomePreview, QUICK_LABEL, QuickIcon } from '../components/HomePreview'
 import { Busy, Confirm, ResultNotice, Slider, StatusChip, Toggle, errorText } from '../components/ui'
 import { prepareWallpaper, thumbnail } from '../lib/image'
 import { fetchBingDaily } from '../lib/backgrounds'
@@ -10,13 +11,11 @@ type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'music'
 
 const TABS: [Tab, string][] = [
   ['overview', 'Overview'],
-  ['apps', 'Apps & dock'],
   ['layout', 'Layout'],
+  ['apps', 'Apps, rows & folders'],
   ['look', 'Look & wallpaper'],
   ['music', 'Music bars']
 ]
-
-const SETTINGS = 'com.android.tv.settings'
 
 const ACCENTS = ['#FF3000', '#2EC4B6', '#FFB23C', '#7C5CFF', '#3DDC84', '#FFFFFF']
 
@@ -43,10 +42,10 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
       const h = await window.cytv.homeStatus()
       setHome(h)
       if (h.installed) {
-        const [c, a] = await Promise.all([window.cytv.readHomeConfig(), window.cytv.apps()])
+        // The launcher's own list: the apps it shows, with the names the TV uses.
+        const [c, a] = await Promise.all([window.cytv.readHomeConfig(), window.cytv.homeApps()])
         setCfg(c)
-        // CleanMyTV Home shows a Settings tile (there's no other way into Settings), so list it here too.
-        setApps(a.some((x) => x.pkg === SETTINGS) ? a : [...a, { pkg: SETTINGS, label: 'Settings', tv: true }])
+        setApps(a)
       }
     } catch (e) {
       setResult({ ok: false, summary: errorText(e), warnings: [] })
@@ -57,12 +56,15 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
   }, [])
 
   async function flush(): Promise<void> {
-    const change = pending.current
+    const change = { ...pending.current }
     pending.current = {}
     if (!Object.keys(change).length) return
+    // A row or folder being renamed can be blank for a moment; the TV only gets named ones.
+    for (const k of ['rows', 'folders'] as const) if (change[k]) change[k] = change[k].filter((g) => g.name.trim())
     setSaving(true)
     try {
-      setCfg(await window.cytv.setHomeConfig(change))
+      const back = await window.cytv.setHomeConfig(change)
+      setCfg((prev) => (prev ? { ...back, rows: prev.rows, folders: prev.folders, order: prev.order, greeting: prev.greeting } : back))
       markDone('home')
     } catch (e) {
       setResult({ ok: false, summary: errorText(e), warnings: [] })
@@ -140,7 +142,7 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
             <Overview home={home} busy={!!busy} run={run} askStock={() => setAskStock(true)} host={status.host} onShot={refreshTvs} />
           )}
           {ready && tab === 'apps' && apps && <AppsTab apps={apps} cfg={cfg} set={set} />}
-          {ready && tab === 'layout' && <LayoutTab cfg={cfg} set={set} />}
+          {ready && tab === 'layout' && apps && <LayoutTab apps={apps} cfg={cfg} set={set} />}
           {ready && tab === 'look' && <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} />}
           {ready && tab === 'music' && <MusicTab cfg={cfg} set={set} />}
           {ready && tab !== 'overview' && <p className="small muted">{saving ? 'Sending to the TV…' : 'Saved on the TV.'}</p>}
@@ -259,61 +261,243 @@ function AppsTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetF
   const hidden = new Set(cfg.hidden)
   return (
     <>
+      <div className="home-preview-sticky">
+        <HomePreview apps={apps} cfg={cfg} />
+      </div>
       <div className="card">
-        <Slider label="Apps in the dock" hint="The first apps sit in a row of large tiles at the top. 0 for no dock." value={cfg.dock_size} min={0} max={8} onChange={(v) => set({ dock_size: v }, 300)} />
+        <h2>Dock and order</h2>
+        <Slider label="Apps in the dock" hint="The first apps sit in a row of large tiles. 0 for no dock." value={cfg.dock_size} min={0} max={8} onChange={(v) => set({ dock_size: v }, 300)} />
+        <div className="row" style={{ margin: '6px 0 10px' }}>
+          <span className="muted small">Drag to reorder, or use the arrows. Highlighted tiles are the dock. Apps in a folder show only in the folder.</span>
+          <span className="spacer" />
+          <button className="btn small ghost" onClick={() => set({ order: [] })}>
+            Reset order
+          </button>
+          <button className="btn small ghost" onClick={() => set({ hidden: [] })} disabled={!cfg.hidden.length}>
+            Show all
+          </button>
+        </div>
+        <AppOrder
+          apps={ordered}
+          hidden={hidden}
+          columns={cfg.columns}
+          dockCount={cfg.dock_size}
+          onOrder={(pkgs) => set({ order: pkgs }, 400)}
+          onHidden={(pkg, hide) => {
+            const next = new Set(hidden)
+            if (hide) next.add(pkg)
+            else next.delete(pkg)
+            set({ hidden: [...next] })
+          }}
+        />
       </div>
-      <div className="row" style={{ marginBottom: 10 }}>
-        <span className="muted small">Drag to reorder, or use the arrows. Highlighted tiles are the dock.</span>
-        <span className="spacer" />
-        <button className="btn small ghost" onClick={() => set({ order: [] })}>
-          Reset order
-        </button>
-        <button className="btn small ghost" onClick={() => set({ hidden: [] })} disabled={!cfg.hidden.length}>
-          Show all
-        </button>
-      </div>
-      <AppOrder
+      <Groups
+        kind="rows"
+        title="Rows"
+        hint="Named rows of apps, like Watch or Music. An app can be in a row and the grid at the same time."
+        groups={cfg.rows}
         apps={ordered}
-        hidden={hidden}
-        columns={cfg.columns}
-        dockCount={cfg.dock_size}
-        onOrder={(pkgs) => set({ order: pkgs }, 400)}
-        onHidden={(pkg, hide) => {
-          const next = new Set(hidden)
-          if (hide) next.add(pkg)
-          else next.delete(pkg)
-          set({ hidden: [...next] })
-        }}
+        max={8}
+        onChange={(rows) => set({ rows }, 500)}
+      />
+      <Groups
+        kind="folders"
+        title="Folders"
+        hint="A folder shows as one tile; OK on the remote opens it. Apps in a folder leave the dock and grid."
+        groups={cfg.folders}
+        apps={ordered}
+        max={12}
+        onChange={(folders) => set({ folders }, 500)}
       />
     </>
   )
 }
 
-function LayoutTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
+/** Named rows or folders: rename, fill with apps, reorder, remove. */
+function Groups(props: { kind: 'rows' | 'folders'; title: string; hint: string; groups: HomeGroup[]; apps: TvApp[]; max: number; onChange: (g: HomeGroup[]) => void }): ReactNode {
+  const { groups, apps, onChange } = props
+  const label = (pkg: string): string => apps.find((a) => a.pkg === pkg)?.label ?? pkg
+  const update = (i: number, g: HomeGroup): void => onChange(groups.map((x, j) => (j === i ? g : x)))
+  const move = (i: number, by: number): void => {
+    const next = [...groups]
+    const [g] = next.splice(i, 1)
+    next.splice(i + by, 0, g)
+    onChange(next)
+  }
+  const fresh = props.kind === 'rows' ? 'New row' : 'New folder'
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h2>{props.title}</h2>
+        <button className="btn small" disabled={groups.length >= props.max} onClick={() => onChange([...groups, { name: `${fresh} ${groups.length + 1}`, apps: [] }])}>
+          {props.kind === 'rows' ? 'Add a row' : 'Add a folder'}
+        </button>
+      </div>
+      <p className="muted small">{props.hint}</p>
+      {groups.map((g, i) => (
+        <div key={i} className="group-card">
+          <div className="row">
+            <input type="text" maxLength={30} value={g.name} aria-label={`${props.kind === 'rows' ? 'Row' : 'Folder'} name`} onChange={(e) => update(i, { ...g, name: e.target.value })} style={{ flex: 1 }} />
+            <button className="btn small ghost" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Move up">
+              ↑
+            </button>
+            <button className="btn small ghost" disabled={i === groups.length - 1} onClick={() => move(i, 1)} aria-label="Move down">
+              ↓
+            </button>
+            <button className="btn small ghost" onClick={() => onChange(groups.filter((_, j) => j !== i))}>
+              Remove
+            </button>
+          </div>
+          <div className="chips">
+            {g.apps.length === 0 && <span className="muted small">No apps yet: it stays hidden on the TV until you add some.</span>}
+            {g.apps.map((p) => (
+              <span key={p} className="chip-app">
+                {label(p)}
+                <button aria-label={`Take ${label(p)} out`} onClick={() => update(i, { ...g, apps: g.apps.filter((x) => x !== p) })}>
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+          <select
+            value=""
+            aria-label="Add an app"
+            onChange={(e) => e.target.value && update(i, { ...g, apps: [...g.apps, e.target.value] })}
+          >
+            <option value="">Add an app…</option>
+            {apps.filter((a) => !g.apps.includes(a.pkg)).map((a) => (
+              <option key={a.pkg} value={a.pkg}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, number, number, number, boolean][] }[] = [
+  { id: 'shelf', label: 'Shelf', hint: 'Top bar, open space, apps lower down.', mini: [[6, 6, 30, 6, true], [64, 6, 30, 6, true], [6, 40, 88, 24, false], [6, 72, 88, 18, true]] },
+  { id: 'split', label: 'Split', hint: 'Clock and quick settings on the left, apps on the right.', mini: [[6, 10, 26, 18, true], [6, 62, 20, 24, true], [38, 8, 56, 26, false], [38, 42, 56, 18, true]] },
+  { id: 'rail', label: 'Rail', hint: 'Icons down the left edge that open with labels.', mini: [[3, 6, 6, 84, true], [70, 6, 24, 8, true], [16, 24, 78, 28, false], [16, 60, 78, 18, true]] }
+]
+
+const SECTION_LABEL: Record<HomeSection, string> = { dock: 'Dock', rows: 'Rows', folders: 'Folders', grid: 'All apps' }
+const ALL_SECTIONS: HomeSection[] = ['dock', 'rows', 'folders', 'grid']
+const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'settings']
+
+/** Turn items on and off and put the ones that are on in order. */
+function OrderList<T extends string>(props: { all: T[]; on: T[]; label: (t: T) => ReactNode; onChange: (on: T[]) => void }): ReactNode {
+  const { on, onChange } = props
+  const items = [...on, ...props.all.filter((t) => !on.includes(t))]
+  const move = (t: T, by: number): void => {
+    const i = on.indexOf(t)
+    const next = [...on]
+    next.splice(i, 1)
+    next.splice(i + by, 0, t)
+    onChange(next)
+  }
+  return (
+    <ul className="order-list">
+      {items.map((t) => {
+        const i = on.indexOf(t)
+        return (
+          <li key={t} className={i < 0 ? 'off' : ''}>
+            <label className="grow">
+              <input type="checkbox" checked={i >= 0} onChange={(e) => onChange(e.target.checked ? [...on, t] : on.filter((x) => x !== t))} />
+              {props.label(t)}
+            </label>
+            <button className="btn small ghost" disabled={i <= 0} onClick={() => move(t, -1)} aria-label="Earlier">
+              ↑
+            </button>
+            <button className="btn small ghost" disabled={i < 0 || i === on.length - 1} onClick={() => move(t, 1)} aria-label="Later">
+              ↓
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetFn }): ReactNode {
   return (
     <>
-      <div className="card">
-        <h2>Grid</h2>
-        <Slider label="Apps per row" value={cfg.columns} min={3} max={8} onChange={(v) => set({ columns: v }, 300)} />
-        <Toggle label="Show app names" hint="Under each tile. Apps without a TV banner always show their name." checked={cfg.show_names} onChange={(v) => set({ show_names: v })} />
+      <div className="home-preview-sticky">
+        <HomePreview apps={apps} cfg={cfg} />
       </div>
       <div className="card">
-        <h2>Clock</h2>
-        <div className="seg">
-          {([['time_date', 'Time and date'], ['time', 'Time only'], ['off', 'Off']] as const).map(([id, label]) => (
-            <button key={id} className={cfg.clock === id ? 'on' : ''} onClick={() => set({ clock: id })}>
-              {label}
+        <h2>Layout</h2>
+        <div className="layout-pick">
+          {LAYOUTS.map((l) => (
+            <button key={l.id} className={cfg.layout === l.id ? 'on' : ''} onClick={() => set({ layout: l.id })} aria-pressed={cfg.layout === l.id}>
+              <span className="mini" aria-hidden>
+                {l.mini.map(([x, y, w, h, dim], i) => (
+                  <i key={i} className={dim ? 'dim' : ''} style={{ left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%` }} />
+                ))}
+              </span>
+              <b>{l.label}</b>
+              <span className="muted small">{l.hint}</span>
             </button>
           ))}
         </div>
+        {cfg.layout === 'shelf' && (
+          <div style={{ marginTop: 14 }}>
+            <Slider label="Space above the apps" hint="Open wallpaper between the top bar and the first row." value={cfg.top_space} min={0} max={40} unit="%" onChange={(v) => set({ top_space: v }, 250)} />
+          </div>
+        )}
       </div>
+
+      <div className="grid-2">
+        <div className="card">
+          <h2>Sections</h2>
+          <p className="muted small">Top to bottom. Untick one to hide it.</p>
+          <OrderList all={ALL_SECTIONS} on={cfg.sections} label={(s) => SECTION_LABEL[s]} onChange={(sections) => set({ sections })} />
+        </div>
+        <div className="card">
+          <h2>Quick settings</h2>
+          <p className="muted small">{cfg.layout === 'rail' ? 'Icons in the rail.' : cfg.layout === 'split' ? 'Under the clock.' : 'Next to the clock.'} Inputs only shows on TVs with HDMI inputs.</p>
+          <OrderList
+            all={ALL_QUICK}
+            on={cfg.quick}
+            label={(q) => (
+              <>
+                <QuickIcon id={q} /> {QUICK_LABEL[q]}
+              </>
+            )}
+            onChange={(quick) => set({ quick })}
+          />
+        </div>
+      </div>
+
       <div className="card">
-        <h2>Greeting</h2>
-        <label className="field">
-          <span>Your name</span>
-          <span className="hint">Shows "Good evening, name" at the top. Leave it empty for no greeting.</span>
-          <input type="text" maxLength={40} value={cfg.greeting} placeholder="e.g. Sam" onChange={(e) => set({ greeting: e.target.value }, 700)} />
-        </label>
+        <h2>Sizes</h2>
+        <Slider label="Dock tiles" value={cfg.dock_scale} min={60} max={150} step={5} unit="%" onChange={(v) => set({ dock_scale: v }, 250)} />
+        <Slider label="Row and folder tiles" value={cfg.tile_scale} min={60} max={150} step={5} unit="%" onChange={(v) => set({ tile_scale: v }, 250)} />
+        <Slider label="Apps per row in All apps" value={cfg.columns} min={3} max={8} onChange={(v) => set({ columns: v }, 250)} />
+        <Toggle label="Show app names" hint="Under each tile. Apps without a TV banner always show their name." checked={cfg.show_names} onChange={(v) => set({ show_names: v })} />
+      </div>
+
+      <div className="grid-2">
+        <div className="card">
+          <h2>Clock</h2>
+          <div className="seg">
+            {([['time_date', 'Time and date'], ['time', 'Time only'], ['off', 'Off']] as const).map(([id, label]) => (
+              <button key={id} className={cfg.clock === id ? 'on' : ''} onClick={() => set({ clock: id })}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="card">
+          <h2>Greeting</h2>
+          <label className="field">
+            <span>Your name</span>
+            <span className="hint">Shows "Good evening, name". Leave it empty for no greeting.</span>
+            <input type="text" maxLength={40} value={cfg.greeting} placeholder="e.g. Sam" onChange={(e) => set({ greeting: e.target.value }, 700)} />
+          </label>
+        </div>
       </div>
     </>
   )
