@@ -6,9 +6,10 @@ const methods = [
   'scan', 'connect', 'disconnect', 'status', 'lastHost', 'reconnect', 'checkAdbClosed', 'pair',
   'checks', 'download',
   'lists', 'plan', 'applyDebloat', 'restore',
-  'launcherStatus', 'install', 'buildLocal', 'useStockLauncher',
-  'apps', 'readTheme', 'applyTheme', 'resetTheme', 'presets', 'screenshot', 'webGet',
-  'systemState', 'setClockScreensaver', 'setPrivateDns', 'setAnimationScale', 'setLauncherLocale', 'key', 'reboot'
+  'useStockLauncher', 'removeOldLauncher', 'homeStatus', 'installHome', 'useHome', 'homeApps', 'readHomeConfig', 'setRemoteButtons', 'homeKeys', 'setHomeConfig', 'setHomeWallpaper',
+  'knownTvs', 'connectKnown', 'forgetTv', 'saveTvThumb',
+  'screenshot', 'webGet',
+  'systemState', 'setPrivateDns', 'setAnimationScale', 'key', 'reboot'
 ] as const
 
 function listen<T>(channel: string, cb: (value: T) => void): () => void {

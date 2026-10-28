@@ -3,8 +3,6 @@
 import { prepareWallpaper, type PreparedImage } from './image'
 
 const BING_BASE = 'https://www.bing.com'
-const TMDB_BASE = 'https://api.themoviedb.org/3'
-const TMDB_IMG = 'https://image.tmdb.org/t/p'
 
 // The page has no network access (CSP), so downloads go through the main process.
 async function get(url: string): Promise<{ ok: boolean; status: number; type: string; bytes: Uint8Array<ArrayBuffer> }> {
@@ -52,37 +50,4 @@ export async function fetchBingDaily(market = 'en-US'): Promise<PreparedImage> {
   const img = data.images?.[0]
   if (!img?.urlbase) throw new Error('Bing daily returned no picture today.')
   return toPrepared(bingFileUrl(img), bingName(img))
-}
-
-export interface TmdbBackdrop {
-  file_path: string
-}
-
-/** Raw TMDB list call, kept tiny: page through a list and return backdrop file paths. */
-export async function tmdbBackdropPaths(listId: number, apiKey: string, maxPages = 5): Promise<string[]> {
-  const out: string[] = []
-  for (let page = 1; page <= maxPages; page++) {
-    const res = await get(`${TMDB_BASE}/list/${listId}?api_key=${encodeURIComponent(apiKey)}&page=${page}`)
-    if (!res.ok) {
-      if (res.status === 404) throw new Error('that TMDB list does not exist.')
-      throw new Error(`TMDB is unavailable (${res.status}).`)
-    }
-    const data = json<{ items?: Array<{ backdrop_path?: string | null }>; total_pages?: number }>(res.bytes)
-    for (const it of data.items ?? []) if (it.backdrop_path) out.push(it.backdrop_path)
-    if (page >= (data.total_pages ?? 1)) break
-  }
-  return out
-}
-
-export function tmdbFileUrl(path: string): string {
-  return `${TMDB_IMG}/original${path}`
-}
-
-export function tmdbName(path: string): string {
-  return `tmdb-${path.replace(/^\/+/, '').replace(/\.[^.]*$/, '').replace(/[^A-Za-z0-9_.-]+/g, '-').slice(0, 50)}.jpg`
-}
-
-/** Fetches one TMDB backdrop (by original size), prepared for the TV. */
-export async function fetchTmdbBackdrop(path: string): Promise<PreparedImage> {
-  return toPrepared(tmdbFileUrl(path), tmdbName(path))
 }

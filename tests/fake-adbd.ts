@@ -43,6 +43,10 @@ export interface FakeTv {
   screenshot: Buffer
   /** The launcher's Android/data folder: missing ones only appear once the launcher has run. */
   appDir: 'ok' | 'missing' | 'denied'
+  /** CleanMyTV Home's settings, as its ConfigProvider holds them. */
+  homeConfig: Record<string, unknown>
+  /** Home preference changes are ignored, as on TVs where another app grabs Home back. */
+  homeStuck?: boolean
   /** Misbehaviour for client hardening tests. */
   tokenSize?: number
   sendMalformed?: 'oversize' | 'magic'
@@ -52,7 +56,8 @@ export function newTv(): FakeTv {
   return {
     packages: new Map(), home: 'com.google.android.tvlauncher/.MainActivity', homeClaims: [], wifiOwners: 'cname=android.uid.system:1000',
     settings: new Map(), files: new Map(), commands: [], trusted: [], autoAccept: true, maxData: 4096, adbSecure: '1',
-    leanback: [], launcherApps: [], screenshot: Buffer.alloc(0), appDir: 'ok'
+    leanback: [], launcherApps: [], screenshot: Buffer.alloc(0), appDir: 'ok',
+    homeConfig: { accent: '#FF3000', focus: 'glow', visualiser: true }
   }
 }
 
@@ -83,28 +88,54 @@ function sh(tv: FakeTv, cmd: string): string {
   if ((m = /^settings get secure (\S+)$/.exec(cmd))) return (tv.settings.get(m[1]) ?? 'null') + '\n'
   if ((m = /^pm install -r (\S+)$/.exec(cmd))) {
     if (!tv.files.has(m[1])) return 'Failure [INSTALL_FAILED_INVALID_URI]\n'
-    tv.packages.set('com.gathin.tvhome', 'enabled'); tv.homeClaims = [...new Set([...tv.homeClaims, 'com.gathin.tvhome/.MainActivity'])]
+    const pkg = m[1].includes('cmtv-home') ? 'io.github.wingedpanther.cleanmytv.home' : 'com.gathin.tvhome'
+    tv.packages.set(pkg, 'enabled'); tv.homeClaims = [...new Set([...tv.homeClaims, `${pkg}/.MainActivity`])]
     return 'Performing Streamed Install\nSuccess\n'
+  }
+  if ((m = /^content call --uri content:\/\/io\.github\.wingedpanther\.cleanmytv\.home\.config --method (\w+)(?: --arg (\S+))?$/.exec(cmd))) {
+    if (!tv.packages.has('io.github.wingedpanther.cleanmytv.home')) return 'Error while accessing provider\n'
+    const up = '/data/data/home/wallpaper.upload'
+    if (m[1] === 'set64') Object.assign(tv.homeConfig, JSON.parse(Buffer.from(m[2], 'base64').toString('utf8')))
+    else if (m[1] === 'wallpaper_begin') tv.files.set(up, Buffer.alloc(0))
+    else if (m[1] === 'wallpaper_chunk') tv.files.set(up, Buffer.concat([tv.files.get(up) ?? Buffer.alloc(0), Buffer.from(m[2], 'base64')]))
+    else if (m[1] === 'wallpaper_end') {
+      const data = tv.files.get(up) ?? Buffer.alloc(0)
+      if (createHash('md5').update(data).digest('hex') !== m[2]) return 'Error: wallpaper upload is damaged\n'
+      tv.files.set('/data/data/home/wallpaper.jpg', data)
+    } else if (m[1] === 'wallpaper_remove') tv.files.delete('/data/data/home/wallpaper.jpg')
+    else if (m[1] === 'keys') return `Result: Bundle[{keys=${JSON.stringify([{ seq: 7, code: 83, name: 'KEYCODE_NOTIFICATION' }, { seq: 'x', code: 1 }])}}]\n`
+    else if (m[1] === 'apps') return `Result: Bundle[{apps=${JSON.stringify([...tv.leanback.map((p) => ({ pkg: p, label: p.split('.').pop(), tv: true })), { pkg: 'bad;pkg', label: 'x', tv: true }])}}]\n`
+    else if (m[1] !== 'get') return `Error: unknown method: ${m[1]}\n`
+    return `Result: Bundle[{config=${JSON.stringify({ ...tv.homeConfig, has_wallpaper: tv.files.has('/data/data/home/wallpaper.jpg') })}}]\n`
   }
   if ((m = /^mkdir -p (\S+)\/wallpapers 2>&1; touch/.exec(cmd))) {
     return tv.appDir === 'ok' ? 'writable\n' : `mkdir: '${m[1]}': Permission denied\ntouch: '${m[1]}/.cytv': No such file or directory\n`
   }
   if (cmd.startsWith('am start -W') && tv.appDir === 'missing') tv.appDir = 'ok'
   if (cmd.startsWith('am start -W')) return 'Starting: Intent { cmp=com.gathin.tvhome/.MainActivity }\nStatus: ok\nLaunchState: COLD\n'
-  if ((m = /^cmd package set-home-activity --user 0 (\S+\/\S+)$/.exec(cmd))) { tv.home = m[1]; return 'Success\n' }
+  if ((m = /^cmd package set-home-activity --user 0 (\S+\/\S+)$/.exec(cmd))) { if (!tv.homeStuck) tv.home = m[1]; return 'Success\n' }
   // set-home-activity $(resolve-activity ... <pkg> | tail -n 1): the TV's shell resolves the component.
   if ((m = /^cmd package set-home-activity --user 0 \$\(.* (\S+) \| tail -n 1\)$/.exec(cmd))) {
     const c = tv.homeClaims.find((h) => h.startsWith(m![1] + '/'))
     if (c && tv.packages.get(m[1]) === 'enabled') tv.home = c
     return 'Success\n'
   }
-  if (cmd.startsWith('dumpsys package com.gathin.tvhome')) return tv.packages.has('com.gathin.tvhome') ? '    versionName=2.4\n' : ''
+  if ((m = /^dumpsys package (\S+) \| grep/.exec(cmd))) {
+    if (!tv.packages.has(m[1])) return ''
+    return m[1] === 'com.gathin.tvhome' ? '    versionName=2.4\n' : '    versionName=1.0.0\n'
+  }
   if ((m = /^screencap -p (\S+)$/.exec(cmd))) { tv.files.set(m[1], tv.screenshot); return '' }
   if ((m = /^ls (\S+)\/wallpapers/.exec(cmd))) return [...tv.files.keys()].filter((f) => f.startsWith(m![1] + '/wallpapers/')).map((f) => f.split('/').pop()).join('\n') + '\n'
   if ((m = /printf '%s' '(\w+)' > (\S+)/.exec(cmd))) tv.files.set(m[2], Buffer.from(m[1]))
   if (cmd.includes('rm -f') && cmd.includes('config.json')) for (const f of [...tv.files.keys()]) if (/config\.json|wallpaper/.test(f)) tv.files.delete(f)
   if (cmd.includes('echo reset')) return 'reset\n'
   if (cmd.includes('echo applied')) return 'applied\n'
+  if ((m = /^pm uninstall (\S+)$/.exec(cmd))) {
+    if (!tv.packages.delete(m[1])) return 'Failure [DELETE_FAILED_INTERNAL_ERROR]\n'
+    tv.homeClaims = tv.homeClaims.filter((c) => !c.startsWith(m![1] + '/'))
+    return 'Success\n'
+  }
+  if ((m = /^settings delete (?:global|secure) (\S+)$/.exec(cmd))) { tv.settings.delete(m[1]); return 'Deleted 1 rows\n' }
   if ((m = /^rm -f (.+)$/.exec(cmd))) { for (const f of m[1].split(' ')) tv.files.delete(f); return '' }
   if ((m = /^echo '([A-Za-z0-9+/=]*)' >> (\S+) && echo (ok\d+)$/.exec(cmd))) {
     tv.files.set(m[2], Buffer.concat([tv.files.get(m[2]) ?? Buffer.alloc(0), Buffer.from(m[1] + '\n')])); return m[3] + '\n'

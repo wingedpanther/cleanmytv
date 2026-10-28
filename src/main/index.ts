@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, session, shell } from 'electron'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { configurePaths, paths } from './paths'
@@ -7,13 +7,14 @@ import { setSinks } from './log'
 import * as T from './tv'
 import * as debloat from './debloat'
 import * as launcher from './launcher'
-import * as theme from './theme'
 import * as system from './system'
 import * as tools from './toolchain'
 import { localSubnets, scan } from './scan'
 import { reconnect } from './reconnect'
+import { autoConnect, forgetTv, listTvs, rememberTv, setThumb } from './tvlist'
 import * as web from './web'
-import type { CheckItem, ConnStatus, CytvApi } from '@shared/api'
+import * as home from './home'
+import type { CheckItem, ConnStatus, CytvApi, KnownTv } from '@shared/api'
 
 let win: BrowserWindow | null = null
 
@@ -22,6 +23,8 @@ interface Settings {
   /** The TV that answered there, to notice a different device at the same address. */
   lastDevice?: string
   lastModel?: string
+  /** Every TV connected before. With more than one, the app waits for the user to pick. */
+  tvs?: KnownTv[]
 }
 
 function readSettings(): Settings {
@@ -33,11 +36,12 @@ function writeSettings(s: Settings): void {
   writeFileSync(paths.settings, JSON.stringify(s, null, 2))
 }
 
+const knownTvs = (): KnownTv[] => listTvs(readSettings())
+const remember = (host: string, st: ConnStatus): void => writeSettings(rememberTv(readSettings(), host, st))
+
 async function checks(): Promise<CheckItem[]> {
   const st = T.getStatus()
   const connected = st.state === 'connected'
-  const hasApk = existsSync(paths.bundledApk) || existsSync(paths.localApk)
-  const jdk = tools.javaHome()
   return [
     {
       id: 'network', label: 'Local network',
@@ -60,24 +64,6 @@ async function checks(): Promise<CheckItem[]> {
           : { status: 'missing', detail: 'The TV asks once, the first time you connect.' })
     },
     {
-      id: 'apk', label: 'Clean launcher',
-      ...(hasApk
-        ? { status: 'ok', detail: existsSync(paths.bundledApk) ? 'Bundled with this app, nothing to download.' : 'Your local build is ready.' }
-        : { status: 'missing', detail: 'Not bundled in this copy. Build it from source (Launcher step).' })
-    },
-    {
-      id: 'jdk', label: 'Java 17 (only to build from source)',
-      ...(jdk ? { status: 'ok', detail: jdk } : { status: 'optional', detail: 'About 190 MB. Not needed with the bundled launcher.', download: 'jdk' })
-    },
-    {
-      id: 'sdk', label: 'Android SDK 34 (only to build from source)',
-      ...(tools.sdkReady() ? { status: 'ok', detail: tools.dirs.sdk } : { status: 'optional', detail: 'About 250 MB, needs Java 17 first.', download: 'sdk' })
-    },
-    {
-      id: 'source', label: 'Launcher source (only to build from source)',
-      ...(tools.sourceReady() ? { status: 'ok', detail: tools.dirs.source } : { status: 'optional', detail: 'The latest cleanyourtv code from GitHub, about 7 MB.', download: 'source' })
-    },
-    {
       id: 'platform-tools', label: "Google's adb (only for Wireless debugging pairing)",
       ...(tools.platformToolsReady() ? { status: 'ok', detail: tools.adbPath() } : { status: 'optional', detail: 'About 15 MB. Some Google TVs need a one-time pairing code.', download: 'platform-tools' })
     }
@@ -90,11 +76,34 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   scan: () => scan(),
   connect: async (host) => {
     const s = await T.connect(host)
-    if (s.state === 'connected') writeSettings({ ...readSettings(), lastHost: host.trim(), lastDevice: s.probe?.device, lastModel: s.probe?.model })
+    if (s.state === 'connected') remember(host.trim(), s)
     return s
   },
-  // Only the saved address; T.connect, not handlers.connect, so a wrong device is never saved.
-  reconnect: () => reconnect(readSettings(), { connect: T.connect, disconnect: T.disconnect, report: T.report }),
+  // Only the saved address; T.connect, not handlers.connect, so a wrong device is never saved. With more
+  // than one TV known, nothing connects by itself: the user picks.
+  reconnect: async () => {
+    if (!autoConnect(readSettings())) return null
+    const s = await reconnect(readSettings(), { connect: T.connect, disconnect: T.disconnect, report: T.report })
+    if (s?.state === 'connected') remember(s.host ?? readSettings().lastHost!, s)
+    return s
+  },
+  knownTvs: async () => knownTvs(),
+  connectKnown: async (host) => {
+    const tv = knownTvs().find((t) => t.host === host)
+    if (!tv) throw new Error('That TV is not in the list.')
+    const s = await reconnect({ lastHost: tv.host, lastDevice: tv.device, lastModel: tv.model }, { connect: T.connect, disconnect: T.disconnect, report: T.report })
+    if (s?.state === 'connected') remember(tv.host, s)
+    return s ?? T.getStatus()
+  },
+  forgetTv: async (host) => {
+    writeSettings(forgetTv(readSettings(), host))
+    return knownTvs()
+  },
+  saveTvThumb: async (host, dataUrl) => {
+    writeSettings(setThumb(readSettings(), host, dataUrl))
+    return knownTvs()
+  },
+
   disconnect: async () => T.disconnect(),
   status: async () => T.getStatus(),
   lastHost: async () => readSettings().lastHost ?? null,
@@ -110,22 +119,26 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   plan: (id) => debloat.plan(id),
   applyDebloat: (req) => debloat.apply(req),
   restore: (id) => debloat.restore(id),
-  launcherStatus: () => launcher.status(),
-  install: (req) => launcher.install(req),
-  buildLocal: () => tools.buildLocal(),
   useStockLauncher: () => launcher.useStock(),
-  apps: () => theme.apps(),
-  readTheme: () => theme.read(),
-  applyTheme: (req) => theme.apply(req),
-  resetTheme: () => theme.reset(),
-  presets: async () => theme.presets(),
-  screenshot: () => theme.screenshot(),
+  removeOldLauncher: () => launcher.removeOld(),
+  homeStatus: () => home.status(),
+  installHome: () => home.install(),
+  useHome: async () => {
+    const st = await home.status()
+    if (!st.installed) return { ok: false, summary: 'CleanMyTV Home is not installed yet.', warnings: [] }
+    return launcher.switchTo(`${launcher.HOME_PKG}/.MainActivity`)
+  },
+  homeApps: () => home.apps(),
+  readHomeConfig: () => home.readConfig(),
+  setRemoteButtons: (on) => home.setRemoteButtons(on === true),
+  homeKeys: () => home.keys(),
+  setHomeConfig: (change) => home.setConfig(change ?? {}),
+  setHomeWallpaper: (jpeg) => home.setWallpaper(jpeg),
+  screenshot: () => system.screenshot(),
   webGet: (url) => web.get(String(url)),
   systemState: () => system.state(),
-  setClockScreensaver: (on) => system.clockScreensaver(on),
   setPrivateDns: (host) => system.privateDns(host),
   setAnimationScale: (s) => system.animationScale(s),
-  setLauncherLocale: (tag) => system.launcherLocale(tag),
   key: (code) => system.key(code),
   reboot: () => system.reboot()
 }

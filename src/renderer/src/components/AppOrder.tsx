@@ -21,6 +21,8 @@ export function AppOrder(props: {
   apps: TvApp[]
   hidden: Set<string>
   columns: number
+  /** How many visible tiles are the dock, when that differs from the columns. */
+  dockCount?: number
   onOrder: (pkgs: string[]) => void
   onHidden: (pkg: string, hide: boolean) => void
 }): ReactNode {
@@ -33,7 +35,7 @@ export function AppOrder(props: {
   // Dock membership counts visible tiles only, as on the TV.
   const dockSet = new Set<string>()
   for (const a of props.apps) {
-    if (dockSet.size >= props.columns) break
+    if (dockSet.size >= (props.dockCount ?? props.columns)) break
     if (!props.hidden.has(a.pkg)) dockSet.add(a.pkg)
   }
 

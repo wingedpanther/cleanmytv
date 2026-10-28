@@ -522,7 +522,7 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
     const claims = await T.homeClaimants()
     const others = claims.filter((c) => c !== homePkg && !pkgs.includes(c) && !NOT_LAUNCHERS.includes(c))
     if (!others.length) {
-      warnings.push(`Skipped ${homePkg}: it owns Home and nothing else that can answer Home stays enabled. Install the new launcher first (Launcher step), then apply again.`)
+      warnings.push(`Skipped ${homePkg}: it owns Home and nothing else that can answer Home stays enabled. Install CleanMyTV Home first (Home screen step), then apply again.`)
       pkgs = pkgs.filter((p) => p !== homePkg)
     }
   }

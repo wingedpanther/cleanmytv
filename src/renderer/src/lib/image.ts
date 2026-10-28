@@ -62,3 +62,19 @@ export function dataUrlToImage(dataUrl: string, name: string): PreparedImage {
   const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
   return { name: safeName(name), base64, dataUrl, bytes: bytesOf(dataUrl) }
 }
+
+/** A small JPEG of a screenshot, for the TV list and the sidebar. */
+export async function thumbnail(dataUrl: string, w = 320, h = 180): Promise<string> {
+  // An <img>, not fetch(): the page's CSP allows data: images but no fetching.
+  const img = new Image()
+  img.src = dataUrl
+  await img.decode()
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('This computer could not draw the picture.')
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, 0, 0, w, h)
+  return canvas.toDataURL('image/jpeg', 0.75)
+}

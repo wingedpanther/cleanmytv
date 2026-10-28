@@ -106,6 +106,9 @@
 * { box-sizing: border-box; }
 
 html, body, #root { height: 100%; margin: 0; }
+/* The window itself never scrolls: only .content and the sidebar do. Focusing a control could otherwise
+   scroll the page past the app into empty space. */
+html, body { overflow: hidden; overscroll-behavior: none; }
 
 body {
   background: var(--background);
@@ -129,7 +132,7 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; }
 
 /* ---------- shell ---------- */
 
-.app { display: grid; grid-template-columns: 248px 1fr; grid-template-rows: minmax(0, 1fr); height: 100%; overflow: hidden; }
+.app { display: grid; grid-template-columns: 248px 1fr; grid-template-rows: minmax(0, 1fr); position: fixed; inset: 0; overflow: hidden; }
 
 .sidebar {
   background: var(--sidebar);
@@ -479,3 +482,36 @@ table.pkgs tr.dim td { opacity: 0.6; }
   .grid-2 { grid-template-columns: 1fr; }
   .step-sub { display: none; }
 }
+
+/* TVs used before: snapshot thumbnails in the picker and the sidebar. */
+.tv-thumb { display: block; width: 128px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); background: var(--navy); }
+.tv-thumb.no-shot { height: auto; flex: none; background: linear-gradient(135deg, var(--navy), color-mix(in srgb, var(--navy) 70%, var(--white))); }
+.tv-list { display: flex; flex-direction: column; gap: 12px; }
+.tv-item { display: flex; gap: 16px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
+.tv-item-text { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.tv-item .tv-thumb { flex: none; }
+.tv-item-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-tv { width: 100%; margin: 0 0 10px; }
+.sidebar-tv .tv-thumb { width: 100%; }
+.tv-card .tv-thumb { width: 200px; }
+
+/* CleanMyTV Home editor: the TV preview and the list editors beside it. */
+.home-preview { position: relative; width: 100%; overflow: hidden; border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18); margin-bottom: 18px; }
+/* Pinned under the top edge of the scroll area, full width so nothing scrolls past beside it. */
+.home-preview-sticky { position: sticky; top: -36px; z-index: 2; background: var(--background); margin: -18px -44px 0; padding: 36px 44px 4px; box-shadow: 0 10px 12px -12px rgba(0, 0, 0, 0.25); }
+.home-preview-sticky .home-preview { max-width: 560px; margin-bottom: 10px; }
+.layout-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.layout-pick button { font: inherit; text-align: left; cursor: pointer; padding: 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--card); color: inherit; display: grid; gap: 8px; }
+.layout-pick button.on { border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent); }
+.layout-pick .mini { aspect-ratio: 16 / 9; border-radius: 6px; background: #1C2A1F; position: relative; overflow: hidden; }
+.layout-pick .mini i { position: absolute; border-radius: 2px; background: #4CAF50; opacity: 0.85; }
+.layout-pick .mini i.dim { background: #D7CFC4; opacity: 0.45; }
+.order-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.order-list li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+.order-list li.off { opacity: 0.55; }
+.order-list li .grow { flex: 1; display: flex; align-items: center; gap: 10px; }
+.group-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--card); margin-bottom: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.chip-app { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--background); font-size: 12.5px; }
+.chip-app button { font: inherit; border: 0; background: transparent; cursor: pointer; color: var(--muted-foreground); padding: 0 6px; }
+.home-preview-note { position: absolute; right: 10px; bottom: 8px; font-size: 11px; color: #D7CFC4; background: rgba(28, 42, 31, 0.75); padding: 2px 8px; border-radius: 999px; }

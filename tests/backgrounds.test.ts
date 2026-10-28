@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bingFileUrl, bingName, tmdbFileUrl, tmdbName } from '../src/renderer/src/lib/backgrounds'
+import { bingFileUrl, bingName } from '../src/renderer/src/lib/backgrounds'
 import { get } from '../src/main/web'
 
 describe('bing daily source', () => {
@@ -15,18 +15,6 @@ describe('bing daily source', () => {
   })
 })
 
-describe('tmdb source', () => {
-  it('builds original-size file urls', () => {
-    expect(tmdbFileUrl('/abc123.jpg')).toBe('https://image.tmdb.org/t/p/original/abc123.jpg')
-  })
-
-  it('sanitises backdrop paths into launcher-safe names', () => {
-    expect(tmdbName('/xY4z9QpQzWvB2N8mK1sLcD.jpg')).toBe('tmdb-xY4z9QpQzWvB2N8mK1sLcD.jpg')
-    expect(tmdbName('/weird name+here.jpg')).toMatch(/^tmdb-[A-Za-z0-9_.-]+\.jpg$/)
-    expect(tmdbName('/weird name+here.jpg')).not.toContain(' ')
-  })
-})
-
 describe('background downloads in the main process', () => {
   const ok = (body: string, headers: Record<string, string> = {}, status = 200): Response => new Response(body, { status, headers })
 
@@ -35,9 +23,10 @@ describe('background downloads in the main process', () => {
     expect(r).toEqual({ status: 200, contentType: 'application/json', base64: Buffer.from('{}').toString('base64') })
   })
 
-  it('refuses other hosts, plain http and redirects that leave the list', async () => {
+  it('refuses other hosts, TMDB, plain http and redirects that leave the list', async () => {
     const never = async (): Promise<Response> => { throw new Error('should not fetch') }
     await expect(get('https://example.com/a.jpg', never)).rejects.toThrow(/only downloads/)
+    await expect(get('https://image.tmdb.org/t/p/original/a.jpg', never)).rejects.toThrow(/only downloads/)
     await expect(get('http://www.bing.com/a.jpg', never)).rejects.toThrow(/only downloads/)
     await expect(get('https://www.bing.com.evil.test/a.jpg', never)).rejects.toThrow(/only downloads/)
     const away = async (): Promise<Response> => ok('', { location: 'https://evil.test/x' }, 302)

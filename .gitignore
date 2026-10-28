@@ -2,6 +2,8 @@ node_modules/
 out/
 dist/
 resources/launcher.apk
+resources/home.apk
+resources/home.json
 resources/upstream/
 .DS_Store
 .cytv-build/

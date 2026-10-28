@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import type { ApplyResult, CheckItem, DownloadProgress, ScanHit, ToolId } from '@shared/api'
 import type { ScreenProps } from '../App'
+import { TvPicker, TvThumb } from '../components/TvPicker'
 import { Busy, ResultNotice, StatusChip, errorText } from '../components/ui'
 
 const IP_RE = /^\d{1,3}(\.\d{1,3}){3}(:\d{2,5})?$/
 
-export function Setup({ status, go }: ScreenProps): ReactNode {
+export function Setup({ status, go, tvs, refreshTvs }: ScreenProps): ReactNode {
   const [checks, setChecks] = useState<CheckItem[] | null>(null)
   const [progress, setProgress] = useState<Partial<Record<ToolId, DownloadProgress>>>({})
   const [downloading, setDownloading] = useState<Set<ToolId>>(new Set())
@@ -78,23 +79,33 @@ export function Setup({ status, go }: ScreenProps): ReactNode {
 
   const busy = status.state === 'connecting' || status.state === 'waiting-auth'
   const connected = status.state === 'connected'
-  const required = checks?.filter((c) => !['jdk', 'sdk', 'source', 'platform-tools'].includes(c.id)) ?? []
-  const optional = checks?.filter((c) => ['jdk', 'sdk', 'source', 'platform-tools'].includes(c.id)) ?? []
+  const required = checks?.filter((c) => c.id !== 'platform-tools') ?? []
+  const optional = checks?.filter((c) => c.id === 'platform-tools') ?? []
 
   return (
     <>
       <h1>Set up</h1>
       <p className="lede">
         This app talks to the TV over your Wi-Fi. You don't need Python, Java or Android tools to clean the TV and install
-        the launcher. The optional items are only for building the launcher yourself or pairing some Google TVs.
+        the home screen. The one optional download is only for pairing some Google TVs.
       </p>
 
       {status.state === 'waiting-auth' && <WaitingForAllow />}
 
+      {!connected && status.state !== 'waiting-auth' && (
+        <TvPicker
+          tvs={tvs}
+          status={status}
+          onChange={refreshTvs}
+          title={tvs.length > 1 ? 'Which TV?' : 'Your TV'}
+          hint={tvs.length > 1 ? "You've used this app with more than one TV, so it waits for you to pick." : undefined}
+        />
+      )}
+
       {connected && status.probe ? (
         <div className="card white">
           <div className="tv-card">
-            <div className="tv-glyph" aria-hidden />
+            {tvs.find((t) => t.host === status.host)?.thumb ? <TvThumb tv={tvs.find((t) => t.host === status.host)} /> : <div className="tv-glyph" aria-hidden />}
             <div>
               <div className="row between">
                 <h2 style={{ margin: 0 }}>
@@ -135,12 +146,11 @@ export function Setup({ status, go }: ScreenProps): ReactNode {
               Allow prompt. Close it when you're done: the Finish step walks you through it.
             </div>
           )}
-          {status.probe.sdk > 0 && status.probe.sdk < 19 && (
+          {status.probe.sdk > 0 && status.probe.sdk < 28 && (
             <div className="notice warn" style={{ marginTop: 16, marginBottom: 0 }}>
-              This TV reports Android {status.probe.release} (API {status.probe.sdk}). The bundled launcher needs Android
-              4.4 (API 19) or newer, so the Launcher step will likely refuse to install here. Cleanup stays available and
-              reversible (nothing is uninstalled), but check the known-devices table first, and skip the Launcher step on
-              a model listed as unsupported.
+              This TV reports Android {status.probe.release} (API {status.probe.sdk}). CleanMyTV Home needs Android 9
+              (API 28) or newer, so the Home screen step will refuse to install here. Cleanup stays available and
+              reversible (nothing is uninstalled).
             </div>
           )}
           <div className="row" style={{ marginTop: 16 }}>
@@ -149,6 +159,10 @@ export function Setup({ status, go }: ScreenProps): ReactNode {
             </button>
           </div>
         </div>
+      ) : null}
+
+      {connected && status.probe ? (
+        <TvPicker tvs={tvs} status={status} onChange={refreshTvs} title="Your other TVs" hint="Connecting to one disconnects this TV." />
       ) : (
         <div className="grid-2">
           <div className="card">
@@ -266,7 +280,7 @@ export function Setup({ status, go }: ScreenProps): ReactNode {
               <>
                 <h3 style={{ marginTop: 22 }}>Optional</h3>
                 <p className="muted small">
-                  Only needed to build the launcher from source (Launcher step, Advanced) or to pair a TV that asks for a code.
+                  Only needed to pair a TV that asks for a code.
                   Each one downloads into this app's own folder.
                 </p>
                 <Checklist items={optional} progress={progress} downloading={downloading} onDownload={download} />

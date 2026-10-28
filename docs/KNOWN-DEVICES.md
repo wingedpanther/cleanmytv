@@ -6,6 +6,9 @@ list file. Use it to look your TV up before connecting; the app itself picks the
 list automatically during **Clean up**, so an unlisted model still gets a sensible starting
 point (the packages other TVs disable, or the family list for Xiaomi/Mi and TCL/Thomson).
 
+The lists come from upstream cleanyourtv. The launcher the app installs is CleanMyTV Home, which
+needs Android 9 or newer. On a TV in the OS column below 9, use the lists for debloat only.
+
 | Model | OS | Stock launcher | Notes |
 |---|---|---|---|
 | AiPro2K (Expressluck, device dongnae), Android TV 14, firmware UKN6.260116.085 | 14 | `com.google.android.apps.tv.launcherx` | needs pairing; setupwraith grabs Home |
