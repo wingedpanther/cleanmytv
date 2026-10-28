@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 320x180 TV banner: navy with a red dot, like the desktop app's icon. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:width="320dp" android:height="180dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#07425C" />
+        </shape>
+    </item>
+    <item android:width="36dp" android:height="36dp" android:gravity="center">
+        <shape android:shape="oval">
+            <solid android:color="#FF3000" />
+        </shape>
+    </item>
+</layer-list>
