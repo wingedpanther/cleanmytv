@@ -13,7 +13,7 @@ android {
         minSdk = 28
         targetSdk = 36
         versionCode = 1
-        versionName = "0.0.1-spike"
+        versionName = "0.1.0-preview"
     }
 
     buildTypes {
@@ -21,7 +21,8 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            // The spike is signed with the debug key; a real release gets its own.
+            // Local runs fall back to the debug key; scripts/build-home.ts signs with the app's own key
+            // (android.injected.signing.*), so every copy of the desktop app installs over the others.
             signingConfig = signingConfigs.getByName("debug")
         }
     }

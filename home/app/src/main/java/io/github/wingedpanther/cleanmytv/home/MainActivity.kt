@@ -87,7 +87,7 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
-    // Spike: log every key so we can see what a TV's remote sends (#26). Nothing is swallowed.
+    // Preview: log every key so we can see what a TV's remote sends (#26). Nothing is swallowed.
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
             val name = KeyEvent.keyCodeToString(event.keyCode)
@@ -218,7 +218,7 @@ private fun Status(visualiser: Visualiser, lastKey: String) {
         Visualiser.State.SILENT -> "silent (play some music)"
         Visualiser.State.FAILED -> "failed: ${visualiser.error}"
     }
-    Text("spike · audio: $audio · last key: ${lastKey.ifEmpty { "none" }}", color = Color(0xFF6E8796), fontSize = 12.sp, modifier = Modifier.padding(bottom = 72.dp))
+    Text("preview · audio: $audio · last key: ${lastKey.ifEmpty { "none" }}", color = Color(0xFF6E8796), fontSize = 12.sp, modifier = Modifier.padding(bottom = 72.dp))
 }
 
 /** Equaliser bars along the bottom edge, coloured with the accent. */

@@ -5,6 +5,7 @@ import type {
   CheckItem,
   ConnStatus,
   CytvApi,
+  HomeConfig,
   DebloatEntry,
   DebloatPlan,
   DownloadProgress,
@@ -51,6 +52,10 @@ export function installMock(): void {
   const tools = { jdk: false, sdk: false, source: false, 'platform-tools': false }
   let launcherInstalled = false
   let launcherHome = false
+  let homeInstalled = false
+  let homeIsHome = false
+  const prefs = { preview: false }
+  const homeConfig: HomeConfig = { accent: '#FF3000', focus: 'glow', visualiser: true }
 
   const apps: TvApp[] = [
     ['com.netflix.ninja', 'Netflix'],
@@ -282,7 +287,50 @@ export function installMock(): void {
     },
     async useStockLauncher() {
       launcherHome = false
+      homeIsHome = false
       return ok('Home belongs to com.google.android.apps.tv.launcherx again.')
+    },
+    async useCleanYourTv() {
+      await wait(600)
+      launcherHome = true
+      homeIsHome = false
+      return ok('Switched. Press Home on the remote to see it.')
+    },
+    async prefs() {
+      return { ...prefs }
+    },
+    async setPrefs(change) {
+      Object.assign(prefs, change)
+      return { ...prefs }
+    },
+    async homeStatus() {
+      await wait(200)
+      return { installed: homeInstalled, versionName: homeInstalled ? '0.1.0-preview' : undefined, isHome: homeIsHome, bundled: true, bundledVersion: '0.1.0-preview' }
+    },
+    async installHome() {
+      for (const text of ['pm install -r /data/local/tmp/cmtv-home.apk', 'am start -W -n io.github.wingedpanther.cleanmytv.home/.MainActivity']) {
+        log('install', 'cmd', text)
+        await wait(500)
+      }
+      homeInstalled = true
+      homeIsHome = true
+      launcherHome = false
+      return ok('CleanMyTV Home is Home now. Press Home on the remote to see it.')
+    },
+    async useHome() {
+      await wait(600)
+      homeIsHome = true
+      launcherHome = false
+      return ok('Switched. Press Home on the remote to see it.')
+    },
+    async readHomeConfig() {
+      await wait(200)
+      return { ...homeConfig }
+    },
+    async setHomeConfig(change) {
+      await wait(150)
+      Object.assign(homeConfig, change)
+      return { ...homeConfig }
     },
     async apps() {
       await wait(300)

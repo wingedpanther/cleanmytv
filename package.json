@@ -21,6 +21,7 @@
     "test": "vitest run",
     "sync": "node scripts/sync-upstream.mjs",
     "apk": "tsx scripts/build-apk.ts",
+    "home": "tsx scripts/build-home.ts",
     "dist:mac": "electron-vite build && electron-builder --mac --publish never",
     "dist:win": "electron-vite build && electron-builder --win --publish never"
   },

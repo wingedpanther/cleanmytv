@@ -17,6 +17,8 @@ export const paths = {
   get themes(): string { return join(resourcesDir, 'upstream', 'themes') },
   get bundledApk(): string { return join(resourcesDir, 'launcher.apk') },
   get bundledApkInfo(): string { return join(resourcesDir, 'launcher.json') },
+  get bundledHomeApk(): string { return join(resourcesDir, 'home.apk') },
+  get bundledHomeInfo(): string { return join(resourcesDir, 'home.json') },
   get keystore(): string { return join(resourcesDir, 'signing', 'cleanmytv.jks') },
   get adbKey(): string { return join(dataDir, 'adbkey') },
   get tools(): string { return join(dataDir, 'tools') },

@@ -41,12 +41,16 @@ jobs:
       # Both steps fetch the upstream commit pinned in upstream.json and refuse content that doesn't match.
       - run: npm run sync
       - run: npm run apk
+      # CleanMyTV Home, the preview launcher in home/, signed with the same key.
+      - run: npm run home
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: launcher
           path: |
             resources/launcher.apk
             resources/launcher.json
+            resources/home.apk
+            resources/home.json
             resources/upstream
 
   test:

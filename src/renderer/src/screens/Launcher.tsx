@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import type { ApplyResult, CheckItem, DownloadProgress, InstallRequest, LauncherStatus, ToolId } from '@shared/api'
+import type { ApplyResult, CheckItem, DownloadProgress, HomeStatus, InstallRequest, LauncherStatus, Prefs, ToolId } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { Busy, Confirm, ResultNotice, StatusChip, Toggle, errorText } from '../components/ui'
 
@@ -14,14 +14,39 @@ export function Launcher({ go, markDone }: ScreenProps): ReactNode {
   const [askReplace, setAskReplace] = useState(false)
   const [askStock, setAskStock] = useState(false)
   const [advanced, setAdvanced] = useState(false)
+  const [prefs, setPrefs] = useState<Prefs>({ preview: false })
+  const [home, setHome] = useState<HomeStatus | null>(null)
 
   const refresh = (): void => {
     window.cytv.launcherStatus().then((s) => {
       setSt(s)
       if (!s.bundledApk && s.localApk) setApk('local')
     })
+    window.cytv.homeStatus().then(setHome, () => setHome(null))
   }
   useEffect(refresh, [])
+  useEffect(() => {
+    window.cytv.prefs().then(setPrefs)
+  }, [])
+
+  async function togglePreview(on: boolean): Promise<void> {
+    setPrefs(await window.cytv.setPrefs({ preview: on }))
+  }
+
+  async function run(label: string, fn: () => Promise<ApplyResult>): Promise<void> {
+    setBusy(label)
+    setResult(null)
+    try {
+      const r = await fn()
+      setResult(r)
+      if (r.ok) markDone('launcher')
+    } catch (e) {
+      setResult({ ok: false, summary: errorText(e), warnings: [] })
+    } finally {
+      setBusy(null)
+      refresh()
+    }
+  }
 
   // Google TV builds use launcherx; its stock remote's Input button needs the service once launcherx is off.
   useEffect(() => {
@@ -60,6 +85,8 @@ export function Launcher({ go, markDone }: ScreenProps): ReactNode {
   }
 
   const canInstall = st && (apk === 'bundled' ? st.bundledApk : st.localApk)
+  // Either of our launchers owns Home, so the stock one is off and "give it back" applies.
+  const oursIsHome = !!st?.isHome || !!home?.isHome
 
   return (
     <>
@@ -152,7 +179,12 @@ export function Launcher({ go, markDone }: ScreenProps): ReactNode {
               <button className="btn primary" disabled={!canInstall || !!busy} onClick={() => install()}>
                 {st.installed ? 'Reinstall launcher' : 'Install launcher'}
               </button>
-              {st.isHome && (
+              {st.installed && !st.isHome && home?.isHome && (
+                <button className="btn" disabled={!!busy} onClick={() => run('Switching Home to CleanYourTV', () => window.cytv.useCleanYourTv())}>
+                  Use CleanYourTV
+                </button>
+              )}
+              {oursIsHome && (
                 <button className="btn" disabled={!!busy} onClick={() => setAskStock(true)}>
                   Give Home back to the stock launcher
                 </button>
@@ -171,11 +203,22 @@ export function Launcher({ go, markDone }: ScreenProps): ReactNode {
             )}
           </div>
 
+          {prefs.preview && <PreviewCard home={home} busy={!!busy} run={run} goCustomise={() => go('customise')} />}
+
           <div>
             <button className="btn small ghost" onClick={() => setAdvanced(!advanced)} aria-expanded={advanced}>
               {advanced ? '▾' : '▸'} Advanced: build from source
             </button>
             {advanced && <BuildFromSource onBuilt={refresh} />}
+          </div>
+
+          <div className="card" style={{ marginTop: 16 }}>
+            <Toggle
+              label="Show preview features"
+              hint="Adds CleanMyTV Home, our own launcher, still early. You can switch back to CleanYourTV or the stock launcher here at any time."
+              checked={prefs.preview}
+              onChange={togglePreview}
+            />
           </div>
         </>
       )}
@@ -192,12 +235,59 @@ export function Launcher({ go, markDone }: ScreenProps): ReactNode {
       {askStock && (
         <Confirm title="Use the stock launcher again?" confirmLabel="Switch back" onConfirm={useStock} onCancel={() => setAskStock(false)}>
           <p>
-            The app switches {st?.stockLauncher ?? 'the stock launcher'} back on and makes it Home. The CleanYourTV launcher stays
-            installed, so you can switch again later.
+            The app switches {st?.stockLauncher ?? 'the stock launcher'} back on and makes it Home. The launchers this app installed
+            stay installed, so you can switch again later.
           </p>
         </Confirm>
       )}
     </>
+  )
+}
+
+function PreviewCard(props: { home: HomeStatus | null; busy: boolean; run: (label: string, fn: () => Promise<ApplyResult>) => Promise<void>; goCustomise: () => void }): ReactNode {
+  const { home, busy, run } = props
+  if (!home) return null
+  const outdated = home.installed && home.bundledVersion && home.versionName !== home.bundledVersion
+  return (
+    <div className="card white">
+      <div className="card-head">
+        <h2>CleanMyTV Home · Preview</h2>
+        <StatusChip status={home.isHome ? 'ok' : home.installed ? 'warn' : 'optional'} text={home.isHome ? 'Is Home' : home.installed ? 'Installed, not Home' : 'Not installed'} />
+      </div>
+      <p className="muted">
+        Our own launcher, built for this app: changes from Customise show on the TV straight away, settings survive a reboot, and
+        music gets equaliser bars along the bottom. It's early: one row of apps for now. If anything breaks, switch back with the
+        buttons here.
+      </p>
+      <div className="facts">
+        <div>
+          <span>On the TV</span>
+          <b>{home.installed ? `version ${home.versionName ?? '?'}` : 'not installed'}</b>
+        </div>
+        <div>
+          <span>In this app</span>
+          <b>{home.bundled ? `version ${home.bundledVersion ?? '?'}` : 'no bundled copy'}</b>
+        </div>
+      </div>
+      <div className="row" style={{ marginTop: 16 }}>
+        {(!home.installed || outdated) && (
+          <button className="btn primary" disabled={busy || !home.bundled} onClick={() => run('Installing CleanMyTV Home. Keep the TV on.', () => window.cytv.installHome())}>
+            {home.installed ? 'Update and use' : 'Install and use'}
+          </button>
+        )}
+        {home.installed && !home.isHome && (
+          <button className="btn" disabled={busy} onClick={() => run('Switching Home to CleanMyTV Home', () => window.cytv.useHome())}>
+            Use CleanMyTV Home
+          </button>
+        )}
+        <span className="spacer" />
+        {home.isHome && (
+          <button className="btn ghost" onClick={props.goCustomise}>
+            Next: customise
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
 

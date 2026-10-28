@@ -8,6 +8,7 @@ import { configurePaths } from '../src/main/paths'
 import * as T from '../src/main/tv'
 import * as L from '../src/main/launcher'
 import * as Th from '../src/main/theme'
+import * as H from '../src/main/home'
 import { FakeTv, newTv, startFakeAdbd } from './fake-adbd'
 
 const home = mkdtempSync(join(tmpdir(), 'cytv-test-'))
@@ -19,6 +20,8 @@ mkdirSync(resources)
 symlinkSync(resolve('resources/upstream'), join(resources, 'upstream'))
 writeFileSync(join(resources, 'launcher.apk'), randomBytes(200 * 1024))
 writeFileSync(join(resources, 'launcher.json'), JSON.stringify({ versionName: '2.4' }))
+writeFileSync(join(resources, 'home.apk'), randomBytes(100 * 1024))
+writeFileSync(join(resources, 'home.json'), JSON.stringify({ versionName: '0.1.0-preview' }))
 configurePaths(resources, join(home, 'data'))
 
 describe('launcher and theme', () => {
@@ -92,6 +95,48 @@ describe('launcher and theme', () => {
 
   it('refuses wallpaper names with shell syntax', async () => {
     await expect(Th.apply({ config: {}, wallpaper: { kind: 'keep' }, wallpapers: { kind: 'set', images: [{ name: 'a;reboot.jpg', base64: '' }] } })).rejects.toThrow(/unsupported/)
+  })
+
+  it('installs CleanMyTV Home over CleanYourTV and switches between them', async () => {
+    await L.install({ apk: 'bundled', stockLauncher: 'auto', inputKeyService: false, homeKeyService: false })
+    expect(tv.home).toBe('com.gathin.tvhome/.MainActivity')
+    const before = tv.commands.length
+    const r = await H.install()
+    expect(r.ok).toBe(true)
+    expect(tv.home).toBe('io.github.wingedpanther.cleanmytv.home/.MainActivity')
+    const cmds = tv.commands.slice(before)
+    expect(cmds).toContain('pm grant io.github.wingedpanther.cleanmytv.home android.permission.RECORD_AUDIO 2>/dev/null; echo audio-granted')
+    // CleanYourTV already had the stock launcher off: nothing else is disabled.
+    expect(cmds.some((c) => c.startsWith('pm disable-user'))).toBe(false)
+    const st = await H.status()
+    expect(st).toMatchObject({ installed: true, isHome: true, versionName: '0.1.0-preview', bundledVersion: '0.1.0-preview' })
+
+    expect((await L.useCleanYourTv()).ok).toBe(true)
+    expect(tv.home).toBe('com.gathin.tvhome/.MainActivity')
+    expect((await L.switchTo('io.github.wingedpanther.cleanmytv.home/.MainActivity')).ok).toBe(true)
+    expect(tv.home).toBe('io.github.wingedpanther.cleanmytv.home/.MainActivity')
+  })
+
+  it('leaves Home where it was when the switch does not stick', async () => {
+    tv.homeStuck = true
+    const r = await L.useCleanYourTv()
+    tv.homeStuck = false
+    expect(r.ok).toBe(false)
+    expect(tv.home).toBe('io.github.wingedpanther.cleanmytv.home/.MainActivity')
+  })
+
+  it('reads and changes CleanMyTV Home settings live, and refuses bad values', async () => {
+    expect(await H.readConfig()).toEqual({ accent: '#FF3000', focus: 'glow', visualiser: true })
+    expect(await H.setConfig({ accent: '#2ec4b6', focus: 'outline' })).toEqual({ accent: '#2EC4B6', focus: 'outline', visualiser: true })
+    expect(tv.homeConfig.focus).toBe('outline')
+    await expect(H.setConfig({ accent: "#FFF'; reboot; '" })).rejects.toThrow(/colour/)
+    await expect(H.setConfig({ focus: 'spin' as never })).rejects.toThrow(/focus/)
+  })
+
+  it('gives Home back to the stock launcher from CleanMyTV Home', async () => {
+    expect((await L.useStock()).ok).toBe(true)
+    expect(tv.home).toBe('com.google.android.apps.tv.launcherx/.home.HomeActivity')
+    expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('enabled')
   })
 
   it('ships the upstream themes as presets', () => {

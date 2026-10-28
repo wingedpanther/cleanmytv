@@ -43,6 +43,10 @@ export interface FakeTv {
   screenshot: Buffer
   /** The launcher's Android/data folder: missing ones only appear once the launcher has run. */
   appDir: 'ok' | 'missing' | 'denied'
+  /** CleanMyTV Home's settings, as its ConfigProvider holds them. */
+  homeConfig: Record<string, unknown>
+  /** Home preference changes are ignored, as on TVs where another app grabs Home back. */
+  homeStuck?: boolean
   /** Misbehaviour for client hardening tests. */
   tokenSize?: number
   sendMalformed?: 'oversize' | 'magic'
@@ -52,7 +56,8 @@ export function newTv(): FakeTv {
   return {
     packages: new Map(), home: 'com.google.android.tvlauncher/.MainActivity', homeClaims: [], wifiOwners: 'cname=android.uid.system:1000',
     settings: new Map(), files: new Map(), commands: [], trusted: [], autoAccept: true, maxData: 4096, adbSecure: '1',
-    leanback: [], launcherApps: [], screenshot: Buffer.alloc(0), appDir: 'ok'
+    leanback: [], launcherApps: [], screenshot: Buffer.alloc(0), appDir: 'ok',
+    homeConfig: { accent: '#FF3000', focus: 'glow', visualiser: true }
   }
 }
 
@@ -83,22 +88,31 @@ function sh(tv: FakeTv, cmd: string): string {
   if ((m = /^settings get secure (\S+)$/.exec(cmd))) return (tv.settings.get(m[1]) ?? 'null') + '\n'
   if ((m = /^pm install -r (\S+)$/.exec(cmd))) {
     if (!tv.files.has(m[1])) return 'Failure [INSTALL_FAILED_INVALID_URI]\n'
-    tv.packages.set('com.gathin.tvhome', 'enabled'); tv.homeClaims = [...new Set([...tv.homeClaims, 'com.gathin.tvhome/.MainActivity'])]
+    const pkg = m[1].includes('cmtv-home') ? 'io.github.wingedpanther.cleanmytv.home' : 'com.gathin.tvhome'
+    tv.packages.set(pkg, 'enabled'); tv.homeClaims = [...new Set([...tv.homeClaims, `${pkg}/.MainActivity`])]
     return 'Performing Streamed Install\nSuccess\n'
+  }
+  if ((m = /^content call --uri content:\/\/io\.github\.wingedpanther\.cleanmytv\.home\.config --method (get|set)(?: --arg '(.*)')?$/.exec(cmd))) {
+    if (!tv.packages.has('io.github.wingedpanther.cleanmytv.home')) return 'Error while accessing provider\n'
+    if (m[1] === 'set') Object.assign(tv.homeConfig, JSON.parse(m[2]))
+    return `Result: Bundle[{config=${JSON.stringify(tv.homeConfig)}}]\n`
   }
   if ((m = /^mkdir -p (\S+)\/wallpapers 2>&1; touch/.exec(cmd))) {
     return tv.appDir === 'ok' ? 'writable\n' : `mkdir: '${m[1]}': Permission denied\ntouch: '${m[1]}/.cytv': No such file or directory\n`
   }
   if (cmd.startsWith('am start -W') && tv.appDir === 'missing') tv.appDir = 'ok'
   if (cmd.startsWith('am start -W')) return 'Starting: Intent { cmp=com.gathin.tvhome/.MainActivity }\nStatus: ok\nLaunchState: COLD\n'
-  if ((m = /^cmd package set-home-activity --user 0 (\S+\/\S+)$/.exec(cmd))) { tv.home = m[1]; return 'Success\n' }
+  if ((m = /^cmd package set-home-activity --user 0 (\S+\/\S+)$/.exec(cmd))) { if (!tv.homeStuck) tv.home = m[1]; return 'Success\n' }
   // set-home-activity $(resolve-activity ... <pkg> | tail -n 1): the TV's shell resolves the component.
   if ((m = /^cmd package set-home-activity --user 0 \$\(.* (\S+) \| tail -n 1\)$/.exec(cmd))) {
     const c = tv.homeClaims.find((h) => h.startsWith(m![1] + '/'))
     if (c && tv.packages.get(m[1]) === 'enabled') tv.home = c
     return 'Success\n'
   }
-  if (cmd.startsWith('dumpsys package com.gathin.tvhome')) return tv.packages.has('com.gathin.tvhome') ? '    versionName=2.4\n' : ''
+  if ((m = /^dumpsys package (\S+) \| grep/.exec(cmd))) {
+    if (!tv.packages.has(m[1])) return ''
+    return m[1] === 'com.gathin.tvhome' ? '    versionName=2.4\n' : '    versionName=0.1.0-preview\n'
+  }
   if ((m = /^screencap -p (\S+)$/.exec(cmd))) { tv.files.set(m[1], tv.screenshot); return '' }
   if ((m = /^ls (\S+)\/wallpapers/.exec(cmd))) return [...tv.files.keys()].filter((f) => f.startsWith(m![1] + '/wallpapers/')).map((f) => f.split('/').pop()).join('\n') + '\n'
   if ((m = /printf '%s' '(\w+)' > (\S+)/.exec(cmd))) tv.files.set(m[2], Buffer.from(m[1]))

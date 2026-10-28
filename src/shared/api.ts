@@ -130,6 +130,30 @@ export interface InstallRequest {
   replaceIncompatible?: boolean
 }
 
+/** CleanMyTV Home, the preview launcher. */
+export interface HomeStatus {
+  installed: boolean
+  versionName?: string
+  isHome: boolean
+  /** This copy of the desktop app carries it. */
+  bundled: boolean
+  bundledVersion?: string
+}
+
+export interface HomeConfig {
+  /** #RRGGBB */
+  accent: string
+  focus: 'glow' | 'outline' | 'none'
+  /** Music bars along the bottom of the screen. */
+  visualiser: boolean
+}
+
+/** The desktop app's own settings. */
+export interface Prefs {
+  /** Shows CleanMyTV Home, the preview launcher. */
+  preview: boolean
+}
+
 export interface InstallResult extends ApplyResult {
   /** The installed launcher was signed with another key; ask before replacing it. */
   incompatible?: boolean
@@ -280,6 +304,20 @@ export interface CytvApi {
   buildLocal(): Promise<ApplyResult>
   /** Give Home back to the stock launcher, leaving the new one installed. */
   useStockLauncher(): Promise<ApplyResult>
+  /** Make the installed CleanYourTV launcher Home again (from CleanMyTV Home). */
+  useCleanYourTv(): Promise<ApplyResult>
+
+  // CleanMyTV Home (preview)
+  prefs(): Promise<Prefs>
+  setPrefs(change: Partial<Prefs>): Promise<Prefs>
+  homeStatus(): Promise<HomeStatus>
+  /** Installs or updates CleanMyTV Home and makes it Home, putting the old Home back if that fails. */
+  installHome(): Promise<InstallResult>
+  /** Make the installed CleanMyTV Home the Home screen. */
+  useHome(): Promise<ApplyResult>
+  readHomeConfig(): Promise<HomeConfig>
+  /** Applies on the TV straight away; returns what the launcher now has. */
+  setHomeConfig(change: Partial<HomeConfig>): Promise<HomeConfig>
 
   // Customise
   apps(): Promise<TvApp[]>

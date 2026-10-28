@@ -10,6 +10,9 @@ import type { ApplyResult, InstallRequest, InstallResult, LauncherStatus } from 
 const TASK = 'install'
 export const PKG = 'com.gathin.tvhome'
 const MAIN = `${PKG}/.MainActivity`
+/** CleanMyTV Home, the preview launcher built from home/. */
+export const HOME_PKG = 'io.github.wingedpanther.cleanmytv.home'
+const OUR_LAUNCHERS = [PKG, HOME_PKG]
 
 function bundledVersion(): string | undefined {
   try {
@@ -37,12 +40,12 @@ export async function status(): Promise<LauncherStatus> {
 }
 
 /** Which app owns Home differs by build, so ask the TV, and accept only a launcher we recognise. */
-async function detectStock(): Promise<string> {
+export async function detectStock(): Promise<string> {
   const answer = await T.homeAnswer()
   const homePkg = answer.split('/')[0]
   if (KNOWN_STOCK_LAUNCHERS.includes(homePkg)) return homePkg
-  if (homePkg === PKG) {
-    log(TASK, 'info', 'Home already belongs to this launcher; nothing will be disabled.')
+  if (OUR_LAUNCHERS.includes(homePkg)) {
+    log(TASK, 'info', `Home belongs to ${homePkg}, so the stock launcher is already off; nothing will be disabled.`)
     return 'none'
   }
   if (homePkg === 'android') {
@@ -62,7 +65,7 @@ async function detectStock(): Promise<string> {
   throw new Error(`Home resolves to '${homePkg || 'nothing'}', which is not a stock launcher this app knows. Choose "Leave the stock launcher alone" to install without disabling anything.`)
 }
 
-async function rollback(stock: string): Promise<boolean> {
+export async function rollback(stock: string): Promise<boolean> {
   if (stock === 'none') return false
   try {
     await T.sh(TASK, `pm enable --user 0 ${stock}`)
@@ -123,35 +126,69 @@ export async function install(req: InstallRequest): Promise<InstallResult> {
   if (!start.includes('Status: ok') || /^Error/im.test(start)) {
     return { ok: false, summary: `The new launcher did not start; ${stock === 'none' ? 'nothing was disabled' : stock + ' was left enabled'}.`, warnings: [start.trim()] }
   }
-  await T.batch(TASK, [
-    `pm grant ${PKG} android.permission.ACCESS_FINE_LOCATION 2>/dev/null; echo location-granted`,
-    `cmd package compile -m speed -f ${PKG}`,
-    stock === 'none' ? 'echo stock launcher left alone' : `pm disable-user --user 0 ${stock}`,
-    `cmd package set-home-activity --user 0 ${MAIN}`
-  ])
-
-  // Android drops the home preference whenever the set of HOME apps changes, and on Google TV the next
-  // candidate can be the setup wizard, which crash-loops. Check where Home landed; roll back if not ours.
-  let now: string | null = null
-  try { now = await T.homeComponent() } catch { now = null }
-  if (!now?.startsWith(PKG + '/')) {
-    const back = await rollback(stock)
-    return {
-      ok: false,
-      summary: now ? `Home resolves to ${now}, not to the new launcher.` : 'The TV stopped answering while Home was switched.',
-      warnings: [
-        back ? `${stock} was put back as Home.` : `Could not give Home back automatically. Run: pm enable --user 0 ${stock}`,
-        'On Google TV this usually means com.google.android.tungsten.setupwraith also claims Home: add it to your cleanup list, apply it, then install again.'
-      ]
-    }
-  }
-  log(TASK, 'ok', `Home now resolves to ${now}`)
+  await T.sh(TASK, `pm grant ${PKG} android.permission.ACCESS_FINE_LOCATION 2>/dev/null; echo location-granted`)
+  const failed = await handOver(stock, MAIN)
+  if (failed) return failed
 
   // Optional accessibility services; Android switches them off on every reinstall.
   for (const [on, svc] of [[req.inputKeyService, 'InputKeyService'], [req.homeKeyService, 'HomeKeyService']] as const) {
     if (on) await enableService(svc)
   }
   return { ok: true, summary: 'Installed. Press Home on the remote to see it.', warnings }
+}
+
+/**
+ * Makes `main` Home: switches off `stock` (unless 'none'), sets the preference, and checks where Home
+ * landed. Android drops the preference whenever the set of HOME apps changes, and on Google TV the next
+ * candidate can be the setup wizard, which crash-loops; so anything but `main` puts the old Home back.
+ * Returns null on success, or the result to show.
+ */
+export async function handOver(stock: string, main: string): Promise<InstallResult | null> {
+  const pkg = main.split('/')[0]
+  const previous = await T.homeComponent().catch(() => null)
+  await T.batch(TASK, [
+    `cmd package compile -m speed -f ${pkg}`,
+    stock === 'none' ? 'echo stock launcher left alone' : `pm disable-user --user 0 ${stock}`,
+    `cmd package set-home-activity --user 0 ${main}`
+  ])
+  let now: string | null = null
+  try { now = await T.homeComponent() } catch { now = null }
+  if (now?.startsWith(pkg + '/')) {
+    log(TASK, 'ok', `Home now resolves to ${now}`)
+    return null
+  }
+  let back = false
+  if (stock !== 'none') back = await rollback(stock)
+  // No '$' here, unlike homeComponent(): the value goes into a shell command.
+  else if (previous && /^[A-Za-z_][\w.]*\/[\w.]+$/.test(previous) && previous !== now) {
+    await T.sh(TASK, `cmd package set-home-activity --user 0 ${previous}`).catch(() => '')
+    back = (await T.homeComponent().catch(() => null)) === previous
+  }
+  const was = stock !== 'none' ? stock : previous ?? 'the previous launcher'
+  return {
+    ok: false,
+    summary: now ? `Home resolves to ${now}, not to the new launcher.` : 'The TV stopped answering while Home was switched.',
+    warnings: [
+      back ? `${was} was put back as Home.` : stock !== 'none' ? `Could not give Home back automatically. Run: pm enable --user 0 ${stock}` : 'Could not put the previous Home back automatically.',
+      'On Google TV this usually means com.google.android.tungsten.setupwraith also claims Home: add it to your cleanup list, apply it, then install again.'
+    ]
+  }
+}
+
+/** Starts an installed launcher, and only if it comes up, makes it Home (the stock launcher is already off). */
+export async function switchTo(main: string): Promise<ApplyResult> {
+  const start = await T.sh(TASK, `am start -W -n ${main}`)
+  if (!start.includes('Status: ok') || /^Error/im.test(start)) {
+    return { ok: false, summary: 'That launcher did not start, so Home was left as it was.', warnings: [start.trim()] }
+  }
+  const failed = await handOver('none', main)
+  return failed ?? { ok: true, summary: 'Switched. Press Home on the remote to see it.', warnings: [] }
+}
+
+export async function useCleanYourTv(): Promise<ApplyResult> {
+  const { installed } = await T.packageSets()
+  if (!installed.has(PKG)) return { ok: false, summary: 'The CleanYourTV launcher is not installed. Install it above.', warnings: [] }
+  return switchTo(MAIN)
 }
 
 /** Appends to enabled_accessibility_services without dropping other services. */

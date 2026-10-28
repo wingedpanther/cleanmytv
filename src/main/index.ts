@@ -13,6 +13,7 @@ import * as tools from './toolchain'
 import { localSubnets, scan } from './scan'
 import { reconnect } from './reconnect'
 import * as web from './web'
+import * as home from './home'
 import type { CheckItem, ConnStatus, CytvApi } from '@shared/api'
 
 let win: BrowserWindow | null = null
@@ -22,6 +23,8 @@ interface Settings {
   /** The TV that answered there, to notice a different device at the same address. */
   lastDevice?: string
   lastModel?: string
+  /** Show CleanMyTV Home, the preview launcher. */
+  preview?: boolean
 }
 
 function readSettings(): Settings {
@@ -114,6 +117,22 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   install: (req) => launcher.install(req),
   buildLocal: () => tools.buildLocal(),
   useStockLauncher: () => launcher.useStock(),
+  useCleanYourTv: () => launcher.useCleanYourTv(),
+  prefs: async () => ({ preview: readSettings().preview === true }),
+  setPrefs: async (change) => {
+    const s = readSettings()
+    if (change && typeof change.preview === 'boolean') writeSettings({ ...s, preview: change.preview })
+    return { preview: readSettings().preview === true }
+  },
+  homeStatus: () => home.status(),
+  installHome: () => home.install(),
+  useHome: async () => {
+    const st = await home.status()
+    if (!st.installed) return { ok: false, summary: 'CleanMyTV Home is not installed yet.', warnings: [] }
+    return launcher.switchTo(`${launcher.HOME_PKG}/.MainActivity`)
+  },
+  readHomeConfig: () => home.readConfig(),
+  setHomeConfig: (change) => home.setConfig(change ?? {}),
   apps: () => theme.apps(),
   readTheme: () => theme.read(),
   applyTheme: (req) => theme.apply(req),

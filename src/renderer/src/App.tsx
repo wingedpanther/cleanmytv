@@ -49,8 +49,8 @@ export default function App(): ReactNode {
       window.cytv.reconnect().then(async (r) => {
         if (r?.state !== 'connected') return
         // A TV that already runs the clean launcher is here to be customised: open that step.
-        const ls = await window.cytv.launcherStatus()
-        if (ls.isHome) {
+        const [ls, hs] = await Promise.all([window.cytv.launcherStatus(), window.cytv.homeStatus().catch(() => null)])
+        if (ls.isHome || hs?.isHome) {
           setDone((prev) => new Set(prev).add('launcher'))
           setStep((cur) => (cur === 'setup' ? 'customise' : cur))
         }

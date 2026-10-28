@@ -7,6 +7,7 @@ import { Busy, Confirm, Modal, ResultNotice, Slider, Toggle, errorText } from '.
 import { BUILTIN, orderedApps, val } from '../lib/apps'
 import { dataUrlToImage, prepareWallpaper, uniqueNames, type PreparedImage } from '../lib/image'
 import { fetchBingDaily, tmdbBackdropPaths, fetchTmdbBackdrop } from '../lib/backgrounds'
+import { HomeCustomise } from './HomeCustomise'
 
 type Tab = 'apps' | 'layout' | 'backdrop' | 'greeting' | 'motion' | 'advanced'
 type WallChange = { kind: 'keep' } | { kind: 'remove' } | { kind: 'set'; image: PreparedImage }
@@ -21,7 +22,24 @@ const TABS: [Tab, string][] = [
   ['advanced', 'Advanced']
 ]
 
-export function Customise({ markDone }: ScreenProps): ReactNode {
+/** CleanMyTV Home gets its own page; CleanYourTV (or no launcher yet) gets the full editor. */
+export function Customise(props: ScreenProps): ReactNode {
+  const [which, setWhich] = useState<'checking' | 'home' | 'classic'>('checking')
+  useEffect(() => {
+    window.cytv.homeStatus().then((h) => setWhich(h.isHome ? 'home' : 'classic'), () => setWhich('classic'))
+  }, [])
+  if (which === 'checking')
+    return (
+      <div className="content">
+        <h1>Customise</h1>
+        <Busy text="Asking the TV which launcher is Home" />
+      </div>
+    )
+  if (which === 'home') return <HomeCustomise onDone={() => props.markDone('customise')} />
+  return <ClassicCustomise {...props} />
+}
+
+function ClassicCustomise({ markDone }: ScreenProps): ReactNode {
   const [apps, setApps] = useState<TvApp[] | null>(null)
   const [loaded, setLoaded] = useState<TvTheme | null>(null)
   const [cfg, setCfg] = useState<LauncherConfig>({})

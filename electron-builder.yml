@@ -13,6 +13,10 @@ extraResources:
     to: launcher.apk
   - from: resources/launcher.json
     to: launcher.json
+  - from: resources/home.apk
+    to: home.apk
+  - from: resources/home.json
+    to: home.json
   - from: resources/signing
     to: signing
 # Fuses are switches baked into the Electron binary. Off: running the app as plain Node, NODE_OPTIONS
