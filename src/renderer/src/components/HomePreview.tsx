@@ -48,7 +48,7 @@ function model(apps: TvApp[], cfg: HomeConfig) {
 function Tile({ app, w, names, focused, cfg }: { app: TvApp; w: number; names: boolean; focused?: boolean; cfg: HomeConfig }): ReactNode {
   const ring: CSSProperties = focused
     ? cfg.focus === 'glow'
-      ? { boxShadow: `0 0 18px 4px ${cfg.accent}b3`, transform: 'scale(1.08)' }
+      ? { boxShadow: `0 0 0 2px #F0EBE5, 0 0 16px 4px ${cfg.accent}`, transform: 'scale(1.08)' }
       : cfg.focus === 'outline'
         ? { outline: `3px solid ${cfg.accent}`, outlineOffset: 0, transform: 'scale(1.08)' }
         : {}
@@ -166,7 +166,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
   let body: ReactNode
   if (cfg.layout === 'split') {
     body = (
-      <div style={{ display: 'flex', height: '100%', background: 'linear-gradient(90deg, rgba(0,0,0,0.55), transparent 60%)' }}>
+      <div style={{ display: 'flex', height: '100%', background: 'linear-gradient(90deg, rgba(28,42,31,0.7), transparent 60%)' }}>
         <div style={{ width: W * 0.32, padding: `${SAFE_Y + 24}px 0 ${SAFE_Y + 48}px ${SAFE_X}px`, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <Clock cfg={cfg} size={56} dateSize={15} align="left" />
           {greet && <div style={{ fontSize: 18, fontWeight: 500 }}>{greet}</div>}
@@ -185,7 +185,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
   } else if (cfg.layout === 'rail') {
     body = (
       <div style={{ display: 'flex', height: '100%' }}>
-        <div style={{ width: 72, padding: `${SAFE_Y + 8}px 0 0 16px`, display: 'flex', flexDirection: 'column', gap: 18, background: 'linear-gradient(90deg, rgba(0,0,0,0.45), rgba(0,0,0,0.15))' }}>
+        <div style={{ width: SAFE_X + 56, padding: `${SAFE_Y + 8}px 0 0 ${SAFE_X + 7}px`, display: 'flex', flexDirection: 'column', gap: 18, background: 'linear-gradient(90deg, rgba(28,42,31,0.6), rgba(28,42,31,0.1))' }}>
           {quick.map((q) => <QuickIcon key={q} id={q} size={22} />)}
           {cfg.folders.length > 0 && <div style={{ height: 6 }} />}
           {cfg.folders.map((f) => (
@@ -199,13 +199,13 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
             <div style={{ fontSize: 20, fontWeight: 500, flex: 1 }}>{greet}</div>
             <Clock cfg={cfg} size={26} dateSize={12} align="right" />
           </div>
-          <Sections apps={apps} cfg={cfg} width={W - 72 - 24 - SAFE_X} dockW={196} showFolders={false} />
+          <Sections apps={apps} cfg={cfg} width={W - SAFE_X - 56 - 24 - SAFE_X} dockW={196} showFolders={false} />
         </div>
       </div>
     )
   } else {
     body = (
-      <div style={{ height: '100%', padding: `${SAFE_Y}px ${SAFE_X}px 0`, overflow: 'hidden', background: 'linear-gradient(rgba(0,0,0,0.5), transparent 160px)' }}>
+      <div style={{ height: '100%', padding: `${SAFE_Y}px ${SAFE_X}px 0`, overflow: 'hidden', background: 'linear-gradient(rgba(28,42,31,0.6), transparent 210px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ fontSize: 20, fontWeight: 500, flex: 1 }}>{greet}</div>
           {quick.map((q) => (
