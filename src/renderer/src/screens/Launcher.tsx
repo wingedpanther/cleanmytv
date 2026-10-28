@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { ApplyResult, CheckItem, DownloadProgress, HomeStatus, InstallRequest, LauncherStatus, Prefs, ToolId } from '@shared/api'
-import type { ScreenProps } from '../App'
+import { PREFS_EVENT, type ScreenProps } from '../App'
 import { Busy, Confirm, ResultNotice, StatusChip, Toggle, errorText } from '../components/ui'
 
 export function Launcher({ go, markDone }: ScreenProps): ReactNode {
@@ -31,6 +31,7 @@ export function Launcher({ go, markDone }: ScreenProps): ReactNode {
 
   async function togglePreview(on: boolean): Promise<void> {
     setPrefs(await window.cytv.setPrefs({ preview: on }))
+    window.dispatchEvent(new Event(PREFS_EVENT))
   }
 
   async function run(label: string, fn: () => Promise<ApplyResult>): Promise<void> {
@@ -203,7 +204,7 @@ export function Launcher({ go, markDone }: ScreenProps): ReactNode {
             )}
           </div>
 
-          {prefs.preview && <PreviewCard home={home} busy={!!busy} run={run} goCustomise={() => go('customise')} />}
+          {prefs.preview && <PreviewCard home={home} goHome={() => go('home')} />}
 
           <div>
             <button className="btn small ghost" onClick={() => setAdvanced(!advanced)} aria-expanded={advanced}>
@@ -244,10 +245,9 @@ export function Launcher({ go, markDone }: ScreenProps): ReactNode {
   )
 }
 
-function PreviewCard(props: { home: HomeStatus | null; busy: boolean; run: (label: string, fn: () => Promise<ApplyResult>) => Promise<void>; goCustomise: () => void }): ReactNode {
-  const { home, busy, run } = props
+/** CleanMyTV Home lives on its own page; this points there. */
+function PreviewCard({ home, goHome }: { home: HomeStatus | null; goHome: () => void }): ReactNode {
   if (!home) return null
-  const outdated = home.installed && home.bundledVersion && home.versionName !== home.bundledVersion
   return (
     <div className="card white">
       <div className="card-head">
@@ -255,37 +255,13 @@ function PreviewCard(props: { home: HomeStatus | null; busy: boolean; run: (labe
         <StatusChip status={home.isHome ? 'ok' : home.installed ? 'warn' : 'optional'} text={home.isHome ? 'Is Home' : home.installed ? 'Installed, not Home' : 'Not installed'} />
       </div>
       <p className="muted">
-        Our own launcher, built for this app: changes from Customise show on the TV straight away, settings survive a reboot, and
-        music gets equaliser bars along the bottom. It's early: one row of apps for now. If anything breaks, switch back with the
-        buttons here.
+        Our own launcher: a dock and a grid, your wallpaper, a clock, and music bars that move with whatever is playing. Changes
+        show on the TV straight away and survive a reboot. Install it, switch to it and change everything on its own page.
       </p>
-      <div className="facts">
-        <div>
-          <span>On the TV</span>
-          <b>{home.installed ? `version ${home.versionName ?? '?'}` : 'not installed'}</b>
-        </div>
-        <div>
-          <span>In this app</span>
-          <b>{home.bundled ? `version ${home.bundledVersion ?? '?'}` : 'no bundled copy'}</b>
-        </div>
-      </div>
-      <div className="row" style={{ marginTop: 16 }}>
-        {(!home.installed || outdated) && (
-          <button className="btn primary" disabled={busy || !home.bundled} onClick={() => run('Installing CleanMyTV Home. Keep the TV on.', () => window.cytv.installHome())}>
-            {home.installed ? 'Update and use' : 'Install and use'}
-          </button>
-        )}
-        {home.installed && !home.isHome && (
-          <button className="btn" disabled={busy} onClick={() => run('Switching Home to CleanMyTV Home', () => window.cytv.useHome())}>
-            Use CleanMyTV Home
-          </button>
-        )}
-        <span className="spacer" />
-        {home.isHome && (
-          <button className="btn ghost" onClick={props.goCustomise}>
-            Next: customise
-          </button>
-        )}
+      <div className="row" style={{ marginTop: 12 }}>
+        <button className="btn primary" onClick={goHome}>
+          Open Home launcher
+        </button>
       </div>
     </div>
   )

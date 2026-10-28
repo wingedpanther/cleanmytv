@@ -7,7 +7,6 @@ import { Busy, Confirm, Modal, ResultNotice, Slider, Toggle, errorText } from '.
 import { BUILTIN, orderedApps, val } from '../lib/apps'
 import { dataUrlToImage, prepareWallpaper, uniqueNames, type PreparedImage } from '../lib/image'
 import { fetchBingDaily, tmdbBackdropPaths, fetchTmdbBackdrop } from '../lib/backgrounds'
-import { HomeCustomise } from './HomeCustomise'
 
 type Tab = 'apps' | 'layout' | 'backdrop' | 'greeting' | 'motion' | 'advanced'
 type WallChange = { kind: 'keep' } | { kind: 'remove' } | { kind: 'set'; image: PreparedImage }
@@ -35,7 +34,16 @@ export function Customise(props: ScreenProps): ReactNode {
         <Busy text="Asking the TV which launcher is Home" />
       </div>
     )
-  if (which === 'home') return <HomeCustomise onDone={() => props.markDone('customise')} />
+  if (which === 'home')
+    return (
+      <div className="content">
+        <h1>Customise</h1>
+        <p className="lede">CleanMyTV Home is Home on this TV. Its order, wallpaper, layout and music bars are on its own page.</p>
+        <button className="btn primary" onClick={() => props.go('home')}>
+          Open Home launcher
+        </button>
+      </div>
+    )
   return <ClassicCustomise {...props} />
 }
 

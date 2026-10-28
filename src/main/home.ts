@@ -1,6 +1,7 @@
-// CleanMyTV Home, the preview launcher in home/. Its settings live in its own private storage and come
-// in over ADB through its ConfigProvider (`content call`), so there's no shared folder to fail (#20)
-// and nothing to reread after a reboot (#21). Changes show on the TV straight away.
+// CleanMyTV Home, the preview launcher in home/. Its settings and wallpaper live in its own private
+// storage and come in over ADB through its ConfigProvider (`content call`), so there's no shared folder
+// to fail (#20) and nothing to reread after a reboot (#21). Changes show on the TV straight away.
+import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { paths } from './paths'
 import { log } from './log'
@@ -11,8 +12,27 @@ import type { HomeConfig, HomeStatus, InstallResult } from '@shared/api'
 const TASK = 'install'
 const MAIN = `${HOME_PKG}/.MainActivity`
 const URI = `content://${HOME_PKG}.config`
-const ACCENT_RE = /^#[0-9A-Fa-f]{6}$/
-const FOCUS = ['glow', 'outline', 'none'] as const
+const HEX = /^#[0-9A-Fa-f]{6}$/
+
+export const DEFAULTS: HomeConfig = {
+  accent: '#FF3000', focus: 'glow', background: '#0B1E2A', wallpaper_dim: 35,
+  order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, clock: 'time_date', greeting: '',
+  visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
+}
+
+const CHOICES = {
+  focus: ['glow', 'outline', 'none'],
+  clock: ['time_date', 'time', 'off'],
+  viz_style: ['bars', 'mirror', 'wave'],
+  viz_colour: ['accent', 'rainbow', 'white']
+} as const
+
+const RANGES = {
+  wallpaper_dim: [0, 80], dock_size: [0, 8], columns: [3, 8],
+  viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300]
+} as const
+
+const BOOLS = ['show_names', 'visualiser', 'viz_peaks'] as const
 
 function bundledVersion(): string | undefined {
   try {
@@ -59,15 +79,58 @@ export async function install(): Promise<InstallResult> {
   return failed ?? { ok: true, summary: 'CleanMyTV Home is Home now. Press Home on the remote to see it.', warnings: [] }
 }
 
-function parse(out: string): HomeConfig {
+/** What the launcher answered, with anything missing or odd replaced by the default. */
+export function parse(out: string): HomeConfig {
   const m = /config=(\{.*\})\}\]/.exec(out)
-  if (!m) throw new Error(`CleanMyTV Home didn't answer: ${out.trim() || 'no output'}`)
-  const o = JSON.parse(m[1])
-  return {
-    accent: ACCENT_RE.test(o.accent) ? o.accent : '#FF3000',
-    focus: FOCUS.includes(o.focus) ? o.focus : 'glow',
-    visualiser: o.visualiser !== false
+  if (!m) throw new Error(`CleanMyTV Home didn't answer: ${out.trim().slice(0, 300) || 'no output'}`)
+  const o = JSON.parse(m[1]) as Record<string, unknown>
+  const cfg: HomeConfig = { ...DEFAULTS, ...clean(o, true) }
+  cfg.has_wallpaper = o.has_wallpaper === true
+  return cfg
+}
+
+/** Keeps only valid keys and values. `lenient` drops bad values; otherwise they throw. */
+export function clean(o: Record<string, unknown>, lenient = false): Partial<HomeConfig> {
+  const out: Record<string, unknown> = {}
+  const bad = (msg: string): void => { if (!lenient) throw new Error(msg) }
+  for (const k of ['accent', 'background'] as const) {
+    if (o[k] === undefined) continue
+    if (typeof o[k] === 'string' && HEX.test(o[k] as string)) out[k] = (o[k] as string).toUpperCase()
+    else bad(`${k} must be a colour like #FF3000`)
   }
+  for (const [k, allowed] of Object.entries(CHOICES)) {
+    if (o[k] === undefined) continue
+    if ((allowed as readonly unknown[]).includes(o[k])) out[k] = o[k]
+    else bad(`${k} must be one of ${allowed.join(', ')}`)
+  }
+  for (const [k, [lo, hi]] of Object.entries(RANGES)) {
+    if (o[k] === undefined) continue
+    if (typeof o[k] === 'number' && Number.isFinite(o[k])) out[k] = Math.min(hi, Math.max(lo, Math.round(o[k] as number)))
+    else bad(`${k} must be a number`)
+  }
+  for (const k of BOOLS) {
+    if (o[k] === undefined) continue
+    if (typeof o[k] === 'boolean') out[k] = o[k]
+    else bad(`${k} must be true or false`)
+  }
+  for (const k of ['order', 'hidden'] as const) {
+    if (o[k] === undefined) continue
+    if (Array.isArray(o[k]) && (o[k] as unknown[]).length <= 500 && (o[k] as unknown[]).every((p) => typeof p === 'string' && T.PACKAGE_RE.test(p))) out[k] = [...new Set(o[k] as string[])]
+    else bad(`${k} must be a list of package names`)
+  }
+  if (o.greeting !== undefined) {
+    // eslint-disable-next-line no-control-regex
+    if (typeof o.greeting === 'string') out.greeting = o.greeting.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40)
+    else bad('greeting must be text')
+  }
+  return out as Partial<HomeConfig>
+}
+
+/** The JSON goes over as base64, so a greeting with quotes or emoji never needs shell quoting. */
+function call(method: string, arg?: string, task = 'theme'): Promise<string> {
+  if (arg !== undefined && !/^[A-Za-z0-9+/=]*$/.test(arg)) throw new Error('internal: argument must be base64 or hex')
+  const cmd = `content call --uri ${URI} --method ${method}${arg !== undefined ? ` --arg ${arg}` : ''}`
+  return arg && arg.length > 200 ? T.tv().shell(cmd) : T.sh(task, cmd)
 }
 
 export async function readConfig(): Promise<HomeConfig> {
@@ -75,16 +138,26 @@ export async function readConfig(): Promise<HomeConfig> {
 }
 
 export async function setConfig(change: Partial<HomeConfig>): Promise<HomeConfig> {
-  // Built from checked values only: nothing the caller sends reaches the shell as text.
-  const o: Record<string, unknown> = {}
-  if (change.accent !== undefined) {
-    if (!ACCENT_RE.test(change.accent)) throw new Error('accent must be a colour like #FF3000')
-    o.accent = change.accent.toUpperCase()
-  }
-  if (change.focus !== undefined) {
-    if (!FOCUS.includes(change.focus)) throw new Error('focus must be glow, outline or none')
-    o.focus = change.focus
-  }
-  if (change.visualiser !== undefined) o.visualiser = change.visualiser === true
-  return parse(await T.sh('theme', `content call --uri ${URI} --method set --arg '${JSON.stringify(o)}'`))
+  const json = JSON.stringify(clean(change as Record<string, unknown>))
+  log('theme', 'cmd', `set ${json}`)
+  return parse(await call('set64', Buffer.from(json).toString('base64')))
+}
+
+/** Uploads a JPEG in base64 pieces, then has the launcher check its MD5 and swap it in. */
+export async function setWallpaper(jpegBase64: string | null): Promise<HomeConfig> {
+  if (jpegBase64 === null) return parse(await call('wallpaper_remove'))
+  if (typeof jpegBase64 !== 'string' || !/^[A-Za-z0-9+/]+=*$/.test(jpegBase64)) throw new Error('the wallpaper must be a JPEG in base64')
+  const data = Buffer.from(jpegBase64, 'base64')
+  if (data.length > 4 * 1024 * 1024) throw new Error('the wallpaper is over 4 MB')
+  if (data[0] !== 0xff || data[1] !== 0xd8) throw new Error('the wallpaper must be a JPEG')
+  // Each piece plus the command must fit one ADB payload; a multiple of 3 keeps '=' padding at the end.
+  let chunk = Math.min(48 * 1024, Math.floor(((T.tv().maxData - 200) * 3) / 4))
+  chunk -= chunk % 3
+  if (chunk < 3) throw new Error('this TV accepts commands too short to upload a wallpaper')
+  log('theme', 'cmd', `upload wallpaper (${Math.round(data.length / 1024)} KB)`)
+  await call('wallpaper_begin')
+  for (let i = 0; i < data.length; i += chunk) await call('wallpaper_chunk', data.subarray(i, i + chunk).toString('base64'))
+  const cfg = parse(await call('wallpaper_end', createHash('md5').update(data).digest('hex')))
+  log('theme', 'ok', 'wallpaper set')
+  return cfg
 }

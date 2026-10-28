@@ -479,3 +479,15 @@ table.pkgs tr.dim td { opacity: 0.6; }
   .grid-2 { grid-template-columns: 1fr; }
   .step-sub { display: none; }
 }
+
+/* TVs used before: snapshot thumbnails in the picker and the sidebar. */
+.tv-thumb { display: block; width: 128px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); background: var(--navy); }
+.tv-thumb.no-shot { height: auto; flex: none; background: linear-gradient(135deg, var(--navy), color-mix(in srgb, var(--navy) 70%, var(--white))); }
+.tv-list { display: flex; flex-direction: column; gap: 12px; }
+.tv-item { display: flex; gap: 16px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
+.tv-item-text { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.tv-item .tv-thumb { flex: none; }
+.tv-item-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-tv { width: 100%; margin: 0 0 10px; }
+.sidebar-tv .tv-thumb { width: 100%; }
+.tv-card .tv-thumb { width: 200px; }

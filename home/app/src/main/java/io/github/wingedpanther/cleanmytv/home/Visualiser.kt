@@ -8,27 +8,36 @@ import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.hypot
-import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 /**
- * Reads the TV's mixed output (audio session 0) as FFT data and turns it into bar heights.
- * The spike's question: does a given TV give real data here, or only zeros?
+ * Reads the TV's mixed output (audio session 0) as FFT data and turns it into bar heights from 0 to 1.
+ *
+ * Music puts most of its energy in the bass, so raw levels max out the left bars and leave the right
+ * ones flat. Three things even it out: bands spaced on a log scale, a tilt that lifts the treble, and
+ * an automatic gain that follows how loud the song is, so quiet and loud tracks both fill the range.
  */
-class Visualiser(private val bars: Int = 32) {
+class Visualiser {
     enum class State { NO_PERMISSION, WAITING, LIVE, SILENT, FAILED }
 
-    private val _levels = MutableStateFlow(FloatArray(bars))
+    private val _levels = MutableStateFlow(FloatArray(0))
+    /** Target heights, 0..1, updated at the capture rate. The UI eases toward them every frame. */
     val levels: StateFlow<FloatArray> = _levels
     private val _state = MutableStateFlow(State.WAITING)
     val state: StateFlow<State> = _state
     var error: String? = null
         private set
 
+    @Volatile var bars = 32
+    @Volatile var sensitivity = 1f
+
     private var viz: Visualizer? = null
+    private var gain = 0.0 // running reference level for the automatic gain
     private var frames = 0
-    private var nonZeroFrames = 0
+    private var soundFrames = 0
 
     fun start(ctx: Context) {
         if (viz != null) return
@@ -40,7 +49,7 @@ class Visualiser(private val bars: Int = 32) {
             val v = Visualizer(0)
             v.enabled = false
             v.captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(1024)
-            val rate = min(Visualizer.getMaxCaptureRate(), 30_000) // millihertz: up to 30 updates a second
+            val rate = min(Visualizer.getMaxCaptureRate(), 30_000) // millihertz
             v.setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
                 override fun onWaveFormDataCapture(v: Visualizer, w: ByteArray, r: Int) {}
                 override fun onFftDataCapture(v: Visualizer, fft: ByteArray, r: Int) = onFft(fft)
@@ -59,31 +68,43 @@ class Visualiser(private val bars: Int = 32) {
     fun stop() {
         viz?.runCatching { enabled = false; release() }
         viz = null
+        _levels.value = FloatArray(0)
     }
 
     private fun onFft(fft: ByteArray) {
-        // fft = [re0, reN/2, re1, im1, re2, im2, ...]; bands spaced on a log scale so bass doesn't
-        // take one bar and treble twenty.
-        val n = fft.size / 2
-        val out = FloatArray(bars)
+        // fft = [re0, reN/2, re1, im1, re2, im2, ...]. Skip bin 0 (DC) and the top fifth (little music there).
+        val bins = fft.size / 2
+        val top = (bins * 0.8).toInt()
+        val n = bars
+        val raw = DoubleArray(n)
+        var loudest = 0.0
+        for (b in 0 until n) {
+            val lo = max(1, top.toDouble().pow(b.toDouble() / n).toInt())
+            val hi = max(lo + 1, top.toDouble().pow((b + 1).toDouble() / n).toInt()).coerceAtMost(top)
+            var sum = 0.0
+            for (k in lo until hi) sum += hypot(fft[2 * k].toDouble(), fft[2 * k + 1].toDouble())
+            val mean = sum / (hi - lo)
+            // Treble tilt: up to 3x at the right edge.
+            raw[b] = mean * (1.0 + 2.0 * b / (n - 1).coerceAtLeast(1))
+            loudest = max(loudest, raw[b])
+        }
+        // Automatic gain: jump up to a louder song at once, ease down over a few seconds.
+        gain = if (loudest > gain) loudest else gain * 0.985 + loudest * 0.015
+        val ref = max(gain, 6.0) // below this it is noise, not music
+        val out = FloatArray(n)
         var any = false
-        for (b in 0 until bars) {
-            val lo = max(1, (n * Math.pow(n.toDouble(), b.toDouble() / bars - 1)).toInt())
-            val hi = max(lo + 1, (n * Math.pow(n.toDouble(), (b + 1).toDouble() / bars - 1)).toInt()).coerceAtMost(n)
-            var peak = 0.0
-            for (k in lo until hi) peak = max(peak, hypot(fft[2 * k].toDouble(), fft[2 * k + 1].toDouble()))
-            out[b] = (ln(1 + peak) / ln(1 + 128.0)).toFloat().coerceIn(0f, 1f)
-            // A floor, so the near-silent noise some TVs report doesn't count as music.
-            if (out[b] > 0.15f) any = true
+        for (b in 0 until n) {
+            // sqrt for loudness as heard; 0.85 leaves headroom so peaks stand out.
+            val v = (sqrt(raw[b] / ref) * 0.85 * sensitivity).toFloat().coerceIn(0f, 1f)
+            out[b] = v
+            if (v > 0.15f) any = true
         }
         frames++
-        if (any) nonZeroFrames++
-        // Ease toward the new heights so the bars don't flicker.
-        val prev = _levels.value
-        _levels.value = FloatArray(bars) { i -> if (out[i] > prev[i]) out[i] else prev[i] * 0.85f + out[i] * 0.15f }
+        if (any) soundFrames++
+        _levels.value = out
         if (frames % 30 == 0) {
-            _state.value = if (nonZeroFrames > 0) State.LIVE else State.SILENT
-            Log.i(TAG, "visualiser: $nonZeroFrames of $frames frames had sound")
+            _state.value = if (soundFrames > 0) State.LIVE else State.SILENT
+            soundFrames = 0
         }
     }
 

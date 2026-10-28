@@ -140,12 +140,53 @@ export interface HomeStatus {
   bundledVersion?: string
 }
 
+/** CleanMyTV Home's settings, as its ConfigProvider holds them. Snake case, as on the TV. */
 export interface HomeConfig {
-  /** #RRGGBB */
+  // Look
+  /** #RRGGBB, for the focus glow or outline and the music bars. */
   accent: string
   focus: 'glow' | 'outline' | 'none'
-  /** Music bars along the bottom of the screen. */
+  /** #RRGGBB behind everything when there's no wallpaper. */
+  background: string
+  /** Percent of black over the wallpaper, 0 to 80. */
+  wallpaper_dim: number
+  // Layout
+  /** Apps first in this order; the rest follow alphabetically. */
+  order: string[]
+  hidden: string[]
+  /** The first visible apps in `order` that sit in the dock, 0 to 8. */
+  dock_size: number
+  /** Apps per row in the grid, 3 to 8. */
+  columns: number
+  show_names: boolean
+  clock: 'time_date' | 'time' | 'off'
+  /** A name for "Good evening, …"; empty for none. */
+  greeting: string
+  // Music bars
   visualiser: boolean
+  viz_style: 'bars' | 'mirror' | 'wave'
+  viz_bars: number
+  /** Percent of the screen height, 4 to 40. */
+  viz_height: number
+  viz_opacity: number
+  viz_colour: 'accent' | 'rainbow' | 'white'
+  viz_peaks: boolean
+  /** Percent, 25 to 300. */
+  viz_sensitivity: number
+  /** Read only: a wallpaper is set. */
+  has_wallpaper?: boolean
+}
+
+/** A TV this app has connected to before. */
+export interface KnownTv {
+  host: string
+  device?: string
+  model?: string
+  manufacturer?: string
+  /** A small JPEG snapshot of the TV screen, as a data URL. */
+  thumb?: string
+  thumbAt?: number
+  lastUsed: number
 }
 
 /** The desktop app's own settings. */
@@ -318,6 +359,17 @@ export interface CytvApi {
   readHomeConfig(): Promise<HomeConfig>
   /** Applies on the TV straight away; returns what the launcher now has. */
   setHomeConfig(change: Partial<HomeConfig>): Promise<HomeConfig>
+  /** A prepared JPEG (base64) for the home screen, or null to remove it. */
+  setHomeWallpaper(jpegBase64: string | null): Promise<HomeConfig>
+
+  // TVs
+  /** TVs connected before, most recent first. */
+  knownTvs(): Promise<KnownTv[]>
+  /** Connect to a TV from that list, checking the same model answers there. */
+  connectKnown(host: string): Promise<ConnStatus>
+  forgetTv(host: string): Promise<KnownTv[]>
+  /** Saves a small snapshot (JPEG data URL, under 200 KB) for the connected TV. */
+  saveTvThumb(host: string, dataUrl: string): Promise<KnownTv[]>
 
   // Customise
   apps(): Promise<TvApp[]>

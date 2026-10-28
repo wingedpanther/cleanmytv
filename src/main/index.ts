@@ -12,9 +12,10 @@ import * as system from './system'
 import * as tools from './toolchain'
 import { localSubnets, scan } from './scan'
 import { reconnect } from './reconnect'
+import { autoConnect, forgetTv, listTvs, rememberTv, setThumb } from './tvlist'
 import * as web from './web'
 import * as home from './home'
-import type { CheckItem, ConnStatus, CytvApi } from '@shared/api'
+import type { CheckItem, ConnStatus, CytvApi, KnownTv } from '@shared/api'
 
 let win: BrowserWindow | null = null
 
@@ -25,6 +26,8 @@ interface Settings {
   lastModel?: string
   /** Show CleanMyTV Home, the preview launcher. */
   preview?: boolean
+  /** Every TV connected before. With more than one, the app waits for the user to pick. */
+  tvs?: KnownTv[]
 }
 
 function readSettings(): Settings {
@@ -35,6 +38,9 @@ function writeSettings(s: Settings): void {
   mkdirSync(paths.data, { recursive: true })
   writeFileSync(paths.settings, JSON.stringify(s, null, 2))
 }
+
+const knownTvs = (): KnownTv[] => listTvs(readSettings())
+const remember = (host: string, st: ConnStatus): void => writeSettings(rememberTv(readSettings(), host, st))
 
 async function checks(): Promise<CheckItem[]> {
   const st = T.getStatus()
@@ -93,11 +99,34 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   scan: () => scan(),
   connect: async (host) => {
     const s = await T.connect(host)
-    if (s.state === 'connected') writeSettings({ ...readSettings(), lastHost: host.trim(), lastDevice: s.probe?.device, lastModel: s.probe?.model })
+    if (s.state === 'connected') remember(host.trim(), s)
     return s
   },
-  // Only the saved address; T.connect, not handlers.connect, so a wrong device is never saved.
-  reconnect: () => reconnect(readSettings(), { connect: T.connect, disconnect: T.disconnect, report: T.report }),
+  // Only the saved address; T.connect, not handlers.connect, so a wrong device is never saved. With more
+  // than one TV known, nothing connects by itself: the user picks.
+  reconnect: async () => {
+    if (!autoConnect(readSettings())) return null
+    const s = await reconnect(readSettings(), { connect: T.connect, disconnect: T.disconnect, report: T.report })
+    if (s?.state === 'connected') remember(s.host ?? readSettings().lastHost!, s)
+    return s
+  },
+  knownTvs: async () => knownTvs(),
+  connectKnown: async (host) => {
+    const tv = knownTvs().find((t) => t.host === host)
+    if (!tv) throw new Error('That TV is not in the list.')
+    const s = await reconnect({ lastHost: tv.host, lastDevice: tv.device, lastModel: tv.model }, { connect: T.connect, disconnect: T.disconnect, report: T.report })
+    if (s?.state === 'connected') remember(tv.host, s)
+    return s ?? T.getStatus()
+  },
+  forgetTv: async (host) => {
+    writeSettings(forgetTv(readSettings(), host))
+    return knownTvs()
+  },
+  saveTvThumb: async (host, dataUrl) => {
+    writeSettings(setThumb(readSettings(), host, dataUrl))
+    return knownTvs()
+  },
+
   disconnect: async () => T.disconnect(),
   status: async () => T.getStatus(),
   lastHost: async () => readSettings().lastHost ?? null,
@@ -133,6 +162,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   },
   readHomeConfig: () => home.readConfig(),
   setHomeConfig: (change) => home.setConfig(change ?? {}),
+  setHomeWallpaper: (jpeg) => home.setWallpaper(jpeg),
   apps: () => theme.apps(),
   readTheme: () => theme.read(),
   applyTheme: (req) => theme.apply(req),

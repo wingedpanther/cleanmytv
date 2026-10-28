@@ -7,7 +7,8 @@ const methods = [
   'checks', 'download',
   'lists', 'plan', 'applyDebloat', 'restore',
   'launcherStatus', 'install', 'buildLocal', 'useStockLauncher', 'useCleanYourTv',
-  'prefs', 'setPrefs', 'homeStatus', 'installHome', 'useHome', 'readHomeConfig', 'setHomeConfig',
+  'prefs', 'setPrefs', 'homeStatus', 'installHome', 'useHome', 'readHomeConfig', 'setHomeConfig', 'setHomeWallpaper',
+  'knownTvs', 'connectKnown', 'forgetTv', 'saveTvThumb',
   'apps', 'readTheme', 'applyTheme', 'resetTheme', 'presets', 'screenshot', 'webGet',
   'systemState', 'setClockScreensaver', 'setPrivateDns', 'setAnimationScale', 'setLauncherLocale', 'key', 'reboot'
 ] as const

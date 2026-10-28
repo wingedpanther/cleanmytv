@@ -21,7 +21,7 @@ symlinkSync(resolve('resources/upstream'), join(resources, 'upstream'))
 writeFileSync(join(resources, 'launcher.apk'), randomBytes(200 * 1024))
 writeFileSync(join(resources, 'launcher.json'), JSON.stringify({ versionName: '2.4' }))
 writeFileSync(join(resources, 'home.apk'), randomBytes(100 * 1024))
-writeFileSync(join(resources, 'home.json'), JSON.stringify({ versionName: '0.1.0-preview' }))
+writeFileSync(join(resources, 'home.json'), JSON.stringify({ versionName: '0.2.0-preview' }))
 configurePaths(resources, join(home, 'data'))
 
 describe('launcher and theme', () => {
@@ -109,7 +109,7 @@ describe('launcher and theme', () => {
     // CleanYourTV already had the stock launcher off: nothing else is disabled.
     expect(cmds.some((c) => c.startsWith('pm disable-user'))).toBe(false)
     const st = await H.status()
-    expect(st).toMatchObject({ installed: true, isHome: true, versionName: '0.1.0-preview', bundledVersion: '0.1.0-preview' })
+    expect(st).toMatchObject({ installed: true, isHome: true, versionName: '0.2.0-preview', bundledVersion: '0.2.0-preview' })
 
     expect((await L.useCleanYourTv()).ok).toBe(true)
     expect(tv.home).toBe('com.gathin.tvhome/.MainActivity')
@@ -126,11 +126,27 @@ describe('launcher and theme', () => {
   })
 
   it('reads and changes CleanMyTV Home settings live, and refuses bad values', async () => {
-    expect(await H.readConfig()).toEqual({ accent: '#FF3000', focus: 'glow', visualiser: true })
-    expect(await H.setConfig({ accent: '#2ec4b6', focus: 'outline' })).toEqual({ accent: '#2EC4B6', focus: 'outline', visualiser: true })
-    expect(tv.homeConfig.focus).toBe('outline')
+    const first = await H.readConfig()
+    expect(first).toMatchObject({ accent: '#FF3000', focus: 'glow', visualiser: true, columns: 6, has_wallpaper: false })
+    const next = await H.setConfig({ accent: '#2ec4b6', focus: 'outline', columns: 12, viz_style: 'mirror', order: ['com.netflix.ninja'] })
+    expect(next).toMatchObject({ accent: '#2EC4B6', focus: 'outline', columns: 8, viz_style: 'mirror', order: ['com.netflix.ninja'] })
+    expect(tv.homeConfig.columns).toBe(8)
+    // Quotes and shell syntax in the greeting travel as base64 and arrive as plain text.
+    expect((await H.setConfig({ greeting: "Sam's TV $(reboot) 🎬" })).greeting).toBe("Sam's TV $(reboot) 🎬")
+    expect(tv.commands.some((c) => c.includes('reboot'))).toBe(false)
     await expect(H.setConfig({ accent: "#FFF'; reboot; '" })).rejects.toThrow(/colour/)
     await expect(H.setConfig({ focus: 'spin' as never })).rejects.toThrow(/focus/)
+    await expect(H.setConfig({ order: ['ok.pkg', 'bad;pkg'] })).rejects.toThrow(/package/)
+  })
+
+  it('uploads a wallpaper in pieces and removes it', async () => {
+    const jpeg = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(150 * 1024)])
+    const cfg = await H.setWallpaper(jpeg.toString('base64'))
+    expect(cfg.has_wallpaper).toBe(true)
+    expect(tv.files.get('/data/data/home/wallpaper.jpg')?.equals(jpeg)).toBe(true)
+    expect(tv.commands.filter((c) => c.includes('wallpaper_chunk')).length).toBeGreaterThan(1)
+    await expect(H.setWallpaper(Buffer.from('not a jpeg').toString('base64'))).rejects.toThrow(/JPEG/)
+    expect((await H.setWallpaper(null)).has_wallpaper).toBe(false)
   })
 
   it('gives Home back to the stock launcher from CleanMyTV Home', async () => {

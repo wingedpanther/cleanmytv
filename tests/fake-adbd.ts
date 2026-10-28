@@ -92,10 +92,19 @@ function sh(tv: FakeTv, cmd: string): string {
     tv.packages.set(pkg, 'enabled'); tv.homeClaims = [...new Set([...tv.homeClaims, `${pkg}/.MainActivity`])]
     return 'Performing Streamed Install\nSuccess\n'
   }
-  if ((m = /^content call --uri content:\/\/io\.github\.wingedpanther\.cleanmytv\.home\.config --method (get|set)(?: --arg '(.*)')?$/.exec(cmd))) {
+  if ((m = /^content call --uri content:\/\/io\.github\.wingedpanther\.cleanmytv\.home\.config --method (\w+)(?: --arg (\S+))?$/.exec(cmd))) {
     if (!tv.packages.has('io.github.wingedpanther.cleanmytv.home')) return 'Error while accessing provider\n'
-    if (m[1] === 'set') Object.assign(tv.homeConfig, JSON.parse(m[2]))
-    return `Result: Bundle[{config=${JSON.stringify(tv.homeConfig)}}]\n`
+    const up = '/data/data/home/wallpaper.upload'
+    if (m[1] === 'set64') Object.assign(tv.homeConfig, JSON.parse(Buffer.from(m[2], 'base64').toString('utf8')))
+    else if (m[1] === 'wallpaper_begin') tv.files.set(up, Buffer.alloc(0))
+    else if (m[1] === 'wallpaper_chunk') tv.files.set(up, Buffer.concat([tv.files.get(up) ?? Buffer.alloc(0), Buffer.from(m[2], 'base64')]))
+    else if (m[1] === 'wallpaper_end') {
+      const data = tv.files.get(up) ?? Buffer.alloc(0)
+      if (createHash('md5').update(data).digest('hex') !== m[2]) return 'Error: wallpaper upload is damaged\n'
+      tv.files.set('/data/data/home/wallpaper.jpg', data)
+    } else if (m[1] === 'wallpaper_remove') tv.files.delete('/data/data/home/wallpaper.jpg')
+    else if (m[1] !== 'get') return `Error: unknown method: ${m[1]}\n`
+    return `Result: Bundle[{config=${JSON.stringify({ ...tv.homeConfig, has_wallpaper: tv.files.has('/data/data/home/wallpaper.jpg') })}}]\n`
   }
   if ((m = /^mkdir -p (\S+)\/wallpapers 2>&1; touch/.exec(cmd))) {
     return tv.appDir === 'ok' ? 'writable\n' : `mkdir: '${m[1]}': Permission denied\ntouch: '${m[1]}/.cytv': No such file or directory\n`
@@ -111,7 +120,7 @@ function sh(tv: FakeTv, cmd: string): string {
   }
   if ((m = /^dumpsys package (\S+) \| grep/.exec(cmd))) {
     if (!tv.packages.has(m[1])) return ''
-    return m[1] === 'com.gathin.tvhome' ? '    versionName=2.4\n' : '    versionName=0.1.0-preview\n'
+    return m[1] === 'com.gathin.tvhome' ? '    versionName=2.4\n' : '    versionName=0.2.0-preview\n'
   }
   if ((m = /^screencap -p (\S+)$/.exec(cmd))) { tv.files.set(m[1], tv.screenshot); return '' }
   if ((m = /^ls (\S+)\/wallpapers/.exec(cmd))) return [...tv.files.keys()].filter((f) => f.startsWith(m![1] + '/wallpapers/')).map((f) => f.split('/').pop()).join('\n') + '\n'

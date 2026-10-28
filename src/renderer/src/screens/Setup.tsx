@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import type { ApplyResult, CheckItem, DownloadProgress, ScanHit, ToolId } from '@shared/api'
 import type { ScreenProps } from '../App'
+import { TvPicker, TvThumb } from '../components/TvPicker'
 import { Busy, ResultNotice, StatusChip, errorText } from '../components/ui'
 
 const IP_RE = /^\d{1,3}(\.\d{1,3}){3}(:\d{2,5})?$/
 
-export function Setup({ status, go }: ScreenProps): ReactNode {
+export function Setup({ status, go, tvs, refreshTvs }: ScreenProps): ReactNode {
   const [checks, setChecks] = useState<CheckItem[] | null>(null)
   const [progress, setProgress] = useState<Partial<Record<ToolId, DownloadProgress>>>({})
   const [downloading, setDownloading] = useState<Set<ToolId>>(new Set())
@@ -91,10 +92,20 @@ export function Setup({ status, go }: ScreenProps): ReactNode {
 
       {status.state === 'waiting-auth' && <WaitingForAllow />}
 
+      {!connected && status.state !== 'waiting-auth' && (
+        <TvPicker
+          tvs={tvs}
+          status={status}
+          onChange={refreshTvs}
+          title={tvs.length > 1 ? 'Which TV?' : 'Your TV'}
+          hint={tvs.length > 1 ? "You've used this app with more than one TV, so it waits for you to pick." : undefined}
+        />
+      )}
+
       {connected && status.probe ? (
         <div className="card white">
           <div className="tv-card">
-            <div className="tv-glyph" aria-hidden />
+            {tvs.find((t) => t.host === status.host)?.thumb ? <TvThumb tv={tvs.find((t) => t.host === status.host)} /> : <div className="tv-glyph" aria-hidden />}
             <div>
               <div className="row between">
                 <h2 style={{ margin: 0 }}>
@@ -149,6 +160,10 @@ export function Setup({ status, go }: ScreenProps): ReactNode {
             </button>
           </div>
         </div>
+      ) : null}
+
+      {connected && status.probe ? (
+        <TvPicker tvs={tvs} status={status} onChange={refreshTvs} title="Your other TVs" hint="Connecting to one disconnects this TV." />
       ) : (
         <div className="grid-2">
           <div className="card">

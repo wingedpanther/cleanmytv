@@ -6,6 +6,7 @@ import type {
   ConnStatus,
   CytvApi,
   HomeConfig,
+  KnownTv,
   DebloatEntry,
   DebloatPlan,
   DownloadProgress,
@@ -55,7 +56,16 @@ export function installMock(): void {
   let homeInstalled = false
   let homeIsHome = false
   const prefs = { preview: false }
-  const homeConfig: HomeConfig = { accent: '#FF3000', focus: 'glow', visualiser: true }
+  const homeConfig: HomeConfig = {
+    accent: '#FF3000', focus: 'glow', background: '#0B1E2A', wallpaper_dim: 35,
+    order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, clock: 'time_date', greeting: '',
+    visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100,
+    has_wallpaper: false
+  }
+  let tvs: KnownTv[] = [
+    { host: '192.168.1.50', device: 'BRAVIA_AE3', model: 'K-65XR90M2', manufacturer: 'Sony', lastUsed: Date.now() - 3600_000 },
+    { host: '192.168.1.62', device: 'oneday', model: 'MIBOX4', manufacturer: 'Xiaomi', lastUsed: Date.now() - 86400_000 }
+  ]
 
   const apps: TvApp[] = [
     ['com.netflix.ninja', 'Netflix'],
@@ -305,7 +315,7 @@ export function installMock(): void {
     },
     async homeStatus() {
       await wait(200)
-      return { installed: homeInstalled, versionName: homeInstalled ? '0.1.0-preview' : undefined, isHome: homeIsHome, bundled: true, bundledVersion: '0.1.0-preview' }
+      return { installed: homeInstalled, versionName: homeInstalled ? '0.2.0-preview' : undefined, isHome: homeIsHome, bundled: true, bundledVersion: '0.2.0-preview' }
     },
     async installHome() {
       for (const text of ['pm install -r /data/local/tmp/cmtv-home.apk', 'am start -W -n io.github.wingedpanther.cleanmytv.home/.MainActivity']) {
@@ -331,6 +341,25 @@ export function installMock(): void {
       await wait(150)
       Object.assign(homeConfig, change)
       return { ...homeConfig }
+    },
+    async setHomeWallpaper(jpeg) {
+      await wait(800)
+      homeConfig.has_wallpaper = jpeg !== null
+      return { ...homeConfig }
+    },
+    async knownTvs() {
+      return tvs.map((t) => ({ ...t }))
+    },
+    async connectKnown(host) {
+      return api.connect(host)
+    },
+    async forgetTv(host) {
+      tvs = tvs.filter((t) => t.host !== host)
+      return tvs.map((t) => ({ ...t }))
+    },
+    async saveTvThumb(host, dataUrl) {
+      tvs = tvs.map((t) => (t.host === host ? { ...t, thumb: dataUrl, thumbAt: Date.now() } : t))
+      return tvs.map((t) => ({ ...t }))
     },
     async apps() {
       await wait(300)

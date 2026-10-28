@@ -1,19 +1,22 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import type { ConnStatus } from '@shared/api'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import type { ConnStatus, KnownTv } from '@shared/api'
 import { LogDrawer } from './components/LogDrawer'
 import { NotConnected } from './components/ui'
+import { TvThumb } from './components/TvPicker'
+import { thumbnail } from './lib/image'
 import Guided from './screens/Guided'
 import { Setup } from './screens/Setup'
 import { Debloat } from './screens/Debloat'
 import { Launcher } from './screens/Launcher'
 import { Customise } from './screens/Customise'
+import { HomeLauncher } from './screens/HomeLauncher'
 import { Extras } from './screens/Extras'
 import { Finish } from './screens/Finish'
 import { version } from '../../../package.json'
 
 const REPO_URL = 'https://github.com/wingedpanther/cleanmytv'
 
-export type StepId = 'guided' | 'setup' | 'debloat' | 'launcher' | 'customise' | 'extras' | 'finish'
+export type StepId = 'guided' | 'setup' | 'debloat' | 'launcher' | 'customise' | 'home' | 'extras' | 'finish'
 
 const STEPS: { id: StepId; label: string; sub: string; needsTv: boolean }[] = [
   // The guided one-button run (#9): composes the same IPC the step screens
@@ -23,6 +26,8 @@ const STEPS: { id: StepId; label: string; sub: string; needsTv: boolean }[] = [
   { id: 'debloat', label: 'Clean up', sub: 'Turn off the bloat', needsTv: true },
   { id: 'launcher', label: 'Launcher', sub: 'Install the new Home', needsTv: true },
   { id: 'customise', label: 'Customise', sub: 'Order, wallpaper, layout', needsTv: true },
+  // Only with preview features on (Launcher screen).
+  { id: 'home', label: 'Home launcher', sub: 'CleanMyTV Home · preview', needsTv: true },
   { id: 'extras', label: 'TV extras', sub: 'Screensaver, DNS, remote', needsTv: true },
   { id: 'finish', label: 'Finish', sub: 'Close the debug port', needsTv: false }
 ]
@@ -31,7 +36,16 @@ export interface ScreenProps {
   status: ConnStatus
   go: (step: StepId) => void
   markDone: (step: StepId) => void
+  /** TVs used before, most recent first. */
+  tvs: KnownTv[]
+  refreshTvs: () => void
 }
+
+/** Screens that change the preview setting fire this so the sidebar follows. */
+export const PREFS_EVENT = 'cytv-prefs'
+
+// A fresh snapshot for the sidebar and the TV list when the last one is older than this.
+const THUMB_MAX_AGE = 6 * 3600_000
 
 export default function App(): ReactNode {
   const [step, setStep] = useState<StepId>(() => {
@@ -40,6 +54,35 @@ export default function App(): ReactNode {
   })
   const [status, setStatus] = useState<ConnStatus>({ state: 'idle' })
   const [done, setDone] = useState<Set<StepId>>(new Set())
+  const [preview, setPreview] = useState(false)
+  const [tvs, setTvs] = useState<KnownTv[]>([])
+
+  const refreshTvs = useCallback(() => {
+    window.cytv.knownTvs().then(setTvs, () => null)
+  }, [])
+  useEffect(() => {
+    refreshTvs()
+    const load = (): void => void window.cytv.prefs().then((p) => setPreview(p.preview))
+    load()
+    window.addEventListener(PREFS_EVENT, load)
+    return () => window.removeEventListener(PREFS_EVENT, load)
+  }, [refreshTvs])
+
+  // On connecting: refresh the TV list and, if its snapshot is missing or old, take a new one quietly.
+  useEffect(() => {
+    if (status.state !== 'connected' || !status.host) return
+    const host = status.host
+    let stale = false
+    window.cytv.knownTvs().then(async (list) => {
+      setTvs(list)
+      const tv = list.find((t) => t.host === host)
+      if (!tv || (tv.thumb && Date.now() - (tv.thumbAt ?? 0) < THUMB_MAX_AGE)) return
+      const shot = await window.cytv.screenshot().catch(() => null)
+      if (!shot || stale) return
+      setTvs(await window.cytv.saveTvThumb(host, await thumbnail(shot)))
+    }).catch(() => null)
+    return () => { stale = true }
+  }, [status.state, status.host])
 
   useEffect(() => {
     // Coming back later to change the wallpaper or the order: reconnect to the last TV by itself.
@@ -50,7 +93,13 @@ export default function App(): ReactNode {
         if (r?.state !== 'connected') return
         // A TV that already runs the clean launcher is here to be customised: open that step.
         const [ls, hs] = await Promise.all([window.cytv.launcherStatus(), window.cytv.homeStatus().catch(() => null)])
-        if (ls.isHome || hs?.isHome) {
+        if (hs?.isHome) {
+          // Our launcher is Home: its page is the one to open, so make sure it's in the menu.
+          await window.cytv.setPrefs({ preview: true })
+          setPreview(true)
+          setDone((prev) => new Set(prev).add('launcher'))
+          setStep((cur) => (cur === 'setup' ? 'home' : cur))
+        } else if (ls.isHome) {
           setDone((prev) => new Set(prev).add('launcher'))
           setStep((cur) => (cur === 'setup' ? 'customise' : cur))
         }
@@ -61,17 +110,20 @@ export default function App(): ReactNode {
 
   const connected = status.state === 'connected'
   const markDone = (s: StepId): void => setDone((prev) => new Set(prev).add(s))
-  const props: ScreenProps = { status, go: setStep, markDone }
-  const current = STEPS.find((s) => s.id === step)!
+  const props: ScreenProps = { status, go: setStep, markDone, tvs, refreshTvs }
+  const steps = STEPS.filter((s) => s.id !== 'home' || preview)
+  const current = steps.find((s) => s.id === step) ?? STEPS[1]
+  const currentTv = connected ? tvs.find((t) => t.host === status.host) : undefined
 
   let screen: ReactNode
   if (current.needsTv && !connected) screen = <NotConnected onGo={() => setStep('setup')} />
-  else if (step === 'guided') screen = <Guided {...props} />
-  else if (step === 'setup') screen = <Setup {...props} />
-  else if (step === 'debloat') screen = <Debloat {...props} />
-  else if (step === 'launcher') screen = <Launcher {...props} />
-  else if (step === 'customise') screen = <Customise {...props} />
-  else if (step === 'extras') screen = <Extras {...props} />
+  else if (current.id === 'guided') screen = <Guided {...props} />
+  else if (current.id === 'setup') screen = <Setup {...props} />
+  else if (current.id === 'debloat') screen = <Debloat {...props} />
+  else if (current.id === 'launcher') screen = <Launcher {...props} />
+  else if (current.id === 'customise') screen = <Customise {...props} />
+  else if (current.id === 'home') screen = <HomeLauncher {...props} />
+  else if (current.id === 'extras') screen = <Extras {...props} />
   else screen = <Finish {...props} />
 
   return (
@@ -81,10 +133,15 @@ export default function App(): ReactNode {
           <div className="brand-mark" aria-hidden />
           <span className="brand-name">CleanMyTV</span>
         </div>
+        {currentTv?.thumb && (
+          <button className="sidebar-tv" onClick={() => setStep('setup')} title="This TV. Open Setup to switch TVs." style={{ all: 'unset', cursor: 'pointer', display: 'block', marginBottom: 10 }}>
+            <TvThumb tv={currentTv} />
+          </button>
+        )}
         <ConnPill status={status} />
         <nav>
           <ol className="steps">
-            {STEPS.map((s, i) => {
+            {steps.map((s, i) => {
               const isDone = s.id === 'setup' ? connected : s.id === 'guided' ? done.has('debloat') && done.has('launcher') : done.has(s.id)
               return (
                 <li key={s.id}>
@@ -117,7 +174,7 @@ export default function App(): ReactNode {
       </aside>
       <main className="main">
         {/* Customise renders its own scroll area and sticky footer. */}
-        {step === 'customise' && connected ? screen : <div className="content">{screen}</div>}
+        {current.id === 'customise' && connected ? screen : <div className="content">{screen}</div>}
         <LogDrawer />
       </main>
     </div>
