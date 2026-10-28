@@ -3,6 +3,7 @@ package io.github.wingedpanther.cleanmytv.home
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.media.audiofx.Visualizer
 import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +36,9 @@ class Visualiser {
     @Volatile var sensitivity = 1f
 
     private var viz: Visualizer? = null
+    private var audio: AudioManager? = null
+    private var musicCheckedAt = 0
+    private var musicActive = false
     private var gain = 0.0 // running reference level for the automatic gain
     private var frames = 0
     private var soundFrames = 0
@@ -45,6 +49,7 @@ class Visualiser {
             _state.value = State.NO_PERMISSION
             return
         }
+        audio = ctx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         try {
             val v = Visualizer(0)
             v.enabled = false
@@ -72,6 +77,17 @@ class Visualiser {
     }
 
     private fun onFft(fft: ByteArray) {
+        // The remote's click sounds reach the output mix too. Android tells music and video apart from
+        // those system sounds, so the bars only move while something is actually playing.
+        if (frames - musicCheckedAt >= 10 || frames == 0) {
+            musicCheckedAt = frames
+            musicActive = audio?.isMusicActive ?: true
+        }
+        if (!musicActive) {
+            frames++
+            if (_levels.value.any { it > 0f }) _levels.value = FloatArray(bars)
+            return
+        }
         // fft = [re0, reN/2, re1, im1, re2, im2, ...]. Skip bin 0 (DC) and the top fifth (little music there).
         val bins = fft.size / 2
         val top = (bins * 0.8).toInt()

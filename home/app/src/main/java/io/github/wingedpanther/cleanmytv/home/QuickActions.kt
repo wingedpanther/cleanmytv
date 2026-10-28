@@ -13,6 +13,8 @@ import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Input
+import androidx.compose.material.icons.outlined.MusicNote
+import androidx.compose.material.icons.outlined.MusicOff
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tv
@@ -39,6 +41,8 @@ fun quickActions(): Map<String, QuickAction> = listOf(
     QuickAction("sleep", "Screensaver", Icons.Outlined.Bedtime, listOf(Intent().setComponent(ComponentName("com.android.systemui", "com.android.systemui.Somnambulator")), settings(Settings.ACTION_DREAM_SETTINGS))),
     // Needs a search app such as Google's (Katniss); a cleaned TV may have switched it off.
     QuickAction("search", "Search", Icons.Outlined.Search, listOf(Intent(Intent.ACTION_ASSIST), Intent("android.search.action.GLOBAL_SEARCH"), Intent(Intent.ACTION_SEARCH_LONG_PRESS))),
+    // Handled by Home itself: turns the music bars on and off.
+    QuickAction("music", "Music bars", Icons.Outlined.MusicNote, emptyList()),
     QuickAction("settings", "Settings", Icons.Outlined.Settings, listOf(settings(Settings.ACTION_SETTINGS))),
 ).associateBy { it.id }
 
@@ -46,10 +50,20 @@ fun quickActions(): Map<String, QuickAction> = listOf(
 fun resolve(ctx: Context, a: QuickAction): Intent? =
     a.intents.firstOrNull { it.resolveActivity(ctx.packageManager) != null }?.let { Intent(it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
 
+/** Inputs needs inputs, Music bars always works, the rest need a screen on this TV that opens them. */
+fun canOpen(ctx: Context, a: QuickAction, hasInputs: Boolean): Boolean = when (a.id) {
+    "inputs" -> hasInputs
+    "music" -> true
+    else -> resolve(ctx, a) != null
+}
+
+/** The music icon shows whether the bars are on. */
+fun iconFor(a: QuickAction, cfg: HomeConfig) = if (a.id == "music" && !cfg.visualiser) Icons.Outlined.MusicOff else a.icon
+
 /** The quick-settings icons this TV can open, for the desktop editor. */
 fun availableQuick(ctx: Context): List<String> {
     val hasInputs = tvInputs(ctx).isNotEmpty()
-    return quickActions().values.filter { if (it.id == "inputs") hasInputs else resolve(ctx, it) != null }.map { it.id }
+    return quickActions().values.filter { canOpen(ctx, it, hasInputs) }.map { it.id }
 }
 
 /** HDMI and other inputs, on TVs that have them. A box without inputs returns an empty list. */

@@ -1,8 +1,8 @@
-// Downloads for the background sources (Bing daily, TMDB). The page's CSP blocks the network, so the
+// Downloads for the Bing picture of the day. The page's CSP blocks the network, so the
 // renderer asks here, and only for these hosts, over HTTPS, with each redirect checked too.
 import type { WebResponse } from '@shared/api'
 
-const HOSTS = new Set(['www.bing.com', 'api.themoviedb.org', 'image.tmdb.org'])
+const HOSTS = new Set(['www.bing.com'])
 const MAX_BYTES = 25 * 1024 * 1024
 
 function allowed(url: string): URL {

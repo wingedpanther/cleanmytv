@@ -1,16 +1,15 @@
-// Everything the optional parts need, downloaded into the app's own folder on request: a JDK 17 and
-// the Android SDK to build the launcher from source, the upstream source itself, and Google's
-// platform-tools for the one-time Wireless debugging pairing. Nothing is installed system-wide.
+// Downloads into the app's own folder on request: Google's platform-tools for the one-time Wireless
+// debugging pairing, and (for scripts/build-home.ts) a JDK 17 and the Android SDK. Nothing is
+// installed system-wide.
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { createWriteStream, existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync, copyFileSync, readFileSync, chmodSync } from 'node:fs'
+import { createWriteStream, existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, readFileSync, chmodSync } from 'node:fs'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { paths } from './paths'
 import { log, progress } from './log'
 import type { ApplyResult, ToolId } from '@shared/api'
-import pin from '../../upstream.json'
 
 const win = process.platform === 'win32'
 const exe = (name: string): string => (win ? `${name}.exe` : name)
@@ -18,7 +17,6 @@ const exe = (name: string): string => (win ? `${name}.exe` : name)
 export const dirs = {
   get jdk(): string { return join(paths.tools, 'jdk') },
   get sdk(): string { return join(paths.tools, 'android-sdk') },
-  get source(): string { return join(paths.tools, 'cleanyourtv') },
   get platformTools(): string { return join(paths.tools, 'platform-tools') },
   get gradleHome(): string { return join(paths.tools, 'gradle') }
 }
@@ -41,9 +39,6 @@ export function javaHome(): string | null {
 
 export const sdkReady = (): boolean => existsSync(join(dirs.sdk, 'platforms', 'android-34')) && existsSync(join(dirs.sdk, 'build-tools', '34.0.0'))
 /** Ready only when it is the pinned commit; a source folder from an older or unpinned download is fetched again. */
-export const sourceReady = (): boolean => {
-  try { return readFileSync(join(dirs.source, '.upstream-commit'), 'utf8').trim() === pin.commit } catch { return false }
-}
 export const adbPath = (): string => join(dirs.platformTools, exe('adb'))
 export const platformToolsReady = (): boolean => existsSync(adbPath())
 
@@ -174,29 +169,6 @@ export function treeHash(root: string, subdirs: string[]): string {
   return createHash('sha256').update(lines.join('')).digest('hex')
 }
 
-/**
- * The launcher source at the upstream commit pinned in upstream.json, checked against its content hash
- * before anything in it runs: a moving branch of someone else's repository never reaches Gradle.
- */
-async function getSource(): Promise<void> {
-  const archive = join(paths.tools, 'cleanyourtv.tar.gz')
-  await download('source', `https://codeload.github.com/${pin.repo}/tar.gz/${pin.commit}`, archive)
-  const tmp = join(paths.tools, 'tmp-source')
-  rmSync(tmp, { recursive: true, force: true })
-  await extract('source', archive, tmp)
-  const top = readdirSync(tmp).find((n) => n.startsWith('cleanyourtv'))
-  if (!top) throw new Error('the source download is not the cleanyourtv repository')
-  const got = treeHash(join(tmp, top), ['launcher'])
-  if (got !== pin.launcherSha256) {
-    rmSync(tmp, { recursive: true, force: true })
-    throw new Error(`the launcher source does not match the pinned commit ${pin.commit.slice(0, 7)} (content hash ${got.slice(0, 12)}…); nothing was built.`)
-  }
-  writeFileSync(join(tmp, top, '.upstream-commit'), pin.commit + '\n')
-  rmSync(dirs.source, { recursive: true, force: true })
-  renameSync(join(tmp, top), dirs.source)
-  rmSync(tmp, { recursive: true, force: true })
-}
-
 async function getPlatformTools(): Promise<void> {
   const { ptOs } = osArch()
   const archive = join(paths.tools, 'platform-tools.zip')
@@ -212,13 +184,13 @@ async function getPlatformTools(): Promise<void> {
 }
 
 export async function get(tool: ToolId): Promise<ApplyResult> {
-  const getters: Record<ToolId, () => Promise<void>> = { jdk: getJdk, sdk: getSdk, source: getSource, 'platform-tools': getPlatformTools }
+  const getters: Record<ToolId, () => Promise<void>> = { jdk: getJdk, sdk: getSdk, 'platform-tools': getPlatformTools }
   if (!Object.hasOwn(getters, tool)) return { ok: false, summary: `unknown download: ${String(tool)}`, warnings: [] }
   mkdirSync(paths.tools, { recursive: true })
   try {
     await getters[tool]()
     progress({ tool, received: 1, total: 1, phase: 'done' })
-    const what = { jdk: 'Java 17', sdk: 'Android SDK', source: 'Launcher source', 'platform-tools': 'Google platform-tools' }[tool]
+    const what = { jdk: 'Java 17', sdk: 'Android SDK', 'platform-tools': 'Google platform-tools' }[tool]
     log('download', 'ok', `${what} is ready.`)
     return { ok: true, summary: `${what} is ready.`, warnings: [] }
   } catch (e) {
@@ -229,54 +201,8 @@ export async function get(tool: ToolId): Promise<ApplyResult> {
   }
 }
 
-// ---- local build ------------------------------------------------------------------------------------
-
+/** The signing key that ships in resources/signing, so every build of CleanMyTV Home installs over the others. */
 export const KEYSTORE = { password: 'cleanyourtv', alias: 'cleanyourtv' }
-
-/**
- * Builds the launcher from source with the same signing key as the bundled APK, so either one installs
- * over the other. `sourceDir` is the upstream repository root; the APK lands at `outFile`.
- */
-export async function buildApk(opts: { sourceDir: string; sdkDir: string; javaHome: string; keystore: string; outFile: string; gradleHome?: string; sourceRev?: string }): Promise<string> {
-  const launcher = join(opts.sourceDir, 'launcher')
-  // local.properties is a Java properties file: backslashes and the drive colon need escaping.
-  writeFileSync(join(launcher, 'local.properties'), `sdk.dir=${opts.sdkDir.replace(/\\/g, '\\\\').replace(/:/g, '\\:')}\n`)
-  const gradlew = join(launcher, win ? 'gradlew.bat' : 'gradlew')
-  if (!win) chmodSync(gradlew, 0o755)
-  const r = await run('build', gradlew, [
-    'assembleRelease', '--no-daemon', '--console=plain',
-    `-Pandroid.injected.signing.store.file=${opts.keystore}`,
-    `-Pandroid.injected.signing.store.password=${KEYSTORE.password}`,
-    `-Pandroid.injected.signing.key.alias=${KEYSTORE.alias}`,
-    `-Pandroid.injected.signing.key.password=${KEYSTORE.password}`
-  ], {
-    cwd: launcher,
-    env: { JAVA_HOME: opts.javaHome, ANDROID_HOME: opts.sdkDir, ...(opts.gradleHome ? { GRADLE_USER_HOME: opts.gradleHome } : {}) }
-  })
-  const apk = join(launcher, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk')
-  if (r.code !== 0 || !existsSync(apk)) throw new Error('Gradle build failed; see the log.')
-  mkdirSync(join(opts.outFile, '..'), { recursive: true })
-  copyFileSync(apk, opts.outFile)
-  const gradle = readFileSync(join(launcher, 'app', 'build.gradle'), 'utf8')
-  const versionName = /versionName\s+'([^']+)'/.exec(gradle)?.[1] ?? 'unknown'
-  // The upstream commit goes with the APK, so anyone can tell which reviewed source a build came from.
-  const upstream = opts.sourceRev ?? (existsSync(join(opts.sourceDir, '.upstream-commit')) ? readFileSync(join(opts.sourceDir, '.upstream-commit'), 'utf8').trim() : 'unknown')
-  writeFileSync(opts.outFile.replace(/\.apk$/, '.json'), JSON.stringify({ versionName, upstream, built: new Date().toISOString() }, null, 2))
-  return versionName
-}
-
-export async function buildLocal(): Promise<ApplyResult> {
-  const home = javaHome()
-  const missing = [!home && 'Java 17', !sdkReady() && 'Android SDK', !sourceReady() && 'launcher source'].filter(Boolean)
-  if (missing.length) return { ok: false, summary: `Download first: ${missing.join(', ')}.`, warnings: [] }
-  try {
-    const version = await buildApk({ sourceDir: dirs.source, sdkDir: dirs.sdk, javaHome: home!, keystore: paths.keystore, outFile: paths.localApk, gradleHome: dirs.gradleHome })
-    log('build', 'ok', `Built launcher ${version}.`)
-    return { ok: true, summary: `Built launcher ${version} from source. Choose "Local build" to install it.`, warnings: [] }
-  } catch (e) {
-    return { ok: false, summary: (e as Error).message, warnings: [] }
-  }
-}
 
 // ---- Wireless debugging pairing -------------------------------------------------------------------
 

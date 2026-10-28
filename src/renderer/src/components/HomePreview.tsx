@@ -16,11 +16,12 @@ const QUICK_GLYPH: Record<QuickId, string> = {
   apps: 'M5 5h4v4H5zM15 5h4v4h-4zM5 15h4v4H5zM15 15h4v4h-4z',
   sleep: 'M17 14A7 7 0 0 1 10 5a7 7 0 1 0 7 9z',
   search: 'M11 5a6 6 0 1 1 0 12 6 6 0 0 1 0-12zM16 16l4 4',
+  music: 'M9 18V6l10-2v12M9 18a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0zM19 16a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z',
   settings: 'M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1'
 }
 
 export const QUICK_LABEL: Record<QuickId, string> = {
-  inputs: 'Inputs', wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: 'Picture & sound', apps: 'Apps', sleep: 'Screensaver', search: 'Search', settings: 'Settings'
+  inputs: 'Inputs', wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: 'Picture & sound', apps: 'Apps', sleep: 'Screensaver', search: 'Search', music: 'Music bars', settings: 'Settings'
 }
 
 export function QuickIcon({ id, size = 16 }: { id: QuickId; size?: number }): ReactNode {
@@ -207,15 +208,20 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
   } else {
     body = (
       <div style={{ height: '100%', padding: `${SAFE_Y}px ${SAFE_X}px 0`, overflow: 'hidden', background: 'linear-gradient(rgba(28,42,31,0.6), transparent 210px)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ fontSize: 20, fontWeight: 500, flex: 1 }}>{greet}</div>
-          {quick.map((q) => (
-            <span key={q} style={{ width: 40, height: 40, borderRadius: 20, background: 'rgba(255,255,255,0.08)', display: 'grid', placeItems: 'center' }}>
-              <QuickIcon id={q} size={20} />
-            </span>
-          ))}
-          <div style={{ width: 10 }} />
-          <Clock cfg={cfg} size={26} dateSize={12} align="right" />
+        <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+          <div style={{ fontSize: 20, fontWeight: 500, flex: 1, paddingTop: 4 }}>{greet}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+            <Clock cfg={cfg} size={26} dateSize={12} align="right" />
+            {quick.length > 0 && (
+              <div style={{ display: 'flex', gap: 10 }}>
+                {quick.map((q) => (
+                  <span key={q} style={{ width: 40, height: 40, borderRadius: 20, background: 'rgba(255,255,255,0.08)', display: 'grid', placeItems: 'center' }}>
+                    <QuickIcon id={q} size={20} />
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div style={{ height: (H * cfg.top_space) / 100 }} />
         <Sections apps={apps} cfg={cfg} width={W - SAFE_X * 2} dockW={200} />

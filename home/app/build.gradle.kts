@@ -12,8 +12,8 @@ android {
         // Android 9: the Mi Box S and nearly every TV still in use.
         minSdk = 28
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.3.1-preview"
+        versionCode = 5
+        versionName = "1.0.0"
     }
 
     buildTypes {

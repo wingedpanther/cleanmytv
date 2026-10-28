@@ -49,7 +49,7 @@ export interface CheckItem {
   download?: ToolId
 }
 
-export type ToolId = 'jdk' | 'sdk' | 'source' | 'platform-tools'
+export type ToolId = 'jdk' | 'sdk' | 'platform-tools'
 
 export interface DebloatListSummary {
   /** Folder name in upstream examples/, or "custom". */
@@ -108,29 +108,7 @@ export interface ApplyResult {
   warnings: string[]
 }
 
-export interface LauncherStatus {
-  installed: boolean
-  versionName?: string
-  isHome: boolean
-  homeComponent: string | null
-  /** The stock launcher package found on the TV, if any. */
-  stockLauncher: string | null
-  bundledApk: boolean
-  bundledVersion?: string
-  localApk: boolean
-}
-
-export interface InstallRequest {
-  apk: 'bundled' | 'local'
-  /** 'auto' asks the TV; 'none' leaves the stock launcher enabled. */
-  stockLauncher: 'auto' | 'none' | string
-  inputKeyService: boolean
-  homeKeyService: boolean
-  /** Uninstall a launcher signed with a different key before installing (loses on-TV order). */
-  replaceIncompatible?: boolean
-}
-
-/** CleanMyTV Home, the preview launcher. */
+/** CleanMyTV Home on the TV. */
 export interface HomeStatus {
   installed: boolean
   versionName?: string
@@ -138,11 +116,13 @@ export interface HomeStatus {
   /** This copy of the desktop app carries it. */
   bundled: boolean
   bundledVersion?: string
+  /** The CleanYourTV launcher from CleanMyTV 0.1.x is still on the TV. */
+  oldLauncher: boolean
 }
 
 export type HomeLayout = 'shelf' | 'split' | 'rail'
 export type HomeSection = 'dock' | 'rows' | 'folders' | 'grid'
-export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search'
+export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music'
 
 /** A named row of apps, or a folder. */
 export interface HomeGroup {
@@ -215,12 +195,6 @@ export interface KnownTv {
   lastUsed: number
 }
 
-/** The desktop app's own settings. */
-export interface Prefs {
-  /** Shows CleanMyTV Home, the preview launcher. */
-  preview: boolean
-}
-
 export interface InstallResult extends ApplyResult {
   /** The installed launcher was signed with another key; ask before replacing it. */
   incompatible?: boolean
@@ -233,80 +207,14 @@ export interface TvApp {
   tv: boolean
 }
 
-/** The keys from upstream themes/README.md. Every one is optional. */
-export interface LauncherConfig {
-  dock_apps?: string[]
-  fill_dock?: boolean
-  hidden_apps?: string[]
-  live_tv_package?: string
-  live_tv_action?: string
-  source_panel_service?: string
-  source_panel_action?: string
-  input_action?: string
-  columns?: number
-  rows_below_dock?: number
-  dock_title?: boolean
-  dock_row?: boolean
-  reorder_button?: boolean
-  app_library?: boolean
-  shamsi_date?: boolean
-  greeting_name?: string
-  module_cards?: boolean
-  reduced_motion?: boolean
-  vpn_app?: string
-  animations?: boolean
-  advanced_effects?: boolean
-  show_home_settings_shortcut?: boolean
-  show_stats?: boolean
-  background_color?: string
-  sky_intensity?: number
-  wallpaper?: boolean
-  wallpaper_rotation_minutes?: number
-  wallpaper_dim?: number
-  festival?: string
-  festival_until?: string
-  greeting?: string
-  accent_color?: string
-  settings_key_keycodes?: number[]
-  settings_key_panel?: boolean
-  input_key_keycodes?: number[]
-  app_keys?: string[]
-}
-
-export interface TvTheme {
-  config: LauncherConfig
-  /** config.json was on the TV. */
-  present: boolean
-  /** wallpaper.jpg on the TV, as a data URL, or null. */
-  wallpaper: string | null
-  /** File names in the TV's wallpapers/ folder. */
-  wallpapers: string[]
-}
-
 export interface ImageFile {
   name: string
   /** JPEG bytes, base64, already sized for the TV by the renderer. */
   base64: string
 }
 
-export interface ThemeApplyRequest {
-  config: LauncherConfig
-  wallpaper: { kind: 'keep' } | { kind: 'remove' } | { kind: 'set'; image: ImageFile }
-  wallpapers: { kind: 'keep' } | { kind: 'set'; images: ImageFile[] }
-}
-
-export interface ThemePreset {
-  id: string
-  name: string
-  description: string
-  config: LauncherConfig
-  /** Data URL of the preset's wallpaper.jpg, if it has one. */
-  wallpaper: string | null
-}
-
 export interface SystemState {
   sdk: number
-  screensaverIsClock: boolean
   privateDnsMode: string
   privateDnsHost: string
   /** window_animation_scale; "null" when never set. */
@@ -365,18 +273,11 @@ export interface CytvApi {
   applyDebloat(req: DebloatApplyRequest): Promise<ApplyResult>
   restore(listId: string): Promise<ApplyResult>
 
-  // Launcher
-  launcherStatus(): Promise<LauncherStatus>
-  install(req: InstallRequest): Promise<InstallResult>
-  buildLocal(): Promise<ApplyResult>
-  /** Give Home back to the stock launcher, leaving the new one installed. */
+  // CleanMyTV Home
+  /** Give Home back to the stock launcher, leaving CleanMyTV Home installed. */
   useStockLauncher(): Promise<ApplyResult>
-  /** Make the installed CleanYourTV launcher Home again (from CleanMyTV Home). */
-  useCleanYourTv(): Promise<ApplyResult>
-
-  // CleanMyTV Home (preview)
-  prefs(): Promise<Prefs>
-  setPrefs(change: Partial<Prefs>): Promise<Prefs>
+  /** Uninstall the CleanYourTV launcher that CleanMyTV 0.1.x installed, once it isn't Home. */
+  removeOldLauncher(): Promise<ApplyResult>
   homeStatus(): Promise<HomeStatus>
   /** Installs or updates CleanMyTV Home and makes it Home, putting the old Home back if that fails. */
   installHome(): Promise<InstallResult>
@@ -399,23 +300,15 @@ export interface CytvApi {
   /** Saves a small snapshot (JPEG data URL, under 200 KB) for the connected TV. */
   saveTvThumb(host: string, dataUrl: string): Promise<KnownTv[]>
 
-  // Customise
-  apps(): Promise<TvApp[]>
-  readTheme(): Promise<TvTheme>
-  applyTheme(req: ThemeApplyRequest): Promise<ApplyResult>
-  resetTheme(): Promise<ApplyResult>
-  presets(): Promise<ThemePreset[]>
   /** PNG of the TV screen as a data URL. */
   screenshot(): Promise<string>
-  /** HTTPS GET from Bing or TMDB only (the page itself has no network access). */
+  /** HTTPS GET from Bing only (the page itself has no network access). */
   webGet(url: string): Promise<WebResponse>
 
   // TV extras
   systemState(): Promise<SystemState>
-  setClockScreensaver(on: boolean): Promise<ApplyResult>
   setPrivateDns(host: string | null): Promise<ApplyResult>
   setAnimationScale(scale: number): Promise<ApplyResult>
-  setLauncherLocale(tag: string): Promise<ApplyResult>
   key(keycode: number): Promise<void>
   reboot(): Promise<void>
 

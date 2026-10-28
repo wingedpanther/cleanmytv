@@ -1,43 +1,17 @@
-// Install the launcher and hand Home over to it: the port of upstream launcher/build-and-install.sh,
-// minus the build (the APK comes bundled, or from the optional local build in toolchain.ts).
-import { existsSync, readFileSync } from 'node:fs'
-import { paths } from './paths'
-import { log } from './log'
+// Handing Home to CleanMyTV Home and back: the launcher handover from upstream's build-and-install.sh
+// (start it first, switch off the stock launcher, check where Home landed, roll back if it didn't stick),
+// plus removing the CleanYourTV launcher earlier versions of this app installed.
 import * as T from './tv'
+import { log } from './log'
 import { KNOWN_STOCK_LAUNCHERS } from './debloat'
-import type { ApplyResult, InstallRequest, InstallResult, LauncherStatus } from '@shared/api'
+import type { ApplyResult, InstallResult } from '@shared/api'
 
 const TASK = 'install'
-export const PKG = 'com.gathin.tvhome'
-const MAIN = `${PKG}/.MainActivity`
-/** CleanMyTV Home, the preview launcher built from home/. */
+/** CleanMyTV Home, built from home/. */
 export const HOME_PKG = 'io.github.wingedpanther.cleanmytv.home'
-const OUR_LAUNCHERS = [PKG, HOME_PKG]
-
-function bundledVersion(): string | undefined {
-  try {
-    return JSON.parse(readFileSync(paths.bundledApkInfo, 'utf8')).versionName
-  } catch {
-    return undefined
-  }
-}
-
-export async function status(): Promise<LauncherStatus> {
-  const dump = await T.tv().shell(`dumpsys package ${PKG} | grep -m1 versionName`)
-  const version = /versionName=(\S+)/.exec(dump)?.[1]
-  const home = await T.homeComponent()
-  const { installed } = await T.packageSets()
-  return {
-    installed: installed.has(PKG),
-    versionName: version,
-    isHome: !!home && home.startsWith(PKG + '/'),
-    homeComponent: home,
-    stockLauncher: KNOWN_STOCK_LAUNCHERS.find((p) => installed.has(p)) ?? null,
-    bundledApk: existsSync(paths.bundledApk),
-    bundledVersion: bundledVersion(),
-    localApk: existsSync(paths.localApk)
-  }
-}
+/** The CleanYourTV launcher that CleanMyTV 0.1.x installed. */
+export const OLD_PKG = 'com.gathin.tvhome'
+const OUR_LAUNCHERS = [OLD_PKG, HOME_PKG]
 
 /** Which app owns Home differs by build, so ask the TV, and accept only a launcher we recognise. */
 export async function detectStock(): Promise<string> {
@@ -57,12 +31,12 @@ export async function detectStock(): Promise<string> {
       log(TASK, 'info', `Home is Android's chooser; the stock launcher among the candidates is ${found[0]}.`)
       return found[0]
     }
-    throw new Error(`Home is Android's launcher chooser and ${found.length} known stock launchers claim it. Pick a default on the TV first, or choose "Leave the stock launcher alone".`)
+    throw new Error(`Home is Android's launcher chooser and ${found.length} known stock launchers claim it. Pick a default Home on the TV first, then try again.`)
   }
   if (homePkg === 'com.google.android.tungsten.setupwraith') {
     throw new Error("Home resolves to Google TV's setup wizard. Add com.google.android.tungsten.setupwraith to your cleanup list, apply it, then install again.")
   }
-  throw new Error(`Home resolves to '${homePkg || 'nothing'}', which is not a stock launcher this app knows. Choose "Leave the stock launcher alone" to install without disabling anything.`)
+  throw new Error(`Home resolves to '${homePkg || 'nothing'}', which is not a stock launcher this app knows. Make the stock launcher Home on the TV, then try again.`)
 }
 
 export async function rollback(stock: string): Promise<boolean> {
@@ -79,62 +53,6 @@ export async function rollback(stock: string): Promise<boolean> {
     log(TASK, 'error', `rollback failed: ${(e as Error).message}`)
   }
   return false
-}
-
-export async function install(req: InstallRequest): Promise<InstallResult> {
-  const apkPath = req.apk === 'local' ? paths.localApk : paths.bundledApk
-  if (!existsSync(apkPath)) {
-    return { ok: false, summary: req.apk === 'local' ? 'No local build yet. Build from source first.' : 'The bundled launcher is missing from this copy of the app.', warnings: [] }
-  }
-  const warnings: string[] = []
-  let stock = req.stockLauncher
-  if (stock === 'auto') stock = await detectStock()
-  else if (stock !== 'none' && !T.PACKAGE_RE.test(stock)) throw new Error(`not a package name: ${stock}`)
-  log(TASK, 'info', `stock launcher: ${stock}`)
-
-  const tmp = '/data/local/tmp/tvhome.apk'
-  await T.pushB64(TASK, readFileSync(apkPath), tmp)
-
-  // Install on its own: in a batch a failed install would not stop the stock launcher being disabled.
-  let out = await T.sh(TASK, `pm install -r ${tmp}`, { timeoutMs: 300000 })
-  if (/INSTALL_FAILED_UPDATE_INCOMPATIBLE|signatures do not match/i.test(out)) {
-    if (!req.replaceIncompatible) {
-      await T.sh(TASK, `rm -f ${tmp}`)
-      return {
-        ok: false,
-        incompatible: true,
-        summary: 'The launcher on the TV was built on another computer and signed with a different key.',
-        warnings: ['Replacing it uninstalls the old copy first. Tile order and app library choices made on the TV are lost; settings pushed from this app are kept.']
-      }
-    }
-    // Home must not point at a package that is about to vanish: give it to the stock launcher first.
-    const s = stock === 'none' ? (await status()).stockLauncher : stock
-    if (s) {
-      await rollback(s)
-      stock = s   // it was disabled before; the handover below disables it again
-    }
-    await T.sh(TASK, `pm uninstall ${PKG}`)
-    out = await T.sh(TASK, `pm install -r ${tmp}`, { timeoutMs: 300000 })
-  }
-  await T.sh(TASK, `rm -f ${tmp}`)
-  if (!out.includes('Success')) {
-    return { ok: false, summary: 'Install failed; the stock launcher was left alone.', warnings: [out.trim()] }
-  }
-
-  // Start the launcher before the stock Home is touched: "Status: ok" proves the activity came up.
-  const start = await T.sh(TASK, `am start -W -n ${MAIN}`)
-  if (!start.includes('Status: ok') || /^Error/im.test(start)) {
-    return { ok: false, summary: `The new launcher did not start; ${stock === 'none' ? 'nothing was disabled' : stock + ' was left enabled'}.`, warnings: [start.trim()] }
-  }
-  await T.sh(TASK, `pm grant ${PKG} android.permission.ACCESS_FINE_LOCATION 2>/dev/null; echo location-granted`)
-  const failed = await handOver(stock, MAIN)
-  if (failed) return failed
-
-  // Optional accessibility services; Android switches them off on every reinstall.
-  for (const [on, svc] of [[req.inputKeyService, 'InputKeyService'], [req.homeKeyService, 'HomeKeyService']] as const) {
-    if (on) await enableService(svc)
-  }
-  return { ok: true, summary: 'Installed. Press Home on the remote to see it.', warnings }
 }
 
 /**
@@ -185,16 +103,30 @@ export async function switchTo(main: string): Promise<ApplyResult> {
   return failed ?? { ok: true, summary: 'Switched. Press Home on the remote to see it.', warnings: [] }
 }
 
-export async function useCleanYourTv(): Promise<ApplyResult> {
+/**
+ * Uninstalls the CleanYourTV launcher once it no longer owns Home, and takes its accessibility services
+ * and Clock screensaver out of the TV settings so nothing points at an app that is gone.
+ */
+export async function removeOld(): Promise<ApplyResult> {
   const { installed } = await T.packageSets()
-  if (!installed.has(PKG)) return { ok: false, summary: 'The CleanYourTV launcher is not installed. Install it above.', warnings: [] }
-  return switchTo(MAIN)
-}
-
-/** Appends to enabled_accessibility_services without dropping other services. */
-export async function enableService(name: 'InputKeyService' | 'HomeKeyService'): Promise<void> {
-  const svc = `${PKG}/.${name}`
-  await T.sh(TASK, `s=$(settings get secure enabled_accessibility_services); case "$s" in *${name}*) ;; null|'') settings put secure enabled_accessibility_services ${svc} ;; *) settings put secure enabled_accessibility_services "$s:${svc}" ;; esac; settings put secure accessibility_enabled 1; echo ${name} enabled`)
+  if (!installed.has(OLD_PKG)) return { ok: true, summary: 'The CleanYourTV launcher is not on this TV.', warnings: [] }
+  const home = await T.homeComponent()
+  if (home?.startsWith(OLD_PKG + '/')) {
+    return { ok: false, summary: 'The CleanYourTV launcher is still Home. Switch to CleanMyTV Home first, then remove it.', warnings: [] }
+  }
+  const services = (await T.tv().shell('settings get secure enabled_accessibility_services')).trim()
+  if (services.includes(OLD_PKG)) {
+    // Only well-formed components go back into a shell command.
+    const rest = services.split(':').filter((c) => c && c !== 'null' && !c.startsWith(OLD_PKG + '/') && /^[A-Za-z_][\w.]*\/[\w.]+$/.test(c))
+    await T.sh(TASK, rest.length ? `settings put secure enabled_accessibility_services ${rest.join(':')}` : 'settings delete secure enabled_accessibility_services')
+  }
+  if ((await T.tv().shell('settings get secure screensaver_components')).includes(OLD_PKG)) {
+    await T.sh(TASK, 'settings delete secure screensaver_components')
+  }
+  const out = await T.sh(TASK, `pm uninstall ${OLD_PKG}`)
+  return out.includes('Success')
+    ? { ok: true, summary: 'The CleanYourTV launcher is removed from the TV.', warnings: [] }
+    : { ok: false, summary: 'The TV did not remove the CleanYourTV launcher.', warnings: [out.trim()] }
 }
 
 export async function useStock(): Promise<ApplyResult> {
@@ -203,6 +135,6 @@ export async function useStock(): Promise<ApplyResult> {
   if (!stock) return { ok: false, summary: 'No stock launcher this app knows is installed on the TV.', warnings: [] }
   const ok = await rollback(stock)
   return ok
-    ? { ok, summary: `${stock} is Home again. The clean launcher stays installed; install again to switch back.`, warnings: [] }
+    ? { ok, summary: `${stock} is Home again. CleanMyTV Home stays installed; use it again from the Home screen step.`, warnings: [] }
     : { ok, summary: `Could not make ${stock} Home. Pick it in the TV's home settings.`, warnings: [] }
 }

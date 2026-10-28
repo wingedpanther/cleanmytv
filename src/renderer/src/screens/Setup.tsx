@@ -79,15 +79,15 @@ export function Setup({ status, go, tvs, refreshTvs }: ScreenProps): ReactNode {
 
   const busy = status.state === 'connecting' || status.state === 'waiting-auth'
   const connected = status.state === 'connected'
-  const required = checks?.filter((c) => !['jdk', 'sdk', 'source', 'platform-tools'].includes(c.id)) ?? []
-  const optional = checks?.filter((c) => ['jdk', 'sdk', 'source', 'platform-tools'].includes(c.id)) ?? []
+  const required = checks?.filter((c) => c.id !== 'platform-tools') ?? []
+  const optional = checks?.filter((c) => c.id === 'platform-tools') ?? []
 
   return (
     <>
       <h1>Set up</h1>
       <p className="lede">
         This app talks to the TV over your Wi-Fi. You don't need Python, Java or Android tools to clean the TV and install
-        the launcher. The optional items are only for building the launcher yourself or pairing some Google TVs.
+        the home screen. The one optional download is only for pairing some Google TVs.
       </p>
 
       {status.state === 'waiting-auth' && <WaitingForAllow />}
@@ -146,12 +146,11 @@ export function Setup({ status, go, tvs, refreshTvs }: ScreenProps): ReactNode {
               Allow prompt. Close it when you're done: the Finish step walks you through it.
             </div>
           )}
-          {status.probe.sdk > 0 && status.probe.sdk < 19 && (
+          {status.probe.sdk > 0 && status.probe.sdk < 28 && (
             <div className="notice warn" style={{ marginTop: 16, marginBottom: 0 }}>
-              This TV reports Android {status.probe.release} (API {status.probe.sdk}). The bundled launcher needs Android
-              4.4 (API 19) or newer, so the Launcher step will likely refuse to install here. Cleanup stays available and
-              reversible (nothing is uninstalled), but check the known-devices table first, and skip the Launcher step on
-              a model listed as unsupported.
+              This TV reports Android {status.probe.release} (API {status.probe.sdk}). CleanMyTV Home needs Android 9
+              (API 28) or newer, so the Home screen step will refuse to install here. Cleanup stays available and
+              reversible (nothing is uninstalled).
             </div>
           )}
           <div className="row" style={{ marginTop: 16 }}>
@@ -281,7 +280,7 @@ export function Setup({ status, go, tvs, refreshTvs }: ScreenProps): ReactNode {
               <>
                 <h3 style={{ marginTop: 22 }}>Optional</h3>
                 <p className="muted small">
-                  Only needed to build the launcher from source (Launcher step, Advanced) or to pair a TV that asks for a code.
+                  Only needed to pair a TV that asks for a code.
                   Each one downloads into this app's own folder.
                 </p>
                 <Checklist items={optional} progress={progress} downloading={downloading} onDownload={download} />

@@ -228,7 +228,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
           {stockHome && (
             <div className="notice warn">
               This list switches off <code>{plan.homePackage}</code>, which is your Home screen right now. The app skips it until
-              the new launcher is Home, so the TV always has something to start. Install the launcher, then apply this list
+              the new launcher is Home, so the TV always has something to start. Install CleanMyTV Home (Home screen step), then apply this list
               again.
             </div>
           )}
@@ -335,8 +335,8 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
               Restore
             </button>
             <span className="spacer" />
-            <button className="btn ghost" onClick={() => go('launcher')}>
-              Next: install the launcher
+            <button className="btn ghost" onClick={() => go('home')}>
+              Next: the home screen
             </button>
           </div>
         </div>
@@ -365,7 +365,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
             Every package from this list goes back to how it was on {fmtDate(plan.record?.created)}. Packages that were already
             off then stay off. Home goes back to the launcher that owned it.
           </p>
-          <p className="muted small">The new launcher stays installed. Remove it from the TV's Settings → Apps if you want it gone.</p>
+          <p className="muted small">CleanMyTV Home stays installed. Remove it from the TV's Settings → Apps if you want it gone.</p>
         </Confirm>
       )}
     </>

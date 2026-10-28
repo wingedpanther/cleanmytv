@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, session, shell } from 'electron'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { configurePaths, paths } from './paths'
@@ -7,7 +7,6 @@ import { setSinks } from './log'
 import * as T from './tv'
 import * as debloat from './debloat'
 import * as launcher from './launcher'
-import * as theme from './theme'
 import * as system from './system'
 import * as tools from './toolchain'
 import { localSubnets, scan } from './scan'
@@ -24,8 +23,6 @@ interface Settings {
   /** The TV that answered there, to notice a different device at the same address. */
   lastDevice?: string
   lastModel?: string
-  /** Show CleanMyTV Home, the preview launcher. */
-  preview?: boolean
   /** Every TV connected before. With more than one, the app waits for the user to pick. */
   tvs?: KnownTv[]
 }
@@ -45,8 +42,6 @@ const remember = (host: string, st: ConnStatus): void => writeSettings(rememberT
 async function checks(): Promise<CheckItem[]> {
   const st = T.getStatus()
   const connected = st.state === 'connected'
-  const hasApk = existsSync(paths.bundledApk) || existsSync(paths.localApk)
-  const jdk = tools.javaHome()
   return [
     {
       id: 'network', label: 'Local network',
@@ -67,24 +62,6 @@ async function checks(): Promise<CheckItem[]> {
         : st.state === 'waiting-auth'
           ? { status: 'checking', detail: 'Choose Allow on the TV.' }
           : { status: 'missing', detail: 'The TV asks once, the first time you connect.' })
-    },
-    {
-      id: 'apk', label: 'Clean launcher',
-      ...(hasApk
-        ? { status: 'ok', detail: existsSync(paths.bundledApk) ? 'Bundled with this app, nothing to download.' : 'Your local build is ready.' }
-        : { status: 'missing', detail: 'Not bundled in this copy. Build it from source (Launcher step).' })
-    },
-    {
-      id: 'jdk', label: 'Java 17 (only to build from source)',
-      ...(jdk ? { status: 'ok', detail: jdk } : { status: 'optional', detail: 'About 190 MB. Not needed with the bundled launcher.', download: 'jdk' })
-    },
-    {
-      id: 'sdk', label: 'Android SDK 34 (only to build from source)',
-      ...(tools.sdkReady() ? { status: 'ok', detail: tools.dirs.sdk } : { status: 'optional', detail: 'About 250 MB, needs Java 17 first.', download: 'sdk' })
-    },
-    {
-      id: 'source', label: 'Launcher source (only to build from source)',
-      ...(tools.sourceReady() ? { status: 'ok', detail: tools.dirs.source } : { status: 'optional', detail: 'The latest cleanyourtv code from GitHub, about 7 MB.', download: 'source' })
     },
     {
       id: 'platform-tools', label: "Google's adb (only for Wireless debugging pairing)",
@@ -142,17 +119,8 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   plan: (id) => debloat.plan(id),
   applyDebloat: (req) => debloat.apply(req),
   restore: (id) => debloat.restore(id),
-  launcherStatus: () => launcher.status(),
-  install: (req) => launcher.install(req),
-  buildLocal: () => tools.buildLocal(),
   useStockLauncher: () => launcher.useStock(),
-  useCleanYourTv: () => launcher.useCleanYourTv(),
-  prefs: async () => ({ preview: readSettings().preview === true }),
-  setPrefs: async (change) => {
-    const s = readSettings()
-    if (change && typeof change.preview === 'boolean') writeSettings({ ...s, preview: change.preview })
-    return { preview: readSettings().preview === true }
-  },
+  removeOldLauncher: () => launcher.removeOld(),
   homeStatus: () => home.status(),
   installHome: () => home.install(),
   useHome: async () => {
@@ -164,18 +132,11 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   readHomeConfig: () => home.readConfig(),
   setHomeConfig: (change) => home.setConfig(change ?? {}),
   setHomeWallpaper: (jpeg) => home.setWallpaper(jpeg),
-  apps: () => theme.apps(),
-  readTheme: () => theme.read(),
-  applyTheme: (req) => theme.apply(req),
-  resetTheme: () => theme.reset(),
-  presets: async () => theme.presets(),
-  screenshot: () => theme.screenshot(),
+  screenshot: () => system.screenshot(),
   webGet: (url) => web.get(String(url)),
   systemState: () => system.state(),
-  setClockScreensaver: (on) => system.clockScreensaver(on),
   setPrivateDns: (host) => system.privateDns(host),
   setAnimationScale: (s) => system.animationScale(s),
-  setLauncherLocale: (tag) => system.launcherLocale(tag),
   key: (code) => system.key(code),
   reboot: () => system.reboot()
 }

@@ -1,5 +1,5 @@
-// Builds resources/home.apk, CleanMyTV Home (the preview launcher in home/), signed with the same key
-// as the bundled CleanYourTV launcher.
+// Builds resources/home.apk, CleanMyTV Home (the launcher in home/), signed with the key in
+// resources/signing so every build installs over the others.
 //   npm run home                                  JDK 17 and the Android SDK from .cytv-build/, as npm run apk
 //   JAVA_HOME=… ANDROID_HOME=… npm run home       use the ones already on this computer
 import { chmodSync, copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
@@ -24,7 +24,7 @@ async function main(): Promise<void> {
     javaHome = tools.javaHome()!
     sdk = tools.dirs.sdk
   }
-  if (!existsSync(paths.keystore)) throw new Error(`missing ${paths.keystore}; run npm run apk first`)
+  if (!existsSync(paths.keystore)) throw new Error(`missing ${paths.keystore}`)
   const dir = resolve('home')
   writeFileSync(join(dir, 'local.properties'), `sdk.dir=${sdk.replace(/\\/g, '\\\\').replace(/:/g, '\\:')}\n`)
   const gradlew = join(dir, win ? 'gradlew.bat' : 'gradlew')

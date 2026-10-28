@@ -1,8 +1,9 @@
 # CleanMyTV
 
 A Mac and Windows app for [cleanyourtv](https://github.com/Gathin23/cleanyourtv) by
-[@gathint](https://x.com/gathint). It debloats an Android TV, installs the clean launcher and lets you
-customise it, without Python, Java, Android Studio or `adb` on your computer.
+[@gathint](https://x.com/gathint). It debloats an Android TV with the cleanyourtv lists, installs its own
+launcher, CleanMyTV Home, and lets you set it up from your computer. You don't need Python, Java,
+Android Studio or `adb`.
 
 New to this? The **[user guide](docs/USER-GUIDE.md)** walks every step at TV-owner pace, including
 rollback and troubleshooting, and the **[known-devices table](docs/KNOWN-DEVICES.md)** shows what the
@@ -11,11 +12,10 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
-This is an independent project, not part of cleanyourtv. The debloat lists, themes and launcher come
-from upstream unchanged; this app is the desktop front end for them. Tested on a Xiaomi Mi Box S from
-Windows.
-
-![Customise: drag apps into order, the first row is the dock, with a live sketch of the TV home](docs/customise.png)
+This is an independent project, not part of cleanyourtv. The per-TV debloat lists come from upstream
+unchanged. The launcher is CleanMyTV Home, built from `home/` in this repository. Earlier versions
+installed the CleanYourTV launcher (`com.gathin.tvhome`); 0.2.0 no longer does. Tested on a Xiaomi
+Mi Box S from Windows.
 
 ## Download and install
 
@@ -60,11 +60,11 @@ computer** to skip the question next time.
 
 | Step | What happens |
 |---|---|
-| **Setup** | Checks the network, finds TVs with port 5555 open, connects, and waits while you press Allow on the TV. Google TVs that only offer Wireless debugging get a pairing form. |
+| **Clean & launch** | The guided path: applies the list that best matches your TV, then installs CleanMyTV Home. |
+| **Setup** | Checks the network, finds TVs with port 5555 open, connects, and waits while you press Allow on the TV. Google TVs that only offer Wireless debugging get a pairing form. With more than one known TV, it shows them with snapshot thumbnails to pick from. |
 | **Clean up** | Picks the upstream list that matches your TV's model. Every package shows its live state on the TV, and you choose what to disable. If your TV isn't listed, it offers the packages other TVs disable. |
-| **Launcher** | Installs the bundled launcher and hands Home over. If Home doesn't land on it, it rolls back. Optionally enables the Input-key and Home-key helpers. |
-| **Customise** | Drag apps into order (the first row is the dock), hide apps, set columns and rows, upload a wallpaper or a rotating set, adjust dim, background colour, time-of-day sky, greeting, festival skin, motion and remote button mappings. Reads the TV's current `config.json` first, and can take a screenshot of the TV. |
-| **TV extras** | Clock screensaver, ad-blocking Private DNS, animation speed, launcher language, an on-screen remote, reboot. |
+| **Home screen** | Installs or updates CleanMyTV Home and hands Home over. If Home doesn't land on it, it rolls back. Tabs for layout, apps, rows and folders, look and wallpaper, and music bars. See below. |
+| **TV extras** | Ad-blocking Private DNS, animation speed, an on-screen remote, reboot. |
 | **Finish** | Walks through switching debugging off, then checks that port 5555 is closed. |
 
 | | |
@@ -74,11 +74,36 @@ computer** to skip the question next time.
 Nothing is uninstalled. Packages are switched off for your user, and Restore puts every package back
 the way it was before the first cleanup.
 
+## CleanMyTV Home
+
+The Home screen step has five tabs. Every change shows on the TV straight away. The Layout and Apps
+tabs have a live preview of the TV screen at the top.
+
+| Tab | What you set |
+|---|---|
+| **Overview** | Install or update Home, and how to use it. Give Home back to the stock launcher. Remove the old CleanYourTV launcher in one click if it's still on the TV. Take a snapshot of the TV screen. |
+| **Layout** | Three layouts: Shelf (the default), Split and Rail. Space above the apps. The dock, rows, folders and all apps sections, in any order, each one can be hidden. Quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars and Settings. Icons the TV can't open are marked "not on this TV". Dock and row tile sizes, apps per row, app names, clock and greeting. |
+| **Apps, rows & folders** | Dock size, drag to reorder, hide apps, named rows and folders. |
+| **Look & wallpaper** | Accent colour, focus style (glow, outline or none), your own picture or Bing's picture of the day, darken, background colour. |
+| **Music bars** | On or off; bars, mirrored or wave; accent, rainbow or white; peak dots, number of bars, height, opacity and sensitivity. |
+
+Home keeps its settings and wallpaper in its own private storage. The app sends them over ADB through a
+ContentProvider (`content call`) that only the shell user and root may call. This fixes the
+"Permission denied" on `Android/data` (#20, #27, #28) and the theme reset after a reboot (#21).
+
+The music bars read the TV's sound output. The app grants `RECORD_AUDIO` over ADB at install. The
+bars only move while music or video plays. The Music bars icon on the home screen turns them on or off.
+
+CleanMyTV Home needs Android 9 (API 28) or newer.
+
 ## Coming back to customise
 
-Turn USB debugging on again, open the app, and it reconnects to the TV you used last time. When the
-clean launcher is already Home it opens Customise, loaded with what is on the TV now. Switch debugging
+Turn USB debugging on again and open the app. With one known TV, it reconnects to it. When CleanMyTV
+Home is already Home it opens the Home screen step, loaded with what is on the TV now. Switch debugging
 off again when you're done. If you didn't revoke the authorisations, there's no Allow prompt.
+
+The app remembers each TV it has connected to. With more than one, it doesn't connect by itself: Setup
+shows the TVs with snapshot thumbnails, and you pick one. The sidebar shows the connected TV's thumbnail.
 
 If the router gave the TV a new address, or another device now answers at the old one, the app says so
 and scans the network. You pick the TV from the list; the app does not log in to devices it found by
@@ -87,20 +112,19 @@ itself.
 ## Security and privacy
 
 - **What it talks to.** Only the TV address you choose, over ADB on port 5555 of your local network.
-  The optional downloads (Java, the Android SDK, Google's `adb`, the launcher source) come from
-  Adoptium, dl.google.com and GitHub over HTTPS, and only when you click them. The background
-  sources in Customise fetch from www.bing.com, or from api.themoviedb.org and image.tmdb.org with
-  your own TMDB key, only when you use them. No analytics, no accounts, no server of its own.
+  The only optional download is Google's platform-tools, for Wireless debugging pairing. It comes
+  from dl.google.com over HTTPS, and only when you click it. Bing's picture of the day comes from
+  www.bing.com, only when you choose it as the wallpaper. No analytics, no accounts, no server of its
+  own.
 - **Your keys.** The app makes its own ADB key in its data folder and signs only with that. It never
   uses `~/.android/adbkey`, which your phones may also trust, and it only logs in to an address you
   picked. Network ADB is plaintext by design, so use it on a network you trust.
-- **Pinned upstream.** The lists, themes and launcher source come from one upstream commit pinned in
+- **Pinned upstream.** The debloat lists come from one upstream commit pinned in
   [`upstream.json`](upstream.json) with a content hash. A build refuses anything that doesn't match, so
   a change upstream reaches this app only after someone reviews it and moves the pin.
 - **The launcher signing key ships inside the app, on purpose.** `resources/signing/cleanmytv.jks`
-  (password `cleanyourtv`) identifies the sideloaded launcher for upgrades, so a "Build from source"
-  copy installs over the bundled one. It gives no access to a TV: installing anything still needs ADB
-  access the owner allowed.
+  (password `cleanyourtv`) signs CleanMyTV Home, so every build installs over the others. It gives no
+  access to a TV: installing anything still needs ADB access the owner allowed.
 - **Close debugging when you're done.** Some TVs (`ro.adb.secure=0`) accept any device on the network
   without the Allow prompt; the app warns you if yours is one. The Finish step checks that port 5555 is
   closed. The launcher keeps working without debugging.
@@ -112,29 +136,30 @@ Found a security problem? Please report it privately through the repository's
 
 ## How it relates to upstream
 
-The app is a TypeScript port of upstream's `tools/` and `launcher/build-and-install.sh`:
+The debloat side is a TypeScript port of upstream's `tools/`, and the launcher handover follows
+`launcher/build-and-install.sh`:
 
 - `src/main/adb/` is an ADB-over-TCP client, the twin of `tools/tv.py`.
 - `src/main/debloat.ts` has the same guards as `disable.sh`: it won't disable the app that owns Home while nothing else can take it, and it won't disable setupwraith while it owns the Wi-Fi network. It writes the same recovery record to `~/.cleanyourtv/`, plus the TV's device name so the record follows the TV to a new address. `tests/engine.test.ts` checks that the record names and the restore batch match upstream `recovery.py` exactly, so `tools/restore.sh ~/.cleanyourtv/lists/<tv>.txt` can also undo what the app did.
-- `src/main/launcher.ts` follows the handover order of `build-and-install.sh`: install, start, disable the stock launcher, set Home, check, roll back.
-- `src/main/theme.ts` pushes what `tools/theme.sh` pushes, with the same restart.
+- `src/main/launcher.ts` follows the handover order of `build-and-install.sh`: install, start, disable the stock launcher, set Home, check, roll back. It also removes the CleanYourTV launcher that 0.1.x installed.
+- `src/main/home.ts` reads and writes CleanMyTV Home's settings through its ContentProvider.
+
+Upstream's themes are still synced into `resources/upstream`, but the app doesn't use them.
 
 ### The launcher APK
 
-The app bundles a launcher built by `npm run apk` from the pinned upstream commit. That script
-downloads JDK 17 and the Android SDK into `.cytv-build/`, the same way the app's "Build from source"
-option does, and both builds use the same signing key. `resources/launcher.json` records the upstream
-commit each APK came from.
-
-A launcher built with upstream's own script is signed with that computer's debug key. The app detects
-the mismatch and asks before replacing it, because a reinstall loses the tile order set on the TV.
+CleanMyTV Home lives in `home/`: Kotlin and Jetpack Compose for TV, package
+`io.github.wingedpanther.cleanmytv.home`. `npm run home` builds it into `resources/home.apk`, and
+`resources/home.json` records its version. The script uses `JAVA_HOME` and `ANDROID_HOME` if they are
+set. Otherwise it downloads JDK 17 and the Android SDK into `.cytv-build/`. Every build is signed with
+`resources/signing/cleanmytv.jks`, so each one installs over the others.
 
 ## Develop
 
 ```bash
 npm install
 npm run sync                 # lists and themes from the pinned upstream commit
-npm run apk                  # resources/launcher.apk (first run downloads ~800 MB of build tools)
+npm run home                 # resources/home.apk (without JAVA_HOME/ANDROID_HOME, first run downloads the build tools)
 npm run dev                  # the app, with hot reload
 npx tsx scripts/fake-tv.ts   # a pretend TV on 127.0.0.1:5556 to try the app without one
 UPSTREAM_DIR=<clone at the pinned commit> npm test
@@ -143,8 +168,8 @@ npm run dist:win             # dist/*.exe   (on Windows, a Mac, or in CI)
 ```
 
 To move to a newer upstream: review its changes, then `node scripts/pin-upstream.mjs <commit sha>`,
-`npm run sync`, `npm run apk`, and test on a TV. `UPSTREAM_UNPINNED=1` lets `sync` and `apk` use other
-content for a local trial.
+`npm run sync`, and test on a TV. `UPSTREAM_UNPINNED=1` lets `sync` use other content for a local
+trial.
 
 `.github/workflows/build.yml` builds the APK on Linux and runs the tests on every push and pull request.
 Pushes to `main` and version tags also build the macOS and Windows installers; download them from the
@@ -153,7 +178,7 @@ run's **Artifacts**. It runs with read-only repository permissions and actions p
 ### Releasing
 
 1. Set the new `version` in `package.json` and commit it.
-2. Tag and push: `git tag v0.1.1 && git push origin main v0.1.1`.
+2. Tag and push: `git tag v0.2.0 && git push origin main v0.2.0`.
 3. The workflow builds both installers and opens a **draft** release with them attached. Check it,
    then press **Publish release**.
 
@@ -169,16 +194,12 @@ The tag has to match the version in `package.json`, or the release step stops.
 
 ## Known limits
 
-- Tile order and app-library choices made on the TV live in the launcher's private storage, which
-  ADB can't read. The app sets the order through `dock_apps`, which takes precedence over the
-  on-TV order.
-- App names come from a built-in table of common TV apps. Others get a name made from the package,
-  and the TV's own labels and icons aren't read.
 - Wireless debugging pairing uses Google's `adb`, downloaded on demand. On macOS, Local Network
   privacy can block that binary. If pairing fails there, pair from a Windows PC or run `adb pair`
   in Terminal once.
 
 ## Licence
 
-MIT, see [LICENSE](LICENSE). The bundled lists, themes and launcher are from
-[cleanyourtv](https://github.com/Gathin23/cleanyourtv), also MIT; its licence ships in `resources/upstream/LICENSE`.
+MIT, see [LICENSE](LICENSE). The bundled debloat lists and themes are from
+[cleanyourtv](https://github.com/Gathin23/cleanyourtv) by Gathin23, also MIT; its licence ships in
+`resources/upstream/LICENSE`.

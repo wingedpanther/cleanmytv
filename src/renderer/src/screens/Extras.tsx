@@ -1,30 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { ApplyResult, SystemState } from '@shared/api'
 import type { ScreenProps } from '../App'
-import { Busy, Confirm, ResultNotice, Toggle, errorText } from '../components/ui'
+import { Busy, Confirm, ResultNotice, errorText } from '../components/ui'
 
 const ADGUARD = 'dns.adguard-dns.com'
-
-const LANGUAGES: [string, string][] = [
-  ['en', 'English'],
-  ['de', 'Deutsch'],
-  ['es', 'Español'],
-  ['ca', 'Català'],
-  ['fr', 'Français'],
-  ['ru', 'Русский'],
-  ['sr-Latn', 'Srpski (latinica)'],
-  ['pl', 'Polski'],
-  ['pt', 'Português'],
-  ['tr', 'Türkçe'],
-  ['ar', 'العربية'],
-  ['iw', 'עברית'],
-  ['zh-CN', '简体中文'],
-  ['zh-TW', '繁體中文 (台灣)'],
-  ['th', 'ไทย'],
-  ['fi', 'Suomi'],
-  ['vi', 'Tiếng Việt'],
-  ['bn', 'বাংলা']
-]
 
 const SPEEDS: [number, string][] = [
   [0, 'Off'],
@@ -37,7 +16,6 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
   const [result, setResult] = useState<ApplyResult | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [dnsHost, setDnsHost] = useState('')
-  const [lang, setLang] = useState('en')
   const [askReboot, setAskReboot] = useState(false)
 
   const refresh = (): void => {
@@ -78,19 +56,7 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
         </div>
       )}
 
-      <div className="grid-2">
-        <div className="card">
-          <h2>Screensaver</h2>
-          <Toggle
-            label="Clock screensaver"
-            hint="A thin clock drifting over a soft glow, so nothing burns in. It comes with the launcher."
-            checked={sys.screensaverIsClock}
-            disabled={!!busy}
-            onChange={(v) => run(v ? 'Setting the Clock screensaver' : 'Setting the TV default screensaver', () => window.cytv.setClockScreensaver(v))}
-          />
-        </div>
-
-        <div className="card">
+      <div className="card">
           <h2>Animation speed</h2>
           <p className="muted small">How fast menus and apps open, across the whole TV. Off feels snappiest on slow TVs.</p>
           <div className="seg">
@@ -100,7 +66,6 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
               </button>
             ))}
           </div>
-        </div>
       </div>
 
       <div className="card">
@@ -141,33 +106,7 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
         )}
       </div>
 
-      <div className="grid-2">
-        <div className="card">
-          <h2>Launcher language</h2>
-          {sys.sdk >= 33 ? (
-            <>
-              <p className="muted small">The launcher follows the TV's language. Android 13 and newer can set it for the launcher alone.</p>
-              <div className="row">
-                <select value={lang} onChange={(e) => setLang(e.target.value)}>
-                  {LANGUAGES.map(([tag, name]) => (
-                    <option key={tag} value={tag}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-                <button className="btn" disabled={!!busy} onClick={() => run('Setting the launcher language', () => window.cytv.setLauncherLocale(lang))}>
-                  Set
-                </button>
-              </div>
-            </>
-          ) : (
-            <p className="muted small">
-              This TV runs Android API {sys.sdk}. A language for the launcher alone needs Android 13 (API 33). Change the TV's own
-              language in its Settings instead.
-            </p>
-          )}
-        </div>
-
+      <div>
         <div className="card">
           <h2>Remote</h2>
           <p className="muted small">Press buttons on the TV from here, handy when the remote is in the other room.</p>

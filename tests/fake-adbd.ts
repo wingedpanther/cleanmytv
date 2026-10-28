@@ -121,7 +121,7 @@ function sh(tv: FakeTv, cmd: string): string {
   }
   if ((m = /^dumpsys package (\S+) \| grep/.exec(cmd))) {
     if (!tv.packages.has(m[1])) return ''
-    return m[1] === 'com.gathin.tvhome' ? '    versionName=2.4\n' : '    versionName=0.2.0-preview\n'
+    return m[1] === 'com.gathin.tvhome' ? '    versionName=2.4\n' : '    versionName=1.0.0\n'
   }
   if ((m = /^screencap -p (\S+)$/.exec(cmd))) { tv.files.set(m[1], tv.screenshot); return '' }
   if ((m = /^ls (\S+)\/wallpapers/.exec(cmd))) return [...tv.files.keys()].filter((f) => f.startsWith(m![1] + '/wallpapers/')).map((f) => f.split('/').pop()).join('\n') + '\n'
@@ -129,6 +129,12 @@ function sh(tv: FakeTv, cmd: string): string {
   if (cmd.includes('rm -f') && cmd.includes('config.json')) for (const f of [...tv.files.keys()]) if (/config\.json|wallpaper/.test(f)) tv.files.delete(f)
   if (cmd.includes('echo reset')) return 'reset\n'
   if (cmd.includes('echo applied')) return 'applied\n'
+  if ((m = /^pm uninstall (\S+)$/.exec(cmd))) {
+    if (!tv.packages.delete(m[1])) return 'Failure [DELETE_FAILED_INTERNAL_ERROR]\n'
+    tv.homeClaims = tv.homeClaims.filter((c) => !c.startsWith(m![1] + '/'))
+    return 'Success\n'
+  }
+  if ((m = /^settings delete (?:global|secure) (\S+)$/.exec(cmd))) { tv.settings.delete(m[1]); return 'Deleted 1 rows\n' }
   if ((m = /^rm -f (.+)$/.exec(cmd))) { for (const f of m[1].split(' ')) tv.files.delete(f); return '' }
   if ((m = /^echo '([A-Za-z0-9+/=]*)' >> (\S+) && echo (ok\d+)$/.exec(cmd))) {
     tv.files.set(m[2], Buffer.concat([tv.files.get(m[2]) ?? Buffer.alloc(0), Buffer.from(m[1] + '\n')])); return m[3] + '\n'

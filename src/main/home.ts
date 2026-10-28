@@ -1,4 +1,4 @@
-// CleanMyTV Home, the preview launcher in home/. Its settings and wallpaper live in its own private
+// CleanMyTV Home, the launcher in home/. Its settings and wallpaper live in its own private
 // storage and come in over ADB through its ConfigProvider (`content call`), so there's no shared folder
 // to fail (#20) and nothing to reread after a reboot (#21). Changes show on the TV straight away.
 import { createHash } from 'node:crypto'
@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { paths } from './paths'
 import { log } from './log'
 import * as T from './tv'
-import { HOME_PKG, detectStock, handOver } from './launcher'
+import { HOME_PKG, OLD_PKG, detectStock, handOver } from './launcher'
 import type { HomeConfig, HomeGroup, HomeStatus, InstallResult, TvApp } from '@shared/api'
 
 const TASK = 'install'
@@ -32,7 +32,7 @@ const CHOICES = {
 
 const LISTS = {
   sections: ['dock', 'rows', 'folders', 'grid'],
-  quick: ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search']
+  quick: ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music']
 } as const
 
 const GROUPS = { rows: 8, folders: 12 } as const
@@ -60,7 +60,9 @@ export async function status(): Promise<HomeStatus> {
   const dump = await T.tv().shell(`dumpsys package ${HOME_PKG} | grep -m1 versionName`)
   const versionName = /versionName=(\S+)/.exec(dump)?.[1]
   const home = await T.homeComponent()
+  const { installed } = await T.packageSets()
   return {
+    oldLauncher: installed.has(OLD_PKG),
     installed: !!versionName,
     versionName,
     isHome: !!home && home.startsWith(HOME_PKG + '/'),

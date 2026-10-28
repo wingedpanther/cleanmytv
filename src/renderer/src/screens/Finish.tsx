@@ -38,7 +38,7 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
       <h1>Finish and lock</h1>
       <p className="lede">
         Network debugging is a plain-text shell on port 5555. On some TVs any device on your Wi-Fi can use it without the Allow
-        prompt. Close it when you're done. The launcher, the clean-up and your theme keep working without it. Turn it on again
+        prompt. Close it when you're done. The home screen and the clean-up keep working without it. Turn it on again
         any time you want to change something from this app.
       </p>
 
@@ -64,11 +64,11 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
       <div className="card white">
         <h2>Coming back later</h2>
         <p className="muted" style={{ marginBottom: 8 }}>
-          To change the wallpaper, the app order or anything else in Customise:
+          To change the wallpaper, the app order or anything else on the home screen:
         </p>
         <ol className="small" style={{ margin: '0 0 8px', paddingLeft: 20 }}>
           <li>On the TV, turn USB debugging on again (and Network or ADB debugging if your TV has it).</li>
-          <li>Open this app. It reconnects to the TV by itself, finds it again if its address changed, and opens Customise.</li>
+          <li>Open this app. It reconnects to the TV by itself, finds it again if its address changed, and opens the Home screen step.</li>
           <li>If you revoked the authorisations, choose Allow on the TV once more.</li>
           <li>Apply your changes, then turn debugging off again.</li>
         </ol>

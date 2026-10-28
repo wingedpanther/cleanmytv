@@ -9,10 +9,6 @@ files:
 extraResources:
   - from: resources/upstream
     to: upstream
-  - from: resources/launcher.apk
-    to: launcher.apk
-  - from: resources/launcher.json
-    to: launcher.json
   - from: resources/home.apk
     to: home.apk
   - from: resources/home.json

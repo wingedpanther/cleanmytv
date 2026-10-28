@@ -119,10 +119,10 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
 
   return (
     <>
-      <h1>Home launcher</h1>
+      <h1>Home screen</h1>
       <p className="lede">
-        CleanMyTV Home is our own launcher. Changes here show on the TV straight away and stay after a reboot. It's a preview:
-        if anything breaks, switch back from the Overview tab.
+        CleanMyTV Home is the TV's new home screen: no ads, your apps, your layout. Install it once, then change anything here;
+        the TV shows it straight away and keeps it after a reboot. The stock launcher is one click away on the Overview tab.
       </p>
       <ResultNotice result={result} onDismiss={() => setResult(null)} />
       {busy && (
@@ -230,16 +230,22 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
             </button>
           )}
           {home.isHome && (
-            <>
-              <button className="btn" disabled={busy} onClick={() => run('Switching Home to CleanYourTV', () => window.cytv.useCleanYourTv())}>
-                Use CleanYourTV
-              </button>
-              <button className="btn" disabled={busy} onClick={props.askStock}>
-                Give Home back to the stock launcher
-              </button>
-            </>
+            <button className="btn" disabled={busy} onClick={props.askStock}>
+              Give Home back to the stock launcher
+            </button>
           )}
         </div>
+        {home.oldLauncher && (
+          <div className="notice" style={{ marginTop: 16, marginBottom: 0 }}>
+            <p style={{ margin: '0 0 10px' }}>
+              The CleanYourTV launcher from earlier versions of this app is still on the TV. CleanMyTV Home replaces it.
+              {!home.isHome && ' Install or switch to CleanMyTV Home first.'}
+            </p>
+            <button className="btn small" disabled={busy || !home.isHome} onClick={() => run('Removing the CleanYourTV launcher', () => window.cytv.removeOldLauncher())}>
+              Remove the CleanYourTV launcher
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="card">
@@ -395,7 +401,7 @@ const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, num
 
 const SECTION_LABEL: Record<HomeSection, string> = { dock: 'Dock', rows: 'Rows', folders: 'Folders', grid: 'All apps' }
 const ALL_SECTIONS: HomeSection[] = ['dock', 'rows', 'folders', 'grid']
-const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'settings']
+const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'settings']
 
 /** Turn items on and off and put the ones that are on in order. */
 function OrderList<T extends string>(props: { all: T[]; on: T[]; label: (t: T) => ReactNode; onChange: (on: T[]) => void }): ReactNode {
@@ -468,7 +474,7 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
         <div className="card">
           <h2>Quick settings</h2>
           <p className="muted small">
-            {cfg.layout === 'rail' ? 'Icons in the rail.' : cfg.layout === 'split' ? 'Under the clock.' : 'Next to the clock.'} The TV hides any it can't open, such as Inputs on a box
+            {cfg.layout === 'rail' ? 'Icons in the rail.' : cfg.layout === 'split' ? 'At the bottom of the left side.' : 'Under the clock and date.'} The TV hides any it can't open, such as Inputs on a box
             without HDMI inputs, or Search when the search app is switched off.
           </p>
           <OrderList
@@ -604,7 +610,7 @@ function MusicTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
       <div className="card">
         <Toggle
           label="Music bars"
-          hint="Bars along the bottom of the home screen that move with whatever the TV is playing. They hide when it's quiet."
+          hint="Bars along the bottom of the home screen that move with music or video playing on the TV. The remote's clicks don't set them off. Add the Music bars icon in Layout → Quick settings to turn them on and off from the TV."
           checked={cfg.visualiser}
           onChange={(v) => set({ visualiser: v })}
         />

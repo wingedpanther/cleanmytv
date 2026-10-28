@@ -149,11 +149,12 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int) {
     val accent = Color(cfg.accent)
     // Quick-settings icons this TV can actually open; Inputs only on TVs that have inputs.
     val all = remember { quickActions() }
-    val quick = cfg.quick.mapNotNull { all[it] }.filter { if (it.id == "inputs") inputs.isNotEmpty() else resolve(ctx, it) != null }
+    val quick = cfg.quick.mapNotNull { all[it] }.filter { canOpen(ctx, it, inputs.isNotEmpty()) }
     var openFolder by remember { mutableStateOf<Pair<String, List<TvApp>>?>(null) }
     var showInputs by remember { mutableStateOf(false) }
     val onQuick: (QuickAction) -> Unit = { a ->
         if (a.id == "inputs") showInputs = true
+        else if (a.id == "music") ConfigStore.update(ctx, org.json.JSONObject().put("visualiser", !cfg.visualiser))
         else resolve(ctx, a)?.let { i -> runCatching { ctx.startActivity(i) }.onFailure { Log.w(TAG, "${a.id}: $it") } }
     }
     val first = remember { FocusRequester() }
@@ -200,12 +201,17 @@ private fun ShelfLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val open = maxHeight * (cfg.topSpace / 100f)
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(start = SAFE_X, end = SAFE_X, top = SAFE_Y), verticalAlignment = Alignment.CenterVertically) {
-                Greeting(cfg, 20.sp)
+            // Greeting on the left; on the right the clock, the date, and the quick-settings icons under them.
+            Row(Modifier.fillMaxWidth().padding(start = SAFE_X, end = SAFE_X, top = SAFE_Y), verticalAlignment = Alignment.Top) {
+                Box(Modifier.padding(top = 4.dp)) { Greeting(cfg, 20.sp) }
                 Spacer(Modifier.weight(1f))
-                Row(Modifier.focusGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) { quick.forEach { QuickButton(it, ui, onQuick) } }
-                if (quick.isNotEmpty() && cfg.clock != "off") Spacer(Modifier.width(20.dp))
-                Clock(cfg, 26.sp, 12.sp, Alignment.End)
+                Column(horizontalAlignment = Alignment.End) {
+                    Clock(cfg, 26.sp, 12.sp, Alignment.End)
+                    if (quick.isNotEmpty()) {
+                        if (cfg.clock != "off") Spacer(Modifier.height(10.dp))
+                        Row(Modifier.focusGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) { quick.forEach { QuickButton(it, ui, onQuick) } }
+                    }
+                }
             }
             Sections(home, ui, Modifier.fillMaxSize(), PaddingValues(start = SAFE_X - BLEED, end = SAFE_X - BLEED, top = open, bottom = 96.dp), dockWidth = 200.dp)
         }
@@ -416,14 +422,14 @@ private fun QuickButton(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit) 
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = ui.accent.copy(alpha = 0.9f))
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Image(a.icon, a.label, Modifier.size(22.dp), colorFilter = ColorFilter.tint(if (focused) onAccent(ui.accent) else TEXT))
+            Image(iconFor(a, ui.cfg), a.label, Modifier.size(22.dp), colorFilter = ColorFilter.tint(if (focused) onAccent(ui.accent) else TEXT))
         }
     }
 }
 
 @Composable
 private fun QuickRow(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit, expanded: Boolean) =
-    RailItem(a.icon, a.label, ui, expanded) { onQuick(a) }
+    RailItem(iconFor(a, ui.cfg), a.label, ui, expanded) { onQuick(a) }
 
 @Composable
 private fun RailItem(icon: ImageVector, label: String, ui: Ui, expanded: Boolean, onClick: () -> Unit) {
