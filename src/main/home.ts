@@ -100,6 +100,8 @@ export function parse(out: string): HomeConfig {
   const o = JSON.parse(m[1]) as Record<string, unknown>
   const cfg: HomeConfig = { ...DEFAULTS, ...clean(o, true) }
   cfg.has_wallpaper = o.has_wallpaper === true
+  // Older launchers don't report this; leave it unset so the editor doesn't mark everything unavailable.
+  if (Array.isArray(o.quick_available)) cfg.quick_available = o.quick_available.filter((q): q is HomeConfig['quick'][number] => (LISTS.quick as readonly unknown[]).includes(q))
   return cfg
 }
 

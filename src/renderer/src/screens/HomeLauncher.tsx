@@ -467,13 +467,17 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
         </div>
         <div className="card">
           <h2>Quick settings</h2>
-          <p className="muted small">{cfg.layout === 'rail' ? 'Icons in the rail.' : cfg.layout === 'split' ? 'Under the clock.' : 'Next to the clock.'} Inputs only shows on TVs with HDMI inputs.</p>
+          <p className="muted small">
+            {cfg.layout === 'rail' ? 'Icons in the rail.' : cfg.layout === 'split' ? 'Under the clock.' : 'Next to the clock.'} The TV hides any it can't open, such as Inputs on a box
+            without HDMI inputs, or Search when the search app is switched off.
+          </p>
           <OrderList
             all={ALL_QUICK}
             on={cfg.quick}
             label={(q) => (
               <>
                 <QuickIcon id={q} /> {QUICK_LABEL[q]}
+                {cfg.quick_available && !cfg.quick_available.includes(q) && <span className="muted small">not on this TV</span>}
               </>
             )}
             onChange={(quick) => set({ quick })}

@@ -106,6 +106,9 @@
 * { box-sizing: border-box; }
 
 html, body, #root { height: 100%; margin: 0; }
+/* The window itself never scrolls: only .content and the sidebar do. Focusing a control could otherwise
+   scroll the page past the app into empty space. */
+html, body { overflow: hidden; overscroll-behavior: none; }
 
 body {
   background: var(--background);
@@ -129,7 +132,7 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; }
 
 /* ---------- shell ---------- */
 
-.app { display: grid; grid-template-columns: 248px 1fr; grid-template-rows: minmax(0, 1fr); height: 100%; overflow: hidden; }
+.app { display: grid; grid-template-columns: 248px 1fr; grid-template-rows: minmax(0, 1fr); position: fixed; inset: 0; overflow: hidden; }
 
 .sidebar {
   background: var(--sidebar);

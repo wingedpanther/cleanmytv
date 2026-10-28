@@ -64,7 +64,9 @@ class ConfigProvider : ContentProvider() {
             }
             else -> throw IllegalArgumentException("unknown method: $method")
         }
-        val config = ConfigStore.config.value.toJson().put("has_wallpaper", ConfigStore.wallpaper(ctx).exists())
+        val config = ConfigStore.config.value.toJson()
+            .put("has_wallpaper", ConfigStore.wallpaper(ctx).exists())
+            .put("quick_available", org.json.JSONArray(availableQuick(ctx)))
         out.putString("config", config.toString())
         return out
     }

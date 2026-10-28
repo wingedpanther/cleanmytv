@@ -199,6 +199,8 @@ export interface HomeConfig {
   viz_sensitivity: number
   /** Read only: a wallpaper is set. */
   has_wallpaper?: boolean
+  /** Read only: the quick-settings icons this TV can open (others are hidden on the TV). */
+  quick_available?: QuickId[]
 }
 
 /** A TV this app has connected to before. */

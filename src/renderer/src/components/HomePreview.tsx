@@ -157,7 +157,8 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
     return () => ro.disconnect()
   }, [])
   const greet = greetingText(cfg)
-  const quick = cfg.quick
+  // As on the TV: icons it can't open are left out.
+  const quick = cfg.quick.filter((q) => !cfg.quick_available || cfg.quick_available.includes(q))
   const ground: CSSProperties = {
     background: cfg.has_wallpaper
       ? `linear-gradient(rgba(0,0,0,${cfg.wallpaper_dim / 100}), rgba(0,0,0,${cfg.wallpaper_dim / 100})), linear-gradient(160deg, #6b5a3e, #2f3b2a 55%, #1a2418)`
