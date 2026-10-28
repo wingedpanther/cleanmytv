@@ -8,6 +8,9 @@ New to this? The **[user guide](docs/USER-GUIDE.md)** walks every step at TV-own
 rollback and troubleshooting, and the **[known-devices table](docs/KNOWN-DEVICES.md)** shows what the
 bundled lists cover per model. This README is the technical overview.
 
+Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
+Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
+
 This is an independent project, not part of cleanyourtv. The debloat lists, themes and launcher come
 from upstream unchanged; this app is the desktop front end for them. Tested on a Xiaomi Mi Box S from
 Windows.
@@ -155,6 +158,14 @@ run's **Artifacts**. It runs with read-only repository permissions and actions p
    then press **Publish release**.
 
 The tag has to match the version in `package.json`, or the release step stops.
+
+## Help and community
+
+- **Chat and how-to questions:** the [CleanMyTV Discord](https://discord.gg/6hZeQkDYf9). Share your
+  home screen in `#show-your-setup`.
+- **Bugs and feature requests:** [open a GitHub issue](https://github.com/wingedpanther/cleanmytv/issues/new)
+  with your TV model, Android version and what happened. Issues are where fixes get tracked, so please
+  don't report bugs only in Discord.
 
 ## Known limits
 
