@@ -122,7 +122,7 @@ private class Home(apps: List<TvApp>, val cfg: HomeConfig) {
 }
 
 @Composable
-fun HomeScreen(visualiser: Visualiser, appsVersion: Int) {
+fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.runtime.MutableState<String?>) {
     val ctx = LocalContext.current
     val cfg by ConfigStore.config.collectAsState()
     val wallVersion by ConfigStore.wallpaperVersion.collectAsState()
@@ -152,6 +152,10 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int) {
     val quick = cfg.quick.mapNotNull { all[it] }.filter { canOpen(ctx, it, inputs.isNotEmpty()) }
     var openFolder by remember { mutableStateOf<Pair<String, List<TvApp>>?>(null) }
     var showInputs by remember { mutableStateOf(false) }
+    LaunchedEffect(open.value) {
+        if (open.value == "inputs") showInputs = true
+        open.value = null
+    }
     val onQuick: (QuickAction) -> Unit = { a ->
         if (a.id == "inputs") showInputs = true
         else if (a.id == "music") ConfigStore.update(ctx, org.json.JSONObject().put("visualiser", !cfg.visualiser))

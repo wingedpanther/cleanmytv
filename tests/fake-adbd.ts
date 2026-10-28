@@ -103,6 +103,7 @@ function sh(tv: FakeTv, cmd: string): string {
       if (createHash('md5').update(data).digest('hex') !== m[2]) return 'Error: wallpaper upload is damaged\n'
       tv.files.set('/data/data/home/wallpaper.jpg', data)
     } else if (m[1] === 'wallpaper_remove') tv.files.delete('/data/data/home/wallpaper.jpg')
+    else if (m[1] === 'keys') return `Result: Bundle[{keys=${JSON.stringify([{ seq: 7, code: 83, name: 'KEYCODE_NOTIFICATION' }, { seq: 'x', code: 1 }])}}]\n`
     else if (m[1] === 'apps') return `Result: Bundle[{apps=${JSON.stringify([...tv.leanback.map((p) => ({ pkg: p, label: p.split('.').pop(), tv: true })), { pkg: 'bad;pkg', label: 'x', tv: true }])}}]\n`
     else if (m[1] !== 'get') return `Error: unknown method: ${m[1]}\n`
     return `Result: Bundle[{config=${JSON.stringify({ ...tv.homeConfig, has_wallpaper: tv.files.has('/data/data/home/wallpaper.jpg') })}}]\n`

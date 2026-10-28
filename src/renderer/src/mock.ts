@@ -53,9 +53,10 @@ export function installMock(): void {
   let launcherHome = false
   let homeInstalled = false
   let homeIsHome = false
+  let keySeq = 0
   const homeConfig: HomeConfig = {
     layout: 'shelf', sections: ['dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
-    rows: [{ name: 'Watch', apps: ['com.netflix.ninja', 'com.google.android.youtube.tv'] }], folders: [], dock_scale: 100, tile_scale: 100,
+    rows: [{ name: 'Watch', apps: ['com.netflix.ninja', 'com.google.android.youtube.tv'] }], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [],
     accent: '#4CAF50', focus: 'glow', background: '#1C2A1F', wallpaper_dim: 35,
     order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, clock: 'time_date', greeting: '',
     visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100,
@@ -270,6 +271,15 @@ export function installMock(): void {
     async homeApps() {
       await wait(200)
       return apps
+    },
+    async setRemoteButtons(on) {
+      await wait(400)
+      homeConfig.buttons_on = on
+      return { ...homeConfig }
+    },
+    async homeKeys() {
+      keySeq += 1
+      return keySeq % 3 === 0 ? [{ seq: keySeq, code: 83, name: 'KEYCODE_NOTIFICATION' }] : []
     },
     async readHomeConfig() {
       await wait(200)

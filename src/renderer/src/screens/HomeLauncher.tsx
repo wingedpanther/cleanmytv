@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ApplyResult, HomeConfig, HomeGroup, HomeLayout, HomeSection, HomeStatus, QuickId, TvApp } from '@shared/api'
+import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, HomeLayout, HomeSection, HomeStatus, KeyPress, QuickId, TvApp } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { AppOrder } from '../components/AppOrder'
 import { HomePreview, QUICK_LABEL, QuickIcon } from '../components/HomePreview'
@@ -7,14 +7,15 @@ import { Busy, Confirm, ResultNotice, Slider, StatusChip, Toggle, errorText } fr
 import { prepareWallpaper, thumbnail } from '../lib/image'
 import { fetchBingDaily } from '../lib/backgrounds'
 
-type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'music'
+type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'music' | 'buttons'
 
 const TABS: [Tab, string][] = [
   ['overview', 'Overview'],
   ['layout', 'Layout'],
   ['apps', 'Apps, rows & folders'],
   ['look', 'Look & wallpaper'],
-  ['music', 'Music bars']
+  ['music', 'Music bars'],
+  ['buttons', 'Remote buttons']
 ]
 
 const ACCENTS = ['#FF3000', '#2EC4B6', '#FFB23C', '#7C5CFF', '#3DDC84', '#FFFFFF']
@@ -156,6 +157,7 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
           {ready && tab === 'layout' && apps && <LayoutTab apps={apps} cfg={cfg} set={set} />}
           {ready && tab === 'look' && <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} />}
           {ready && tab === 'music' && <MusicTab cfg={cfg} set={set} />}
+          {ready && tab === 'buttons' && apps && <ButtonsTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
           {ready && tab !== 'overview' && <p className="small muted">{saving ? 'Sending to the TV…' : 'Saved on the TV.'}</p>}
         </>
       )}
@@ -645,6 +647,164 @@ function MusicTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
           </div>
         </>
       )}
+    </>
+  )
+}
+
+const ACTIONS: [ButtonAction, string][] = [
+  ['settings', 'Open Settings'],
+  ['inputs', 'Open Inputs'],
+  ['home', 'Go Home'],
+  ['back', 'Back'],
+  ['app', 'Open an app…'],
+  ['wifi', 'Open Wi-Fi'],
+  ['bluetooth', 'Open Bluetooth & remotes'],
+  ['display', 'Open Picture & sound'],
+  ['apps', 'Open the app list'],
+  ['sleep', 'Start the screensaver'],
+  ['search', 'Open Search'],
+  ['music', 'Music bars on or off'],
+  ['none', 'Do nothing']
+]
+
+/** KEYCODE_PROG_RED -> "Prog red". */
+const keyName = (name: string): string => {
+  const s = name.replace(/^KEYCODE_/, '').toLowerCase().replace(/_/g, ' ')
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c: HomeConfig) => void; onError: (e: unknown) => void }): ReactNode {
+  const { cfg, set, apps } = props
+  const [switching, setSwitching] = useState(false)
+  const [listening, setListening] = useState(false)
+  const [heard, setHeard] = useState<KeyPress[]>([])
+  const [names, setNames] = useState<Record<number, string>>({})
+
+  async function toggle(on: boolean): Promise<void> {
+    setSwitching(true)
+    try {
+      props.setCfg(await window.cytv.setRemoteButtons(on))
+    } catch (e) {
+      props.onError(e)
+    } finally {
+      setSwitching(false)
+    }
+  }
+
+  // Listen for 30 seconds: show every button the TV receives from now on.
+  useEffect(() => {
+    if (!listening) return
+    let stop = false
+    let since = Number.MAX_SAFE_INTEGER
+    const end = Date.now() + 30_000
+    void (async () => {
+      const first = await window.cytv.homeKeys().catch(() => [])
+      since = first.length ? first[first.length - 1].seq : 0
+      setHeard([])
+      while (!stop && Date.now() < end) {
+        await new Promise((r) => setTimeout(r, 600))
+        const keys = await window.cytv.homeKeys().catch(() => [])
+        const fresh = keys.filter((k) => k.seq > since)
+        if (fresh.length) {
+          since = fresh[fresh.length - 1].seq
+          setHeard((prev) => [...prev, ...fresh].slice(-12))
+          setNames((prev) => ({ ...prev, ...Object.fromEntries(fresh.map((k) => [k.code, k.name])) }))
+        }
+      }
+      if (!stop) setListening(false)
+    })()
+    return () => { stop = true }
+  }, [listening])
+
+  const mapped = new Set(cfg.buttons.map((b) => b.code))
+  const update = (buttons: HomeButton[]): void => set({ buttons })
+  const label = (code: number): string => (names[code] ? `${keyName(names[code])} · ${code}` : `Button ${code}`)
+
+  return (
+    <>
+      <div className="card">
+        <Toggle
+          label="Remote buttons"
+          hint="Lets CleanMyTV Home give buttons a new job, in every app. Only the buttons you add below are touched; every other button works as before. It uses an Android accessibility service, switched on and off from here."
+          checked={cfg.buttons_on}
+          disabled={switching}
+          onChange={toggle}
+        />
+      </div>
+
+      <div className="card">
+        <div className="card-head">
+          <h2>Find a button</h2>
+          <button className="btn small" onClick={() => setListening(!listening)}>
+            {listening ? 'Stop listening' : 'Listen'}
+          </button>
+        </div>
+        <p className="muted small">
+          Press Listen, then press buttons on the remote. Each one the TV receives shows here with its code.
+          {!cfg.buttons_on && ' With Remote buttons off, only presses on the home screen show up.'} A button that never shows up
+          (often Power, volume or the mic) is handled before Android sees it, so it can't get a new job on this TV.
+        </p>
+        {listening && heard.length === 0 && <Busy text="Listening. Press a button on the remote" />}
+        {heard.length > 0 && (
+          <ul className="order-list">
+            {heard.map((k) => (
+              <li key={k.seq}>
+                <span className="grow">
+                  <b>{keyName(k.name)}</b>
+                  <span className="muted small">code {k.code}</span>
+                </span>
+                <button className="btn small" disabled={mapped.has(k.code)} onClick={() => update([...cfg.buttons, { code: k.code, action: 'settings' }])}>
+                  {mapped.has(k.code) ? 'Added' : 'Give it a job'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="card">
+        <h2>Button jobs</h2>
+        {cfg.buttons.length === 0 ? (
+          <p className="muted small">None yet. Find a button above and give it a job.</p>
+        ) : (
+          <ul className="order-list">
+            {cfg.buttons.map((b, i) => (
+              <li key={b.code}>
+                <span className="grow">
+                  <b>{label(b.code)}</b>
+                </span>
+                <select
+                  value={b.action}
+                  aria-label={`Job for ${label(b.code)}`}
+                  onChange={(e) => {
+                    const action = e.target.value as ButtonAction
+                    update(cfg.buttons.map((x, j) => (j === i ? { code: x.code, action, ...(action === 'app' ? { app: apps[0]?.pkg } : {}) } : x)))
+                  }}
+                >
+                  {ACTIONS.map(([id, text]) => (
+                    <option key={id} value={id}>
+                      {text}
+                    </option>
+                  ))}
+                </select>
+                {b.action === 'app' && (
+                  <select value={b.app ?? ''} aria-label="App to open" onChange={(e) => update(cfg.buttons.map((x, j) => (j === i ? { ...x, app: e.target.value } : x)))}>
+                    {apps.map((a) => (
+                      <option key={a.pkg} value={a.pkg}>
+                        {a.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button className="btn small ghost" onClick={() => update(cfg.buttons.filter((_, j) => j !== i))}>
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {cfg.buttons.length > 0 && !cfg.buttons_on && <p className="small muted" style={{ marginTop: 8 }}>Turn on Remote buttons above for these to work.</p>}
+      </div>
     </>
   )
 }

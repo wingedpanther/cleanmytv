@@ -124,6 +124,24 @@ export type HomeLayout = 'shelf' | 'split' | 'rail'
 export type HomeSection = 'dock' | 'rows' | 'folders' | 'grid'
 export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music'
 
+/** What a mapped remote button does: a quick-settings action, Home, Back, nothing, or open an app. */
+export type ButtonAction = QuickId | 'home' | 'back' | 'none' | 'app'
+
+export interface HomeButton {
+  /** Android key code the remote sends, 1 to 400. */
+  code: number
+  action: ButtonAction
+  /** Package to open when action is 'app'. */
+  app?: string
+}
+
+/** A button the TV received, from the launcher's button finder. */
+export interface KeyPress {
+  seq: number
+  code: number
+  name: string
+}
+
 /** A named row of apps, or a folder. */
 export interface HomeGroup {
   name: string
@@ -146,6 +164,9 @@ export interface HomeConfig {
   dock_scale: number
   /** Row and folder tiles, percent, 60 to 150. */
   tile_scale: number
+  /** The remote-button service is on (it only touches buttons in `buttons`). */
+  buttons_on: boolean
+  buttons: HomeButton[]
   // Look
   /** #RRGGBB, for the focus glow or outline and the music bars. */
   accent: string
@@ -288,6 +309,10 @@ export interface CytvApi {
   readHomeConfig(): Promise<HomeConfig>
   /** Applies on the TV straight away; returns what the launcher now has. */
   setHomeConfig(change: Partial<HomeConfig>): Promise<HomeConfig>
+  /** Turns the remote-button service on or off on the TV. */
+  setRemoteButtons(on: boolean): Promise<HomeConfig>
+  /** The last buttons the TV received, newest last. */
+  homeKeys(): Promise<KeyPress[]>
   /** A prepared JPEG (base64) for the home screen, or null to remove it. */
   setHomeWallpaper(jpegBase64: string | null): Promise<HomeConfig>
 

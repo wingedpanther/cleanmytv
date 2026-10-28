@@ -103,6 +103,25 @@ export async function switchTo(main: string): Promise<ApplyResult> {
   return failed ?? { ok: true, summary: 'Switched. Press Home on the remote to see it.', warnings: [] }
 }
 
+/** Takes a package's accessibility services out of the TV's enabled list, keeping everyone else's. */
+export async function dropServices(pkg: string): Promise<void> {
+  const services = (await T.tv().shell('settings get secure enabled_accessibility_services')).trim()
+  if (!services.includes(pkg + '/')) return
+  // Only well-formed components go back into a shell command.
+  const rest = services.split(':').filter((c) => c && c !== 'null' && !c.startsWith(pkg + '/') && /^[A-Za-z_][\w.]*\/[\w.]+$/.test(c))
+  await T.sh(TASK, rest.length ? `settings put secure enabled_accessibility_services ${rest.join(':')}` : 'settings delete secure enabled_accessibility_services')
+}
+
+/** Adds a service to the TV's enabled list (once) and switches accessibility on. */
+export async function addService(component: string): Promise<void> {
+  if (!/^[A-Za-z_][\w.]*\/[\w.]+$/.test(component)) throw new Error(`not a component: ${component}`)
+  const services = (await T.tv().shell('settings get secure enabled_accessibility_services')).trim()
+  const list = services.split(':').filter((c) => c && c !== 'null' && /^[A-Za-z_][\w.]*\/[\w.]+$/.test(c))
+  if (!list.includes(component)) list.push(component)
+  await T.sh(TASK, `settings put secure enabled_accessibility_services ${list.join(':')}`)
+  await T.sh(TASK, 'settings put secure accessibility_enabled 1')
+}
+
 /**
  * Uninstalls the CleanYourTV launcher once it no longer owns Home, and takes its accessibility services
  * and Clock screensaver out of the TV settings so nothing points at an app that is gone.
@@ -114,12 +133,7 @@ export async function removeOld(): Promise<ApplyResult> {
   if (home?.startsWith(OLD_PKG + '/')) {
     return { ok: false, summary: 'The CleanYourTV launcher is still Home. Switch to CleanMyTV Home first, then remove it.', warnings: [] }
   }
-  const services = (await T.tv().shell('settings get secure enabled_accessibility_services')).trim()
-  if (services.includes(OLD_PKG)) {
-    // Only well-formed components go back into a shell command.
-    const rest = services.split(':').filter((c) => c && c !== 'null' && !c.startsWith(OLD_PKG + '/') && /^[A-Za-z_][\w.]*\/[\w.]+$/.test(c))
-    await T.sh(TASK, rest.length ? `settings put secure enabled_accessibility_services ${rest.join(':')}` : 'settings delete secure enabled_accessibility_services')
-  }
+  await dropServices(OLD_PKG)
   if ((await T.tv().shell('settings get secure screensaver_components')).includes(OLD_PKG)) {
     await T.sh(TASK, 'settings delete secure screensaver_components')
   }
@@ -134,6 +148,8 @@ export async function useStock(): Promise<ApplyResult> {
   const stock = KNOWN_STOCK_LAUNCHERS.find((p) => installed.has(p))
   if (!stock) return { ok: false, summary: 'No stock launcher this app knows is installed on the TV.', warnings: [] }
   const ok = await rollback(stock)
+  // The stock launcher is back: CleanMyTV Home's remote-button service goes with it.
+  if (ok) await dropServices(HOME_PKG)
   return ok
     ? { ok, summary: `${stock} is Home again. CleanMyTV Home stays installed; use it again from the Home screen step.`, warnings: [] }
     : { ok, summary: `Could not make ${stock} Home. Pick it in the TV's home settings.`, warnings: [] }

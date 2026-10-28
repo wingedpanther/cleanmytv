@@ -130,6 +130,8 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   },
   homeApps: () => home.apps(),
   readHomeConfig: () => home.readConfig(),
+  setRemoteButtons: (on) => home.setRemoteButtons(on === true),
+  homeKeys: () => home.keys(),
   setHomeConfig: (change) => home.setConfig(change ?? {}),
   setHomeWallpaper: (jpeg) => home.setWallpaper(jpeg),
   screenshot: () => system.screenshot(),

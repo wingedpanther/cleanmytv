@@ -6,8 +6,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { paths } from './paths'
 import { log } from './log'
 import * as T from './tv'
-import { HOME_PKG, OLD_PKG, detectStock, handOver } from './launcher'
-import type { HomeConfig, HomeGroup, HomeStatus, InstallResult, TvApp } from '@shared/api'
+import { HOME_PKG, OLD_PKG, addService, detectStock, dropServices, handOver } from './launcher'
+import type { HomeButton, HomeConfig, HomeGroup, HomeStatus, InstallResult, KeyPress, TvApp } from '@shared/api'
 
 const TASK = 'install'
 const MAIN = `${HOME_PKG}/.MainActivity`
@@ -16,7 +16,7 @@ const HEX = /^#[0-9A-Fa-f]{6}$/
 
 export const DEFAULTS: HomeConfig = {
   layout: 'shelf', sections: ['dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
-  rows: [], folders: [], dock_scale: 100, tile_scale: 100,
+  rows: [], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [],
   accent: '#4CAF50', focus: 'glow', background: '#1C2A1F', wallpaper_dim: 35,
   order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, clock: 'time_date', greeting: '',
   visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
@@ -46,7 +46,9 @@ const RANGES = {
   viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300]
 } as const
 
-const BOOLS = ['show_names', 'visualiser', 'viz_peaks'] as const
+const BOOLS = ['show_names', 'visualiser', 'viz_peaks', 'buttons_on'] as const
+const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
+const BUTTON_ACTIONS = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'home', 'back', 'none', 'app']
 
 function bundledVersion(): string | undefined {
   try {
@@ -92,7 +94,11 @@ export async function install(): Promise<InstallResult> {
     return { ok: false, summary: 'CleanMyTV Home did not start, so Home was left as it was.', warnings: [start.trim()] }
   }
   const failed = await handOver(stock, MAIN)
-  return failed ?? { ok: true, summary: 'CleanMyTV Home is Home now. Press Home on the remote to see it.', warnings: [] }
+  if (failed) return failed
+  // Android switches accessibility services off when their app is reinstalled: turn the button service back on.
+  const cfg = await readConfig().catch(() => null)
+  if (cfg?.buttons_on) await addService(KEY_SERVICE)
+  return { ok: true, summary: 'CleanMyTV Home is Home now. Press Home on the remote to see it.', warnings: [] }
 }
 
 /** What the launcher answered, with anything missing or odd replaced by the default. */
@@ -150,6 +156,16 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
     if (ok) out[k] = (v as HomeGroup[]).map((g) => ({ name: plain(g.name, 30), apps: [...new Set(g.apps)] }))
     else bad(`${k} must be up to ${max} named groups of package names`)
   }
+  if (o.buttons !== undefined) {
+    const v = o.buttons
+    const ok = Array.isArray(v) && v.length <= 30 && v.every((b) =>
+      b && typeof b === 'object' && Number.isInteger(b.code) && b.code >= 1 && b.code <= 400 && BUTTON_ACTIONS.includes(b.action) &&
+      (b.action !== 'app' || (typeof b.app === 'string' && T.PACKAGE_RE.test(b.app))))
+    if (ok) {
+      const seen = new Set<number>()
+      out.buttons = (v as HomeButton[]).filter((b) => !seen.has(b.code) && seen.add(b.code)).map((b) => ({ code: b.code, action: b.action, ...(b.action === 'app' ? { app: b.app } : {}) }))
+    } else bad('buttons must be up to 30 key codes (1 to 400), each with a known action')
+  }
   if (o.greeting !== undefined) {
     if (typeof o.greeting === 'string') out.greeting = plain(o.greeting, 40)
     else bad('greeting must be text')
@@ -176,6 +192,24 @@ export async function apps(): Promise<TvApp[]> {
     const label = typeof o.label === 'string' && o.label.trim() ? o.label.slice(0, 60) : o.pkg
     return [{ pkg: o.pkg, label, tv: o.tv === true }]
   })
+}
+
+/** The last remote buttons the TV received, from the launcher's key log. */
+export async function keys(): Promise<KeyPress[]> {
+  const out = await T.tv().shell(`content call --uri ${URI} --method keys`)
+  const m = /keys=(\[.*\])\}\]/.exec(out)
+  if (!m) throw new Error(`CleanMyTV Home didn't list the buttons: ${out.trim().slice(0, 200) || 'no output'}`)
+  return (JSON.parse(m[1]) as unknown[]).flatMap((k) => {
+    const o = k as Record<string, unknown>
+    return Number.isInteger(o.seq) && Number.isInteger(o.code) ? [{ seq: o.seq as number, code: o.code as number, name: typeof o.name === 'string' ? o.name.slice(0, 40) : `KEYCODE_${o.code}` }] : []
+  })
+}
+
+/** Switches the remote-button service on or off: the TV's accessibility setting plus the launcher's flag. */
+export async function setRemoteButtons(on: boolean): Promise<HomeConfig> {
+  if (on) await addService(KEY_SERVICE)
+  else await dropServices(HOME_PKG)
+  return setConfig({ buttons_on: on === true })
 }
 
 export async function readConfig(): Promise<HomeConfig> {

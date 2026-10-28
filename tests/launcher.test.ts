@@ -118,6 +118,22 @@ describe('CleanMyTV Home', () => {
     expect((await H.apps()).map((a) => a.pkg)).toEqual(['com.netflix.ninja', 'com.google.android.youtube.tv'])
   })
 
+  it('maps remote buttons, switches the key service on and off, and reads the button log', async () => {
+    const svc = 'io.github.wingedpanther.cleanmytv.home/io.github.wingedpanther.cleanmytv.home.KeyService'
+    tv.settings.set('enabled_accessibility_services', 'com.other/.Svc')
+    const cfg = await H.setConfig({ buttons: [{ code: 83, action: 'settings' }, { code: 83, action: 'home' }, { code: 183, action: 'app', app: 'com.netflix.ninja' }] })
+    expect(cfg.buttons).toEqual([{ code: 83, action: 'settings' }, { code: 183, action: 'app', app: 'com.netflix.ninja' }])
+    await expect(H.setConfig({ buttons: [{ code: 900, action: 'settings' }] })).rejects.toThrow(/buttons/)
+    await expect(H.setConfig({ buttons: [{ code: 5, action: 'reboot' as never }] })).rejects.toThrow(/buttons/)
+    await expect(H.setConfig({ buttons: [{ code: 5, action: 'app', app: 'bad;pkg' }] })).rejects.toThrow(/buttons/)
+    expect((await H.setRemoteButtons(true)).buttons_on).toBe(true)
+    expect(tv.settings.get('enabled_accessibility_services')).toBe(`com.other/.Svc:${svc}`)
+    expect(tv.settings.get('accessibility_enabled')).toBe('1')
+    expect((await H.setRemoteButtons(false)).buttons_on).toBe(false)
+    expect(tv.settings.get('enabled_accessibility_services')).toBe('com.other/.Svc')
+    expect(await H.keys()).toEqual([{ seq: 7, code: 83, name: 'KEYCODE_NOTIFICATION' }])
+  })
+
   it('uploads a wallpaper in pieces and removes it', async () => {
     const jpeg = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(150 * 1024)])
     const cfg = await H.setWallpaper(jpeg.toString('base64'))

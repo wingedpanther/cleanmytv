@@ -76,7 +76,7 @@ the way it was before the first cleanup.
 
 ## CleanMyTV Home
 
-The Home screen step has five tabs. Every change shows on the TV straight away. The Layout and Apps
+The Home screen step has six tabs. Every change shows on the TV straight away. The Layout and Apps
 tabs have a live preview of the TV screen at the top.
 
 | Tab | What you set |
@@ -86,6 +86,7 @@ tabs have a live preview of the TV screen at the top.
 | **Apps, rows & folders** | Dock size, drag to reorder, hide apps, named rows and folders. |
 | **Look & wallpaper** | Accent colour, focus style (glow, outline or none), your own picture or Bing's picture of the day, darken, background colour. |
 | **Music bars** | On or off; bars, mirrored or wave; accent, rainbow or white; peak dots, number of bars, height, opacity and sensitivity. |
+| **Remote buttons** | Find what a remote button sends, then give it a job in every app: open Settings, Inputs, an app, Home, Back, and more. Off until you turn it on. Only the buttons you map are touched. Power, volume and the mic button are usually handled before Android sees them. |
 
 Home keeps its settings and wallpaper in its own private storage. The app sends them over ADB through a
 ContentProvider (`content call`) that only the shell user and root may call. This fixes the

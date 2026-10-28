@@ -21,6 +21,7 @@ import java.security.MessageDigest
  *   wallpaper_end <md5>        check it and swap it in
  *   wallpaper_remove           back to the plain background
  *   apps                       the apps Home can show, with the names the TV uses
+ *   keys                       the last remote buttons the TV received (for the button finder)
  * Only the shell user (ADB) and root may call it, so other apps on the TV can't restyle Home.
  */
 class ConfigProvider : ContentProvider() {
@@ -33,6 +34,10 @@ class ConfigProvider : ContentProvider() {
         }
         val ctx = requireNotNull(context)
         val out = Bundle()
+        if (method == "keys") {
+            out.putString("keys", KeyLog.json().toString())
+            return out
+        }
         if (method == "apps") {
             out.putString("apps", listApps(ctx.packageManager, ctx.packageName).toString())
             return out

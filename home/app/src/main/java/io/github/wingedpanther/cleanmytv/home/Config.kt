@@ -7,6 +7,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
+/** A remote button and what it does: an action id, or "app" with a package. */
+data class ButtonMap(val code: Int, val action: String, val app: String? = null)
+
 /** A named group of apps: a row on the home screen, or a folder. */
 data class Group(val name: String, val apps: List<String>)
 
@@ -21,6 +24,9 @@ data class HomeConfig(
     val folders: List<Group> = emptyList(),
     val dockScale: Int = 100, // percent
     val tileScale: Int = 100, // percent
+    // Remote buttons (KeyService)
+    val buttonsOn: Boolean = false,
+    val buttons: List<ButtonMap> = emptyList(),
     // Look: CleanMyTV's dark green-and-earth world by default
     val accent: Long = 0xFF4CAF50,
     val focus: String = "glow", // glow, outline, none
@@ -53,6 +59,8 @@ data class HomeConfig(
         .put("folders", groupsJson(folders))
         .put("dock_scale", dockScale)
         .put("tile_scale", tileScale)
+        .put("buttons_on", buttonsOn)
+        .put("buttons", JSONArray(buttons.map { b -> JSONObject().put("code", b.code).put("action", b.action).apply { b.app?.let { put("app", it) } } }))
         .put("accent", hex(accent))
         .put("focus", focus)
         .put("background", hex(background))
@@ -80,6 +88,7 @@ data class HomeConfig(
         private fun hex(c: Long) = "#%06X".format(c and 0xFFFFFF)
         val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music")
         private val SECTIONS = setOf("dock", "rows", "folders", "grid")
+        val BUTTON_ACTIONS = QUICK - "inputs" + setOf("inputs", "home", "back", "none", "app")
 
         private fun groupsJson(gs: List<Group>) = JSONArray(gs.map { JSONObject().put("name", it.name).put("apps", JSONArray(it.apps)) })
 
@@ -105,7 +114,19 @@ data class HomeConfig(
                     if (name.isEmpty()) null else Group(name, apps)
                 }
             }
+            fun buttons(): List<ButtonMap>? = o.optJSONArray("buttons")?.let { a ->
+                (0 until minOf(a.length(), 30)).mapNotNull { i ->
+                    val b = a.optJSONObject(i) ?: return@mapNotNull null
+                    val code = b.optInt("code", -1)
+                    val action = b.optString("action")
+                    val app = b.optString("app").takeIf { PKG.matches(it) }
+                    if (code !in 1..400 || action !in BUTTON_ACTIONS || (action == "app" && app == null)) null
+                    else ButtonMap(code, action, if (action == "app") app else null)
+                }.distinctBy { it.code }
+            }
             return base.copy(
+                buttonsOn = bool("buttons_on", base.buttonsOn),
+                buttons = buttons() ?: base.buttons,
                 layout = choice("layout", base.layout, setOf("shelf", "split", "rail")),
                 sections = strings("sections", SECTIONS) ?: base.sections,
                 topSpace = int("top_space", base.topSpace, 0, 40),

@@ -25,6 +25,8 @@ class MainActivity : ComponentActivity() {
     private val visualiser = Visualiser()
     /** Bumped when apps are installed or removed, or Home comes back into view, so the list reloads. */
     private val appsVersion = mutableIntStateOf(0)
+    /** Something a remote button asked Home to open; HomeScreen clears it. */
+    private val open = androidx.compose.runtime.mutableStateOf<String?>(null)
 
     private val packages = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) { appsVersion.intValue++ }
@@ -34,7 +36,8 @@ class MainActivity : ComponentActivity() {
         val created = SystemClock.uptimeMillis()
         super.onCreate(savedInstanceState)
         ConfigStore.load(this)
-        setContent { HomeScreen(visualiser, appsVersion.intValue) }
+        open.value = intent.getStringExtra(OPEN)
+        setContent { HomeScreen(visualiser, appsVersion.intValue, open) }
         window.decorView.post { Log.i(TAG, "first frame ${SystemClock.uptimeMillis() - created} ms after onCreate") }
         registerReceiver(packages, IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
@@ -64,16 +67,19 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
-    // Logged so a TV's remote can be checked (#26). Nothing is swallowed.
+    // Buttons Home sees go to the button finder too, for TVs where the key service is off. Nothing is swallowed.
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.action == KeyEvent.ACTION_DOWN) Log.i(TAG, "key ${event.keyCode} ${KeyEvent.keyCodeToString(event.keyCode)}")
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) KeyLog.add(event.keyCode)
         return super.dispatchKeyEvent(event)
     }
 
-    // Pressing Home while already home: stay put instead of rebuilding.
+    // A mapped button can ask Home to open something, such as the Inputs picker.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        intent.getStringExtra(OPEN)?.let { open.value = it }
     }
+
+    companion object { const val OPEN = "open" }
 }
 
 /** TV apps (with their banners), then phone apps that only have an icon. */
