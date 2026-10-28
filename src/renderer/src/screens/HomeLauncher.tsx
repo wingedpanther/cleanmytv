@@ -19,6 +19,9 @@ const TABS: [Tab, string][] = [
 
 const ACCENTS = ['#FF3000', '#2EC4B6', '#FFB23C', '#7C5CFF', '#3DDC84', '#FFFFFF']
 
+/** The TV has an older CleanMyTV Home than this app carries. */
+const outdated = (h: HomeStatus): boolean => h.installed && !!h.bundledVersion && h.versionName !== h.bundledVersion
+
 type SetFn = (change: Partial<HomeConfig>, wait?: number) => void
 
 /**
@@ -41,7 +44,9 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
     try {
       const h = await window.cytv.homeStatus()
       setHome(h)
-      if (h.installed) {
+      setCfg(null)
+      // An older launcher on the TV doesn't know the newer settings; the page waits for Update.
+      if (h.installed && !outdated(h)) {
         // The launcher's own list: the apps it shows, with the names the TV uses.
         const [c, a] = await Promise.all([window.cytv.readHomeConfig(), window.cytv.homeApps()])
         setCfg(c)
@@ -110,7 +115,7 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
     }
   }
 
-  const ready = !!home?.installed && !!cfg
+  const ready = !!home?.installed && !outdated(home) && !!cfg
 
   return (
     <>
@@ -138,6 +143,12 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
             ))}
           </div>
 
+          {outdated(home) && (
+            <div className="notice warn">
+              The TV has CleanMyTV Home {home.versionName}; this app carries {home.bundledVersion}. Press Update and use to change its
+              layout, apps and look from here.
+            </div>
+          )}
           {tab === 'overview' && (
             <Overview home={home} busy={!!busy} run={run} askStock={() => setAskStock(true)} host={status.host} onShot={refreshTvs} />
           )}
@@ -171,7 +182,6 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
   const [shot, setShot] = useState<string | null>(null)
   const [shooting, setShooting] = useState(false)
   const [shotError, setShotError] = useState<string | null>(null)
-  const outdated = home.installed && !!home.bundledVersion && home.versionName !== home.bundledVersion
 
   async function snapshot(): Promise<void> {
     setShooting(true)
@@ -209,7 +219,7 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
           </div>
         </div>
         <div className="row" style={{ marginTop: 16 }}>
-          {(!home.installed || outdated) && (
+          {(!home.installed || outdated(home)) && (
             <button className="btn primary" disabled={busy || !home.bundled} onClick={() => run('Installing CleanMyTV Home. Keep the TV on.', () => window.cytv.installHome())}>
               {home.installed ? 'Update and use' : 'Install and use'}
             </button>
