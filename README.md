@@ -192,7 +192,7 @@ run's **Artifacts**. It runs with read-only repository permissions and actions p
 ### Releasing
 
 1. Set the new `version` in `package.json` and commit it.
-2. Tag and push: `git tag v0.2.0 && git push origin main v0.2.0`.
+2. Tag and push: `git tag v0.3.0 && git push origin main v0.3.0`.
 3. The workflow builds both installers and opens a **draft** release with them attached. Check it,
    then press **Publish release**.
 

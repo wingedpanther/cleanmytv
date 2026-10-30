@@ -92,9 +92,10 @@ If you used CleanMyTV 0.1, your TV may still have the old CleanYourTV launcher. 
   - *Layout:* pick Shelf (the default), Split or Rail. Set the space above the apps. Put the dock, rows, folders and all apps in any order, or hide any of them. Choose quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars, Settings. An icon your TV can't open is marked "not on this TV". Also tile sizes, apps per row, app names, clock and greeting.
   - *Apps, rows & folders:* dock size, drag to reorder, hide apps, make named rows and folders.
   - *Look & wallpaper:* accent colour, focus glow, outline or none. Use your own picture or Bing's picture of the day, darken it, or pick a background colour.
+  - *Widgets:* Now playing, a card with what any music or video app plays, with play, pause and next. Weather next to the clock: search for your town and pick °C or °F.
   - *Music bars:* bars that move with the TV's sound while music or video plays. Choose the style, colour, peak dots, number, height, opacity and sensitivity. The Music bars icon on the TV turns them on or off.
 - **TV extras** — ad-blocking Private DNS, animation speed, an on-screen remote, reboot.
-- **Finish** — the guide walks you through switching debugging back **off**, then checks that port 5555 is closed. Do this: an open debugging port is a plain-text shell anyone on the Wi-Fi could use, and some TVs don't ask permission again once paired.
+- **Finish** — first the restart check: the app restarts the TV, reconnects and checks the home screen comes up. If it doesn't, the app puts the stock launcher back while it still can. Only then does the guide walk you through switching debugging back **off**, and check that port 5555 is closed. Do this: an open debugging port is a plain-text shell anyone on the Wi-Fi could use, and some TVs don't ask permission again once paired.
 
 The app remembers where you were — close it any time and come back; a TV that already runs CleanMyTV Home opens straight at the Home screen step. Your settings and wallpaper are kept on the TV and survive a reboot.
 
@@ -142,4 +143,4 @@ The app remembers where you were — close it any time and come back; a TV that 
 
 ---
 
-*Guide version: v0.2 (2026-10-28). Written to match app v0.2.0; when the app's steps change, this guide is the place to update, alongside the README screenshots.*
+*Guide version: v0.3 (2026-10-30). Written to match app v0.3.0; when the app's steps change, this guide is the place to update, alongside the README screenshots.*

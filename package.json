@@ -1,7 +1,7 @@
 {
   "name": "cleanmytv",
   "productName": "CleanMyTV",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Desktop companion for cleanyourtv: debloat an Android TV, install the clean launcher and customise it, with nothing else to install.",
   "license": "MIT",
   "author": "wingedpanther",
