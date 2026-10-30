@@ -19,6 +19,13 @@ export async function detectStock(): Promise<string> {
   const homePkg = answer.split('/')[0]
   if (KNOWN_STOCK_LAUNCHERS.includes(homePkg)) return homePkg
   if (OUR_LAUNCHERS.includes(homePkg)) {
+    // Ours owns Home for now, but an enabled stock launcher takes it back on Google TV (#27).
+    const claims = await T.homeClaimants()
+    const on = KNOWN_STOCK_LAUNCHERS.find((k) => claims.includes(k))
+    if (on) {
+      log(TASK, 'info', `Home belongs to ${homePkg}, but ${on} is still on and can take Home back; it will be switched off.`)
+      return on
+    }
     log(TASK, 'info', `Home belongs to ${homePkg}, so the stock launcher is already off; nothing will be disabled.`)
     return 'none'
   }
@@ -93,13 +100,17 @@ export async function handOver(stock: string, main: string): Promise<InstallResu
   }
 }
 
-/** Starts an installed launcher, and only if it comes up, makes it Home (the stock launcher is already off). */
+/**
+ * Starts an installed launcher, and only if it comes up, makes it Home. A stock launcher that is still on
+ * gets switched off too: on Google TV it otherwise keeps Home (#27).
+ */
 export async function switchTo(main: string): Promise<ApplyResult> {
+  const stock = await detectStock()
   const start = await T.sh(TASK, `am start -W -n ${main}`)
   if (!start.includes('Status: ok') || /^Error/im.test(start)) {
     return { ok: false, summary: 'That launcher did not start, so Home was left as it was.', warnings: [start.trim()] }
   }
-  const failed = await handOver('none', main)
+  const failed = await handOver(stock, main)
   return failed ?? { ok: true, summary: 'Switched. Press Home on the remote to see it.', warnings: [] }
 }
 

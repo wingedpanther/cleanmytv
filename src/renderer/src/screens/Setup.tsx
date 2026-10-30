@@ -16,6 +16,7 @@ export function Setup({ status, go, tvs, refreshTvs }: ScreenProps): ReactNode {
   const [scanning, setScanning] = useState(false)
   const [host, setHost] = useState('')
   const [connectError, setConnectError] = useState<string | null>(null)
+  const [wantPair, setWantPair] = useState(false)
 
   const refreshChecks = useCallback(() => {
     window.cytv.checks().then(setChecks, () => setChecks([]))
@@ -255,13 +256,20 @@ export function Setup({ status, go, tvs, refreshTvs }: ScreenProps): ReactNode {
             {connectError && (
               <div className="notice error" style={{ marginTop: 14, marginBottom: 0 }}>
                 {connectError}
+                {/network debugging is off/.test(connectError) && !wantPair && (
+                  <div style={{ marginTop: 10 }}>
+                    <button className="btn small" onClick={() => setWantPair(true)}>
+                      Pair with a code
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
       )}
 
-      {status.needsPairing && !connected && <PairForm host={status.host ?? host} onPaired={() => connect(status.host ?? host)} />}
+      {(status.needsPairing || wantPair) && !connected && <PairForm host={status.host ?? host} onPaired={() => connect(status.host ?? host)} />}
 
       <div className="card white" style={{ marginTop: 8 }}>
         <div className="card-head">
@@ -399,9 +407,9 @@ function PairForm({ host, onPaired }: { host: string; onPaired: () => void }): R
   const valid = /^\d{4,5}$/.test(pairPort) && /^\d{6}$/.test(code.trim()) && /^\d{4,5}$/.test(connectPort)
   return (
     <div className="card white">
-      <h2>This TV needs a pairing code</h2>
+      <h2>Pair with a code</h2>
       <p className="muted">
-        Some Google TVs (Sony, some Philips) keep port 5555 closed until you pair once. This uses Google's adb, which the app
+        Many Google TVs and Chromecasts only offer Wireless debugging, and keep port 5555 closed until you pair once. This uses Google's adb, which the app
         downloads if it isn't here yet.
       </p>
       <ol className="guide" style={{ marginBottom: 14 }}>

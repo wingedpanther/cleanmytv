@@ -220,9 +220,14 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
             <b>{home.bundled ? `version ${home.bundledVersion ?? '?'}` : 'no bundled copy'}</b>
           </div>
         </div>
+        {home.unsupported && (
+          <div className="notice warn" style={{ marginTop: 16, marginBottom: 0 }}>
+            {home.unsupported}
+          </div>
+        )}
         <div className="row" style={{ marginTop: 16 }}>
           {(!home.installed || outdated(home)) && (
-            <button className="btn primary" disabled={busy || !home.bundled} onClick={() => run('Installing CleanMyTV Home. Keep the TV on.', () => window.cytv.installHome())}>
+            <button className="btn primary" disabled={busy || !home.bundled || !!home.unsupported} onClick={() => run('Installing CleanMyTV Home. Keep the TV on.', () => window.cytv.installHome())}>
               {home.installed ? 'Update and use' : 'Install and use'}
             </button>
           )}

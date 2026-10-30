@@ -27,6 +27,8 @@ Get the latest version from [Releases](https://github.com/wingedpanther/cleanmyt
 | Mac with Intel | `CleanMyTV-<version>.dmg` |
 | Windows 10 or 11 | `CleanMyTV-Setup-<version>.exe` |
 
+Macs need macOS 13 Ventura or newer.
+
 The installers are not signed with a paid developer certificate, so your computer warns you the first
 time:
 

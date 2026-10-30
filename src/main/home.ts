@@ -48,6 +48,8 @@ const RANGES = {
 
 const BOOLS = ['show_names', 'visualiser', 'viz_peaks', 'buttons_on'] as const
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
+/** Android 9: CleanMyTV Home's minSdk (home/app/build.gradle.kts). */
+export const MIN_SDK = 28
 const BUTTON_ACTIONS = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'home', 'back', 'none', 'app']
 
 function bundledVersion(): string | undefined {
@@ -69,8 +71,17 @@ export async function status(): Promise<HomeStatus> {
     versionName,
     isHome: !!home && home.startsWith(HOME_PKG + '/'),
     bundled: existsSync(paths.bundledHomeApk),
-    bundledVersion: bundledVersion()
+    bundledVersion: bundledVersion(),
+    unsupported: unsupported() ?? undefined
   }
+}
+
+/** Why CleanMyTV Home can't go on the connected TV, or null when it can. */
+export function unsupported(): string | null {
+  const probe = T.getStatus().probe
+  // An unknown SDK (0) is let through: pm install gives its own answer.
+  if (!probe?.sdk || probe.sdk >= MIN_SDK) return null
+  return `CleanMyTV Home needs Android 9 or newer, and this TV runs Android ${probe.release || '?'} (SDK ${probe.sdk}). Clean up still works on it.`
 }
 
 /** Installs or updates CleanMyTV Home, starts it, and only then makes it Home. */
@@ -78,6 +89,8 @@ export async function install(): Promise<InstallResult> {
   if (!existsSync(paths.bundledHomeApk)) {
     return { ok: false, summary: 'This copy of the app has no CleanMyTV Home bundled.', warnings: [] }
   }
+  const tooOld = unsupported()
+  if (tooOld) return { ok: false, summary: tooOld, warnings: [] }
   const stock = await detectStock()
   log(TASK, 'info', `stock launcher: ${stock}`)
   const tmp = '/data/local/tmp/cmtv-home.apk'

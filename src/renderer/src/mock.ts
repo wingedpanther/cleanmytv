@@ -166,6 +166,10 @@ export function installMock(): void {
       await wait(800)
       return { closed: true, message: `${host}:5555 is closed: the TV refused the connection.` }
     },
+    async bootCheck() {
+      await wait(2500)
+      return { ok: true, reconnected: true, summary: 'The TV restarted and its home screen came up (io.github.wingedpanther.cleanmytv.home).' }
+    },
     async pair(host) {
       log('pair', 'cmd', `adb pair ${host}`)
       await wait(1500)

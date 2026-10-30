@@ -50,21 +50,22 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
     try {
       if (!skipDebloat) {
         setPhase({ t: 'run', step: `Disabling ${p.disable.length} packages from "${p.plan.title}"` })
-        const r = await window.cytv.applyDebloat({
-          listId: p.plan.listId,
-          disable: p.disable,
-          enable: [],
-          forceHome: true,
-          forceSetupwraith: true
-        })
+        // No safety overrides: the stock launcher and setupwraith stay on until CleanMyTV Home is Home,
+        // and the Wi-Fi check runs (#33).
+        const r = await window.cytv.applyDebloat({ listId: p.plan.listId, disable: p.disable, enable: [] })
         if (!r.ok) throw new Error(r.summary)
-        notes.push(`Cleaned up: ${p.disable.length} packages off (${r.warnings.length} warnings)`)
+        notes.push(`Cleaned up: ${r.summary.replace(/\.$/, '')}`)
         if (alive.current) markDone('debloat')
       } else {
         notes.push('Clean up skipped')
       }
 
       const before = await window.cytv.homeStatus()
+      if (before.unsupported) {
+        notes.push(before.unsupported)
+        setPhase({ t: 'done', result: { ok: true, summary: notes.join(' · '), warnings: [] }, customised: false })
+        return
+      }
       const outdated = before.installed && before.bundledVersion && before.versionName !== before.bundledVersion
       if (!before.isHome || outdated) {
         setPhase({ t: 'run', step: 'Installing CleanMyTV Home' })
@@ -75,6 +76,18 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
       } else {
         notes.push('CleanMyTV Home already Home — left as it was')
       }
+
+      if (!skipDebloat) {
+        // What the first pass kept on because CleanMyTV Home wasn't Home yet.
+        const plan = await window.cytv.plan(p.plan.listId)
+        const left = plan.entries.filter((e) => e.state === 'enabled' && p.disable.includes(e.pkg)).map((e) => e.pkg)
+        if (left.length) {
+          setPhase({ t: 'run', step: `Switching off ${left.join(', ')}` })
+          const r = await window.cytv.applyDebloat({ listId: p.plan.listId, disable: left, enable: [] })
+          notes.push(r.warnings.length ? `Kept on: ${r.warnings.join(' ')}` : `Then switched off ${left.length} more`)
+        }
+      }
+      notes.push('Next: the restart check on Finish')
 
       setPhase({ t: 'done', result: { ok: true, summary: notes.join(' · '), warnings: [] }, customised: true })
     } catch (e) {
@@ -128,7 +141,7 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
           </div>
           <div className="row">
             <button className="btn primary" onClick={() => go('home')}>Arrange my home screen</button>
-            <button className="btn ghost" onClick={() => go('finish')}>Finish (close the debug port)</button>
+            <button className="btn ghost" onClick={() => go('finish')}>Finish (restart check, then close the debug port)</button>
           </div>
         </div>
       )}

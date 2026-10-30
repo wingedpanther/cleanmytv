@@ -8,6 +8,8 @@ import { configurePaths } from '../src/main/paths'
 import * as T from '../src/main/tv'
 import * as L from '../src/main/launcher'
 import * as H from '../src/main/home'
+import * as D from '../src/main/debloat'
+import { bootCheck } from '../src/main/bootcheck'
 import { FakeTv, newTv, startFakeAdbd } from './fake-adbd'
 
 const home = mkdtempSync(join(tmpdir(), 'cytv-test-'))
@@ -148,6 +150,64 @@ describe('CleanMyTV Home', () => {
     expect((await L.useStock()).ok).toBe(true)
     expect(tv.home).toBe('com.google.android.apps.tv.launcherx/.home.HomeActivity')
     expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('enabled')
+  })
+
+  it('switches the stock launcher off when using an installed CleanMyTV Home (#27)', async () => {
+    const r = await L.switchTo('io.github.wingedpanther.cleanmytv.home/.MainActivity')
+    expect(r.ok).toBe(true)
+    expect(tv.home).toBe('io.github.wingedpanther.cleanmytv.home/.MainActivity')
+    expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('disabled')
+  })
+
+  it('switches setupwraith off only once CleanMyTV Home is Home (#33)', async () => {
+    tv.packages.set(D.SETUPWRAITH, 'enabled')
+    await L.useStock()
+    let r = await D.apply({ listId: 'custom', disable: [D.SETUPWRAITH], enable: [] })
+    expect(r.warnings.join('\n')).toMatch(/Kept on for now: com.google.android.tungsten.setupwraith/)
+    expect(tv.packages.get(D.SETUPWRAITH)).toBe('enabled')
+    expect((await L.switchTo('io.github.wingedpanther.cleanmytv.home/.MainActivity')).ok).toBe(true)
+    r = await D.apply({ listId: 'custom', disable: [D.SETUPWRAITH], enable: [] })
+    expect(r.ok).toBe(true)
+    expect(tv.packages.get(D.SETUPWRAITH)).toBe('disabled')
+  })
+
+  const instant = { sleep: async () => {}, portOpen: async () => true }
+
+  it('restarts the TV, reconnects and finds the home screen running', async () => {
+    const r = await bootCheck(instant)
+    expect(r).toMatchObject({ ok: true, reconnected: true })
+    expect(tv.commands).toContain('reboot')
+    expect(T.getStatus().state).toBe('connected')
+  })
+
+  it('puts the stock launcher back when no home screen comes up after the restart', async () => {
+    tv.crashing = ['io.github.wingedpanther.cleanmytv.home']
+    const r = await bootCheck(instant)
+    tv.crashing = []
+    expect(r).toMatchObject({ ok: false, reconnected: true })
+    expect(r.advice).toMatch(/switched com.google.android.apps.tv.launcherx back on/)
+    expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('enabled')
+    expect(tv.home).toBe('com.google.android.apps.tv.launcherx/.home.HomeActivity')
+  })
+
+  it('says so when the TV does not come back after the restart', async () => {
+    const r = await bootCheck({ sleep: async () => {}, portOpen: async () => false })
+    expect(r).toMatchObject({ ok: false, reconnected: false })
+    expect(T.getStatus().state).not.toBe('connected')
+    expect((await T.connect(String(T.getStatus().host))).state).toBe('connected')
+  })
+
+  it('refuses to install on Android older than 9 (#30)', async () => {
+    const host = String(T.getStatus().host)
+    tv.sdk = '24'
+    expect((await T.connect(host)).state).toBe('connected')
+    const r = await H.install()
+    expect(r.ok).toBe(false)
+    expect(r.summary).toMatch(/needs Android 9 or newer, and this TV runs Android 7\.0 \(SDK 24\)/)
+    expect((await H.status()).unsupported).toMatch(/Android 9/)
+    tv.sdk = undefined
+    expect((await T.connect(host)).state).toBe('connected')
+    expect((await H.status()).unsupported).toBeUndefined()
   })
 
 })

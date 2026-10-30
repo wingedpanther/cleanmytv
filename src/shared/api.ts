@@ -109,6 +109,15 @@ export interface ApplyResult {
 }
 
 /** CleanMyTV Home on the TV. */
+export interface BootCheckResult {
+  ok: boolean
+  /** The app got the TV back after the restart. */
+  reconnected: boolean
+  summary: string
+  /** What to do next when it failed. */
+  advice?: string
+}
+
 export interface HomeStatus {
   installed: boolean
   versionName?: string
@@ -118,6 +127,8 @@ export interface HomeStatus {
   bundledVersion?: string
   /** The CleanYourTV launcher from CleanMyTV 0.1.x is still on the TV. */
   oldLauncher: boolean
+  /** Why CleanMyTV Home can't go on this TV (Android older than 9). */
+  unsupported?: string
 }
 
 export type HomeLayout = 'shelf' | 'split' | 'rail'
@@ -281,6 +292,8 @@ export interface CytvApi {
   reconnect(): Promise<ConnStatus | null>
   /** Port 5555 refuses or ignores connections (after debugging was switched off). */
   checkAdbClosed(host: string): Promise<{ closed: boolean; message: string }>
+  /** Restarts the TV, reconnects, and checks a home screen comes up; puts the stock launcher back if not. */
+  bootCheck(): Promise<BootCheckResult>
   /** Wireless-debugging pairing with Google's adb (downloaded on demand), then opens port 5555. */
   pair(host: string, pairPort: number, code: string, connectPort: number): Promise<ApplyResult>
 
