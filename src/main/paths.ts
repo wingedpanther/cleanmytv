@@ -14,7 +14,6 @@ export const paths = {
   get data(): string { return dataDir },
   get upstream(): string { return join(resourcesDir, 'upstream') },
   get examples(): string { return join(resourcesDir, 'upstream', 'examples') },
-  get themes(): string { return join(resourcesDir, 'upstream', 'themes') },
   get bundledHomeApk(): string { return join(resourcesDir, 'home.apk') },
   get bundledHomeInfo(): string { return join(resourcesDir, 'home.json') },
   get keystore(): string { return join(resourcesDir, 'signing', 'cleanmytv.jks') },

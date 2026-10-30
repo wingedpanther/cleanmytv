@@ -1,6 +1,7 @@
-// Copies the debloat lists and themes from upstream cleanyourtv into resources/upstream, which the app
-// bundles. The commit and a content hash are pinned in upstream.json (bump them with pin-upstream.mjs
-// after reviewing upstream); nothing is copied unless the content matches.
+// Copies the debloat lists from upstream cleanyourtv into resources/upstream, which the app bundles.
+// Themes are left out: they are for upstream's launcher, and CleanMyTV Home has its own. The commit
+// and a content hash are pinned in upstream.json (bump them with pin-upstream.mjs after reviewing
+// upstream); nothing is copied unless the content matches.
 //   npm run sync                         download the pinned commit
 //   UPSTREAM_DIR=<clone> npm run sync    use a local checkout of the same commit
 //   UPSTREAM_UNPINNED=1 ...              allow other content, for trying upstream changes locally
@@ -43,8 +44,7 @@ for (const id of readdirSync(join(src, 'examples'))) {
     }
   }
 }
-cpSync(join(src, 'themes'), join(out, 'themes'), { recursive: true })
 cpSync(join(src, 'LICENSE'), join(out, 'LICENSE'))
 writeFileSync(join(out, 'SOURCE.json'), JSON.stringify({ repo: `https://github.com/${pin.repo}`, rev: got === pin.dataSha256 ? pin.commit : 'unpinned', dataSha256: got, synced: new Date().toISOString() }, null, 2))
 if (tmp) rmSync(tmp, { recursive: true, force: true })
-console.log(`synced ${lists} lists and ${readdirSync(join(out, 'themes')).length} theme entries into ${out}`)
+console.log(`synced ${lists} lists into ${out}`)

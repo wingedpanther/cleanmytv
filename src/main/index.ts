@@ -203,7 +203,7 @@ app.whenReady().then(() => {
   if (!primary) return
   // The app needs no camera, microphone, notifications or other web permissions.
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false))
-  // Packaged: lists, themes and the APK sit in Contents/Resources (mac) or resources\ (Windows).
+  // Packaged: lists and the APK sit in Contents/Resources (mac) or resources\ (Windows).
   configurePaths(app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources'), app.getPath('userData'))
   setSinks((line) => send('log', line), (p) => send('progress', p))
   T.init(paths.adbKey, (s: ConnStatus) => send('status', s))
