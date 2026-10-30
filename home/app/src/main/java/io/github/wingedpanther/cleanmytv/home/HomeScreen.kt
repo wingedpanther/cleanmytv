@@ -256,7 +256,8 @@ private fun SplitLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (
     Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(scrim(0.7f), Color.Transparent), endX = 900f)))
     Row(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxWidth(0.32f).fillMaxHeight().padding(start = SAFE_X, top = SAFE_Y + 24.dp, bottom = SAFE_Y + 48.dp)) {
-            Clock(cfg, 56.sp, 15.sp, Alignment.Start)
+            // 46 sp keeps "12:51 PM" on one line in the left third; 12-hour time is the widest.
+            Clock(cfg, 46.sp, 15.sp, Alignment.Start)
             WeatherLine(ui, 15.sp, Modifier.padding(top = 6.dp))
             Spacer(Modifier.height(14.dp))
             Greeting(cfg, 18.sp)
@@ -562,7 +563,7 @@ private fun Clock(cfg: HomeConfig, timeSize: androidx.compose.ui.unit.TextUnit, 
     var now by remember { mutableStateOf(Date()) }
     LaunchedEffect(Unit) { while (true) { now = Date(); delay(1000L - System.currentTimeMillis() % 1000) } }
     Column(horizontalAlignment = align) {
-        Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(now), color = TEXT, fontSize = timeSize, fontFamily = CLOCK, fontWeight = FontWeight.Light)
+        Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(now), color = TEXT, fontSize = timeSize, fontFamily = CLOCK, fontWeight = FontWeight.Light, maxLines = 1, softWrap = false)
         if (cfg.clock == "time_date") Text(DateFormat.getDateInstance(DateFormat.FULL).format(now), color = MUTED, fontSize = dateSize, fontFamily = CLOCK)
     }
 }

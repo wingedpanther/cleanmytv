@@ -1,9 +1,11 @@
 # CleanMyTV
 
-A Mac and Windows app for [cleanyourtv](https://github.com/Gathin23/cleanyourtv) by
-[@gathint](https://x.com/gathint). It debloats an Android TV with the cleanyourtv lists, installs its own
-launcher, CleanMyTV Home, and lets you set it up from your computer. You don't need Python, Java,
-Android Studio or `adb`.
+A free Mac and Windows app that cleans up your Android TV over Wi-Fi. It switches off the preinstalled
+bloat and puts in CleanMyTV Home, an ad-free home screen you set up from your computer. You don't need
+Python, Java, Android Studio or `adb`.
+
+The per-TV cleanup lists come from [cleanyourtv](https://github.com/Gathin23/cleanyourtv) by
+[@gathint](https://x.com/gathint). Thanks, Gathin.
 
 New to this? The **[user guide](docs/USER-GUIDE.md)** walks every step at TV-owner pace, including
 rollback and troubleshooting, and the **[known-devices table](docs/KNOWN-DEVICES.md)** shows what the
@@ -12,10 +14,6 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
-This is an independent project, not part of cleanyourtv. The per-TV debloat lists come from upstream
-unchanged. The launcher is CleanMyTV Home, built from `home/` in this repository. Earlier versions
-installed the CleanYourTV launcher (`com.gathin.tvhome`); 0.2.0 no longer does. Tested on a Xiaomi
-Mi Box S from Windows.
 
 
 https://github.com/user-attachments/assets/4e3eb18a-d196-4a51-8d0e-93ce98e11913
@@ -71,9 +69,9 @@ computer** to skip the question next time.
 | **Clean & launch** | The guided path: applies the list that best matches your TV, then installs CleanMyTV Home. |
 | **Setup** | Checks the network, finds TVs with port 5555 open, connects, and waits while you press Allow on the TV. Google TVs that only offer Wireless debugging get a pairing form. With more than one known TV, it shows them with snapshot thumbnails to pick from. |
 | **Clean up** | Picks the upstream list that matches your TV's model. Every package shows its live state on the TV, and you choose what to disable. If your TV isn't listed, it offers the packages other TVs disable. |
-| **Home screen** | Installs or updates CleanMyTV Home and hands Home over. If Home doesn't land on it, it rolls back. Tabs for layout, apps, rows and folders, look and wallpaper, and music bars. See below. |
+| **Home screen** | Installs or updates CleanMyTV Home and hands Home over. If Home doesn't land on it, it rolls back. Tabs for layout, apps, rows and folders, look and wallpaper, widgets, music bars and remote buttons. See below. |
 | **TV extras** | Ad-blocking Private DNS, animation speed, an on-screen remote, reboot. |
-| **Finish** | Walks through switching debugging off, then checks that port 5555 is closed. |
+| **Finish** | Restarts the TV and checks the home screen comes back; if it doesn't, puts the stock launcher back. Then walks through switching debugging off, and checks that port 5555 is closed. |
 
 | | |
 |---|---|
@@ -83,6 +81,18 @@ Nothing is uninstalled. Packages are switched off for your user, and Restore put
 the way it was before the first cleanup.
 
 ## CleanMyTV Home
+
+No ads. Your apps, your layout, the weather and what's playing. You change everything from your
+computer, and the TV shows it as you click.
+
+| | |
+|---|---|
+| ![Shelf: the clock, weather and quick settings in the top corner, apps lower down](docs/home-shelf.jpg) | ![Split: the clock and quick settings on the left, apps on the right](docs/home-split.jpg) |
+| **Shelf**, the default | **Split** |
+| ![Rail: icons down the left edge that open with labels](docs/home-rail.jpg) | ![A folder open over the home screen](docs/home-folder.jpg) |
+| **Rail**, opened | A folder |
+
+![The Home screen step in the app, with a live preview of the TV](docs/home-editor.png)
 
 The Home screen step has seven tabs. Every change shows on the TV straight away. The Layout and Apps
 tabs have a live preview of the TV screen at the top.
@@ -97,21 +107,9 @@ tabs have a live preview of the TV screen at the top.
 | **Music bars** | On or off; bars, mirrored or wave; accent, rainbow or white; peak dots, number of bars, height, opacity and sensitivity. |
 | **Remote buttons** | Find what a remote button sends, then give it a job in every app: open Settings, Inputs, an app, Home, Back, and more. Off until you turn it on. Only the buttons you map are touched. Power, volume and the mic button are usually handled before Android sees them. |
 
-Home keeps its settings and wallpaper in its own private storage. The app sends them over ADB through a
-ContentProvider (`content call`) that only the shell user and root may call. This fixes the
-"Permission denied" on `Android/data` (#20, #27, #28) and the theme reset after a reboot (#21).
-
-The music bars read the TV's sound output. The app grants `RECORD_AUDIO` over ADB at install. The
-bars only move while music or video plays. The Music bars icon on the home screen turns them on or off.
-
-Now playing reads other apps' media sessions. Android only allows that for a notification listener, so
-the app switches one on over ADB while the section is on and off again without it. It reads no
-notifications. Weather comes from [Open-Meteo](https://open-meteo.com): the TV asks for it every 30
-minutes, and the place search runs on your computer.
-
-The app keeps a copy of each TV's home screen settings and wallpaper on your computer. Updates keep
-them on the TV anyway. If CleanMyTV Home ever starts empty (after an uninstall or a factory reset),
-installing it puts the copy back.
+Your settings and wallpaper stay through updates and reboots. The app also keeps a copy on your
+computer: if CleanMyTV Home ever starts empty (after an uninstall or a factory reset), installing it
+puts the copy back. What the launcher can access is under [Security and privacy](#security-and-privacy).
 
 CleanMyTV Home needs Android 9 (API 28) or newer.
 
@@ -130,11 +128,27 @@ itself.
 
 ## Security and privacy
 
-- **What it talks to.** Only the TV address you choose, over ADB on port 5555 of your local network.
-  The only optional download is Google's platform-tools, for Wireless debugging pairing. It comes
-  from dl.google.com over HTTPS, and only when you click it. Bing's picture of the day comes from
-  www.bing.com, only when you choose it as the wallpaper. No analytics, no accounts, no server of its
-  own.
+- **What it talks to.** The TV address you choose, over ADB on port 5555 of your local network. Over
+  HTTPS, and nothing else:
+  - api.github.com, at most twice a day, to see if a newer CleanMyTV is out. It downloads nothing.
+  - dl.google.com for Google's platform-tools, only when you click it (Wireless debugging pairing).
+  - www.bing.com, only when you choose Bing's picture of the day as the wallpaper.
+  - geocoding-api.open-meteo.com, only when you search for a town for the weather.
+
+  No analytics, no accounts, no server of its own.
+- **What CleanMyTV Home can access.**
+  - Its settings and wallpaper live in its own private storage. The app sends them over ADB through a
+    ContentProvider (`content call`) that only the shell user and root may call. This is also what
+    fixed the "Permission denied" on `Android/data` (#20, #27, #28) and the reset after a reboot (#21).
+  - The music bars read the TV's sound output: the app grants `RECORD_AUDIO` over ADB at install. The
+    bars only move while music or video plays.
+  - Now playing reads other apps' media sessions. Android only allows that for a notification listener,
+    so the app switches one on over ADB while the section is on, and off without it. It reads no
+    notifications.
+  - Remote buttons use an accessibility service. It sees key presses and which app is in front, and
+    can't read what's on screen. It is off until you turn it on, and only acts on the buttons you map.
+  - The only thing it fetches from the internet is the weather, from api.open-meteo.com, every 30
+    minutes while the place is set.
 - **Your keys.** The app makes its own ADB key in its data folder and signs only with that. It never
   uses `~/.android/adbkey`, which your phones may also trust, and it only logs in to an address you
   picked. Network ADB is plaintext by design, so use it on a network you trust.
@@ -153,7 +167,12 @@ itself.
 Found a security problem? Please report it privately through the repository's
 **Security → Report a vulnerability** page rather than in a public issue.
 
-## How it relates to upstream
+## Credits and upstream
+
+The per-TV cleanup lists are [cleanyourtv](https://github.com/Gathin23/cleanyourtv)'s, by
+[@gathint](https://x.com/gathint), shipped unchanged. CleanMyTV is an independent project, not part of
+cleanyourtv. Versions 0.1.x installed the CleanYourTV launcher (`com.gathin.tvhome`); since 0.2.0 the
+launcher is CleanMyTV Home, built from `home/` in this repository, and the app can remove the old one.
 
 The debloat side is a TypeScript port of upstream's `tools/`, and the launcher handover follows
 `launcher/build-and-install.sh`:
@@ -213,6 +232,8 @@ The tag has to match the version in `package.json`, or the release step stops.
 
 ## Known limits
 
+- Tested on a Xiaomi Mi Box S from Windows, and on a TV emulator from macOS.
+- Macs need macOS 13 Ventura or newer. CleanMyTV Home needs Android 9 or newer; Clean up works on older TVs.
 - Wireless debugging pairing uses Google's `adb`, downloaded on demand. On macOS, Local Network
   privacy can block that binary. If pairing fails there, pair from a Windows PC or run `adb pair`
   in Terminal once.
