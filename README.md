@@ -17,6 +17,11 @@ unchanged. The launcher is CleanMyTV Home, built from `home/` in this repository
 installed the CleanYourTV launcher (`com.gathin.tvhome`); 0.2.0 no longer does. Tested on a Xiaomi
 Mi Box S from Windows.
 
+
+https://github.com/user-attachments/assets/4e3eb18a-d196-4a51-8d0e-93ce98e11913
+
+
+
 ## Download and install
 
 Get the latest version from [Releases](https://github.com/wingedpanther/cleanmytv/releases):
