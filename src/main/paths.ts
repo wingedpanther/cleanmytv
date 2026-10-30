@@ -20,5 +20,7 @@ export const paths = {
   get keystore(): string { return join(resourcesDir, 'signing', 'cleanmytv.jks') },
   get adbKey(): string { return join(dataDir, 'adbkey') },
   get tools(): string { return join(dataDir, 'tools') },
-  get settings(): string { return join(dataDir, 'settings.json') }
+  get settings(): string { return join(dataDir, 'settings.json') },
+  /** A copy of each TV's CleanMyTV Home settings and wallpaper, put back if a fresh install starts empty. */
+  get homeBackups(): string { return join(dataDir, 'home-backups') }
 }

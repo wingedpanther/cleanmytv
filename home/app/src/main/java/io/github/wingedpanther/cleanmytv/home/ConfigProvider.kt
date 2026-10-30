@@ -71,6 +71,7 @@ class ConfigProvider : ContentProvider() {
         }
         val config = ConfigStore.config.value.toJson()
             .put("has_wallpaper", ConfigStore.wallpaper(ctx).exists())
+            .put("configured", ConfigStore.configured(ctx))
             .put("quick_available", org.json.JSONArray(availableQuick(ctx)))
         out.putString("config", config.toString())
         return out

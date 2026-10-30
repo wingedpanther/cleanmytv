@@ -11,6 +11,8 @@ import * as system from './system'
 import * as tools from './toolchain'
 import { localSubnets, scan } from './scan'
 import { reconnect } from './reconnect'
+import { bootCheck } from './bootcheck'
+import { check as checkUpdate, type UpdateCache } from './updates'
 import { autoConnect, forgetTv, listTvs, rememberTv, setThumb } from './tvlist'
 import * as web from './web'
 import * as home from './home'
@@ -25,6 +27,7 @@ interface Settings {
   lastModel?: string
   /** Every TV connected before. With more than one, the app waits for the user to pick. */
   tvs?: KnownTv[]
+  update?: UpdateCache
 }
 
 function readSettings(): Settings {
@@ -108,6 +111,13 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   status: async () => T.getStatus(),
   lastHost: async () => readSettings().lastHost ?? null,
   checkAdbClosed: (host) => system.adbClosed(host),
+  bootCheck: () => bootCheck(),
+  checkUpdate: async () => {
+    const s = readSettings()
+    const { info, cache } = await checkUpdate(app.getVersion(), s.update ?? {})
+    if (cache !== s.update) writeSettings({ ...readSettings(), update: cache })
+    return info
+  },
   pair: async (host, pairPort, code, connectPort) => {
     const r = await tools.pair(host, pairPort, code, connectPort)
     if (r.ok) await handlers.connect(host)

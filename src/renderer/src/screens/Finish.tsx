@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { ScreenProps } from '../App'
-import { Busy } from '../components/ui'
+import type { BootCheckResult } from '@shared/api'
+import { Busy, errorText } from '../components/ui'
 
 const STEPS = [
   'On the TV, open Developer options and turn off USB debugging.',
@@ -14,6 +15,11 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
   const [ticks, setTicks] = useState<boolean[]>(STEPS.map(() => false))
   const [checking, setChecking] = useState(false)
   const [res, setRes] = useState<{ closed: boolean; message: string } | null>(null)
+  const [restarting, setRestarting] = useState(false)
+  const [boot, setBoot] = useState<BootCheckResult | null>(null)
+  const [sawHome, setSawHome] = useState(false)
+  // Debugging is the only way back into a TV that boots to a black screen (#33): it stays on until a restart has worked.
+  const safe = boot?.ok === true || sawHome
 
   useEffect(() => {
     if (!host) window.cytv.lastHost().then((h) => h && setHost(h))
@@ -33,6 +39,18 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
     }
   }
 
+  async function restartCheck(): Promise<void> {
+    setRestarting(true)
+    setBoot(null)
+    try {
+      setBoot(await window.cytv.bootCheck())
+    } catch (e) {
+      setBoot({ ok: false, reconnected: false, summary: errorText(e) })
+    } finally {
+      setRestarting(false)
+    }
+  }
+
   return (
     <>
       <h1>Finish and lock</h1>
@@ -42,8 +60,35 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
         any time you want to change something from this app.
       </p>
 
-      <div className="card">
-        <h2>On the TV</h2>
+      <div className="card white">
+        <h2>1. Restart check</h2>
+        <p className="muted">
+          Restart the TV once while debugging is still on. If it comes back to a black screen, the app can still put the stock
+          launcher back. With debugging off, only a factory reset could.
+        </p>
+        <div className="row">
+          <button className="btn primary" onClick={restartCheck} disabled={restarting || status.state !== 'connected'}>
+            Restart the TV and check
+          </button>
+          {restarting && <Busy text="Restarting the TV and waiting for its home screen. This can take 3 minutes" />}
+          {!restarting && status.state !== 'connected' && !boot && <span className="small muted">Connect to the TV first.</span>}
+        </div>
+        {boot && (
+          <div className={`notice ${boot.ok ? 'ok' : 'error'}`} style={{ marginTop: 16, marginBottom: 0 }}>
+            <b>{boot.summary}</b> {boot.advice}
+          </div>
+        )}
+        {!boot?.ok && (
+          <label className="row small" style={{ marginTop: 12, cursor: 'pointer' }}>
+            <input type="checkbox" checked={sawHome} onChange={(e) => setSawHome(e.target.checked)} />
+            <span>I restarted the TV myself and its home screen came up</span>
+          </label>
+        )}
+      </div>
+
+      <div className="card" style={safe ? undefined : { opacity: 0.5, pointerEvents: 'none' }} aria-disabled={!safe}>
+        <h2>2. On the TV</h2>
+        {!safe && <p className="small muted">Do the restart check first.</p>}
         <ul className="checklist">
           {STEPS.map((s, i) => (
             <li key={i} className="check" style={{ gridTemplateColumns: 'auto 1fr' }}>
@@ -79,11 +124,11 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
       </div>
 
       <div className="card white">
-        <h2>Check from this computer</h2>
+        <h2>3. Check from this computer</h2>
         <p className="muted">Once the TV has restarted, check that port 5555 no longer answers.</p>
         <div className="row">
           <input type="text" value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.50" style={{ width: 200 }} />
-          <button className="btn primary" onClick={check} disabled={checking || !/^\d{1,3}(\.\d{1,3}){3}$/.test(host.trim())}>
+          <button className="btn primary" onClick={check} disabled={!safe || checking || !/^\d{1,3}(\.\d{1,3}){3}$/.test(host.trim())}>
             Check port 5555 is closed
           </button>
           {checking && <Busy text="Knocking on port 5555" />}

@@ -79,7 +79,7 @@ describe('talking to a TV', () => {
     tv.settings.set('window_animation_scale', '0.5')
 
     const r = await D.apply({ listId: 'custom', disable: ['com.google.android.tvlauncher', 'com.sony.dtv.promos', 'com.sony.dtv.analytics', D.SETUPWRAITH, 'com.sony.dtv.alreadyoff'], enable: [] })
-    expect(r.warnings.join('\n')).toMatch(/Skipped com.google.android.tvlauncher: it owns Home/)
+    expect(r.warnings.join('\n')).toMatch(/Kept on for now: com.google.android.tvlauncher\. It is the TV's fallback Home/)
     expect(r.warnings.join('\n')).toMatch(/Skipped com.google.android.tungsten.setupwraith: the saved Wi-Fi network belongs to it/)
     expect(tv.packages.get('com.google.android.tvlauncher')).toBe('enabled')
     expect(tv.packages.get(D.SETUPWRAITH)).toBe('enabled')

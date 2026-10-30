@@ -15,6 +15,8 @@ export const SETUPWRAITH = 'com.google.android.tungsten.setupwraith'
 // They answer HOME too, but they are not launchers: setupwraith taking Home is the crash loop the
 // home guard exists to prevent.
 const NOT_LAUNCHERS = [SETUPWRAITH, 'com.android.tv.settings', 'com.android.settings', 'com.android.provision']
+/** CleanMyTV Home (launcher.ts HOME_PKG; launcher.ts imports this file, so it is repeated here). */
+const OUR_HOME = 'io.github.wingedpanther.cleanmytv.home'
 export const KNOWN_STOCK_LAUNCHERS = ['com.google.android.tvlauncher', 'com.google.android.apps.tv.launcherx', 'com.google.android.leanbacklauncher', 'com.mitv.tvhome']
 const CUSTOM_LAUNCHER = 'com.gathin.tvhome'
 const SETTINGS = ['window_animation_scale', 'transition_animation_scale', 'animator_duration_scale'] as const
@@ -518,6 +520,16 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   // Home guard: never leave the TV with nothing that can answer Home.
   const homeAns = await T.homeAnswer()
   const homePkg = homeAns.split('/')[0]
+  // The stock launcher and setupwraith are Google TV's fallback Homes. They stay on until CleanMyTV Home
+  // owns Home: with both off and the launcher that is left failing at boot, the TV shows a black screen
+  // and can't be reached (#33). setupwraith that already owns Home is the broken state, so it may go.
+  if (homePkg !== OUR_HOME && !req.forceHome) {
+    const held = pkgs.filter((p) => KNOWN_STOCK_LAUNCHERS.includes(p) || (p === SETUPWRAITH && homePkg !== SETUPWRAITH))
+    if (held.length) {
+      warnings.push(`Kept on for now: ${held.join(', ')}. ${held.length === 1 ? 'It is' : 'They are'} the TV's fallback Home. Install CleanMyTV Home (Home screen step), then apply again.`)
+      pkgs = pkgs.filter((p) => !held.includes(p))
+    }
+  }
   if (homePkg && pkgs.includes(homePkg) && !req.forceHome) {
     const claims = await T.homeClaimants()
     const others = claims.filter((c) => c !== homePkg && !pkgs.includes(c) && !NOT_LAUNCHERS.includes(c))

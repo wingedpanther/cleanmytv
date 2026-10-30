@@ -2,4 +2,5 @@
 <resources>
     <string name="key_service_label">CleanMyTV Home remote buttons</string>
     <string name="key_service_description">Gives remote buttons the actions you chose in CleanMyTV. Buttons you didn\'t map work as before.</string>
+    <string name="now_playing_label">CleanMyTV Home now playing</string>
 </resources>

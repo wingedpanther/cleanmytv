@@ -8,6 +8,8 @@ import { configurePaths } from '../src/main/paths'
 import * as T from '../src/main/tv'
 import * as L from '../src/main/launcher'
 import * as H from '../src/main/home'
+import * as D from '../src/main/debloat'
+import { bootCheck } from '../src/main/bootcheck'
 import { FakeTv, newTv, startFakeAdbd } from './fake-adbd'
 
 const home = mkdtempSync(join(tmpdir(), 'cytv-test-'))
@@ -144,10 +146,100 @@ describe('CleanMyTV Home', () => {
     expect((await H.setWallpaper(null)).has_wallpaper).toBe(false)
   })
 
+  it('puts the settings and wallpaper back when a fresh install starts empty', async () => {
+    const jpeg = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(20 * 1024)])
+    await H.setWallpaper(jpeg.toString('base64'))
+    await H.setConfig({ accent: '#7C5CFF', layout: 'split', quick: ['wifi', 'sleep'], order: ['com.netflix.ninja'] })
+    // An uninstall or a factory reset: no settings file and no wallpaper.
+    tv.homeConfig = {}
+    tv.homeFresh = true
+    tv.files.delete('/data/data/home/wallpaper.jpg')
+    // A fresh launcher's defaults must not replace the good copy.
+    expect((await H.readConfig()).configured).toBe(false)
+    const r = await H.install()
+    expect(r.summary).toMatch(/settings and wallpaper came back/)
+    expect(tv.homeConfig).toMatchObject({ accent: '#7C5CFF', layout: 'split', quick: ['wifi', 'sleep'], order: ['com.netflix.ninja'] })
+    expect(tv.files.get('/data/data/home/wallpaper.jpg')?.equals(jpeg)).toBe(true)
+    // A launcher that kept its settings is left alone.
+    const before = tv.commands.length
+    expect((await H.install()).summary).not.toMatch(/came back/)
+    expect(tv.commands.slice(before).some((c) => c.includes('wallpaper_begin'))).toBe(false)
+    await H.setWallpaper(null)
+  })
+
+  it('takes weather places and gives now playing its access only with the section', async () => {
+    const cfg = await H.setConfig({ weather_place: ' Dublin\n', weather_lat: 53.333123, weather_lon: -6.24889, weather_unit: 'f' })
+    expect(cfg).toMatchObject({ weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'f' })
+    await expect(H.setConfig({ weather_lat: 91 })).rejects.toThrow(/weather_lat/)
+    await expect(H.setConfig({ weather_unit: 'k' as never })).rejects.toThrow(/weather_unit/)
+    await H.setConfig({ sections: ['dock', 'grid'] })
+    expect(tv.commands.at(-1)).toBe('cmd notification disallow_listener io.github.wingedpanther.cleanmytv.home/io.github.wingedpanther.cleanmytv.home.NowPlayingListener')
+    await H.setConfig({ sections: ['nowplaying', 'dock', 'grid'] })
+    expect(tv.commands.at(-1)).toBe('cmd notification allow_listener io.github.wingedpanther.cleanmytv.home/io.github.wingedpanther.cleanmytv.home.NowPlayingListener')
+  })
+
   it('gives Home back to the stock launcher from CleanMyTV Home', async () => {
     expect((await L.useStock()).ok).toBe(true)
     expect(tv.home).toBe('com.google.android.apps.tv.launcherx/.home.HomeActivity')
     expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('enabled')
+  })
+
+  it('switches the stock launcher off when using an installed CleanMyTV Home (#27)', async () => {
+    const r = await L.switchTo('io.github.wingedpanther.cleanmytv.home/.MainActivity')
+    expect(r.ok).toBe(true)
+    expect(tv.home).toBe('io.github.wingedpanther.cleanmytv.home/.MainActivity')
+    expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('disabled')
+  })
+
+  it('switches setupwraith off only once CleanMyTV Home is Home (#33)', async () => {
+    tv.packages.set(D.SETUPWRAITH, 'enabled')
+    await L.useStock()
+    let r = await D.apply({ listId: 'custom', disable: [D.SETUPWRAITH], enable: [] })
+    expect(r.warnings.join('\n')).toMatch(/Kept on for now: com.google.android.tungsten.setupwraith/)
+    expect(tv.packages.get(D.SETUPWRAITH)).toBe('enabled')
+    expect((await L.switchTo('io.github.wingedpanther.cleanmytv.home/.MainActivity')).ok).toBe(true)
+    r = await D.apply({ listId: 'custom', disable: [D.SETUPWRAITH], enable: [] })
+    expect(r.ok).toBe(true)
+    expect(tv.packages.get(D.SETUPWRAITH)).toBe('disabled')
+  })
+
+  const instant = { sleep: async () => {}, portOpen: async () => true }
+
+  it('restarts the TV, reconnects and finds the home screen running', async () => {
+    const r = await bootCheck(instant)
+    expect(r).toMatchObject({ ok: true, reconnected: true })
+    expect(tv.commands).toContain('reboot')
+    expect(T.getStatus().state).toBe('connected')
+  })
+
+  it('puts the stock launcher back when no home screen comes up after the restart', async () => {
+    tv.crashing = ['io.github.wingedpanther.cleanmytv.home']
+    const r = await bootCheck(instant)
+    tv.crashing = []
+    expect(r).toMatchObject({ ok: false, reconnected: true })
+    expect(r.advice).toMatch(/switched com.google.android.apps.tv.launcherx back on/)
+    expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('enabled')
+    expect(tv.home).toBe('com.google.android.apps.tv.launcherx/.home.HomeActivity')
+  })
+
+  it('says so when the TV does not come back after the restart', async () => {
+    const r = await bootCheck({ sleep: async () => {}, portOpen: async () => false })
+    expect(r).toMatchObject({ ok: false, reconnected: false })
+    expect(T.getStatus().state).not.toBe('connected')
+    expect((await T.connect(String(T.getStatus().host))).state).toBe('connected')
+  })
+
+  it('refuses to install on Android older than 9 (#30)', async () => {
+    const host = String(T.getStatus().host)
+    tv.sdk = '24'
+    expect((await T.connect(host)).state).toBe('connected')
+    const r = await H.install()
+    expect(r.ok).toBe(false)
+    expect(r.summary).toMatch(/needs Android 9 or newer, and this TV runs Android 7\.0 \(SDK 24\)/)
+    expect((await H.status()).unsupported).toMatch(/Android 9/)
+    tv.sdk = undefined
+    expect((await T.connect(host)).state).toBe('connected')
+    expect((await H.status()).unsupported).toBeUndefined()
   })
 
 })

@@ -65,7 +65,7 @@ export async function connect(host: string): Promise<ConnStatus> {
 function friendly(err: AdbError): string {
   switch (err.code) {
     case 'refused':
-      return 'The TV is there but network debugging is off. Turn on USB debugging (and Network or ADB debugging if you see it) in Developer options.'
+      return 'The TV is there but network debugging is off. Turn on USB debugging (and Network or ADB debugging if you see it) in Developer options. If your TV only has Wireless debugging (most Google TVs and Chromecasts), pair it with a code instead.'
     case 'timeout':
     case 'unreachable':
       return `${err.message} Check the IP address, that the TV is on, and that this computer is on the same network.`

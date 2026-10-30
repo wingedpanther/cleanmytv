@@ -3,7 +3,7 @@ import type { CytvApi, ConnStatus, DownloadProgress, LogLine } from '@shared/api
 
 // Every method of CytvApi except the event hooks is a plain invoke on a channel of the same name.
 const methods = [
-  'scan', 'connect', 'disconnect', 'status', 'lastHost', 'reconnect', 'checkAdbClosed', 'pair',
+  'scan', 'connect', 'disconnect', 'status', 'lastHost', 'reconnect', 'checkAdbClosed', 'bootCheck', 'checkUpdate', 'pair',
   'checks', 'download',
   'lists', 'plan', 'applyDebloat', 'restore',
   'useStockLauncher', 'removeOldLauncher', 'homeStatus', 'installHome', 'useHome', 'homeApps', 'readHomeConfig', 'setRemoteButtons', 'homeKeys', 'setHomeConfig', 'setHomeWallpaper',
