@@ -34,7 +34,7 @@ rmSync(out, { recursive: true, force: true })
 mkdirSync(join(out, 'examples'), { recursive: true })
 let lists = 0
 for (const id of readdirSync(join(src, 'examples'))) {
-  for (const f of ['debloat.txt', 'config.json']) {
+  for (const f of ['debloat.txt', 'config.json', 'tv.json']) {
     const p = join(src, 'examples', id, f)
     if (existsSync(p)) {
       mkdirSync(join(out, 'examples', id), { recursive: true })

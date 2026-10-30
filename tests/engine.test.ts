@@ -124,10 +124,22 @@ describe('upstream lists', () => {
   })
 
   it('offers a family-inferred list for unlisted models of a known brand', () => {
-    const all = D.lists({ host: '', model: 'MiTV-MSSP1', device: 'huangshan_mssp1', product: 'mssp1', manufacturer: 'Xiaomi', release: '9', sdk: 28, build: '', adbSecure: '1' })
+    const all = D.lists({ host: '', model: 'MiTV-MSSP9', device: 'huangshan_mssp9', product: 'mssp9', manufacturer: 'Xiaomi', release: '9', sdk: 28, build: '', adbSecure: '1' })
     const inferred = all.find((l) => l.title.startsWith('Inferred for your Xiaomi'))
     expect(inferred).toBeDefined()
     expect(inferred!.id).toBe('xiaomi-mitv-mssp3')
+  })
+
+  it("matches a model that only the list's tv.json names", () => {
+    const all = D.lists({ host: '', model: '55PUS7906/12', device: '55PUS7906', product: 'PH_55PUS7906', manufacturer: 'Philips', release: '11', sdk: 30, build: '', adbSecure: '1' })
+    expect(all[1].id).toBe('philips-50pud7406')
+    expect(all[1].score).toBeGreaterThan(0)
+  })
+
+  it("puts the TV's own brand first when nothing matches, without calling it a match", () => {
+    const all = D.lists({ host: '', model: 'Unknown 99', device: 'nowhere', product: 'nowhere', manufacturer: 'Sharp', release: '11', sdk: 30, build: '', adbSecure: '1' })
+    expect(all[1].id).toMatch(/^sharp/)
+    expect(all.every((l) => l.score === 0)).toBe(true)
   })
 
   it('does not infer a family when a list already matches exactly', () => {

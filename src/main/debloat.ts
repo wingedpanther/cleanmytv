@@ -83,9 +83,21 @@ interface Upstream {
   title: string
   text: string
   parsed: ParsedList
+  /** From the list's tv.json: every model the list was checked on, and the brand. */
+  tv: string
+  brand: string
 }
 
 let upstreamCache: Upstream[] | null = null
+
+function readTvJson(file: string): { tv: string; brand: string } {
+  try {
+    const j = JSON.parse(readFileSync(file, 'utf8')) as { tv?: unknown; brand?: unknown }
+    return { tv: typeof j.tv === 'string' ? j.tv : '', brand: typeof j.brand === 'string' ? j.brand : '' }
+  } catch {
+    return { tv: '', brand: '' }
+  }
+}
 
 function upstreamLists(): Upstream[] {
   if (upstreamCache) return upstreamCache
@@ -97,7 +109,8 @@ function upstreamLists(): Upstream[] {
       try {
         const text = readFileSync(file, 'utf8')
         const parsed = parseList(text, `${id}/debloat.txt`)
-        out.push({ id, title: parsed.header[0] ?? id, text, parsed })
+        const meta = readTvJson(join(paths.examples, id, 'tv.json'))
+        out.push({ id, title: parsed.header[0] ?? id, text, parsed, tv: meta.tv, brand: meta.brand })
       } catch (e) {
         log(TASK, 'warn', `skipping upstream list ${id}: ${(e as Error).message}`)
       }
@@ -126,9 +139,9 @@ function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-/** How well a list's header and folder name fit the TV's properties. */
-export function matchScore(id: string, header: string[], probe: Pick<Probe, 'model' | 'device' | 'product' | 'manufacturer'>): number {
-  const text = (header.slice(0, 4).join(' ') + ' ' + id).toLowerCase()
+/** How well a list's header, folder name and tv.json models fit the TV's properties. */
+export function matchScore(id: string, header: string[], probe: Pick<Probe, 'model' | 'device' | 'product' | 'manufacturer'>, tv = ''): number {
+  const text = (header.slice(0, 4).join(' ') + ' ' + id + ' ' + tv).toLowerCase()
   const has = (token: string): boolean => {
     const t = token.trim().toLowerCase()
     if (t.length < 3) return false
@@ -147,10 +160,13 @@ export function lists(probe: Probe | undefined): DebloatListSummary[] {
   const all = upstreamLists().map((l) => ({
     id: l.id,
     title: l.title,
-    score: probe ? matchScore(l.id, l.parsed.header, probe) : 0
+    score: probe ? matchScore(l.id, l.parsed.header, probe, l.tv) : 0,
+    sameBrand: !!probe && sameBrand(l.brand, probe.manufacturer)
   }))
-  all.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
-  const out: DebloatListSummary[] = [...all]
+  // Lists from the TV's own brand come next after real matches. They keep score 0: a brand alone
+  // is no reason for the guided run to pick a list.
+  all.sort((a, b) => b.score - a.score || Number(b.sameBrand) - Number(a.sameBrand) || a.id.localeCompare(b.id))
+  const out: DebloatListSummary[] = all.map(({ id, title, score }) => ({ id, title, score }))
   // Device-family fallback (#2): when no list matches the TV on model/device (best exact score
   // < 5), infer one from the manufacturer so unlisted models of a known family still start from
   // that family's list instead of the generic one. The entry keeps the base list's id (so
@@ -179,6 +195,13 @@ const DEVICE_FAMILIES: Array<{ label: string; manufacturers: string[]; modelPref
   { label: 'Xiaomi / Mi TV', manufacturers: ['xiaomi', 'redmi'], modelPrefixes: ['mitv', 'mssp', 'mftr'], baseListId: 'xiaomi-mitv-mssp3' },
   { label: 'TCL', manufacturers: ['tcl', 'thomson'], modelPrefixes: [], baseListId: 'tcl-c755-google-tv' }
 ]
+
+/** tv.json brands read "Amazon Fire TV" or "SHARP"; ro.product.manufacturer reads "Amazon" or "Sharp". */
+function sameBrand(brand: string, manufacturer: string): boolean {
+  const a = brand.trim().toLowerCase().split(/\s+/)[0]
+  const b = manufacturer.trim().toLowerCase().split(/\s+/)[0]
+  return !!a && !!b && (a === b || (a.length >= 3 && b.startsWith(a)) || (b.length >= 3 && a.startsWith(b)))
+}
 
 function familyFor(probe: Pick<Probe, 'model' | 'device' | 'product' | 'manufacturer'>): { label: string; baseListId: string } | null {
   const brand = probe.manufacturer.trim().toLowerCase().split(/\s+/)[0]
