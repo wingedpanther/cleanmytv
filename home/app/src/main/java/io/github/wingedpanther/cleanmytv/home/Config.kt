@@ -17,7 +17,7 @@ data class Group(val name: String, val apps: List<String>)
 data class HomeConfig(
     // Arrangement
     val layout: String = "shelf", // shelf, split, rail
-    val sections: List<String> = listOf("dock", "rows", "folders", "grid"), // top to bottom; absent = hidden
+    val sections: List<String> = listOf("nowplaying", "dock", "rows", "folders", "grid"), // top to bottom; absent = hidden
     val topSpace: Int = 25, // percent of the screen left open above the apps (shelf)
     val quick: List<String> = listOf("inputs", "wifi", "settings"), // quick-settings icons, in order
     val rows: List<Group> = emptyList(),
@@ -40,6 +40,11 @@ data class HomeConfig(
     val showNames: Boolean = true,
     val clock: String = "time_date", // time_date, time, off
     val greeting: String = "",
+    // Weather next to the clock, from Open-Meteo; off while the place is blank
+    val weatherPlace: String = "",
+    val weatherLat: Double = 0.0,
+    val weatherLon: Double = 0.0,
+    val weatherUnit: String = "c", // c, f
     // Music bars
     val visualiser: Boolean = true,
     val vizStyle: String = "bars", // bars, mirror, wave
@@ -72,6 +77,10 @@ data class HomeConfig(
         .put("show_names", showNames)
         .put("clock", clock)
         .put("greeting", greeting)
+        .put("weather_place", weatherPlace)
+        .put("weather_lat", weatherLat)
+        .put("weather_lon", weatherLon)
+        .put("weather_unit", weatherUnit)
         .put("visualiser", visualiser)
         .put("viz_style", vizStyle)
         .put("viz_bars", vizBars)
@@ -87,7 +96,7 @@ data class HomeConfig(
 
         private fun hex(c: Long) = "#%06X".format(c and 0xFFFFFF)
         val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music")
-        private val SECTIONS = setOf("dock", "rows", "folders", "grid")
+        private val SECTIONS = setOf("nowplaying", "dock", "rows", "folders", "grid")
         val BUTTON_ACTIONS = QUICK - "inputs" + setOf("inputs", "home", "back", "none", "app")
 
         private fun groupsJson(gs: List<Group>) = JSONArray(gs.map { JSONObject().put("name", it.name).put("apps", JSONArray(it.apps)) })
@@ -98,6 +107,8 @@ data class HomeConfig(
                 o.optString(key).takeIf { HEX.matches(it) }?.let { 0xFF000000 or it.substring(1).toLong(16) } ?: cur
             fun int(key: String, cur: Int, lo: Int, hi: Int) =
                 if (o.has(key)) o.optInt(key, cur).coerceIn(lo, hi) else cur
+            fun real(key: String, cur: Double, lim: Double) =
+                if (o.has(key)) o.optDouble(key, cur).takeIf { it.isFinite() }?.coerceIn(-lim, lim) ?: cur else cur
             fun bool(key: String, cur: Boolean) = if (o.has(key)) o.optBoolean(key, cur) else cur
             fun choice(key: String, cur: String, allowed: Set<String>) = o.optString(key).takeIf { it in allowed } ?: cur
             fun pkgs(key: String): List<String>? = o.optJSONArray(key)?.let { a ->
@@ -146,6 +157,10 @@ data class HomeConfig(
                 showNames = bool("show_names", base.showNames),
                 clock = choice("clock", base.clock, setOf("time_date", "time", "off")),
                 greeting = if (o.has("greeting")) o.optString("greeting").take(40) else base.greeting,
+                weatherPlace = if (o.has("weather_place")) o.optString("weather_place").replace(Regex("[\\p{Cntrl}]"), "").trim().take(40) else base.weatherPlace,
+                weatherLat = real("weather_lat", base.weatherLat, 90.0),
+                weatherLon = real("weather_lon", base.weatherLon, 180.0),
+                weatherUnit = choice("weather_unit", base.weatherUnit, setOf("c", "f")),
                 visualiser = bool("visualiser", base.visualiser),
                 vizStyle = choice("viz_style", base.vizStyle, setOf("bars", "mirror", "wave")),
                 vizBars = int("viz_bars", base.vizBars, 8, 64),
@@ -172,6 +187,8 @@ object ConfigStore {
     private var loaded = false
 
     private fun file(ctx: Context) = File(ctx.filesDir, "config.json")
+    /** False on a fresh install, before anything was set: CleanMyTV then puts its saved copy back. */
+    fun configured(ctx: Context) = file(ctx).exists()
     fun wallpaper(ctx: Context) = File(ctx.filesDir, "wallpaper.jpg")
     fun wallpaperUpload(ctx: Context) = File(ctx.filesDir, "wallpaper.upload")
 

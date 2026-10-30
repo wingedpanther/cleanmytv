@@ -7,6 +7,8 @@
     <!-- The music visualiser reads the TV's mixed output. CleanMyTV grants this over ADB. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Weather next to the clock, from Open-Meteo. Nothing else goes online. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Android 11+ hides other apps unless we say which ones we look for. -->
     <queries>
@@ -57,6 +59,18 @@
                 <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/key_service" />
+        </service>
+
+        <!-- Lets Home see what other apps are playing, for the Now playing section. It reads no
+             notifications. CleanMyTV switches it on over ADB only when that section is on. -->
+        <service
+            android:name=".NowPlayingListener"
+            android:exported="false"
+            android:label="@string/now_playing_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
         </service>
 
         <!-- Settings come in through ADB (`content call`), never a shared folder. Only the shell

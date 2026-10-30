@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         if (ConfigStore.config.value.visualiser) visualiser.start(this)
+        NowPlaying.start(this)
     }
 
     override fun onResume() {
@@ -64,6 +65,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         visualiser.stop()
+        NowPlaying.stop()
         super.onStop()
     }
 

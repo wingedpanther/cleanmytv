@@ -55,10 +55,11 @@ export function installMock(): void {
   let homeIsHome = false
   let keySeq = 0
   const homeConfig: HomeConfig = {
-    layout: 'shelf', sections: ['dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
+    layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
     rows: [{ name: 'Watch', apps: ['com.netflix.ninja', 'com.google.android.youtube.tv'] }], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [],
     accent: '#4CAF50', focus: 'glow', background: '#1C2A1F', wallpaper_dim: 35,
     order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, clock: 'time_date', greeting: '',
+    weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'c',
     visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100,
     has_wallpaper: false
   }
@@ -165,6 +166,9 @@ export function installMock(): void {
     async checkAdbClosed(host) {
       await wait(800)
       return { closed: true, message: `${host}:5555 is closed: the TV refused the connection.` }
+    },
+    async checkUpdate() {
+      return { current: '0.2.1', latest: '0.3.0', available: true, url: 'https://github.com/wingedpanther/cleanmytv/releases/tag/v0.3.0' }
     },
     async bootCheck() {
       await wait(2500)
@@ -317,8 +321,10 @@ export function installMock(): void {
       await wait(900)
       return gradientUrl('#101820', '#0b2a3a', '#000000')
     },
-    async webGet() {
-      throw new Error('Background sources need the desktop app.')
+    async webGet(url) {
+      if (!url.startsWith('https://geocoding-api.open-meteo.com/')) throw new Error('Background sources need the desktop app.')
+      const results = [{ name: 'Dublin', admin1: 'Leinster', country: 'Ireland', latitude: 53.3331, longitude: -6.2489 }, { name: 'Dublin', admin1: 'Ohio', country: 'United States', latitude: 40.0992, longitude: -83.1141 }]
+      return { status: 200, contentType: 'application/json', base64: btoa(JSON.stringify({ results })) }
     },
     async systemState() {
       return { ...sys }

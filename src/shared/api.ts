@@ -109,6 +109,15 @@ export interface ApplyResult {
 }
 
 /** CleanMyTV Home on the TV. */
+export interface UpdateInfo {
+  current: string
+  /** The newest release on GitHub, if the app has heard. */
+  latest?: string
+  available: boolean
+  /** Its release page. */
+  url?: string
+}
+
 export interface BootCheckResult {
   ok: boolean
   /** The app got the TV back after the restart. */
@@ -132,7 +141,7 @@ export interface HomeStatus {
 }
 
 export type HomeLayout = 'shelf' | 'split' | 'rail'
-export type HomeSection = 'dock' | 'rows' | 'folders' | 'grid'
+export type HomeSection = 'nowplaying' | 'dock' | 'rows' | 'folders' | 'grid'
 export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music'
 
 /** What a mapped remote button does: a quick-settings action, Home, Back, nothing, or open an app. */
@@ -198,6 +207,11 @@ export interface HomeConfig {
   clock: 'time_date' | 'time' | 'off'
   /** A name for "Good evening, …"; empty for none. */
   greeting: string
+  /** Weather next to the clock; off while blank. */
+  weather_place: string
+  weather_lat: number
+  weather_lon: number
+  weather_unit: 'c' | 'f'
   // Music bars
   visualiser: boolean
   viz_style: 'bars' | 'mirror' | 'wave'
@@ -213,6 +227,8 @@ export interface HomeConfig {
   has_wallpaper?: boolean
   /** Read only: the quick-settings icons this TV can open (others are hidden on the TV). */
   quick_available?: QuickId[]
+  /** Read only: false on a fresh install that has no settings yet (launcher 1.1.0 and later). */
+  configured?: boolean
 }
 
 /** A TV this app has connected to before. */
@@ -292,6 +308,8 @@ export interface CytvApi {
   reconnect(): Promise<ConnStatus | null>
   /** Port 5555 refuses or ignores connections (after debugging was switched off). */
   checkAdbClosed(host: string): Promise<{ closed: boolean; message: string }>
+  /** Asks GitHub for a newer CleanMyTV, at most every 12 hours. */
+  checkUpdate(): Promise<UpdateInfo>
   /** Restarts the TV, reconnects, and checks a home screen comes up; puts the stock launcher back if not. */
   bootCheck(): Promise<BootCheckResult>
   /** Wireless-debugging pairing with Google's adb (downloaded on demand), then opens port 5555. */

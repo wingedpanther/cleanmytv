@@ -30,7 +30,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AcUnit
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Dehaze
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.MusicNote
+import androidx.compose.material.icons.outlined.NightsStay
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.SkipNext
+import androidx.compose.material.icons.outlined.Thunderstorm
+import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material.icons.outlined.WbCloudy
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -145,6 +157,18 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         if (cfg.visualiser) visualiser.start(ctx) else visualiser.stop()
     }
 
+    val track by NowPlaying.track.collectAsState()
+    var weather by remember { mutableStateOf<WeatherNow?>(null) }
+    LaunchedEffect(cfg.weatherPlace, cfg.weatherLat, cfg.weatherLon, cfg.weatherUnit) {
+        weather = null
+        if (cfg.weatherPlace.isBlank()) return@LaunchedEffect
+        // A failed refresh keeps the last reading; the next try is in 30 minutes, or 2 if there's none yet.
+        while (true) {
+            Weather.fetch(cfg)?.let { weather = it }
+            delay(if (weather == null) 2 * 60_000L else 30 * 60_000L)
+        }
+    }
+
     val home = Home(apps, cfg)
     val accent = Color(cfg.accent)
     // Quick-settings icons this TV can actually open; Inputs only on TVs that have inputs.
@@ -163,7 +187,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     }
     val first = remember { FocusRequester() }
     LaunchedEffect(home.first, cfg.layout) { if (home.first != null) runCatching { first.requestFocus() } }
-    val ui = Ui(cfg, accent, first, home.first, onFolder = { openFolder = it })
+    val ui = Ui(cfg, accent, first, home.first, onFolder = { openFolder = it }, track = track, weather = weather)
 
     Box(Modifier.fillMaxSize().background(Color(cfg.background))) {
         wallpaper?.let {
@@ -191,6 +215,8 @@ private class Ui(
     val focus: FocusRequester,
     val focusKey: String?,
     val onFolder: (Pair<String, List<TvApp>>) -> Unit,
+    val track: Track? = null,
+    val weather: WeatherNow? = null,
 ) {
     fun focusFor(section: String, app: TvApp): Modifier = if ("$section:${app.pkg}" == focusKey) Modifier.focusRequester(focus) else Modifier
 }
@@ -211,6 +237,7 @@ private fun ShelfLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (
                 Spacer(Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.End) {
                     Clock(cfg, 26.sp, 12.sp, Alignment.End)
+                    WeatherLine(ui, 13.sp, Modifier.padding(top = 4.dp))
                     if (quick.isNotEmpty()) {
                         if (cfg.clock != "off") Spacer(Modifier.height(10.dp))
                         Row(Modifier.focusGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) { quick.forEach { QuickButton(it, ui, onQuick) } }
@@ -230,6 +257,7 @@ private fun SplitLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (
     Row(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxWidth(0.32f).fillMaxHeight().padding(start = SAFE_X, top = SAFE_Y + 24.dp, bottom = SAFE_Y + 48.dp)) {
             Clock(cfg, 56.sp, 15.sp, Alignment.Start)
+            WeatherLine(ui, 15.sp, Modifier.padding(top = 6.dp))
             Spacer(Modifier.height(14.dp))
             Greeting(cfg, 18.sp)
             Spacer(Modifier.weight(1f))
@@ -267,6 +295,7 @@ private fun RailLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Q
             Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = SAFE_X, top = SAFE_Y), verticalAlignment = Alignment.CenterVertically) {
                 Greeting(cfg, 20.sp)
                 Spacer(Modifier.weight(1f))
+                WeatherLine(ui, 13.sp, Modifier.padding(end = 18.dp))
                 Clock(cfg, 26.sp, 12.sp, Alignment.End)
             }
             Sections(home, ui, Modifier.fillMaxSize(), PaddingValues(start = 24.dp - BLEED, end = SAFE_X - BLEED, top = 20.dp, bottom = 96.dp), dockWidth = 196.dp, showFolders = false)
@@ -287,6 +316,7 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
         val dockW: Dp = minOf(dockWidth * (cfg.dockScale / 100f), (inner - GAP * (n - 1)) / n)
         LazyColumn(Modifier.fillMaxSize().fadeTop(), contentPadding = padding) {
             for (s in cfg.sections) when (s) {
+                "nowplaying" -> ui.track?.let { t -> item("nowplaying") { NowPlayingCard(t, ui) } }
                 "dock" -> if (home.dock.isNotEmpty()) item("dock") {
                     TileRow("dock", home.dock, ui, dockW, big = true)
                 }
@@ -413,7 +443,68 @@ private fun FolderTile(folder: Pair<String, List<TvApp>>, ui: Ui, size: Modifier
     }
 }
 
+/** What another app is playing, with play/pause and next. Only there while a session has something loaded. */
+@Composable
+private fun NowPlayingCard(t: Track, ui: Ui) {
+    Row(
+        Modifier.padding(horizontal = BLEED, vertical = 12.dp).width(520.dp).background(PANEL.copy(alpha = 0.88f), RoundedCornerShape(14.dp)).padding(12.dp).focusGroup(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(64.dp).background(TILE, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+            if (t.art != null) Image(t.art, null, Modifier.fillMaxSize().background(Color.Black, RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+            else Image(Icons.Outlined.MusicNote, null, Modifier.size(28.dp), colorFilter = ColorFilter.tint(MUTED))
+        }
+        Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+            Text(t.title, color = TEXT, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(listOf(t.artist, t.app).filter { it.isNotBlank() }.joinToString(" · "), color = MUTED, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            RoundButton(if (t.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (t.playing) "Pause" else "Play", ui) { NowPlaying.playPause() }
+            RoundButton(Icons.Outlined.SkipNext, "Next", ui) { NowPlaying.next() }
+        }
+    }
+}
+
 // ---- Top bar pieces -------------------------------------------------------------------------------
+
+/** Icon, temperature, today's high and low, and the place, in one muted line. */
+@Composable
+private fun WeatherLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
+    val w = ui.weather ?: return
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Image(weatherIcon(w), null, Modifier.size(with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.3f }), colorFilter = ColorFilter.tint(MUTED))
+        Spacer(Modifier.width(6.dp))
+        Text("${w.temp}°  ${w.high}° / ${w.low}°  ${ui.cfg.weatherPlace}", color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** WMO weather codes, as Open-Meteo reports them, to a drawn icon. */
+private fun weatherIcon(w: WeatherNow): ImageVector = when (w.code) {
+    0 -> if (w.day) Icons.Outlined.WbSunny else Icons.Outlined.NightsStay
+    1, 2 -> if (w.day) Icons.Outlined.WbCloudy else Icons.Outlined.NightsStay
+    3 -> Icons.Outlined.Cloud
+    45, 48 -> Icons.Outlined.Dehaze
+    in 71..77, 85, 86 -> Icons.Outlined.AcUnit
+    in 95..99 -> Icons.Outlined.Thunderstorm
+    in 51..67, in 80..82 -> Icons.Outlined.WaterDrop
+    else -> Icons.Outlined.Cloud
+}
+
+@Composable
+private fun RoundButton(icon: ImageVector, label: String, ui: Ui, onClick: () -> Unit) {
+    val (scale, glow, border) = focusStyle(ui, RoundedCornerShape(50), zoom = 1.12f)
+    var focused by remember { mutableStateOf(false) }
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.size(44.dp).onFocusChanged { focused = it.isFocused },
+        shape = ClickableSurfaceDefaults.shape(CircleShape), scale = scale, glow = glow, border = border,
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = ui.accent.copy(alpha = 0.9f))
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Image(icon, label, Modifier.size(24.dp), colorFilter = ColorFilter.tint(if (focused) onAccent(ui.accent) else TEXT))
+        }
+    }
+}
 
 @Composable
 private fun QuickButton(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit) {

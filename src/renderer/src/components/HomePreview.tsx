@@ -92,6 +92,20 @@ function Sections({ apps, cfg, width, dockW, showFolders = true }: { apps: TvApp
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {cfg.sections.map((s) => {
+        // A stand-in: on the TV the card shows only while an app has something playing.
+        if (s === 'nowplaying')
+          return (
+            <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 14, width: 520, padding: 12, margin: '8px 0', borderRadius: 14, background: 'rgba(45,58,46,0.88)' }}>
+              <div style={{ width: 64, height: 64, borderRadius: 8, background: '#3A4A3B', flex: 'none' }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 17, fontWeight: 500 }}>What's playing</div>
+                <div style={{ fontSize: 13, color: '#D7CFC4', marginTop: 3 }}>Artist · App, while something plays</div>
+              </div>
+              {['❚❚', '▸▸'].map((g) => (
+                <div key={g} style={{ width: 44, height: 44, borderRadius: 22, background: 'rgba(255,255,255,0.08)', display: 'grid', placeItems: 'center', fontSize: 13 }}>{g}</div>
+              ))}
+            </div>
+          )
         if (s === 'dock' && m.dock.length)
           return (
             <div key={s} style={{ display: 'flex', gap: GAP, padding: '8px 0' }}>
@@ -137,6 +151,11 @@ function Clock({ cfg, size, dateSize, align }: { cfg: HomeConfig; size: number; 
     <div style={{ textAlign: align }}>
       <div style={{ fontSize: size, fontWeight: 300, lineHeight: 1.1, fontFamily: 'var(--font)' }}>9:41</div>
       {cfg.clock === 'time_date' && <div style={{ fontSize: dateSize, color: '#D7CFC4', fontFamily: 'var(--font)' }}>Wednesday, 28 October</div>}
+      {cfg.weather_place && (
+        <div style={{ fontSize: dateSize, color: '#D7CFC4', fontFamily: 'var(--font)', marginTop: 4 }}>
+          ☁ 14°  16° / 9°  {cfg.weather_place}
+        </div>
+      )}
     </div>
   )
 }

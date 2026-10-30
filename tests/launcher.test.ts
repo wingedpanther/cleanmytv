@@ -146,6 +146,38 @@ describe('CleanMyTV Home', () => {
     expect((await H.setWallpaper(null)).has_wallpaper).toBe(false)
   })
 
+  it('puts the settings and wallpaper back when a fresh install starts empty', async () => {
+    const jpeg = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(20 * 1024)])
+    await H.setWallpaper(jpeg.toString('base64'))
+    await H.setConfig({ accent: '#7C5CFF', layout: 'split', quick: ['wifi', 'sleep'], order: ['com.netflix.ninja'] })
+    // An uninstall or a factory reset: no settings file and no wallpaper.
+    tv.homeConfig = {}
+    tv.homeFresh = true
+    tv.files.delete('/data/data/home/wallpaper.jpg')
+    // A fresh launcher's defaults must not replace the good copy.
+    expect((await H.readConfig()).configured).toBe(false)
+    const r = await H.install()
+    expect(r.summary).toMatch(/settings and wallpaper came back/)
+    expect(tv.homeConfig).toMatchObject({ accent: '#7C5CFF', layout: 'split', quick: ['wifi', 'sleep'], order: ['com.netflix.ninja'] })
+    expect(tv.files.get('/data/data/home/wallpaper.jpg')?.equals(jpeg)).toBe(true)
+    // A launcher that kept its settings is left alone.
+    const before = tv.commands.length
+    expect((await H.install()).summary).not.toMatch(/came back/)
+    expect(tv.commands.slice(before).some((c) => c.includes('wallpaper_begin'))).toBe(false)
+    await H.setWallpaper(null)
+  })
+
+  it('takes weather places and gives now playing its access only with the section', async () => {
+    const cfg = await H.setConfig({ weather_place: ' Dublin\n', weather_lat: 53.333123, weather_lon: -6.24889, weather_unit: 'f' })
+    expect(cfg).toMatchObject({ weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'f' })
+    await expect(H.setConfig({ weather_lat: 91 })).rejects.toThrow(/weather_lat/)
+    await expect(H.setConfig({ weather_unit: 'k' as never })).rejects.toThrow(/weather_unit/)
+    await H.setConfig({ sections: ['dock', 'grid'] })
+    expect(tv.commands.at(-1)).toBe('cmd notification disallow_listener io.github.wingedpanther.cleanmytv.home/io.github.wingedpanther.cleanmytv.home.NowPlayingListener')
+    await H.setConfig({ sections: ['nowplaying', 'dock', 'grid'] })
+    expect(tv.commands.at(-1)).toBe('cmd notification allow_listener io.github.wingedpanther.cleanmytv.home/io.github.wingedpanther.cleanmytv.home.NowPlayingListener')
+  })
+
   it('gives Home back to the stock launcher from CleanMyTV Home', async () => {
     expect((await L.useStock()).ok).toBe(true)
     expect(tv.home).toBe('com.google.android.apps.tv.launcherx/.home.HomeActivity')

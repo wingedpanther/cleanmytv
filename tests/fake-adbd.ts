@@ -47,6 +47,8 @@ export interface FakeTv {
   homeConfig: Record<string, unknown>
   /** Home preference changes are ignored, as on TVs where another app grabs Home back. */
   homeStuck?: boolean
+  /** CleanMyTV Home was installed fresh and has no settings file yet. */
+  homeFresh?: boolean
   /** ro.build.version.sdk; 31 when unset. */
   sdk?: string
   /** Packages that never stay running (pidof finds nothing), like a launcher crashing at boot. */
@@ -92,7 +94,7 @@ function sh(tv: FakeTv, cmd: string): string {
   }
   if ((m = /^settings put (?:global|secure) (\S+) (.*)$/.exec(cmd)) && !cmd.includes(';')) { tv.settings.set(m[1], m[2]); return '' }
   if ((m = /^settings get secure (\S+)$/.exec(cmd))) return (tv.settings.get(m[1]) ?? 'null') + '\n'
-  if ((m = /^pm install -r (\S+)$/.exec(cmd))) {
+  if ((m = /^pm install -r(?: -d)? (\S+)$/.exec(cmd))) {
     if (!tv.files.has(m[1])) return 'Failure [INSTALL_FAILED_INVALID_URI]\n'
     const pkg = m[1].includes('cmtv-home') ? 'io.github.wingedpanther.cleanmytv.home' : 'com.gathin.tvhome'
     tv.packages.set(pkg, 'enabled'); tv.homeClaims = [...new Set([...tv.homeClaims, `${pkg}/.MainActivity`])]
@@ -101,7 +103,7 @@ function sh(tv: FakeTv, cmd: string): string {
   if ((m = /^content call --uri content:\/\/io\.github\.wingedpanther\.cleanmytv\.home\.config --method (\w+)(?: --arg (\S+))?$/.exec(cmd))) {
     if (!tv.packages.has('io.github.wingedpanther.cleanmytv.home')) return 'Error while accessing provider\n'
     const up = '/data/data/home/wallpaper.upload'
-    if (m[1] === 'set64') Object.assign(tv.homeConfig, JSON.parse(Buffer.from(m[2], 'base64').toString('utf8')))
+    if (m[1] === 'set64') { Object.assign(tv.homeConfig, JSON.parse(Buffer.from(m[2], 'base64').toString('utf8'))); tv.homeFresh = false }
     else if (m[1] === 'wallpaper_begin') tv.files.set(up, Buffer.alloc(0))
     else if (m[1] === 'wallpaper_chunk') tv.files.set(up, Buffer.concat([tv.files.get(up) ?? Buffer.alloc(0), Buffer.from(m[2], 'base64')]))
     else if (m[1] === 'wallpaper_end') {
@@ -112,7 +114,7 @@ function sh(tv: FakeTv, cmd: string): string {
     else if (m[1] === 'keys') return `Result: Bundle[{keys=${JSON.stringify([{ seq: 7, code: 83, name: 'KEYCODE_NOTIFICATION' }, { seq: 'x', code: 1 }])}}]\n`
     else if (m[1] === 'apps') return `Result: Bundle[{apps=${JSON.stringify([...tv.leanback.map((p) => ({ pkg: p, label: p.split('.').pop(), tv: true })), { pkg: 'bad;pkg', label: 'x', tv: true }])}}]\n`
     else if (m[1] !== 'get') return `Error: unknown method: ${m[1]}\n`
-    return `Result: Bundle[{config=${JSON.stringify({ ...tv.homeConfig, has_wallpaper: tv.files.has('/data/data/home/wallpaper.jpg') })}}]\n`
+    return `Result: Bundle[{config=${JSON.stringify({ ...tv.homeConfig, has_wallpaper: tv.files.has('/data/data/home/wallpaper.jpg'), configured: !tv.homeFresh })}}]\n`
   }
   if ((m = /^mkdir -p (\S+)\/wallpapers 2>&1; touch/.exec(cmd))) {
     return tv.appDir === 'ok' ? 'writable\n' : `mkdir: '${m[1]}': Permission denied\ntouch: '${m[1]}/.cytv': No such file or directory\n`

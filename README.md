@@ -27,7 +27,8 @@ Get the latest version from [Releases](https://github.com/wingedpanther/cleanmyt
 | Mac with Intel | `CleanMyTV-<version>.dmg` |
 | Windows 10 or 11 | `CleanMyTV-Setup-<version>.exe` |
 
-Macs need macOS 13 Ventura or newer.
+Macs need macOS 13 Ventura or newer. The app asks GitHub for a newer version at most twice a day and
+links to it in the sidebar; it never downloads anything by itself.
 
 The installers are not signed with a paid developer certificate, so your computer warns you the first
 time:
@@ -78,15 +79,16 @@ the way it was before the first cleanup.
 
 ## CleanMyTV Home
 
-The Home screen step has six tabs. Every change shows on the TV straight away. The Layout and Apps
+The Home screen step has seven tabs. Every change shows on the TV straight away. The Layout and Apps
 tabs have a live preview of the TV screen at the top.
 
 | Tab | What you set |
 |---|---|
 | **Overview** | Install or update Home, and how to use it. Give Home back to the stock launcher. Remove the old CleanYourTV launcher in one click if it's still on the TV. Take a snapshot of the TV screen. |
-| **Layout** | Three layouts: Shelf (the default), Split and Rail. Space above the apps. The dock, rows, folders and all apps sections, in any order, each one can be hidden. Quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars and Settings. Icons the TV can't open are marked "not on this TV". Dock and row tile sizes, apps per row, app names, clock and greeting. |
+| **Layout** | Three layouts: Shelf (the default), Split and Rail. Space above the apps. The now playing, dock, rows, folders and all apps sections, in any order, each one can be hidden. Quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars and Settings. Icons the TV can't open are marked "not on this TV". Dock and row tile sizes, apps per row, app names, clock and greeting. |
 | **Apps, rows & folders** | Dock size, drag to reorder, hide apps, named rows and folders. |
 | **Look & wallpaper** | Accent colour, focus style (glow, outline or none), your own picture or Bing's picture of the day, darken, background colour. |
+| **Widgets** | Now playing: what any music or video app plays, with play, pause and next. Weather next to the clock for a town you pick, in °C or °F. |
 | **Music bars** | On or off; bars, mirrored or wave; accent, rainbow or white; peak dots, number of bars, height, opacity and sensitivity. |
 | **Remote buttons** | Find what a remote button sends, then give it a job in every app: open Settings, Inputs, an app, Home, Back, and more. Off until you turn it on. Only the buttons you map are touched. Power, volume and the mic button are usually handled before Android sees them. |
 
@@ -96,6 +98,15 @@ ContentProvider (`content call`) that only the shell user and root may call. Thi
 
 The music bars read the TV's sound output. The app grants `RECORD_AUDIO` over ADB at install. The
 bars only move while music or video plays. The Music bars icon on the home screen turns them on or off.
+
+Now playing reads other apps' media sessions. Android only allows that for a notification listener, so
+the app switches one on over ADB while the section is on and off again without it. It reads no
+notifications. Weather comes from [Open-Meteo](https://open-meteo.com): the TV asks for it every 30
+minutes, and the place search runs on your computer.
+
+The app keeps a copy of each TV's home screen settings and wallpaper on your computer. Updates keep
+them on the TV anyway. If CleanMyTV Home ever starts empty (after an uninstall or a factory reset),
+installing it puts the copy back.
 
 CleanMyTV Home needs Android 9 (API 28) or newer.
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import type { ConnStatus, KnownTv } from '@shared/api'
+import type { ConnStatus, KnownTv, UpdateInfo } from '@shared/api'
 import { LogDrawer } from './components/LogDrawer'
 import { NotConnected } from './components/ui'
 import { TvThumb } from './components/TvPicker'
@@ -47,6 +47,13 @@ export default function App(): ReactNode {
   const [status, setStatus] = useState<ConnStatus>({ state: 'idle' })
   const [done, setDone] = useState<Set<StepId>>(new Set())
   const [tvs, setTvs] = useState<KnownTv[]>([])
+  const [update, setUpdate] = useState<UpdateInfo | null>(null)
+  // The TV runs an older CleanMyTV Home than this app carries.
+  const [homeBehind, setHomeBehind] = useState(false)
+
+  useEffect(() => {
+    window.cytv.checkUpdate().then(setUpdate, () => null)
+  }, [])
 
   const refreshTvs = useCallback(() => {
     window.cytv.knownTvs().then(setTvs, () => null)
@@ -70,6 +77,16 @@ export default function App(): ReactNode {
     }).catch(() => null)
     return () => { stale = true }
   }, [status.state, status.host])
+
+  // Checked again on every step change, so the note goes once the Home screen step has updated the TV.
+  useEffect(() => {
+    if (status.state !== 'connected') return setHomeBehind(false)
+    let stale = false
+    window.cytv.homeStatus().then((hs) => {
+      if (!stale) setHomeBehind(hs.installed && !!hs.bundledVersion && hs.versionName !== hs.bundledVersion)
+    }, () => null)
+    return () => { stale = true }
+  }, [status.state, status.host, step])
 
   useEffect(() => {
     // Coming back later to change the wallpaper or the order: reconnect to the last TV by itself.
@@ -133,7 +150,7 @@ export default function App(): ReactNode {
                     <span className="step-num">{isDone ? '✓' : i + 1}</span>
                     <span className="step-label">
                       {s.label}
-                      <span className="step-sub">{s.sub}</span>
+                      <span className="step-sub">{s.id === 'home' && connected && homeBehind ? 'Update ready for this TV' : s.sub}</span>
                     </span>
                   </button>
                 </li>
@@ -150,6 +167,11 @@ export default function App(): ReactNode {
             <span>wingedpanther/cleanmytv</span>
           </a>
           <div className="gh-ver">CleanMyTV v{version} · MIT</div>
+          {update?.available && (
+            <a className="update-link" href={update.url} target="_blank" rel="noreferrer">
+              Version {update.latest} is out. Download it
+            </a>
+          )}
         </div>
       </aside>
       <main className="main">

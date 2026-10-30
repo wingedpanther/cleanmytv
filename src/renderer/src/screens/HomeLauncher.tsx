@@ -6,14 +6,16 @@ import { HomePreview, QUICK_LABEL, QuickIcon } from '../components/HomePreview'
 import { Busy, Confirm, ResultNotice, Slider, StatusChip, Toggle, errorText } from '../components/ui'
 import { prepareWallpaper, thumbnail } from '../lib/image'
 import { fetchBingDaily } from '../lib/backgrounds'
+import { findPlaces, type Place } from '../lib/places'
 
-type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'music' | 'buttons'
+type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'widgets' | 'music' | 'buttons'
 
 const TABS: [Tab, string][] = [
   ['overview', 'Overview'],
   ['layout', 'Layout'],
   ['apps', 'Apps, rows & folders'],
   ['look', 'Look & wallpaper'],
+  ['widgets', 'Widgets'],
   ['music', 'Music bars'],
   ['buttons', 'Remote buttons']
 ]
@@ -156,6 +158,7 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
           {ready && tab === 'apps' && apps && <AppsTab apps={apps} cfg={cfg} set={set} />}
           {ready && tab === 'layout' && apps && <LayoutTab apps={apps} cfg={cfg} set={set} />}
           {ready && tab === 'look' && <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} />}
+          {ready && tab === 'widgets' && <WidgetsTab cfg={cfg} set={set} />}
           {ready && tab === 'music' && <MusicTab cfg={cfg} set={set} />}
           {ready && tab === 'buttons' && apps && <ButtonsTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
           {ready && tab !== 'overview' && <p className="small muted">{saving ? 'Sending to the TV…' : 'Saved on the TV.'}</p>}
@@ -406,8 +409,8 @@ const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, num
   { id: 'rail', label: 'Rail', hint: 'Icons down the left edge that open with labels.', mini: [[3, 6, 6, 84, true], [70, 6, 24, 8, true], [16, 24, 78, 28, false], [16, 60, 78, 18, true]] }
 ]
 
-const SECTION_LABEL: Record<HomeSection, string> = { dock: 'Dock', rows: 'Rows', folders: 'Folders', grid: 'All apps' }
-const ALL_SECTIONS: HomeSection[] = ['dock', 'rows', 'folders', 'grid']
+const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: 'Now playing', dock: 'Dock', rows: 'Rows', folders: 'Folders', grid: 'All apps' }
+const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'dock', 'rows', 'folders', 'grid']
 const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'settings']
 
 /** Turn items on and off and put the ones that are on in order. */
@@ -606,6 +609,98 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
         </div>
         <Slider label="Darken the wallpaper" hint="Keeps names and the clock readable on bright pictures." value={cfg.wallpaper_dim} min={0} max={80} unit="%" onChange={(v) => set({ wallpaper_dim: v }, 300)} />
         <Colour label="Background colour" hint="Behind everything when there's no wallpaper. Keep it dark: text is white." value={cfg.background} onChange={(c, w) => set({ background: c }, w)} />
+      </div>
+    </>
+  )
+}
+
+function WidgetsTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
+  const playing = cfg.sections.includes('nowplaying')
+  const [query, setQuery] = useState('')
+  const [places, setPlaces] = useState<Place[] | null>(null)
+  const [searching, setSearching] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function search(): Promise<void> {
+    setSearching(true)
+    setError(null)
+    try {
+      setPlaces(await findPlaces(query))
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  function pick(p: Place): void {
+    set({ weather_place: p.name, weather_lat: p.lat, weather_lon: p.lon })
+    setPlaces(null)
+    setQuery('')
+  }
+
+  return (
+    <>
+      <div className="card">
+        <Toggle
+          label="Now playing"
+          hint="A card with what any music or video app is playing, with play, pause and next. It shows only while something is loaded. The TV lets CleanMyTV Home see which app is playing; it reads no notifications."
+          checked={playing}
+          onChange={(v) => set({ sections: v ? ['nowplaying', ...cfg.sections.filter((s) => s !== 'nowplaying')] : cfg.sections.filter((s) => s !== 'nowplaying') })}
+        />
+        {playing && <p className="small muted" style={{ margin: '8px 0 0' }}>Move it up or down in Layout → Sections.</p>}
+      </div>
+
+      <div className="card">
+        <h2>Weather</h2>
+        <p className="muted">
+          The temperature, today's high and low, and the sky next to the clock. It comes from Open-Meteo: free, no account. The
+          TV asks for it every 30 minutes.
+        </p>
+        {cfg.weather_place ? (
+          <div className="row" style={{ marginBottom: 14 }}>
+            <span>
+              Showing the weather for <b>{cfg.weather_place}</b>
+            </span>
+            <button className="btn small ghost" onClick={() => set({ weather_place: '' })}>
+              Turn off
+            </button>
+          </div>
+        ) : null}
+        <form
+          className="row"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void search()
+          }}
+        >
+          <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Town or city" style={{ width: 240 }} />
+          <button className="btn" type="submit" disabled={searching || query.trim().length < 2}>
+            {cfg.weather_place ? 'Change place' : 'Find'}
+          </button>
+          {searching && <Busy text="Searching" />}
+        </form>
+        {error && <div className="notice error" style={{ marginTop: 12, marginBottom: 0 }}>{error}</div>}
+        {places && (
+          <ul className="place-list">
+            {places.length === 0 && <li className="small muted">No place by that name. Try the nearest town.</li>}
+            {places.map((p) => (
+              <li key={`${p.lat},${p.lon}`}>
+                <button className="btn small ghost" onClick={() => pick(p)}>
+                  <b>{p.name}</b>
+                  {p.detail && <span className="muted">&nbsp;· {p.detail}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="seg" style={{ marginTop: 14 }}>
+          {([['c', '°C'], ['f', '°F']] as const).map(([id, label]) => (
+            <button key={id} className={cfg.weather_unit === id ? 'on' : ''} onClick={() => set({ weather_unit: id })}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
     </>
   )

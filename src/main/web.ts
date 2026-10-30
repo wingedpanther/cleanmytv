@@ -1,15 +1,15 @@
-// Downloads for the Bing picture of the day. The page's CSP blocks the network, so the
-// renderer asks here, and only for these hosts, over HTTPS, with each redirect checked too.
+// Downloads for the Bing picture of the day and the weather place search. The page's CSP blocks the
+// network, so the renderer asks here, and only for these hosts, over HTTPS, with each redirect checked too.
 import type { WebResponse } from '@shared/api'
 
-const HOSTS = new Set(['www.bing.com'])
+const HOSTS = new Set(['www.bing.com', 'geocoding-api.open-meteo.com'])
 const MAX_BYTES = 25 * 1024 * 1024
 
 function allowed(url: string): URL {
   let u: URL
   try { u = new URL(url) } catch { throw new Error('not a web address') }
   if (u.protocol !== 'https:' || !HOSTS.has(u.hostname) || u.username || u.password || u.port) {
-    throw new Error(`the app only downloads backgrounds from ${[...HOSTS].join(', ')}`)
+    throw new Error(`the app only downloads from ${[...HOSTS].join(', ')}`)
   }
   return u
 }
