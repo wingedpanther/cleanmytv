@@ -14,10 +14,12 @@ const TASK = 'debloat'
 export const SETUPWRAITH = 'com.google.android.tungsten.setupwraith'
 // They answer HOME too, but they are not launchers: setupwraith taking Home is the crash loop the
 // home guard exists to prevent.
-const NOT_LAUNCHERS = [SETUPWRAITH, 'com.android.tv.settings', 'com.android.settings', 'com.android.provision']
+export const NOT_LAUNCHERS = [SETUPWRAITH, 'com.android.tv.settings', 'com.android.settings', 'com.android.provision']
 /** CleanMyTV Home (launcher.ts HOME_PKG; launcher.ts imports this file, so it is repeated here). */
 const OUR_HOME = 'io.github.wingedpanther.cleanmytv.home'
-export const KNOWN_STOCK_LAUNCHERS = ['com.google.android.tvlauncher', 'com.google.android.apps.tv.launcherx', 'com.google.android.leanbacklauncher', 'com.mitv.tvhome']
+/** Google's launchers take Home back while they are on (#27), so the handover switches them off. */
+export const GOOGLE_LAUNCHERS = ['com.google.android.tvlauncher', 'com.google.android.apps.tv.launcherx', 'com.google.android.leanbacklauncher']
+export const KNOWN_STOCK_LAUNCHERS = [...GOOGLE_LAUNCHERS, 'com.mitv.tvhome']
 const CUSTOM_LAUNCHER = 'com.gathin.tvhome'
 const SETTINGS = ['window_animation_scale', 'transition_animation_scale', 'animator_duration_scale'] as const
 const HOME_RE = /^[A-Za-z_][\w.]*\/[\w.$]+$/
@@ -118,6 +120,25 @@ function upstreamLists(): Upstream[] {
   }
   upstreamCache = out
   return out
+}
+
+let stockCache: string[] | null = null
+
+/**
+ * Every stock launcher this app knows: Google's and Xiaomi's, plus the vendor launchers upstream lists
+ * name in their "Stock launcher:" notes (TCL cyberui, Hisense JuUI, CVTE, Zeasn, Sber and more).
+ */
+export function stockLaunchers(): string[] {
+  if (stockCache) return stockCache
+  const found = new Set(KNOWN_STOCK_LAUNCHERS)
+  for (const l of upstreamLists()) {
+    for (const m of l.text.matchAll(/^#.*\bstock launcher:\s*([A-Za-z][\w]*(?:\.\w+)+)/gim)) {
+      const pkg = m[1]
+      if (T.PACKAGE_RE.test(pkg) && !NOT_LAUNCHERS.includes(pkg) && pkg !== OUR_HOME && pkg !== CUSTOM_LAUNCHER) found.add(pkg)
+    }
+  }
+  stockCache = [...found]
+  return stockCache
 }
 
 /** How many upstream lists disable each package, and the first note found for it. */
@@ -481,6 +502,12 @@ export async function plan(listId: string): Promise<DebloatPlan> {
   }))
   // The custom list is every package other TVs disable: only the ones on this TV are worth showing.
   if (listId === 'custom') entries = entries.filter((e) => e.state !== 'absent')
+  // Packages the owner added by hand (#39) live only in the saved list.
+  const inList = new Set(entries.map((e) => e.pkg))
+  for (const pkg of savedActive(file)) {
+    if (inList.has(pkg)) continue
+    entries.push(addedEntry(pkg, stateOf(pkg, installed, disabled), common, record?.packages[pkg]))
+  }
   const home = await T.homeComponent()
   return {
     listId,
@@ -490,6 +517,27 @@ export async function plan(listId: string): Promise<DebloatPlan> {
     record: record ? { path: rpath, created: record.created } : undefined,
     homePackage: home ? home.split('/')[0] : null
   }
+}
+
+function addedEntry(pkg: string, state: PackageState, common: Map<string, { count: number; note: string }>, recorded?: PackageState): DebloatEntry {
+  return {
+    pkg,
+    note: common.get(pkg)?.note ?? '',
+    suggested: true,
+    state,
+    recorded,
+    common: common.get(pkg)?.count ?? 0,
+    choice: choiceFor({ pkg, note: '', suggested: true }),
+    added: true
+  }
+}
+
+/** Every package on the TV, for adding one by hand (#39). Launchers and our own apps are left out. */
+export async function tvPackages(): Promise<DebloatEntry[]> {
+  const { installed, disabled } = await T.packageSets()
+  const common = commonality()
+  const skip = new Set([...stockLaunchers(), ...NOT_LAUNCHERS, OUR_HOME, CUSTOM_LAUNCHER, 'android'])
+  return [...installed].filter((p) => !skip.has(p)).sort().map((p) => addedEntry(p, stateOf(p, installed, disabled), common))
 }
 
 function writeSavedList(file: string, title: string, header: string[], active: string[], known: ListEntry[]): void {
@@ -547,7 +595,7 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   // owns Home: with both off and the launcher that is left failing at boot, the TV shows a black screen
   // and can't be reached (#33). setupwraith that already owns Home is the broken state, so it may go.
   if (homePkg !== OUR_HOME && !req.forceHome) {
-    const held = pkgs.filter((p) => KNOWN_STOCK_LAUNCHERS.includes(p) || (p === SETUPWRAITH && homePkg !== SETUPWRAITH))
+    const held = pkgs.filter((p) => stockLaunchers().includes(p) || (p === SETUPWRAITH && homePkg !== SETUPWRAITH))
     if (held.length) {
       warnings.push(`Kept on for now: ${held.join(', ')}. ${held.length === 1 ? 'It is' : 'They are'} the TV's fallback Home. Install CleanMyTV Home (Home screen step), then apply again.`)
       pkgs = pkgs.filter((p) => !held.includes(p))
@@ -594,7 +642,7 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
 
 async function stockFallback(): Promise<string> {
   const { installed } = await T.packageSets()
-  return KNOWN_STOCK_LAUNCHERS.find((p) => installed.has(p)) ?? 'com.google.android.tvlauncher'
+  return stockLaunchers().find((p) => installed.has(p)) ?? 'com.google.android.tvlauncher'
 }
 
 export async function restore(listId: string): Promise<ApplyResult> {

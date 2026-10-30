@@ -51,6 +51,10 @@ export interface FakeTv {
   homeFresh?: boolean
   /** ro.build.version.sdk; 31 when unset. */
   sdk?: string
+  /** ro.product.manufacturer; Sony when unset. */
+  manufacturer?: string
+  /** CleanMyTV Home's versionName once installed; 1.0.0 when unset. */
+  homeVersion?: string
   /** Packages that never stay running (pidof finds nothing), like a launcher crashing at boot. */
   crashing?: string[]
   /** Misbehaviour for client hardening tests. */
@@ -71,7 +75,7 @@ function sh(tv: FakeTv, cmd: string): string {
   tv.commands.push(cmd)
   let m: RegExpExecArray | null
   if (cmd.startsWith('getprop')) {
-    const props: Record<string, string> = { 'ro.product.model': 'BRAVIA 4K VH2', 'ro.product.device': 'BRAVIA_VH2', 'ro.product.name': 'BRAVIA_VH2_EU', 'ro.product.manufacturer': 'Sony', 'ro.build.version.release': tv.sdk === '24' ? '7.0' : '12', 'ro.build.version.sdk': tv.sdk ?? '31', 'sys.boot_completed': '1', 'ro.build.display.id': 'TEST', 'ro.adb.secure': tv.adbSecure }
+    const props: Record<string, string> = { 'ro.product.model': 'BRAVIA 4K VH2', 'ro.product.device': 'BRAVIA_VH2', 'ro.product.name': 'BRAVIA_VH2_EU', 'ro.product.manufacturer': tv.manufacturer ?? 'Sony', 'ro.build.version.release': tv.sdk === '24' ? '7.0' : '12', 'ro.build.version.sdk': tv.sdk ?? '31', 'sys.boot_completed': '1', 'ro.build.display.id': 'TEST', 'ro.adb.secure': tv.adbSecure }
     return cmd.split(';').map((c) => props[c.trim().split(' ')[1]] ?? '').join('\n') + '\n'
   }
   if (cmd === 'pm list packages') return [...tv.packages.keys()].map((p) => `package:${p}`).join('\n') + '\n'
@@ -130,7 +134,7 @@ function sh(tv: FakeTv, cmd: string): string {
   }
   if ((m = /^dumpsys package (\S+) \| grep/.exec(cmd))) {
     if (!tv.packages.has(m[1])) return ''
-    return m[1] === 'com.gathin.tvhome' ? '    versionName=2.4\n' : '    versionName=1.0.0\n'
+    return m[1] === 'com.gathin.tvhome' ? '    versionName=2.4\n' : `    versionName=${tv.homeVersion ?? '1.0.0'}\n`
   }
   if ((m = /^screencap -p (\S+)$/.exec(cmd))) { tv.files.set(m[1], tv.screenshot); return '' }
   if ((m = /^ls (\S+)\/wallpapers/.exec(cmd))) return [...tv.files.keys()].filter((f) => f.startsWith(m![1] + '/wallpapers/')).map((f) => f.split('/').pop()).join('\n') + '\n'

@@ -77,6 +77,8 @@ export interface DebloatEntry {
    * or the list puts it under "Personal choice"/"Optional": not ticked unless the user ticks it.
    */
   choice?: string
+  /** Added by the owner, not from the list. */
+  added?: boolean
 }
 
 export interface DebloatPlan {
@@ -106,6 +108,8 @@ export interface ApplyResult {
   summary: string
   /** Things that were skipped or need the user's attention. */
   warnings: string[]
+  /** The stock launcher couldn't be found: the apps that can be Home, for the owner to pick from. */
+  stockChoices?: string[]
 }
 
 /** CleanMyTV Home on the TV. */
@@ -322,6 +326,8 @@ export interface CytvApi {
   // Debloat
   lists(): Promise<DebloatListSummary[]>
   plan(listId: string): Promise<DebloatPlan>
+  /** Every package on the TV, to add one to a list by hand. */
+  tvPackages(): Promise<DebloatEntry[]>
   applyDebloat(req: DebloatApplyRequest): Promise<ApplyResult>
   restore(listId: string): Promise<ApplyResult>
 
@@ -332,9 +338,10 @@ export interface CytvApi {
   removeOldLauncher(): Promise<ApplyResult>
   homeStatus(): Promise<HomeStatus>
   /** Installs or updates CleanMyTV Home and makes it Home, putting the old Home back if that fails. */
-  installHome(): Promise<InstallResult>
+  /** `stock`: the TV's own launcher, when the owner picked it. */
+  installHome(stock?: string): Promise<InstallResult>
   /** Make the installed CleanMyTV Home the Home screen. */
-  useHome(): Promise<ApplyResult>
+  useHome(stock?: string): Promise<ApplyResult>
   /** The apps CleanMyTV Home shows, named as on the TV. */
   homeApps(): Promise<TvApp[]>
   readHomeConfig(): Promise<HomeConfig>

@@ -127,16 +127,17 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   download: (tool) => tools.get(tool),
   lists: async () => debloat.lists(T.getStatus().probe),
   plan: (id) => debloat.plan(id),
+  tvPackages: () => debloat.tvPackages(),
   applyDebloat: (req) => debloat.apply(req),
   restore: (id) => debloat.restore(id),
   useStockLauncher: () => launcher.useStock(),
   removeOldLauncher: () => launcher.removeOld(),
   homeStatus: () => home.status(),
-  installHome: () => home.install(),
-  useHome: async () => {
+  installHome: (stock) => home.install(typeof stock === 'string' ? stock : undefined),
+  useHome: async (stock) => {
     const st = await home.status()
     if (!st.installed) return { ok: false, summary: 'CleanMyTV Home is not installed yet.', warnings: [] }
-    return launcher.switchTo(`${launcher.HOME_PKG}/.MainActivity`)
+    return launcher.switchTo(`${launcher.HOME_PKG}/.MainActivity`, typeof stock === 'string' ? stock : undefined)
   },
   homeApps: () => home.apps(),
   readHomeConfig: () => home.readConfig(),

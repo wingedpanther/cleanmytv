@@ -243,3 +243,73 @@ describe('CleanMyTV Home', () => {
   })
 
 })
+
+describe('stock launchers other than Google\'s (#39)', () => {
+  let tv: FakeTv
+  let server: Server
+  const OURS = 'io.github.wingedpanther.cleanmytv.home/.MainActivity'
+  beforeAll(async () => {
+    tv = newTv()
+    tv.maxData = 256 * 1024
+    for (const p of ['com.tcl.cyberui', 'com.netflix.ninja', 'com.tcl.tguard']) tv.packages.set(p, 'enabled')
+    tv.home = 'com.tcl.cyberui/.Launcher'
+    tv.homeClaims = ['com.tcl.cyberui/.Launcher', 'com.android.tv.settings/.FallbackHome']
+    tv.packages.set('com.android.tv.settings', 'enabled')
+    let port: number
+    ;({ server, port } = await startFakeAdbd(tv))
+    expect((await T.connect(`127.0.0.1:${port}`)).state).toBe('connected')
+  })
+  afterAll(() => { T.disconnect(); server.close() })
+
+  it('knows the vendor launchers upstream lists name', () => {
+    expect(D.stockLaunchers()).toEqual(expect.arrayContaining(['com.tcl.cyberui', 'com.jamdeo.tv.vod', 'ru.sberdevices.starlauncher']))
+    expect(D.stockLaunchers()).not.toContain('com.android.tv.settings')
+  })
+
+  it('makes CleanMyTV Home Home and leaves a vendor launcher on, then gives Home back to it', async () => {
+    const r = await H.install()
+    expect(r.ok).toBe(true)
+    expect(tv.home).toBe(OURS)
+    expect(tv.packages.get('com.tcl.cyberui')).toBe('enabled')
+    expect((await L.useStock()).ok).toBe(true)
+    expect(tv.home).toBe('com.tcl.cyberui/.Launcher')
+  })
+
+  it('takes a launcher no list names as the stock one, and remembers it for Undo', async () => {
+    tv.packages.delete('com.tcl.cyberui')
+    tv.packages.set('com.acme.home', 'enabled')
+    tv.homeClaims.push('com.acme.home/.Main')
+    tv.home = 'com.acme.home/.Main'
+    expect((await H.install()).ok).toBe(true)
+    expect(tv.home).toBe(OURS)
+    expect(tv.packages.get('com.acme.home')).toBe('enabled')
+    expect((await L.useStock()).ok).toBe(true)
+    expect(tv.home).toBe('com.acme.home/.Main')
+  })
+
+  it("asks which launcher is the TV's own when Android's chooser can't tell, and uses the pick", async () => {
+    tv.packages.set('com.acme.other', 'enabled')
+    tv.homeClaims.push('com.acme.other/.Main')
+    tv.home = 'android/com.android.internal.app.ResolverActivity'
+    const r = await H.install()
+    expect(r.ok).toBe(false)
+    expect(r.stockChoices).toEqual(['com.acme.home', 'com.acme.other'])
+    expect(tv.home).toBe('android/com.android.internal.app.ResolverActivity')
+    await expect(H.install('com.netflix.ninja')).rejects.toThrow(/can't be Home/)
+    expect((await H.install('com.acme.home')).ok).toBe(true)
+    expect(tv.home).toBe(OURS)
+    expect(tv.packages.get('com.acme.home')).toBe('enabled')
+  })
+
+  it('switches off a package added by hand, shows it in the list after, and restores it', async () => {
+    const all = await D.tvPackages()
+    expect(all.map((e) => e.pkg)).toContain('com.tcl.tguard')
+    expect(all.map((e) => e.pkg)).not.toContain('com.android.tv.settings')
+    expect((await D.apply({ listId: 'custom', disable: ['com.tcl.tguard'], enable: [] })).ok).toBe(true)
+    expect(tv.packages.get('com.tcl.tguard')).toBe('disabled')
+    const plan = await D.plan('custom')
+    expect(plan.entries.find((e) => e.pkg === 'com.tcl.tguard')).toMatchObject({ added: true, state: 'disabled', recorded: 'enabled' })
+    expect((await D.restore('custom')).ok).toBe(true)
+    expect(tv.packages.get('com.tcl.tguard')).toBe('enabled')
+  })
+})

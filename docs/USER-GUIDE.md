@@ -58,7 +58,8 @@ The app remembers each TV it has connected to. With one TV, it reconnects by its
 
 You will see a list of apps that other TVs like yours disable, each showing its **live state on your TV right now**. Ticked means "switch this off"; unticked stays untouched.
 
-- The app picks the list that matches your TV's model. If your TV isn't in the list, it shows the packages other TVs disable — start conservative.
+- The app picks the list that matches your TV's model, from 371 TVs. If none matches, lists from your TV's brand come first, and **My TV is not listed** shows the packages other TVs disable — start conservative.
+- **Know a package that isn't in the list?** Press **Add a package that isn't in the list**, type its name or pick it from the apps on your TV. It joins the list ticked, and Restore switches it back on like the rest.
 - **Start with the obvious ad and recommendation apps.** Anything whose name contains *recommend*, *ads*, *live* or a store you never use is a safe first pass. The system apps the TV needs to function are not in the list.
 - Press the cleanup button. Each row updates as it goes. Anything that fails is left on and clearly marked — nothing is half-done behind your back.
 
@@ -82,6 +83,8 @@ If you used CleanMyTV 0.1, your TV may still have the old CleanYourTV launcher. 
 >
 > - *Home still opens the old screen.* Press Home a second time — some TVs show a "use which app?" chooser the first time; pick CleanMyTV Home and **Always**. If it still lands wrong, the step's rollback runs automatically and tells you; nothing is left half-switched.
 > - *I want the old home back.* Overview → **Give Home back to the stock launcher**. See also [chapter 7](#7-safety-and-rollback).
+> - *"Which one is the TV's own launcher?"* The app couldn't tell which app is your TV's home screen. Pick the one the TV came with (usually the name with your brand in it). It stays on, and Undo gives Home back to it.
+> - *Xiaomi: the Mi button does nothing.* It opened PatchWall, which the cleanup switched off. Open **Remote buttons** and press **Make the Mi button go Home**.
 
 ---
 

@@ -4,8 +4,8 @@
 import { Socket } from 'node:net'
 import * as T from './tv'
 import { log } from './log'
-import { KNOWN_STOCK_LAUNCHERS, SETUPWRAITH } from './debloat'
-import { rollback } from './launcher'
+import { SETUPWRAITH } from './debloat'
+import { rollback, stockOnTv } from './launcher'
 import type { BootCheckResult } from '@shared/api'
 
 const TASK = 'restart check'
@@ -77,7 +77,7 @@ export async function bootCheck(deps: BootCheckDeps = realDeps): Promise<BootChe
 
   log(TASK, 'error', `After the restart Home is ${home ?? 'nothing'} and no launcher is running`)
   const { installed } = await T.packageSets()
-  const stock = KNOWN_STOCK_LAUNCHERS.find((k) => installed.has(k))
+  const stock = stockOnTv(installed)
   const fixed = stock ? await rollback(stock) : false
   return {
     ok: false, reconnected: true,

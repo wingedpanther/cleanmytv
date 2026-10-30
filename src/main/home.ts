@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { paths } from './paths'
 import { log } from './log'
 import * as T from './tv'
-import { HOME_PKG, OLD_PKG, addService, detectStock, dropServices, handOver } from './launcher'
+import { HOME_PKG, OLD_PKG, StockUnknown, addService, detectStock, dropServices, handOver, rememberStock, toSwitchOff } from './launcher'
 import type { HomeButton, HomeConfig, HomeGroup, HomeStatus, InstallResult, KeyPress, TvApp } from '@shared/api'
 
 const TASK = 'install'
@@ -90,13 +90,19 @@ export function unsupported(): string | null {
 }
 
 /** Installs or updates CleanMyTV Home, starts it, and only then makes it Home. */
-export async function install(): Promise<InstallResult> {
+export async function install(chosen?: string): Promise<InstallResult> {
   if (!existsSync(paths.bundledHomeApk)) {
     return { ok: false, summary: 'This copy of the app has no CleanMyTV Home bundled.', warnings: [] }
   }
   const tooOld = unsupported()
   if (tooOld) return { ok: false, summary: tooOld, warnings: [] }
-  const stock = await detectStock()
+  let stock: string
+  try {
+    stock = await detectStock(chosen)
+  } catch (e) {
+    if (e instanceof StockUnknown) return { ok: false, summary: e.message, warnings: [], stockChoices: e.candidates }
+    throw e
+  }
   log(TASK, 'info', `stock launcher: ${stock}`)
   const tmp = '/data/local/tmp/cmtv-home.apk'
   await T.pushB64(TASK, readFileSync(paths.bundledHomeApk), tmp)
@@ -113,8 +119,9 @@ export async function install(): Promise<InstallResult> {
   if (!start.includes('Status: ok') || /^Error/im.test(start)) {
     return { ok: false, summary: 'CleanMyTV Home did not start, so Home was left as it was.', warnings: [start.trim()] }
   }
-  const failed = await handOver(stock, MAIN)
+  const failed = await handOver(toSwitchOff(stock), MAIN)
   if (failed) return failed
+  rememberStock(stock)
   // Android switches accessibility services off when their app is reinstalled: turn the button service back on.
   const cfg = await readConfig().catch(() => null)
   if (cfg?.buttons_on) await addService(KEY_SERVICE)

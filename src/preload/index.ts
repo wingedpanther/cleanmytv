@@ -5,7 +5,7 @@ import type { CytvApi, ConnStatus, DownloadProgress, LogLine } from '@shared/api
 const methods = [
   'scan', 'connect', 'disconnect', 'status', 'lastHost', 'reconnect', 'checkAdbClosed', 'bootCheck', 'checkUpdate', 'pair',
   'checks', 'download',
-  'lists', 'plan', 'applyDebloat', 'restore',
+  'lists', 'plan', 'tvPackages', 'applyDebloat', 'restore',
   'useStockLauncher', 'removeOldLauncher', 'homeStatus', 'installHome', 'useHome', 'homeApps', 'readHomeConfig', 'setRemoteButtons', 'homeKeys', 'setHomeConfig', 'setHomeWallpaper',
   'knownTvs', 'connectKnown', 'forgetTv', 'saveTvThumb',
   'screenshot', 'webGet',
