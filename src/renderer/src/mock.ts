@@ -202,6 +202,10 @@ export function installMock(): void {
         { id: 'philips-r8g-google-tv', title: 'Philips R8G Google TV (MOKA, Realtek RTD2851F), US', score: 0 }
       ]
     },
+    async tvPackages() {
+      await wait(300)
+      return ['com.tcl.tguard', 'com.tcl.usercenter', 'com.android.vending', 'com.netflix.ninja'].map((pkg) => ({ pkg, note: '', suggested: true, state: 'enabled' as const, common: pkg === 'com.tcl.tguard' ? 12 : 0, added: true }))
+    },
     async plan(listId) {
       await wait(500)
       return {

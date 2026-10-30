@@ -68,8 +68,8 @@ computer** to skip the question next time.
 |---|---|
 | **Clean & launch** | The guided path: applies the list that best matches your TV, then installs CleanMyTV Home. |
 | **Setup** | Checks the network, finds TVs with port 5555 open, connects, and waits while you press Allow on the TV. Google TVs that only offer Wireless debugging get a pairing form. With more than one known TV, it shows them with snapshot thumbnails to pick from. |
-| **Clean up** | Picks the upstream list that matches your TV's model. Every package shows its live state on the TV, and you choose what to disable. If your TV isn't listed, it offers the packages other TVs disable. |
-| **Home screen** | Installs or updates CleanMyTV Home and hands Home over. If Home doesn't land on it, it rolls back. Tabs for layout, apps, rows and folders, look and wallpaper, widgets, music bars and remote buttons. See below. |
+| **Clean up** | Picks the upstream list that matches your TV's model, from 371 TVs and 100 brands. Every package shows its live state on the TV, and you choose what to disable. If your TV isn't listed, lists from its brand come first, and it offers the packages other TVs disable. You can add any package on the TV by name. |
+| **Home screen** | Installs or updates CleanMyTV Home and hands Home over. If Home doesn't land on it, it rolls back. If the app can't tell which app is the TV's own launcher, it asks. Tabs for layout, apps, rows and folders, look and wallpaper, widgets, music bars and remote buttons. See below. |
 | **TV extras** | Ad-blocking Private DNS, animation speed, an on-screen remote, reboot. |
 | **Finish** | Restarts the TV and checks the home screen comes back; if it doesn't, puts the stock launcher back. Then walks through switching debugging off, and checks that port 5555 is closed. |
 
@@ -105,7 +105,7 @@ tabs have a live preview of the TV screen at the top.
 | **Look & wallpaper** | Accent colour, focus style (glow, outline or none), your own picture or Bing's picture of the day, darken, background colour. |
 | **Widgets** | Now playing: what any music or video app plays, with play, pause and next. Weather next to the clock for a town you pick, in °C or °F. |
 | **Music bars** | On or off; bars, mirrored or wave; accent, rainbow or white; peak dots, number of bars, height, opacity and sensitivity. |
-| **Remote buttons** | Find what a remote button sends, then give it a job in every app: open Settings, Inputs, an app, Home, Back, and more. Off until you turn it on. Only the buttons you map are touched. Power, volume and the mic button are usually handled before Android sees them. |
+| **Remote buttons** | Find what a remote button sends, then give it a job in every app: open Settings, Inputs, an app, Home, Back, and more. Off until you turn it on. Only the buttons you map are touched. Power, volume and the mic button are usually handled before Android sees them. On Xiaomi TVs, one click makes the Mi button go Home. |
 
 Your settings and wallpaper stay through updates and reboots. The app also keeps a copy on your
 computer: if CleanMyTV Home ever starts empty (after an uninstall or a factory reset), installing it
@@ -179,10 +179,10 @@ The debloat side is a TypeScript port of upstream's `tools/`, and the launcher h
 
 - `src/main/adb/` is an ADB-over-TCP client, the twin of `tools/tv.py`.
 - `src/main/debloat.ts` has the same guards as `disable.sh`: it won't disable the app that owns Home while nothing else can take it, and it won't disable setupwraith while it owns the Wi-Fi network. It writes the same recovery record to `~/.cleanyourtv/`, plus the TV's device name so the record follows the TV to a new address. `tests/engine.test.ts` checks that the record names and the restore batch match upstream `recovery.py` exactly, so `tools/restore.sh ~/.cleanyourtv/lists/<tv>.txt` can also undo what the app did.
-- `src/main/launcher.ts` follows the handover order of `build-and-install.sh`: install, start, disable the stock launcher, set Home, check, roll back. It also removes the CleanYourTV launcher that 0.1.x installed.
+- `src/main/launcher.ts` follows the handover order of `build-and-install.sh`: install, start, switch off Google's launcher, set Home, check, roll back. Vendor launchers stay on, as upstream's `STOCK_LAUNCHER=none` does: lists say to keep them. The app knows the stock launchers the lists name, and remembers each TV's for Undo. It also removes the CleanYourTV launcher that 0.1.x installed.
 - `src/main/home.ts` reads and writes CleanMyTV Home's settings through its ContentProvider.
 
-Upstream's themes are still synced into `resources/upstream`, but the app doesn't use them.
+Upstream's themes aren't bundled. They are for upstream's launcher.
 
 ### The launcher APK
 
@@ -196,7 +196,7 @@ set. Otherwise it downloads JDK 17 and the Android SDK into `.cytv-build/`. Ever
 
 ```bash
 npm install
-npm run sync                 # lists and themes from the pinned upstream commit
+npm run sync                 # lists from the pinned upstream commit
 npm run home                 # resources/home.apk (without JAVA_HOME/ANDROID_HOME, first run downloads the build tools)
 npm run dev                  # the app, with hot reload
 npx tsx scripts/fake-tv.ts   # a pretend TV on 127.0.0.1:5556 to try the app without one
@@ -240,6 +240,6 @@ The tag has to match the version in `package.json`, or the release step stops.
 
 ## Licence
 
-MIT, see [LICENSE](LICENSE). The bundled debloat lists and themes are from
+MIT, see [LICENSE](LICENSE). The bundled debloat lists are from
 [cleanyourtv](https://github.com/Gathin23/cleanyourtv) by Gathin23, also MIT; its licence ships in
 `resources/upstream/LICENSE`.

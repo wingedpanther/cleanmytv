@@ -127,16 +127,17 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   download: (tool) => tools.get(tool),
   lists: async () => debloat.lists(T.getStatus().probe),
   plan: (id) => debloat.plan(id),
+  tvPackages: () => debloat.tvPackages(),
   applyDebloat: (req) => debloat.apply(req),
   restore: (id) => debloat.restore(id),
   useStockLauncher: () => launcher.useStock(),
   removeOldLauncher: () => launcher.removeOld(),
   homeStatus: () => home.status(),
-  installHome: () => home.install(),
-  useHome: async () => {
+  installHome: (stock) => home.install(typeof stock === 'string' ? stock : undefined),
+  useHome: async (stock) => {
     const st = await home.status()
     if (!st.installed) return { ok: false, summary: 'CleanMyTV Home is not installed yet.', warnings: [] }
-    return launcher.switchTo(`${launcher.HOME_PKG}/.MainActivity`)
+    return launcher.switchTo(`${launcher.HOME_PKG}/.MainActivity`, typeof stock === 'string' ? stock : undefined)
   },
   homeApps: () => home.apps(),
   readHomeConfig: () => home.readConfig(),
@@ -203,7 +204,7 @@ app.whenReady().then(() => {
   if (!primary) return
   // The app needs no camera, microphone, notifications or other web permissions.
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false))
-  // Packaged: lists, themes and the APK sit in Contents/Resources (mac) or resources\ (Windows).
+  // Packaged: lists and the APK sit in Contents/Resources (mac) or resources\ (Windows).
   configurePaths(app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources'), app.getPath('userData'))
   setSinks((line) => send('log', line), (p) => send('progress', p))
   T.init(paths.adbKey, (s: ConnStatus) => send('status', s))

@@ -280,6 +280,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
                       <div className="pkg-name">{e.pkg}</div>
                       {e.choice && <div className="choice-tag">Your choice · {e.choice}</div>}
                       <div className="small muted">
+                        {e.added && 'Added by you. '}
                         {!e.suggested && 'Kept by the list author. '}
                         {e.common > 1 && `Switched off in ${e.common} lists.`}
                       </div>
@@ -300,6 +301,15 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
               </tbody>
             </table>
           </div>
+
+          <AddPackage
+            have={plan.entries}
+            onAdd={(e) => {
+              setPlan((p) => (p ? { ...p, entries: [...p.entries, e] } : p))
+              toggle(e.pkg, true)
+              setFilter('all')
+            }}
+          />
 
           <div style={{ marginTop: 16 }}>
             <button className="btn small ghost" onClick={() => setShowAdvanced(!showAdvanced)} aria-expanded={showAdvanced}>
@@ -369,6 +379,94 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
         </Confirm>
       )}
     </>
+  )
+}
+
+/** Adds a package that isn't in the list (#39). Only packages on the TV can be added. */
+function AddPackage({ have, onAdd }: { have: DebloatEntry[]; onAdd: (e: DebloatEntry) => void }): ReactNode {
+  const [open, setOpen] = useState(false)
+  const [all, setAll] = useState<DebloatEntry[] | null>(null)
+  const [name, setName] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const inList = useMemo(() => new Set(have.map((e) => e.pkg)), [have])
+  const options = useMemo(() => (all ?? []).filter((e) => !inList.has(e.pkg) && e.state === 'enabled'), [all, inList])
+
+  async function show(): Promise<void> {
+    setOpen(true)
+    if (all) return
+    try {
+      setAll(await window.cytv.tvPackages())
+    } catch (e) {
+      setError(errorText(e))
+    }
+  }
+
+  function add(): void {
+    const pkg = name.trim()
+    if (!pkg) return
+    const found = all?.find((e) => e.pkg === pkg)
+    if (inList.has(pkg)) setError(`${pkg} is already in the list above.`)
+    else if (!found) setError(`${pkg} isn't on this TV, or it's a launcher the app looks after itself. Check the spelling.`)
+    else if (found.state !== 'enabled') setError(`${pkg} is already off.`)
+    else {
+      onAdd(found)
+      setName('')
+      setError(null)
+    }
+  }
+
+  const picked = options.find((e) => e.pkg === name.trim())
+  if (!open) {
+    return (
+      <div style={{ marginTop: 16 }}>
+        <button className="btn small ghost" onClick={show}>
+          + Add a package that isn't in the list
+        </button>
+      </div>
+    )
+  }
+  return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <h3 style={{ marginTop: 0 }}>Add a package</h3>
+      <p className="small muted" style={{ marginTop: 0 }}>
+        Type a package name, or pick one of the {options.length || ''} apps that are on. It joins the list ticked, the restore point
+        covers it, and Restore switches it back on.
+      </p>
+      {!all && !error ? (
+        <Busy text="Reading the TV's packages" />
+      ) : (
+        <div className="row">
+          <input
+            className="mono"
+            list="tv-packages"
+            placeholder="com.vendor.ads"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value)
+              setError(null)
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+            style={{ flex: 1, minWidth: 260 }}
+            aria-label="Package name"
+          />
+          <datalist id="tv-packages">
+            {options.map((e) => (
+              <option key={e.pkg} value={e.pkg} />
+            ))}
+          </datalist>
+          <button className="btn" disabled={!name.trim()} onClick={add}>
+            Add
+          </button>
+        </div>
+      )}
+      {picked && (picked.choice || picked.common > 0) && (
+        <p className="small muted" style={{ marginBottom: 0 }}>
+          {picked.choice ? `Careful: ${picked.choice} ` : ''}
+          {picked.common > 0 ? `Switched off in ${picked.common} lists${picked.note ? `: ${picked.note}` : ''}.` : ''}
+        </p>
+      )}
+      {error && <div className="notice warn" style={{ marginTop: 12, marginBottom: 0 }}>{error}</div>}
+    </div>
   )
 }
 

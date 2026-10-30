@@ -70,7 +70,7 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
       if (!before.isHome || outdated) {
         setPhase({ t: 'run', step: 'Installing CleanMyTV Home' })
         const r = await window.cytv.installHome()
-        if (!r.ok) throw new Error(r.summary)
+        if (!r.ok) throw new Error(r.summary + (r.stockChoices ? ' Open the Home screen step and pick it there.' : ''))
         notes.push('CleanMyTV Home installed and set as Home')
         if (alive.current) markDone('home')
       } else {

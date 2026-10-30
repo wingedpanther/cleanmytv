@@ -1,9 +1,12 @@
 // Handing Home to CleanMyTV Home and back: the launcher handover from upstream's build-and-install.sh
 // (start it first, switch off the stock launcher, check where Home landed, roll back if it didn't stick),
 // plus removing the CleanYourTV launcher earlier versions of this app installed.
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import * as T from './tv'
 import { log } from './log'
-import { KNOWN_STOCK_LAUNCHERS } from './debloat'
+import { paths } from './paths'
+import { GOOGLE_LAUNCHERS, NOT_LAUNCHERS, SETUPWRAITH, stockLaunchers } from './debloat'
 import type { ApplyResult, InstallResult } from '@shared/api'
 
 const TASK = 'install'
@@ -13,15 +16,36 @@ export const HOME_PKG = 'io.github.wingedpanther.cleanmytv.home'
 export const OLD_PKG = 'com.gathin.tvhome'
 const OUR_LAUNCHERS = [OLD_PKG, HOME_PKG]
 
-/** Which app owns Home differs by build, so ask the TV, and accept only a launcher we recognise. */
-export async function detectStock(): Promise<string> {
+/** The stock launcher couldn't be told apart from other apps that answer Home: the owner picks it (#39). */
+export class StockUnknown extends Error {
+  constructor(message: string, readonly candidates: string[]) {
+    super(message)
+  }
+}
+
+/** Apps that can be Home on the TV, minus ours and the ones that only stand in for a launcher. */
+async function launcherCandidates(): Promise<string[]> {
+  return (await T.homeClaimants()).filter((c) => !OUR_LAUNCHERS.includes(c) && !NOT_LAUNCHERS.includes(c) && c !== 'android')
+}
+
+/**
+ * Which app owns Home differs by build, so ask the TV. A launcher this app or an upstream list knows is
+ * taken as it is; otherwise the app that owns Home now is the stock one. `chosen` is the owner's pick.
+ */
+export async function detectStock(chosen?: string): Promise<string> {
+  const known = stockLaunchers()
+  if (chosen) {
+    if (!(await launcherCandidates()).includes(chosen)) throw new Error(`${chosen} can't be Home on this TV, so it can't be the stock launcher.`)
+    log(TASK, 'info', `stock launcher picked by hand: ${chosen}`)
+    return chosen
+  }
   const answer = await T.homeAnswer()
   const homePkg = answer.split('/')[0]
-  if (KNOWN_STOCK_LAUNCHERS.includes(homePkg)) return homePkg
+  if (known.includes(homePkg)) return homePkg
   if (OUR_LAUNCHERS.includes(homePkg)) {
-    // Ours owns Home for now, but an enabled stock launcher takes it back on Google TV (#27).
+    // Ours owns Home for now, but an enabled Google launcher takes it back (#27).
     const claims = await T.homeClaimants()
-    const on = KNOWN_STOCK_LAUNCHERS.find((k) => claims.includes(k))
+    const on = GOOGLE_LAUNCHERS.find((k) => claims.includes(k))
     if (on) {
       log(TASK, 'info', `Home belongs to ${homePkg}, but ${on} is still on and can take Home back; it will be switched off.`)
       return on
@@ -29,21 +53,68 @@ export async function detectStock(): Promise<string> {
     log(TASK, 'info', `Home belongs to ${homePkg}, so the stock launcher is already off; nothing will be disabled.`)
     return 'none'
   }
-  if (homePkg === 'android') {
-    // Android's chooser: two launchers tie and no default is set. Take the one known stock launcher
-    // among the HOME claimants, if there is exactly one.
-    const claims = await T.homeClaimants()
-    const found = KNOWN_STOCK_LAUNCHERS.filter((k) => claims.includes(k))
-    if (found.length === 1) {
-      log(TASK, 'info', `Home is Android's chooser; the stock launcher among the candidates is ${found[0]}.`)
-      return found[0]
-    }
-    throw new Error(`Home is Android's launcher chooser and ${found.length} known stock launchers claim it. Pick a default Home on the TV first, then try again.`)
-  }
-  if (homePkg === 'com.google.android.tungsten.setupwraith') {
+  if (homePkg === SETUPWRAITH) {
     throw new Error("Home resolves to Google TV's setup wizard. Add com.google.android.tungsten.setupwraith to your cleanup list, apply it, then install again.")
   }
-  throw new Error(`Home resolves to '${homePkg || 'nothing'}', which is not a stock launcher this app knows. Make the stock launcher Home on the TV, then try again.`)
+  const candidates = await launcherCandidates()
+  if (homePkg === 'android') {
+    // Android's chooser: two launchers tie and no default is set. Take the one stock launcher among them.
+    const found = known.filter((k) => candidates.includes(k))
+    const pick = found.length === 1 ? found[0] : found.length === 0 && candidates.length === 1 ? candidates[0] : null
+    if (pick) {
+      log(TASK, 'info', `Home is Android's chooser; the stock launcher among the candidates is ${pick}.`)
+      return pick
+    }
+    throw new StockUnknown("Home is Android's launcher chooser, and the app can't tell which one is the TV's own launcher.", candidates)
+  }
+  if (candidates.includes(homePkg)) {
+    log(TASK, 'info', `Home belongs to ${homePkg}, which no list names; taking it as the stock launcher.`)
+    return homePkg
+  }
+  throw new StockUnknown(`Home resolves to '${homePkg || 'nothing'}', so the app can't tell which app is the TV's own launcher.`, candidates)
+}
+
+/**
+ * What the handover switches off. Google's launchers take Home back, so they go. Vendor launchers stay on,
+ * as upstream's STOCK_LAUNCHER=none does: on many TVs they also run the remote's buttons or the inputs,
+ * and lists say to keep them.
+ */
+export function toSwitchOff(stock: string): string {
+  return GOOGLE_LAUNCHERS.includes(stock) ? stock : 'none'
+}
+
+// ---- the stock launcher of each TV, so Undo and the restart check find a vendor launcher again ----
+
+const stockFile = (): string => join(paths.data, 'stock-launchers.json')
+
+function tvKey(): string {
+  const st = T.getStatus()
+  return st.probe?.device || st.host || ''
+}
+
+function readStockFile(): Record<string, string> {
+  try {
+    return existsSync(stockFile()) ? (JSON.parse(readFileSync(stockFile(), 'utf8')) as Record<string, string>) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function rememberStock(stock: string): void {
+  const key = tvKey()
+  if (!key || stock === 'none' || !T.PACKAGE_RE.test(stock)) return
+  const all = readStockFile()
+  if (all[key] === stock) return
+  all[key] = stock
+  mkdirSync(paths.data, { recursive: true })
+  writeFileSync(stockFile(), JSON.stringify(all, null, 2))
+}
+
+/** This TV's stock launcher: the one remembered from the handover, else a known one that is installed. */
+export function stockOnTv(installed: Set<string>): string | undefined {
+  const mine = readStockFile()[tvKey()]
+  if (mine && installed.has(mine)) return mine
+  return stockLaunchers().find((p) => installed.has(p))
 }
 
 export async function rollback(stock: string): Promise<boolean> {
@@ -104,13 +175,20 @@ export async function handOver(stock: string, main: string): Promise<InstallResu
  * Starts an installed launcher, and only if it comes up, makes it Home. A stock launcher that is still on
  * gets switched off too: on Google TV it otherwise keeps Home (#27).
  */
-export async function switchTo(main: string): Promise<ApplyResult> {
-  const stock = await detectStock()
+export async function switchTo(main: string, chosen?: string): Promise<ApplyResult> {
+  let stock: string
+  try {
+    stock = await detectStock(chosen)
+  } catch (e) {
+    if (e instanceof StockUnknown) return { ok: false, summary: e.message, warnings: [], stockChoices: e.candidates }
+    throw e
+  }
   const start = await T.sh(TASK, `am start -W -n ${main}`)
   if (!start.includes('Status: ok') || /^Error/im.test(start)) {
     return { ok: false, summary: 'That launcher did not start, so Home was left as it was.', warnings: [start.trim()] }
   }
-  const failed = await handOver(stock, main)
+  const failed = await handOver(toSwitchOff(stock), main)
+  if (!failed) rememberStock(stock)
   return failed ?? { ok: true, summary: 'Switched. Press Home on the remote to see it.', warnings: [] }
 }
 
@@ -156,7 +234,7 @@ export async function removeOld(): Promise<ApplyResult> {
 
 export async function useStock(): Promise<ApplyResult> {
   const { installed } = await T.packageSets()
-  const stock = KNOWN_STOCK_LAUNCHERS.find((p) => installed.has(p))
+  const stock = stockOnTv(installed)
   if (!stock) return { ok: false, summary: 'No stock launcher this app knows is installed on the TV.', warnings: [] }
   const ok = await rollback(stock)
   // The stock launcher is back: CleanMyTV Home's remote-button service goes with it.

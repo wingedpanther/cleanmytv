@@ -40,6 +40,7 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
   const [result, setResult] = useState<ApplyResult | null>(null)
   const [saving, setSaving] = useState(false)
   const [askStock, setAskStock] = useState(false)
+  const [stockPick, setStockPick] = useState<StockPick | null>(null)
   const pending = useRef<Partial<HomeConfig>>({})
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -89,12 +90,15 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
     timer.current = setTimeout(flush, wait)
   }
 
-  async function run(label: string, fn: () => Promise<ApplyResult>): Promise<void> {
+  /** `retry` runs the same step again with the stock launcher the owner picks, when the app can't tell (#39). */
+  async function run(label: string, fn: () => Promise<ApplyResult>, retry?: (stock: string) => Promise<ApplyResult>): Promise<void> {
     setBusy(label)
     setResult(null)
+    setStockPick(null)
     try {
       const r = await fn()
       setResult(r)
+      if (r.stockChoices && retry) setStockPick({ label, choices: r.stockChoices, retry })
       if (r.ok) markDone('home')
     } catch (e) {
       setResult({ ok: false, summary: errorText(e), warnings: [] })
@@ -128,6 +132,13 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
         the TV shows it straight away and keeps it after a reboot. The stock launcher is one click away on the Overview tab.
       </p>
       <ResultNotice result={result} onDismiss={() => setResult(null)} />
+      {stockPick && !busy && (
+        <StockPicker
+          pick={stockPick}
+          onPick={(stock) => run(stockPick.label, () => stockPick.retry(stock), stockPick.retry)}
+          onCancel={() => setStockPick(null)}
+        />
+      )}
       {busy && (
         <div className="notice">
           <Busy text={busy} />
@@ -160,7 +171,7 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
           {ready && tab === 'look' && <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} />}
           {ready && tab === 'widgets' && <WidgetsTab cfg={cfg} set={set} />}
           {ready && tab === 'music' && <MusicTab cfg={cfg} set={set} />}
-          {ready && tab === 'buttons' && apps && <ButtonsTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
+          {ready && tab === 'buttons' && apps && <ButtonsTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} brand={status.probe?.manufacturer} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
           {ready && tab !== 'overview' && <p className="small muted">{saving ? 'Sending to the TV…' : 'Saved on the TV.'}</p>}
         </>
       )}
@@ -182,7 +193,51 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
   )
 }
 
-function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string, fn: () => Promise<ApplyResult>) => Promise<void>; askStock: () => void; host?: string; onShot: () => void }): ReactNode {
+interface StockPick {
+  label: string
+  choices: string[]
+  retry: (stock: string) => Promise<ApplyResult>
+}
+
+function StockPicker({ pick, onPick, onCancel }: { pick: StockPick; onPick: (stock: string) => void; onCancel: () => void }): ReactNode {
+  const [chosen, setChosen] = useState(pick.choices.length === 1 ? pick.choices[0] : '')
+  return (
+    <div className="card white">
+      <h2>Which one is the TV's own launcher?</h2>
+      {pick.choices.length === 0 ? (
+        <p className="muted">
+          Nothing on the TV can be Home apart from CleanMyTV Home, so there is no launcher to fall back on. Leave it as it is and
+          report your TV model on GitHub.
+        </p>
+      ) : (
+        <>
+          <p className="small muted">
+            These apps can be Home on this TV. Pick the one the TV came with. It stays on, and Undo and the restart check give Home
+            back to it.
+          </p>
+          <div className="place-list" role="radiogroup">
+            {pick.choices.map((c) => (
+              <label key={c} className="row" style={{ gap: 8 }}>
+                <input type="radio" name="stock" checked={chosen === c} onChange={() => setChosen(c)} />
+                <span className="mono">{c}</span>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+      <div className="row" style={{ marginTop: 16 }}>
+        <button className="btn primary" disabled={!chosen} onClick={() => onPick(chosen)}>
+          Use this one and carry on
+        </button>
+        <button className="btn ghost" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string, fn: () => Promise<ApplyResult>, retry?: (stock: string) => Promise<ApplyResult>) => Promise<void>; askStock: () => void; host?: string; onShot: () => void }): ReactNode {
   const { home, busy, run } = props
   const [shot, setShot] = useState<string | null>(null)
   const [shooting, setShooting] = useState(false)
@@ -230,12 +285,12 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
         )}
         <div className="row" style={{ marginTop: 16 }}>
           {(!home.installed || outdated(home)) && (
-            <button className="btn primary" disabled={busy || !home.bundled || !!home.unsupported} onClick={() => run('Installing CleanMyTV Home. Keep the TV on.', () => window.cytv.installHome())}>
+            <button className="btn primary" disabled={busy || !home.bundled || !!home.unsupported} onClick={() => run('Installing CleanMyTV Home. Keep the TV on.', () => window.cytv.installHome(), (s) => window.cytv.installHome(s))}>
               {home.installed ? 'Update and use' : 'Install and use'}
             </button>
           )}
           {home.installed && !home.isHome && (
-            <button className="btn primary" disabled={busy} onClick={() => run('Switching Home to CleanMyTV Home', () => window.cytv.useHome())}>
+            <button className="btn primary" disabled={busy} onClick={() => run('Switching Home to CleanMyTV Home', () => window.cytv.useHome(), (s) => window.cytv.useHome(s))}>
               Use CleanMyTV Home
             </button>
           )}
@@ -773,7 +828,13 @@ const keyName = (name: string): string => {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c: HomeConfig) => void; onError: (e: unknown) => void }): ReactNode {
+/**
+ * Xiaomi's Mi (PatchWall) button arrives as KEY_WWW, scancode 150, which Android hands to apps as
+ * KEYCODE_EXPLORER. Once PatchWall is off nothing answers it (#38; upstream redmi-mitv-mooq3 notes).
+ */
+const MI_BUTTON = 64
+
+function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c: HomeConfig) => void; brand?: string; onError: (e: unknown) => void }): ReactNode {
   const { cfg, set, apps } = props
   const [switching, setSwitching] = useState(false)
   const [listening, setListening] = useState(false)
@@ -819,9 +880,35 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
   const mapped = new Set(cfg.buttons.map((b) => b.code))
   const update = (buttons: HomeButton[]): void => set({ buttons })
   const label = (code: number): string => (names[code] ? `${keyName(names[code])} · ${code}` : `Button ${code}`)
+  const xiaomi = /xiaomi|redmi/i.test(props.brand ?? '')
+  const miDone = cfg.buttons_on && cfg.buttons.some((b) => b.code === MI_BUTTON && b.action === 'home')
+
+  async function miButtonHome(): Promise<void> {
+    setSwitching(true)
+    try {
+      // In order: the button first, then the service, so neither answer overwrites the other.
+      props.setCfg(await window.cytv.setHomeConfig({ buttons: [...cfg.buttons.filter((b) => b.code !== MI_BUTTON), { code: MI_BUTTON, action: 'home' }] }))
+      if (!cfg.buttons_on) props.setCfg(await window.cytv.setRemoteButtons(true))
+    } catch (e) {
+      props.onError(e)
+    } finally {
+      setSwitching(false)
+    }
+  }
 
   return (
     <>
+      {xiaomi && !miDone && (
+        <div className="notice">
+          <p style={{ margin: '0 0 10px' }}>
+            The Mi button on Xiaomi remotes opens PatchWall, so it does nothing once PatchWall is off. CleanMyTV Home can make it go
+            Home instead. If it still does nothing after this, press Listen below and press the Mi button to see what it sends.
+          </p>
+          <button className="btn small" disabled={switching} onClick={miButtonHome}>
+            Make the Mi button go Home
+          </button>
+        </div>
+      )}
       <div className="card">
         <Toggle
           label="Remote buttons"
