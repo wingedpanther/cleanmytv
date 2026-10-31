@@ -216,11 +216,16 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
   return out as Partial<HomeConfig>
 }
 
+const PRIVATE_SETTINGS = ['greeting', 'weather_place', 'weather_lat', 'weather_lon']
+
 /** The JSON goes over as base64, so a greeting with quotes or emoji never needs shell quoting. */
 function call(method: string, arg?: string, task = 'theme'): Promise<string> {
   if (arg !== undefined && !/^[A-Za-z0-9+/=]*$/.test(arg)) throw new Error('internal: argument must be base64 or hex')
   const cmd = `content call --uri ${URI} --method ${method}${arg !== undefined ? ` --arg ${arg}` : ''}`
-  return arg && arg.length > 200 ? T.tv().shell(cmd) : T.sh(task, cmd)
+  // Every answer carries all the settings, which include the home location and the greeting, so answers
+  // stay out of the log. So do set64's arguments, which are those settings in base64.
+  if ((!arg || arg.length <= 200) && method !== 'set64') log(task, 'cmd', cmd)
+  return T.tv().shell(cmd)
 }
 
 /** The apps CleanMyTV Home shows, with the names the TV gives them. */
@@ -260,8 +265,10 @@ export async function readConfig(): Promise<HomeConfig> {
 }
 
 export async function setConfig(change: Partial<HomeConfig>): Promise<HomeConfig> {
-  const json = JSON.stringify(clean(change as Record<string, unknown>))
-  log('theme', 'cmd', `set ${json}`)
+  const checked = clean(change as Record<string, unknown>)
+  const json = JSON.stringify(checked)
+  // People paste the activity log into public bug reports.
+  log('theme', 'cmd', `set ${JSON.stringify(checked, (k, v) => (PRIVATE_SETTINGS.includes(k) ? '(hidden)' : v))}`)
   const cfg = keep(parse(await call('set64', Buffer.from(json).toString('base64'))))
   if (change.sections) await nowPlayingAccess(cfg.sections.includes('nowplaying'))
   return cfg
