@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, HomeLayout, HomeSection, HomeStatus, KeyPress, QuickId, TvApp } from '@shared/api'
+import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, HomeLayout, HomeSection, HomeStatus, KeyPress, QuickEntry, QuickId, TvApp } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { AppOrder } from '../components/AppOrder'
-import { HomePreview, QUICK_LABEL, QuickIcon } from '../components/HomePreview'
+import { HomePreview, QuickMark, quickApp, quickLabel } from '../components/HomePreview'
 import { Busy, Confirm, ResultNotice, Slider, StatusChip, Toggle, errorText } from '../components/ui'
 import { prepareWallpaper, thumbnail } from '../lib/image'
 import { fetchBingDaily } from '../lib/backgrounds'
@@ -467,6 +467,9 @@ const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, num
 const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: 'Now playing', dock: 'Dock', rows: 'Rows', folders: 'Folders', grid: 'All apps' }
 const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'dock', 'rows', 'folders', 'grid']
 const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'settings']
+/** As the launcher's HomeConfig.MAX_QUICK_APPS. */
+const MAX_QUICK_APPS = 6
+const IDLE_CHOICES: [number, string][] = [[0, 'Off'], [1, '1 min'], [2, '2 min'], [5, '5 min'], [10, '10 min'], [15, '15 min'], [30, '30 min']]
 
 /** Turn items on and off and put the ones that are on in order. */
 function OrderList<T extends string>(props: { all: T[]; on: T[]; label: (t: T) => ReactNode; onChange: (on: T[]) => void }): ReactNode {
@@ -542,17 +545,22 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
             {cfg.layout === 'rail' ? 'Icons in the rail.' : cfg.layout === 'split' ? 'At the bottom of the left side.' : 'Under the clock and date.'} The TV hides any it can't open, such as Inputs on a box
             without HDMI inputs, or Search when the search app is switched off.
           </p>
-          <OrderList
-            all={ALL_QUICK}
+          <OrderList<QuickEntry>
+            all={[...ALL_QUICK, ...cfg.quick.filter((q) => quickApp(q))]}
             on={cfg.quick}
-            label={(q) => (
-              <>
-                <QuickIcon id={q} /> {QUICK_LABEL[q]}
-                {cfg.quick_available && !cfg.quick_available.includes(q) && <span className="muted small">not on this TV</span>}
-              </>
-            )}
+            label={(q) => {
+              const pkg = quickApp(q)
+              const missing = pkg ? !apps.some((a) => a.pkg === pkg) : cfg.quick_available && !cfg.quick_available.includes(q as QuickId)
+              return (
+                <>
+                  <span className="quick-mark"><QuickMark q={q} apps={apps} /></span> {quickLabel(q, apps)}
+                  {missing && <span className="muted small">not on this TV</span>}
+                </>
+              )
+            }}
             onChange={(quick) => set({ quick })}
           />
+          <QuickAppAdd apps={apps} quick={cfg.quick} onAdd={(pkg) => set({ quick: [...cfg.quick, `app:${pkg}`] })} />
         </div>
       </div>
 
@@ -584,7 +592,40 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
           </label>
         </div>
       </div>
+
+      <div className="card">
+        <h2>Idle screen</h2>
+        <p className="muted small">
+          When nobody has pressed a button for this long, Home fades out the apps and shows just the wallpaper{cfg.clock === 'off' ? '' : ' and a large clock'}. Any button brings everything back.
+        </p>
+        <div className="seg">
+          {IDLE_CHOICES.map(([m, label]) => (
+            <button key={m} className={cfg.idle_minutes === m ? 'on' : ''} onClick={() => set({ idle_minutes: m })}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
     </>
+  )
+}
+
+/** Adds an app as a round icon next to the quick settings, up to MAX_QUICK_APPS. */
+function QuickAppAdd({ apps, quick, onAdd }: { apps: TvApp[]; quick: QuickEntry[]; onAdd: (pkg: string) => void }): ReactNode {
+  const used = quick.filter((q) => quickApp(q)).length
+  const free = apps.filter((a) => !quick.includes(`app:${a.pkg}`)).sort((a, b) => a.label.localeCompare(b.label))
+  return (
+    <div className="row" style={{ marginTop: 10 }}>
+      <select value="" aria-label="Add an app icon" disabled={used >= MAX_QUICK_APPS || !free.length} onChange={(e) => e.target.value && onAdd(e.target.value)}>
+        <option value="">{used >= MAX_QUICK_APPS ? `${MAX_QUICK_APPS} apps is the most` : 'Add an app as an icon…'}</option>
+        {free.map((a) => (
+          <option key={a.pkg} value={a.pkg}>
+            {a.label}
+          </option>
+        ))}
+      </select>
+      <span className="muted small">For apps you open a lot, like a VPN. Untick one to remove it.</span>
+    </div>
   )
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import type { HomeConfig, QuickId, TvApp } from '@shared/api'
+import type { HomeConfig, QuickEntry, QuickId, TvApp } from '@shared/api'
 
 // The launcher lays out in dp on a 960x540 screen; the preview draws at that size and scales to fit.
 const W = 960
@@ -30,6 +30,28 @@ export function QuickIcon({ id, size = 16 }: { id: QuickId; size?: number }): Re
       <path d={QUICK_GLYPH[id]} />
     </svg>
   )
+}
+
+/** The package of an app shortcut, or null for a quick-settings action. */
+export const quickApp = (q: QuickEntry): string | null => (q.startsWith('app:') ? q.slice(4) : null)
+
+export function quickLabel(q: QuickEntry, apps: TvApp[]): string {
+  const pkg = quickApp(q)
+  return pkg ? (apps.find((a) => a.pkg === pkg)?.label ?? pkg) : QUICK_LABEL[q as QuickId]
+}
+
+/** A stand-in for an app's own icon, which the desktop app can't read: its first letter on a disc. */
+function AppMark({ label, size }: { label: string; size: number }): ReactNode {
+  return (
+    <span aria-hidden style={{ width: size, height: size, borderRadius: size / 2, background: '#D7CFC4', color: '#1C2A1F', display: 'inline-grid', placeItems: 'center', fontSize: size * 0.55, fontWeight: 600, lineHeight: 1, flex: 'none' }}>
+      {label.trim().charAt(0).toUpperCase() || '?'}
+    </span>
+  )
+}
+
+/** The icon a top-bar entry shows: the drawn glyph, or for an app a disc 4 px larger, as on the TV. */
+export function QuickMark({ q, apps, size = 16 }: { q: QuickEntry; apps: TvApp[]; size?: number }): ReactNode {
+  return quickApp(q) ? <AppMark label={quickLabel(q, apps)} size={size + 4} /> : <QuickIcon id={q as QuickId} size={size} />
 }
 
 /** The order and grouping the launcher uses, from the same settings. */
@@ -177,8 +199,11 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
     return () => ro.disconnect()
   }, [])
   const greet = greetingText(cfg)
-  // As on the TV: icons it can't open are left out.
-  const quick = cfg.quick.filter((q) => !cfg.quick_available || cfg.quick_available.includes(q))
+  // As on the TV: icons it can't open, and shortcuts to apps that aren't installed, are left out.
+  const quick = cfg.quick.filter((q) => {
+    const pkg = quickApp(q)
+    return pkg ? apps.some((a) => a.pkg === pkg) : !cfg.quick_available || cfg.quick_available.includes(q as QuickId)
+  })
   const ground: CSSProperties = {
     background: cfg.has_wallpaper
       ? `linear-gradient(rgba(0,0,0,${cfg.wallpaper_dim / 100}), rgba(0,0,0,${cfg.wallpaper_dim / 100})), linear-gradient(160deg, #6b5a3e, #2f3b2a 55%, #1a2418)`
@@ -194,7 +219,10 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
           <div style={{ flex: 1 }} />
           {quick.map((q) => (
             <div key={q} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 15 }}>
-              <QuickIcon id={q} size={20} /> {QUICK_LABEL[q]}
+              <span style={{ width: 22, display: 'inline-grid', placeItems: 'center' }}>
+                <QuickMark q={q} apps={apps} size={18} />
+              </span>{' '}
+              {quickLabel(q, apps)}
             </div>
           ))}
         </div>
@@ -207,7 +235,11 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
     body = (
       <div style={{ display: 'flex', height: '100%' }}>
         <div style={{ width: SAFE_X + 56, padding: `${SAFE_Y + 8}px 0 0 ${SAFE_X + 7}px`, display: 'flex', flexDirection: 'column', gap: 18, background: 'linear-gradient(90deg, rgba(28,42,31,0.6), rgba(28,42,31,0.1))' }}>
-          {quick.map((q) => <QuickIcon key={q} id={q} size={22} />)}
+          {quick.map((q) => (
+            <span key={q} style={{ width: 22, height: 22, display: 'grid', placeItems: 'center' }}>
+              <QuickMark q={q} apps={apps} size={22} />
+            </span>
+          ))}
           {cfg.folders.length > 0 && <div style={{ height: 6 }} />}
           {cfg.folders.map((f) => (
             <svg key={f.name} viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="currentColor" strokeWidth={1.8}>
@@ -235,7 +267,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
               <div style={{ display: 'flex', gap: 10 }}>
                 {quick.map((q) => (
                   <span key={q} style={{ width: 40, height: 40, borderRadius: 20, background: 'rgba(255,255,255,0.08)', display: 'grid', placeItems: 'center' }}>
-                    <QuickIcon id={q} size={20} />
+                    <QuickMark q={q} apps={apps} size={22} />
                   </span>
                 ))}
               </div>

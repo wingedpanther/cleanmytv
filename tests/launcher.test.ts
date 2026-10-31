@@ -117,6 +117,14 @@ describe('CleanMyTV Home', () => {
     await expect(H.setConfig({ rows: Array.from({ length: 9 }, (_, i) => ({ name: `r${i}`, apps: [] })) })).rejects.toThrow(/rows/)
   })
 
+  it('puts apps in the top bar next to the quick settings, and sets the idle screen', async () => {
+    const cfg = await H.setConfig({ quick: ['wifi', 'app:com.netflix.ninja', 'settings', 'app:com.netflix.ninja'], idle_minutes: 90 })
+    expect(cfg).toMatchObject({ quick: ['wifi', 'app:com.netflix.ninja', 'settings'], idle_minutes: 60 })
+    await expect(H.setConfig({ quick: ['app:bad;pkg'] as never })).rejects.toThrow(/quick/)
+    await expect(H.setConfig({ quick: Array.from({ length: 7 }, (_, i) => `app:com.example.a${i}` as const) })).rejects.toThrow(/up to 6 apps/)
+    expect((await H.setConfig({ idle_minutes: 0 })).idle_minutes).toBe(0)
+  })
+
   it("lists the launcher's own apps and drops malformed entries", async () => {
     expect((await H.apps()).map((a) => a.pkg)).toEqual(['com.netflix.ninja', 'com.google.android.youtube.tv'])
   })

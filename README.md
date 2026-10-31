@@ -100,7 +100,7 @@ tabs have a live preview of the TV screen at the top.
 | Tab | What you set |
 |---|---|
 | **Overview** | Install or update Home, and how to use it. Give Home back to the stock launcher. Remove the old CleanYourTV launcher in one click if it's still on the TV. Take a snapshot of the TV screen. |
-| **Layout** | Three layouts: Shelf (the default), Split and Rail. Space above the apps. The now playing, dock, rows, folders and all apps sections, in any order, each one can be hidden. Quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars and Settings. Icons the TV can't open are marked "not on this TV". Dock and row tile sizes, apps per row, app names, clock and greeting. |
+| **Layout** | Three layouts: Shelf (the default), Split and Rail. Space above the apps. The now playing, dock, rows, folders and all apps sections, in any order, each one can be hidden. Quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars and Settings. Icons the TV can't open are marked "not on this TV". Up to 6 apps as round icons in the same row, like a VPN. Dock and row tile sizes, apps per row, app names, clock and greeting. An idle screen: after a set time with no button pressed, only the wallpaper and a large clock show. |
 | **Apps, rows & folders** | Dock size, drag to reorder, hide apps, named rows and folders. |
 | **Look & wallpaper** | Accent colour, focus style (glow, outline or none), your own picture or Bing's picture of the day, darken, background colour. |
 | **Widgets** | Now playing: what any music or video app plays, with play, pause and next. Weather next to the clock for a town you pick, in °C or °F. |

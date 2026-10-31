@@ -385,6 +385,15 @@ needs Android 9 or newer. On a TV in the OS column below 9, use the lists for de
 
 _371 lists, synced from upstream at rev d4ac32c34498 (2026-10-30). Regenerate with `node scripts/known-devices.mjs` after a sync._
 
+## Reported by owners
+
+TVs without a list of their own that owners have run CleanMyTV on. The table above doesn't change this
+section when it's regenerated.
+
+| Model | OS | Board | What to pick | Notes |
+|---|---|---|---|---|
+| Tuvio EcoTV1 Plus | Google TV 14 | elliniko (MediaTek MT5896) | the JVC 4K Smart TV (elliniko) list | setupwraith takes Home here: CleanMyTV 0.4.0 and later switch it off during the install. If the saved Wi-Fi belongs to setupwraith, forget and re-join it first. Pairing needs Wireless debugging ([#40](https://github.com/wingedpanther/cleanmytv/issues/40)). |
+
 ## Reporting back
 
 Ran a list on a model not mentioned here, or something broke when a package went off?

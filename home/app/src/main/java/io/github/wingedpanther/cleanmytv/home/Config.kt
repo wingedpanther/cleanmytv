@@ -19,7 +19,7 @@ data class HomeConfig(
     val layout: String = "shelf", // shelf, split, rail
     val sections: List<String> = listOf("nowplaying", "dock", "rows", "folders", "grid"), // top to bottom; absent = hidden
     val topSpace: Int = 25, // percent of the screen left open above the apps (shelf)
-    val quick: List<String> = listOf("inputs", "wifi", "settings"), // quick-settings icons, in order
+    val quick: List<String> = listOf("inputs", "wifi", "settings"), // quick-settings icons and "app:<package>" shortcuts, in order
     val rows: List<Group> = emptyList(),
     val folders: List<Group> = emptyList(),
     val dockScale: Int = 100, // percent
@@ -40,6 +40,8 @@ data class HomeConfig(
     val showNames: Boolean = true,
     val clock: String = "time_date", // time_date, time, off
     val greeting: String = "",
+    // Idle screen: after this many minutes without a button press, only the wallpaper and the clock show; 0 is off
+    val idleMinutes: Int = 0,
     // Weather next to the clock, from Open-Meteo; off while the place is blank
     val weatherPlace: String = "",
     val weatherLat: Double = 0.0,
@@ -77,6 +79,7 @@ data class HomeConfig(
         .put("show_names", showNames)
         .put("clock", clock)
         .put("greeting", greeting)
+        .put("idle_minutes", idleMinutes)
         .put("weather_place", weatherPlace)
         .put("weather_lat", weatherLat)
         .put("weather_lon", weatherLon)
@@ -98,6 +101,9 @@ data class HomeConfig(
         val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music")
         private val SECTIONS = setOf("nowplaying", "dock", "rows", "folders", "grid")
         val BUTTON_ACTIONS = QUICK - "inputs" + setOf("inputs", "home", "back", "none", "app")
+        /** App shortcuts in the top bar, after the quick-settings icons that fit. */
+        const val MAX_QUICK_APPS = 6
+        fun quickApp(entry: String): String? = entry.removePrefix("app:").takeIf { entry.startsWith("app:") && PKG.matches(it) }
 
         private fun groupsJson(gs: List<Group>) = JSONArray(gs.map { JSONObject().put("name", it.name).put("apps", JSONArray(it.apps)) })
 
@@ -141,7 +147,11 @@ data class HomeConfig(
                 layout = choice("layout", base.layout, setOf("shelf", "split", "rail")),
                 sections = strings("sections", SECTIONS) ?: base.sections,
                 topSpace = int("top_space", base.topSpace, 0, 40),
-                quick = strings("quick", QUICK) ?: base.quick,
+                quick = o.optJSONArray("quick")?.let { a ->
+                    val all = (0 until minOf(a.length(), 30)).map { a.optString(it) }.filter { it in QUICK || quickApp(it) != null }.distinct()
+                    val apps = all.filter { quickApp(it) != null }.take(MAX_QUICK_APPS).toSet()
+                    all.filter { it in QUICK || it in apps }
+                } ?: base.quick,
                 rows = groups("rows", 8) ?: base.rows,
                 folders = groups("folders", 12) ?: base.folders,
                 dockScale = int("dock_scale", base.dockScale, 60, 150),
@@ -156,6 +166,7 @@ data class HomeConfig(
                 columns = int("columns", base.columns, 3, 8),
                 showNames = bool("show_names", base.showNames),
                 clock = choice("clock", base.clock, setOf("time_date", "time", "off")),
+                idleMinutes = int("idle_minutes", base.idleMinutes, 0, 60),
                 greeting = if (o.has("greeting")) o.optString("greeting").take(40) else base.greeting,
                 weatherPlace = if (o.has("weather_place")) o.optString("weather_place").replace(Regex("[\\p{Cntrl}]"), "").trim().take(40) else base.weatherPlace,
                 weatherLat = real("weather_lat", base.weatherLat, 90.0),

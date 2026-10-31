@@ -511,6 +511,7 @@ table.pkgs tr.dim td { opacity: 0.6; }
 .order-list li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
 .order-list li.off { opacity: 0.55; }
 .order-list li .grow { flex: 1; display: flex; align-items: center; gap: 10px; }
+.order-list .quick-mark { width: 20px; height: 20px; display: inline-grid; place-items: center; flex: none; }
 .group-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--card); margin-bottom: 10px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .chip-app { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--background); font-size: 12.5px; }

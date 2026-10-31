@@ -8,7 +8,7 @@ import { paths } from './paths'
 import { log } from './log'
 import * as T from './tv'
 import { HOME_PKG, OLD_PKG, StockUnknown, addService, detectStock, dropServices, handOver, rememberStock, toSwitchOff } from './launcher'
-import type { HomeButton, HomeConfig, HomeGroup, HomeStatus, InstallResult, KeyPress, TvApp } from '@shared/api'
+import type { HomeButton, HomeConfig, HomeGroup, HomeStatus, InstallResult, KeyPress, QuickId, TvApp } from '@shared/api'
 
 const TASK = 'install'
 const MAIN = `${HOME_PKG}/.MainActivity`
@@ -19,7 +19,7 @@ export const DEFAULTS: HomeConfig = {
   layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
   rows: [], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [],
   accent: '#4CAF50', focus: 'glow', background: '#1C2A1F', wallpaper_dim: 35,
-  order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, clock: 'time_date', greeting: '',
+  order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, clock: 'time_date', greeting: '', idle_minutes: 0,
   weather_place: '', weather_lat: 0, weather_lon: 0, weather_unit: 'c',
   visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
 }
@@ -34,9 +34,13 @@ const CHOICES = {
 } as const
 
 const LISTS = {
-  sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'],
-  quick: ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music']
+  sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid']
 } as const
+
+const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music'] as const
+/** App shortcuts the top bar takes, as the launcher's HomeConfig.MAX_QUICK_APPS. */
+export const MAX_QUICK_APPS = 6
+const quickApp = (q: unknown): boolean => typeof q === 'string' && q.startsWith('app:') && T.PACKAGE_RE.test(q.slice(4))
 
 const GROUPS = { rows: 8, folders: 12 } as const
 
@@ -45,7 +49,7 @@ const plain = (s: string, max: number): string => s.replace(/[\u0000-\u001f\u007
 
 const RANGES = {
   top_space: [0, 40], dock_scale: [60, 150], tile_scale: [60, 150],
-  wallpaper_dim: [0, 80], dock_size: [0, 8], columns: [3, 8],
+  wallpaper_dim: [0, 80], dock_size: [0, 8], columns: [3, 8], idle_minutes: [0, 60],
   viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300]
 } as const
 
@@ -143,7 +147,7 @@ export function parse(out: string): HomeConfig {
   cfg.has_wallpaper = o.has_wallpaper === true
   if (typeof o.configured === 'boolean') cfg.configured = o.configured
   // Older launchers don't report this; leave it unset so the editor doesn't mark everything unavailable.
-  if (Array.isArray(o.quick_available)) cfg.quick_available = o.quick_available.filter((q): q is HomeConfig['quick'][number] => (LISTS.quick as readonly unknown[]).includes(q))
+  if (Array.isArray(o.quick_available)) cfg.quick_available = o.quick_available.filter((q): q is QuickId => (QUICK as readonly unknown[]).includes(q))
   return cfg
 }
 
@@ -180,6 +184,12 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
     if (o[k] === undefined) continue
     if (Array.isArray(o[k]) && (o[k] as unknown[]).every((v) => (allowed as readonly unknown[]).includes(v))) out[k] = [...new Set(o[k] as string[])]
     else bad(`${k} must be a list of ${allowed.join(', ')}`)
+  }
+  if (o.quick !== undefined) {
+    const v = o.quick
+    const ok = Array.isArray(v) && v.every((q) => (QUICK as readonly unknown[]).includes(q) || quickApp(q)) && v.filter(quickApp).length <= MAX_QUICK_APPS
+    if (ok) out.quick = [...new Set(v as string[])]
+    else bad(`quick must be a list of ${QUICK.join(', ')} or app:<package>, with up to ${MAX_QUICK_APPS} apps`)
   }
   for (const [k, max] of Object.entries(GROUPS)) {
     if (o[k] === undefined) continue

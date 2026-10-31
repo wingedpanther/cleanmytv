@@ -19,10 +19,17 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tv
 import androidx.compose.material.icons.outlined.Wifi
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 
-/** One shortcut in the top bar or rail. `inputs` opens our own picker; the rest open a system screen. */
-data class QuickAction(val id: String, val label: String, val icon: ImageVector, val intents: List<Intent>)
+/**
+ * One shortcut in the top bar or rail. `inputs` opens our own picker; the rest open a system screen, or for
+ * "app:<package>" the app, drawn with its own icon (`art`) in the same round button.
+ */
+data class QuickAction(val id: String, val label: String, val icon: ImageVector, val intents: List<Intent>, val art: ImageBitmap? = null)
+
+/** An app shortcut for the top bar, with the app's icon (not its TV banner, which wouldn't fit a circle). */
+fun appAction(app: TvApp, icon: ImageBitmap?) = QuickAction("app:${app.pkg}", app.label, Icons.Outlined.Apps, listOf(app.launch), icon)
 
 private fun settings(action: String) = Intent(action)
 

@@ -160,6 +160,8 @@ export interface HomeStatus {
 export type HomeLayout = 'shelf' | 'split' | 'rail'
 export type HomeSection = 'nowplaying' | 'dock' | 'rows' | 'folders' | 'grid'
 export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music'
+/** A top-bar icon: a quick-settings action, or `app:<package>` for an app shortcut (CleanMyTV Home 1.2.0 and later). */
+export type QuickEntry = QuickId | `app:${string}`
 
 /** What a mapped remote button does: a quick-settings action, Home, Back, nothing, or open an app. */
 export type ButtonAction = QuickId | 'home' | 'back' | 'none' | 'app'
@@ -193,8 +195,8 @@ export interface HomeConfig {
   sections: HomeSection[]
   /** Percent of the screen left open above the apps (Shelf), 0 to 40. */
   top_space: number
-  /** Quick-settings icons, in order. */
-  quick: QuickId[]
+  /** Quick-settings icons and app shortcuts, in order. Up to 6 app shortcuts. */
+  quick: QuickEntry[]
   rows: HomeGroup[]
   folders: HomeGroup[]
   /** Percent, 60 to 150. */
@@ -224,6 +226,8 @@ export interface HomeConfig {
   clock: 'time_date' | 'time' | 'off'
   /** A name for "Good evening, …"; empty for none. */
   greeting: string
+  /** Minutes without a button press before Home shows only the wallpaper and clock, 0 (off) to 60. */
+  idle_minutes: number
   /** Weather next to the clock; off while blank. */
   weather_place: string
   weather_lat: number

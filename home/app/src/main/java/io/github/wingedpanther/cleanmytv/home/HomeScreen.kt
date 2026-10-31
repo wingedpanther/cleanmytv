@@ -3,6 +3,7 @@ package io.github.wingedpanther.cleanmytv.home
 import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -47,6 +48,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -55,6 +57,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -62,12 +67,14 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -151,10 +158,17 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             if (f.exists()) runCatching { BitmapFactory.decodeFile(f.path)?.asImageBitmap() }.getOrNull() else null
         }
     }
-    LaunchedEffect(cfg.vizBars, cfg.vizSensitivity, cfg.visualiser) {
+    // Idle screen: no button pressed for cfg.idleMinutes, and nothing open over Home. Any button wakes it,
+    // and that press only wakes it, so it can't open the app that happens to have focus.
+    var idle by remember { mutableStateOf(false) }
+    var lastPress by remember { mutableLongStateOf(0L) }
+    var swallowUp by remember { mutableStateOf(false) }
+    LaunchedEffect(appsVersion) { idle = false; lastPress = System.currentTimeMillis() } // Home came back into view
+
+    LaunchedEffect(cfg.vizBars, cfg.vizSensitivity, cfg.visualiser, idle) {
         visualiser.bars = cfg.vizBars
         visualiser.sensitivity = cfg.vizSensitivity / 100f
-        if (cfg.visualiser) visualiser.start(ctx) else visualiser.stop()
+        if (cfg.visualiser && !idle) visualiser.start(ctx) else visualiser.stop()
     }
 
     val track by NowPlaying.track.collectAsState()
@@ -173,9 +187,28 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     val accent = Color(cfg.accent)
     // Quick-settings icons this TV can actually open; Inputs only on TVs that have inputs.
     val all = remember { quickActions() }
-    val quick = cfg.quick.mapNotNull { all[it] }.filter { canOpen(ctx, it, inputs.isNotEmpty()) }
+    // App shortcuts use the app's icon; a TV app's banner is too wide for the round button.
+    val quickPkgs = cfg.quick.mapNotNull { HomeConfig.quickApp(it) }
+    var quickIcons by remember { mutableStateOf<Map<String, ImageBitmap>>(emptyMap()) }
+    LaunchedEffect(appsVersion, quickPkgs) {
+        quickIcons = withContext(Dispatchers.IO) {
+            quickPkgs.mapNotNull { p ->
+                runCatching { p to ctx.packageManager.getApplicationIcon(p).toBitmap(96, 96).asImageBitmap() }.getOrNull()
+            }.toMap()
+        }
+    }
+    val byPkg = apps.associateBy { it.pkg }
+    val quick = cfg.quick.mapNotNull { id ->
+        HomeConfig.quickApp(id)?.let { p -> byPkg[p]?.let { appAction(it, quickIcons[p]) } } ?: all[id]
+    }.filter { canOpen(ctx, it, inputs.isNotEmpty()) }
     var openFolder by remember { mutableStateOf<Pair<String, List<TvApp>>?>(null) }
     var showInputs by remember { mutableStateOf(false) }
+    LaunchedEffect(lastPress, cfg.idleMinutes, openFolder, showInputs) {
+        if (cfg.idleMinutes == 0 || openFolder != null || showInputs) return@LaunchedEffect
+        delay(cfg.idleMinutes * 60_000L)
+        idle = true
+    }
+    val shown by animateFloatAsState(if (idle) 0f else 1f, tween(if (idle) 1200 else 250), label = "idle")
     LaunchedEffect(open.value) {
         if (open.value == "inputs") showInputs = true
         open.value = null
@@ -189,19 +222,31 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     LaunchedEffect(home.first, cfg.layout) { if (home.first != null) runCatching { first.requestFocus() } }
     val ui = Ui(cfg, accent, first, home.first, onFolder = { openFolder = it }, track = track, weather = weather)
 
-    Box(Modifier.fillMaxSize().background(Color(cfg.background))) {
+    Box(
+        Modifier.fillMaxSize().background(Color(cfg.background)).onPreviewKeyEvent { e ->
+            lastPress = System.currentTimeMillis()
+            when {
+                idle && e.type == KeyEventType.KeyDown -> { idle = false; swallowUp = true; true }
+                swallowUp && e.type == KeyEventType.KeyUp -> { swallowUp = false; true }
+                else -> false
+            }
+        }
+    ) {
         wallpaper?.let {
             Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = cfg.wallpaperDim / 100f)))
         }
-        // Rows sit over the lower half of the photo; a ground-tinted shade keeps their names readable.
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to scrim(0.8f))))
-        when (cfg.layout) {
-            "split" -> SplitLayout(home, ui, quick, onQuick)
-            "rail" -> RailLayout(home, ui, quick, onQuick)
-            else -> ShelfLayout(home, ui, quick, onQuick)
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = shown }) {
+            // Rows sit over the lower half of the photo; a ground-tinted shade keeps their names readable.
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to scrim(0.8f))))
+            when (cfg.layout) {
+                "split" -> SplitLayout(home, ui, quick, onQuick)
+                "rail" -> RailLayout(home, ui, quick, onQuick)
+                else -> ShelfLayout(home, ui, quick, onQuick)
+            }
+            if (cfg.visualiser) Bars(visualiser, cfg, accent, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
         }
-        if (cfg.visualiser) Bars(visualiser, cfg, accent, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
+        if (shown < 1f) IdleClock(ui, Modifier.align(Alignment.BottomStart).graphicsLayer { alpha = 1f - shown })
     }
 
     openFolder?.let { (name, list) -> FolderOverlay(name, list, ui) { openFolder = null } }
@@ -518,17 +563,28 @@ private fun QuickButton(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit) 
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = ui.accent.copy(alpha = 0.9f))
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Image(iconFor(a, ui.cfg), a.label, Modifier.size(22.dp), colorFilter = ColorFilter.tint(if (focused) onAccent(ui.accent) else TEXT))
+            QuickGlyph(a, ui, focused, 22.dp)
         }
     }
 }
 
+/**
+ * The icon inside a quick button: the drawn glyph, or an app's own icon at the glyph's size plus the room
+ * a glyph leaves inside its box, so app icons sit on the same centre line and look the same size.
+ */
 @Composable
-private fun QuickRow(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit, expanded: Boolean) =
-    RailItem(iconFor(a, ui.cfg), a.label, ui, expanded) { onQuick(a) }
+private fun QuickGlyph(a: QuickAction, ui: Ui, focused: Boolean, size: Dp) {
+    val art = a.art
+    if (art != null) Image(art, a.label, Modifier.size(size + 4.dp).clip(CircleShape))
+    else Image(iconFor(a, ui.cfg), a.label, Modifier.size(size), colorFilter = ColorFilter.tint(if (focused) onAccent(ui.accent) else TEXT))
+}
 
 @Composable
-private fun RailItem(icon: ImageVector, label: String, ui: Ui, expanded: Boolean, onClick: () -> Unit) {
+private fun QuickRow(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit, expanded: Boolean) =
+    RailItem(iconFor(a, ui.cfg), a.label, ui, expanded, glyph = { focused -> QuickGlyph(a, ui, focused, 22.dp) }) { onQuick(a) }
+
+@Composable
+private fun RailItem(icon: ImageVector, label: String, ui: Ui, expanded: Boolean, glyph: (@Composable (Boolean) -> Unit)? = null, onClick: () -> Unit) {
     val shape = RoundedCornerShape(22.dp)
     val (_, glow, border) = focusStyle(ui, shape)
     var focused by remember { mutableStateOf(false) }
@@ -540,7 +596,10 @@ private fun RailItem(icon: ImageVector, label: String, ui: Ui, expanded: Boolean
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = ui.accent.copy(alpha = 0.9f))
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-            Image(icon, label, Modifier.size(22.dp), colorFilter = ColorFilter.tint(ink))
+            // A fixed 22 dp slot, so labels line up whether the icon is a glyph or an app's.
+            Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
+                if (glyph != null) glyph(focused) else Image(icon, label, Modifier.size(22.dp), colorFilter = ColorFilter.tint(ink))
+            }
             if (expanded) {
                 Spacer(Modifier.width(14.dp))
                 Text(label, color = ink, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -565,6 +624,15 @@ private fun Clock(cfg: HomeConfig, timeSize: androidx.compose.ui.unit.TextUnit, 
     Column(horizontalAlignment = align) {
         Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(now), color = TEXT, fontSize = timeSize, fontFamily = CLOCK, fontWeight = FontWeight.Light, maxLines = 1, softWrap = false)
         if (cfg.clock == "time_date") Text(DateFormat.getDateInstance(DateFormat.FULL).format(now), color = MUTED, fontSize = dateSize, fontFamily = CLOCK)
+    }
+}
+
+/** The idle screen's only text: a large clock and the weather in the lower left, inside the safe area. */
+@Composable
+private fun IdleClock(ui: Ui, modifier: Modifier) {
+    Column(modifier.padding(start = SAFE_X, bottom = SAFE_Y + 12.dp)) {
+        Clock(ui.cfg, 64.sp, 18.sp, Alignment.Start)
+        WeatherLine(ui, 16.sp, Modifier.padding(top = 8.dp))
     }
 }
 

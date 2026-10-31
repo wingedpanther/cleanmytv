@@ -93,7 +93,8 @@ If you used CleanMyTV 0.1, your TV may still have the old CleanYourTV launcher. 
 
 - **Home screen** — every change shows on the TV straight away. The Layout and Apps tabs show a live preview of the TV screen at the top.
   - *Overview:* install or update, give Home back to the stock launcher, take a snapshot of the TV screen.
-  - *Layout:* pick Shelf (the default), Split or Rail. Set the space above the apps. Put the dock, rows, folders and all apps in any order, or hide any of them. Choose quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars, Settings. An icon your TV can't open is marked "not on this TV". Also tile sizes, apps per row, app names, clock and greeting.
+  - *Layout:* pick Shelf (the default), Split or Rail. Set the space above the apps. Put the dock, rows, folders and all apps in any order, or hide any of them. Choose quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars, Settings. An icon your TV can't open is marked "not on this TV". Add up to 6 apps as round icons in the same row, such as a VPN you open a lot: use **Add an app as an icon** under the list, and untick one to remove it. Also tile sizes, apps per row, app names, clock and greeting.
+  - *Idle screen (in Layout):* after 1 to 30 minutes with no button pressed, Home fades out the apps and shows only the wallpaper, a large clock and the weather. Any button brings everything back, and that press doesn't open whatever had focus. Off by default.
   - *Apps, rows & folders:* dock size, drag to reorder, hide apps, make named rows and folders.
   - *Look & wallpaper:* accent colour, focus glow, outline or none. Use your own picture or Bing's picture of the day, darken it, or pick a background colour.
   - *Widgets:* Now playing, a card with what any music or video app plays, with play, pause and next. Weather next to the clock: search for your town and pick °C or °F.
@@ -150,4 +151,4 @@ The app remembers where you were — close it any time and come back; a TV that 
 
 ---
 
-*Guide version: v0.3 (2026-10-30). Written to match app v0.3.0; when the app's steps change, this guide is the place to update, alongside the README screenshots.*
+*Guide version: v0.4 (2026-10-31). Written to match app v0.4.0; when the app's steps change, this guide is the place to update, alongside the README screenshots.*
