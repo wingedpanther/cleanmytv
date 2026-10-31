@@ -21,6 +21,11 @@ const OUR_HOME = 'io.github.wingedpanther.cleanmytv.home'
 export const GOOGLE_LAUNCHERS = ['com.google.android.tvlauncher', 'com.google.android.apps.tv.launcherx', 'com.google.android.leanbacklauncher']
 export const KNOWN_STOCK_LAUNCHERS = [...GOOGLE_LAUNCHERS, 'com.mitv.tvhome']
 const CUSTOM_LAUNCHER = 'com.gathin.tvhome'
+// Core Android and TV middleware: with one of these off, the TV may not boot again (upstream #884, #1578).
+// Same patterns as upstream's tools/recovery.py, and no option overrides them.
+export const CORE_RE = /^(android|android\.ext\.(services|shared)|com\.android\.systemui|com\.android\.shell|com\.android\.phone|com\.android\.settings|com\.android\.tv\.settings|com\.(google\.)?android\.(permissioncontroller|packageinstaller|ext\.services|ext\.shared|modulemetadata)|com\.google\.android\.overlay\.modules.*|com\.android\.providers\..*|com\.cltv\.mal|com\.mediatek\.(tis|tv\.service|tv\.agent))$/
+export const CORE_OK = /^com\.android\.providers\.(calendar|contacts|userdictionary|blockednumber)$/
+export const isCore = (pkg: string): boolean => CORE_RE.test(pkg) && !CORE_OK.test(pkg)
 const SETTINGS = ['window_animation_scale', 'transition_animation_scale', 'animator_duration_scale'] as const
 const HOME_RE = /^[A-Za-z_][\w.]*\/[\w.$]+$/
 const SCALE_RE = /^-?\d+(\.\d+)?$/
@@ -508,6 +513,8 @@ export async function plan(listId: string): Promise<DebloatPlan> {
     if (inList.has(pkg)) continue
     entries.push(addedEntry(pkg, stateOf(pkg, installed, disabled), common, record?.packages[pkg]))
   }
+  // Lists name core packages as lines their authors kept, so don't offer them. One already off stays visible.
+  entries = entries.filter((e) => !isCore(e.pkg) || e.state === 'disabled')
   const home = await T.homeComponent()
   return {
     listId,
@@ -537,7 +544,7 @@ export async function tvPackages(): Promise<DebloatEntry[]> {
   const { installed, disabled } = await T.packageSets()
   const common = commonality()
   const skip = new Set([...stockLaunchers(), ...NOT_LAUNCHERS, OUR_HOME, CUSTOM_LAUNCHER, 'android'])
-  return [...installed].filter((p) => !skip.has(p)).sort().map((p) => addedEntry(p, stateOf(p, installed, disabled), common))
+  return [...installed].filter((p) => !skip.has(p) && !isCore(p)).sort().map((p) => addedEntry(p, stateOf(p, installed, disabled), common))
 }
 
 function writeSavedList(file: string, title: string, header: string[], active: string[], known: ListEntry[]): void {
@@ -583,7 +590,10 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   const { title, parsed } = sourceList(req.listId)
   const host = T.host()
   const warnings: string[] = []
-  let pkgs = [...new Set(req.disable)]
+  const core = [...new Set(req.disable)].filter(isCore)
+  if (core.length) warnings.push(`Skipped ${core.join(', ')}: without ${core.length === 1 ? 'it' : 'them'} the TV may not boot again.`)
+  const wanted = req.disable.filter((p) => !isCore(p))
+  let pkgs = [...new Set(wanted)]
 
   // A Wi-Fi network saved during the first-run wizard belongs to setupwraith, and Android deletes it the
   // moment setupwraith is disabled: the TV drops off Wi-Fi, and ADB with it.
@@ -625,7 +635,8 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   // The saved list holds everything this app has chosen to disable on this TV so far, minus what
   // the user switched back on; the record is written from it before the first command.
   const file = savedListPath(req.listId, probe)
-  const active = [...new Set([...savedActive(file), ...req.disable])].filter((p) => !req.enable.includes(p))
+  // A core package an older version saved stays in the list, so Restore without a record still covers it.
+  const active = [...new Set([...savedActive(file), ...wanted])].filter((p) => !req.enable.includes(p))
   writeSavedList(file, title, parsed.header, active, parsed.entries)
   log(TASK, 'info', `list saved to ${file}`)
   await saveRecord(file, host, active, probe.device || undefined)
@@ -646,9 +657,10 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
     warnings.push('This TV reports ro.adb.secure=0: network debugging accepts any device on your network without the Allow prompt. Switch debugging off when you are done (Finish step).')
   }
   // Everything picked was held back by a guard: "Disabled 0 of 0" read like a bug (#40).
-  const stayedOn = req.disable.filter((p) => !pkgs.includes(p))
-  const summary = (pkgs.length === 0 && stayedOn.length
-    ? `Nothing switched off yet: ${stayedOn.join(', ')} stayed on for now. The notes below say why`
+  // Core packages never go, so they aren't "for now".
+  const stayedOn = [...new Set(wanted)].filter((p) => !pkgs.includes(p))
+  const summary = (pkgs.length === 0 && req.disable.length
+    ? stayedOn.length ? `Nothing switched off yet: ${stayedOn.join(', ')} stayed on for now. The notes below say why` : 'Nothing switched off. The notes below say why'
     : `Disabled ${done} of ${pkgs.length} package${pkgs.length === 1 ? '' : 's'}`) + (req.enable.length ? `, switched ${enabled} back on.` : '.')
   log(TASK, 'ok', summary)
   return { ok: done === pkgs.length && enabled === req.enable.length, summary, warnings }
