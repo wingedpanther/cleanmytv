@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { Server } from 'node:net'
 import { configurePaths } from '../src/main/paths'
+import { setSinks } from '../src/main/log'
 import * as T from '../src/main/tv'
 import * as L from '../src/main/launcher'
 import * as H from '../src/main/home'
@@ -165,6 +166,28 @@ describe('CleanMyTV Home', () => {
     expect((await H.install()).summary).not.toMatch(/came back/)
     expect(tv.commands.slice(before).some((c) => c.includes('wallpaper_begin'))).toBe(false)
     await H.setWallpaper(null)
+  })
+
+  it('keeps the location and greeting out of the activity log', async () => {
+    const lines: string[] = []
+    setSinks((l) => lines.push(l.text), () => {})
+    const change = { greeting: 'Hello Sam', weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, accent: '#2ec4b6' }
+    try {
+      await H.setConfig(change)
+      await H.readConfig()
+      await H.setWallpaper(Buffer.concat([Buffer.from([0xff, 0xd8]), randomBytes(62)]).toString('base64'))
+      await H.setWallpaper(null)
+    } finally {
+      setSinks(() => {}, () => {})
+    }
+    expect(tv.homeConfig).toMatchObject({ greeting: 'Hello Sam', weather_place: 'Dublin', weather_lat: 53.3331 })
+    const text = lines.join('\n')
+    expect(text).toContain('#2EC4B6')
+    expect(text).toContain('"greeting":"(hidden)"')
+    for (const secret of ['Sam', 'Dublin', '53.3331', '6.2489']) expect(text).not.toContain(secret)
+    // Short enough to have been logged as a command, which would carry the same values in base64.
+    expect(text).not.toContain('set64')
+    expect(text).toContain('wallpaper_begin')
   })
 
   it('takes weather places and gives now playing its access only with the section', async () => {
