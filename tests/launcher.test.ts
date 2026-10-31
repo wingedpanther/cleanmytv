@@ -196,6 +196,7 @@ describe('CleanMyTV Home', () => {
     await L.useStock()
     let r = await D.apply({ listId: 'custom', disable: [D.SETUPWRAITH], enable: [] })
     expect(r.warnings.join('\n')).toMatch(/Kept on for now: com.google.android.tungsten.setupwraith/)
+    expect(r.summary).toBe('Nothing switched off yet: com.google.android.tungsten.setupwraith stayed on for now. The notes below say why.')
     expect(tv.packages.get(D.SETUPWRAITH)).toBe('enabled')
     expect((await L.switchTo('io.github.wingedpanther.cleanmytv.home/.MainActivity')).ok).toBe(true)
     r = await D.apply({ listId: 'custom', disable: [D.SETUPWRAITH], enable: [] })

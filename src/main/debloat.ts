@@ -645,7 +645,11 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   if (adbSecure === '0') {
     warnings.push('This TV reports ro.adb.secure=0: network debugging accepts any device on your network without the Allow prompt. Switch debugging off when you are done (Finish step).')
   }
-  const summary = `Disabled ${done} of ${pkgs.length} package${pkgs.length === 1 ? '' : 's'}` + (req.enable.length ? `, switched ${enabled} back on.` : '.')
+  // Everything picked was held back by a guard: "Disabled 0 of 0" read like a bug (#40).
+  const stayedOn = req.disable.filter((p) => !pkgs.includes(p))
+  const summary = (pkgs.length === 0 && stayedOn.length
+    ? `Nothing switched off yet: ${stayedOn.join(', ')} stayed on for now. The notes below say why`
+    : `Disabled ${done} of ${pkgs.length} package${pkgs.length === 1 ? '' : 's'}`) + (req.enable.length ? `, switched ${enabled} back on.` : '.')
   log(TASK, 'ok', summary)
   return { ok: done === pkgs.length && enabled === req.enable.length, summary, warnings }
 }
