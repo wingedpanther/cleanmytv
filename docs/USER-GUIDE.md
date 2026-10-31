@@ -120,6 +120,8 @@ The app remembers where you were — close it any time and come back; a TV that 
 | TV system apps | Untouched | Would break things |
 | Storage freed | None | Some |
 
+**Some packages can't be switched off.** The app refuses core Android and TV middleware packages, the same ones upstream refuses, because a TV can stop booting without them. No list or setting overrides this. If an earlier version of the app switched one off, Restore still brings it back.
+
 **Restore — the one-click undo.** Before the first cleanup the app writes a record on your computer: every package's on/off state, and which launcher Home pointed at. Restore replays that record exactly:
 
 - every package you switched off comes back **on**, exactly as it was;
