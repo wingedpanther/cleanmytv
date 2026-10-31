@@ -136,6 +136,14 @@ export function installMock(): void {
       await wait(1200)
       return [{ host: '192.168.1.50' }, { host: '192.168.1.73' }]
     },
+    async discover() {
+      return [
+        { host: '192.168.1.50', name: 'Living Room TV', ready: true },
+        { host: '192.168.1.73', name: 'Bedroom Chromecast', ready: false, connectPort: 41827, pairPort: 37145 },
+        { host: '192.168.1.81', name: 'Den TV', ready: false }
+      ]
+    },
+    async stopDiscovery() {},
     async connect(host) {
       setStatus({ state: 'connecting', host })
       await wait(700)

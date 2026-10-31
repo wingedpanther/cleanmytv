@@ -406,7 +406,7 @@ function AddPackage({ have, onAdd }: { have: DebloatEntry[]; onAdd: (e: DebloatE
     if (!pkg) return
     const found = all?.find((e) => e.pkg === pkg)
     if (inList.has(pkg)) setError(`${pkg} is already in the list above.`)
-    else if (!found) setError(`${pkg} isn't on this TV, or it's a launcher the app looks after itself. Check the spelling.`)
+    else if (!found) setError(`${pkg} isn't on this TV, or the app protects it: a launcher it looks after itself, or a core package the TV needs to start. Check the spelling.`)
     else if (found.state !== 'enabled') setError(`${pkg} is already off.`)
     else {
       onAdd(found)

@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { Server } from 'node:net'
 import { configurePaths } from '../src/main/paths'
+import { setSinks } from '../src/main/log'
 import * as T from '../src/main/tv'
 import * as L from '../src/main/launcher'
 import * as H from '../src/main/home'
@@ -167,6 +168,28 @@ describe('CleanMyTV Home', () => {
     await H.setWallpaper(null)
   })
 
+  it('keeps the location and greeting out of the activity log', async () => {
+    const lines: string[] = []
+    setSinks((l) => lines.push(l.text), () => {})
+    const change = { greeting: 'Hello Sam', weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, accent: '#2ec4b6' }
+    try {
+      await H.setConfig(change)
+      await H.readConfig()
+      await H.setWallpaper(Buffer.concat([Buffer.from([0xff, 0xd8]), randomBytes(62)]).toString('base64'))
+      await H.setWallpaper(null)
+    } finally {
+      setSinks(() => {}, () => {})
+    }
+    expect(tv.homeConfig).toMatchObject({ greeting: 'Hello Sam', weather_place: 'Dublin', weather_lat: 53.3331 })
+    const text = lines.join('\n')
+    expect(text).toContain('#2EC4B6')
+    expect(text).toContain('"greeting":"(hidden)"')
+    for (const secret of ['Sam', 'Dublin', '53.3331', '6.2489']) expect(text).not.toContain(secret)
+    // Short enough to have been logged as a command, which would carry the same values in base64.
+    expect(text).not.toContain('set64')
+    expect(text).toContain('wallpaper_begin')
+  })
+
   it('takes weather places and gives now playing its access only with the section', async () => {
     const cfg = await H.setConfig({ weather_place: ' Dublin\n', weather_lat: 53.333123, weather_lon: -6.24889, weather_unit: 'f' })
     expect(cfg).toMatchObject({ weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'f' })
@@ -196,6 +219,7 @@ describe('CleanMyTV Home', () => {
     await L.useStock()
     let r = await D.apply({ listId: 'custom', disable: [D.SETUPWRAITH], enable: [] })
     expect(r.warnings.join('\n')).toMatch(/Kept on for now: com.google.android.tungsten.setupwraith/)
+    expect(r.summary).toBe('Nothing switched off yet: com.google.android.tungsten.setupwraith stayed on for now. The notes below say why.')
     expect(tv.packages.get(D.SETUPWRAITH)).toBe('enabled')
     expect((await L.switchTo('io.github.wingedpanther.cleanmytv.home/.MainActivity')).ok).toBe(true)
     r = await D.apply({ listId: 'custom', disable: [D.SETUPWRAITH], enable: [] })
@@ -311,5 +335,59 @@ describe('stock launchers other than Google\'s (#39)', () => {
     expect(plan.entries.find((e) => e.pkg === 'com.tcl.tguard')).toMatchObject({ added: true, state: 'disabled', recorded: 'enabled' })
     expect((await D.restore('custom')).ok).toBe(true)
     expect(tv.packages.get('com.tcl.tguard')).toBe('enabled')
+  })
+})
+
+describe('Google TV 14, where setupwraith outranks the Home preference (#40)', () => {
+  let tv: FakeTv
+  let server: Server
+  const OURS = 'io.github.wingedpanther.cleanmytv.home/.MainActivity'
+  const LX = 'com.google.android.apps.tv.launcherx/.home.HomeActivity'
+  beforeAll(async () => {
+    tv = newTv()
+    tv.maxData = 256 * 1024
+    for (const p of ['com.google.android.apps.tv.launcherx', D.SETUPWRAITH, 'com.android.tv.settings']) tv.packages.set(p, 'enabled')
+    tv.home = LX
+    tv.homeClaims = [LX, `${D.SETUPWRAITH}/.RecoveryActivity`, 'com.android.tv.settings/.FallbackHome']
+    tv.homeOutranks = [LX, `${D.SETUPWRAITH}/.RecoveryActivity`]
+    tv.wifiOwners = `cname=${D.SETUPWRAITH}`
+    let port: number
+    ;({ server, port } = await startFakeAdbd(tv))
+    expect((await T.connect(`127.0.0.1:${port}`)).state).toBe('connected')
+  })
+  afterAll(() => { T.disconnect(); server.close() })
+
+  it('leaves both on and says to re-join the Wi-Fi when the saved network belongs to setupwraith', async () => {
+    const r = await H.install()
+    expect(r.ok).toBe(false)
+    expect(r.warnings.join('\n')).toMatch(/forget the network and join it again/)
+    expect(tv.home).toBe(LX)
+    expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('enabled')
+    expect(tv.packages.get(D.SETUPWRAITH)).toBe('enabled')
+  })
+
+  it('switches setupwraith off itself once the Wi-Fi is the system\'s, so Home sticks', async () => {
+    tv.wifiOwners = 'cname=android.uid.system:1000'
+    const r = await H.install()
+    expect(r.ok).toBe(true)
+    expect(tv.home).toBe(OURS)
+    expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('disabled')
+    expect(tv.packages.get(D.SETUPWRAITH)).toBe('disabled')
+  })
+
+  it('turns setupwraith back on when Home goes back to the stock launcher', async () => {
+    expect((await L.useStock()).ok).toBe(true)
+    expect(tv.home).toBe(LX)
+    expect(tv.packages.get(D.SETUPWRAITH)).toBe('enabled')
+  })
+
+  it('puts both back when Home still does not stick', async () => {
+    tv.homeOutranks = [LX, `${D.SETUPWRAITH}/.RecoveryActivity`, 'com.android.tv.settings/.FallbackHome']
+    const r = await H.install()
+    tv.homeOutranks = [LX, `${D.SETUPWRAITH}/.RecoveryActivity`]
+    expect(r.ok).toBe(false)
+    expect(tv.home).toBe(LX)
+    expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('enabled')
+    expect(tv.packages.get(D.SETUPWRAITH)).toBe('enabled')
   })
 })

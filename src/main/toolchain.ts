@@ -63,6 +63,8 @@ export function run(task: string, cmd: string, args: string[], opts: { cwd?: str
     child.stderr.on('data', onData)
     child.on('error', reject)
     child.on('close', (code) => resolve({ code: code ?? 1, out }))
+    // A tool that exits before reading its input makes the write fail with EPIPE; its output says why.
+    child.stdin.on('error', () => {})
     if (opts.input !== undefined) { child.stdin.write(opts.input); child.stdin.end() }
   })
 }
@@ -222,9 +224,17 @@ export async function pair(host: string, pairPort: number, code: string, connect
   const adb = adbPath()
   // The code goes in on stdin (adb asks for it when it is left off), so it never shows in the process
   // list; older adb that only reads it from the command line gets it there, kept out of the log.
-  let p = await run('pair', adb, ['pair', `${host}:${pairPort}`], { input: code + '\n', redact: [code] })
-  if (!/Successfully paired/i.test(p.out) && /pairing code/i.test(p.out)) {
-    p = await run('pair', adb, ['pair', `${host}:${pairPort}`, code], { redact: [code] })
+  const attempt = async (): Promise<Awaited<ReturnType<typeof run>>> => {
+    const first = await run('pair', adb, ['pair', `${host}:${pairPort}`], { input: code + '\n', redact: [code] })
+    if (/Successfully paired/i.test(first.out) || !/pairing code/i.test(first.out)) return first
+    return run('pair', adb, ['pair', `${host}:${pairPort}`, code], { redact: [code] })
+  }
+  let p = await attempt()
+  // An adb server that has been running a long time, often someone else's, can fail every pairing like
+  // this until it restarts. The code stays valid after this failure.
+  if (/protocol fault/i.test(p.out)) {
+    await run('pair', adb, ['kill-server'], { quiet: true })
+    p = await attempt()
   }
   if (!/Successfully paired/i.test(p.out)) return { ok: false, summary: 'Pairing failed. Check the pairing port and code, which change each time the dialog opens.', warnings: [p.out.trim()] }
   const target = `${host}:${connectPort}`

@@ -36,11 +36,11 @@ You need to switch on the TV's developer options, the same ones phone apps use. 
 
 ## 3. Connect (the Allow prompt)
 
-1. Open CleanMyTV on your computer. The **Setup** step checks the network and lists TVs it can see.
+1. Open CleanMyTV on your computer. The **Setup** step checks the network and lists the TVs on your Wi-Fi by name. Older TVs that don't announce themselves turn up when you press **Scan the network**.
 2. Pick your TV. The app connects and the TV shows an **Allow USB debugging?** prompt with your computer's identity on it.
 3. On the TV, choose **Allow**, and tick **Always allow from this computer** to skip the question next time.
 
-Google TVs that only offer *Wireless debugging* get a pairing form instead — the app walks you through the TV's Wireless-debugging screen and the six-digit code it shows.
+Google TVs that only offer *Wireless debugging* get a pairing form instead — the app walks you through the TV's Wireless-debugging screen. When the pairing screen opens, the ports fill in by themselves, and you type the six-digit code it shows.
 
 The app remembers each TV it has connected to. With one TV, it reconnects by itself next time. With more than one, it waits: Setup shows your TVs with a snapshot of each screen, and you pick one. The sidebar shows a thumbnail of the TV you're connected to.
 
@@ -84,6 +84,7 @@ If you used CleanMyTV 0.1, your TV may still have the old CleanYourTV launcher. 
 > - *Home still opens the old screen.* Press Home a second time — some TVs show a "use which app?" chooser the first time; pick CleanMyTV Home and **Always**. If it still lands wrong, the step's rollback runs automatically and tells you; nothing is left half-switched.
 > - *I want the old home back.* Overview → **Give Home back to the stock launcher**. See also [chapter 7](#7-safety-and-rollback).
 > - *"Which one is the TV's own launcher?"* The app couldn't tell which app is your TV's home screen. Pick the one the TV came with (usually the name with your brand in it). It stays on, and Undo gives Home back to it.
+> - *Google TV: "your saved Wi-Fi network belongs to" setupwraith.* On some Google TVs the setup wizard (setupwraith) grabs Home once the stock launcher is off, so the install switches it off too. If your Wi-Fi was saved during the TV's first setup, it belongs to the wizard and would be deleted with it. On the TV, forget the network and join it again in Settings > Network & Internet, then install again. Giving Home back to the stock launcher turns the wizard back on. With it off, phone casting may stop working after a restart on some TVs.
 > - *Xiaomi: the Mi button does nothing.* It opened PatchWall, which the cleanup switched off. Open **Remote buttons** and press **Make the Mi button go Home**.
 
 ---
@@ -120,6 +121,8 @@ The app remembers where you were — close it any time and come back; a TV that 
 | TV system apps | Untouched | Would break things |
 | Storage freed | None | Some |
 
+**Some packages can't be switched off.** The app refuses core Android and TV middleware packages, the same ones upstream refuses, because a TV can stop booting without them. No list or setting overrides this. If an earlier version of the app switched one off, Restore still brings it back.
+
 **Restore — the one-click undo.** Before the first cleanup the app writes a record on your computer: every package's on/off state, and which launcher Home pointed at. Restore replays that record exactly:
 
 - every package you switched off comes back **on**, exactly as it was;
@@ -138,6 +141,7 @@ The app remembers where you were — close it any time and come back; a TV that 
 | TV not found | Same Wi-Fi, same band, not guest network | 3 |
 | Allow prompt not appearing | Revoke authorisations on the TV, reconnect | 3 |
 | Home didn't switch | Press Home again; pick "Always" in the chooser | 5 |
+| Install says the Wi-Fi belongs to setupwraith | Forget and re-join the Wi-Fi on the TV, install again | 5 |
 | A package refused to disable | Leave it on; everything else still worked | 4 |
 | Something I use got disabled | Re-enable it one-by-one, or Restore | 7 |
 | TV got a new IP | Just reconnect; the app knows the TV by identity | 6 |

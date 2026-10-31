@@ -67,7 +67,7 @@ computer** to skip the question next time.
 | Step | What happens |
 |---|---|
 | **Clean & launch** | The guided path: applies the list that best matches your TV, then installs CleanMyTV Home. |
-| **Setup** | Checks the network, finds TVs with port 5555 open, connects, and waits while you press Allow on the TV. Google TVs that only offer Wireless debugging get a pairing form. With more than one known TV, it shows them with snapshot thumbnails to pick from. |
+| **Setup** | Checks the network, lists the TVs on your Wi-Fi by name (a phone with Wireless debugging on can show up too, and a scan finds older TVs with port 5555 open), connects, and waits while you press Allow on the TV. Google TVs that only offer Wireless debugging get a pairing form that fills in the ports when the TV's pairing screen opens, so you only type the code. With more than one known TV, it shows them with snapshot thumbnails to pick from. |
 | **Clean up** | Picks the upstream list that matches your TV's model, from 371 TVs and 100 brands. Every package shows its live state on the TV, and you choose what to disable. If your TV isn't listed, lists from its brand come first, and it offers the packages other TVs disable. You can add any package on the TV by name. |
 | **Home screen** | Installs or updates CleanMyTV Home and hands Home over. If Home doesn't land on it, it rolls back. If the app can't tell which app is the TV's own launcher, it asks. Tabs for layout, apps, rows and folders, look and wallpaper, widgets, music bars and remote buttons. See below. |
 | **TV extras** | Ad-blocking Private DNS, animation speed, an on-screen remote, reboot. |
@@ -128,8 +128,9 @@ itself.
 
 ## Security and privacy
 
-- **What it talks to.** The TV address you choose, over ADB on port 5555 of your local network. Over
-  HTTPS, and nothing else:
+- **What it talks to.** The TV address you choose, over ADB on port 5555 of your local network. On
+  Setup, it also asks your local network which Android TVs are there (mDNS) and checks whether their
+  debugging ports accept a connection, without logging in. Over HTTPS, and nothing else:
   - api.github.com, at most twice a day, to see if a newer CleanMyTV is out. It downloads nothing.
   - dl.google.com for Google's platform-tools, only when you click it (Wireless debugging pairing).
   - www.bing.com, only when you choose Bing's picture of the day as the wallpaper.
@@ -179,7 +180,7 @@ The debloat side is a TypeScript port of upstream's `tools/`, and the launcher h
 
 - `src/main/adb/` is an ADB-over-TCP client, the twin of `tools/tv.py`.
 - `src/main/debloat.ts` has the same guards as `disable.sh`: it won't disable the app that owns Home while nothing else can take it, and it won't disable setupwraith while it owns the Wi-Fi network. It writes the same recovery record to `~/.cleanyourtv/`, plus the TV's device name so the record follows the TV to a new address. `tests/engine.test.ts` checks that the record names and the restore batch match upstream `recovery.py` exactly, so `tools/restore.sh ~/.cleanyourtv/lists/<tv>.txt` can also undo what the app did.
-- `src/main/launcher.ts` follows the handover order of `build-and-install.sh`: install, start, switch off Google's launcher, set Home, check, roll back. Vendor launchers stay on, as upstream's `STOCK_LAUNCHER=none` does: lists say to keep them. The app knows the stock launchers the lists name, and remembers each TV's for Undo. It also removes the CleanYourTV launcher that 0.1.x installed.
+- `src/main/launcher.ts` follows the handover order of `build-and-install.sh`: install, start, switch off Google's launcher, set Home, check, roll back. Vendor launchers stay on, as upstream's `STOCK_LAUNCHER=none` does: lists say to keep them. If setupwraith takes Home once the Google launcher is off, as on Google TV 14 MediaTek boards, the install switches it off too, after the same Wi-Fi check, and Undo turns it back on. The app knows the stock launchers the lists name, and remembers each TV's for Undo. It also removes the CleanYourTV launcher that 0.1.x installed.
 - `src/main/home.ts` reads and writes CleanMyTV Home's settings through its ContentProvider.
 
 Upstream's themes aren't bundled. They are for upstream's launcher.
