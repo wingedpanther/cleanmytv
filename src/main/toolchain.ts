@@ -63,6 +63,8 @@ export function run(task: string, cmd: string, args: string[], opts: { cwd?: str
     child.stderr.on('data', onData)
     child.on('error', reject)
     child.on('close', (code) => resolve({ code: code ?? 1, out }))
+    // A tool that exits before reading its input makes the write fail with EPIPE; its output says why.
+    child.stdin.on('error', () => {})
     if (opts.input !== undefined) { child.stdin.write(opts.input); child.stdin.end() }
   })
 }
