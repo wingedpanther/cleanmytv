@@ -9,6 +9,7 @@ import * as debloat from './debloat'
 import * as launcher from './launcher'
 import * as system from './system'
 import * as tools from './toolchain'
+import { discover, stopDiscovery } from './discover'
 import { localSubnets, scan } from './scan'
 import { reconnect } from './reconnect'
 import { bootCheck } from './bootcheck'
@@ -77,6 +78,8 @@ type Handlers = { [K in keyof CytvApi as CytvApi[K] extends (...a: never[]) => P
 
 const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   scan: () => scan(),
+  discover: () => discover(),
+  stopDiscovery: async () => stopDiscovery(),
   connect: async (host) => {
     const s = await T.connect(host)
     if (s.state === 'connected') remember(host.trim(), s)
