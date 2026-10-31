@@ -491,7 +491,7 @@ function WaitingForAllow(): ReactNode {
   )
 }
 
-function PairForm({ host, tv, onBusy, onPaired }: { host: string; tv?: FoundTv; onBusy: (busy: boolean) => void; onPaired: () => void }): ReactNode {
+function PairForm({ host, tv, onBusy, onPaired }: { host: string; tv?: FoundTv; onBusy: (busy: boolean) => void; onPaired: () => Promise<void> }): ReactNode {
   // Null until typed in: the ports follow what the TV advertises, unless the user has overridden them.
   const [pairTyped, setPairTyped] = useState<string | null>(null)
   const [connectTyped, setConnectTyped] = useState<string | null>(null)
@@ -523,7 +523,7 @@ function PairForm({ host, tv, onBusy, onPaired }: { host: string; tv?: FoundTv; 
     try {
       const r = await window.cytv.pair(host, Number(pairPort), code.trim(), Number(connectPort))
       setResult(r)
-      if (r.ok) onPaired()
+      if (r.ok) await onPaired()
     } catch (e) {
       setResult({ ok: false, summary: errorText(e), warnings: [] })
     } finally {
