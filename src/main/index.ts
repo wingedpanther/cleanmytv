@@ -118,11 +118,8 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
     if (cache !== s.update) writeSettings({ ...readSettings(), update: cache })
     return info
   },
-  pair: async (host, pairPort, code, connectPort) => {
-    const r = await tools.pair(host, pairPort, code, connectPort)
-    if (r.ok) await handlers.connect(host)
-    return r
-  },
+  // The pairing form connects once this returns. Connecting here too would do it twice.
+  pair: (host, pairPort, code, connectPort) => tools.pair(host, pairPort, code, connectPort),
   checks,
   download: (tool) => tools.get(tool),
   lists: async () => debloat.lists(T.getStatus().probe),

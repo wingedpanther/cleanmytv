@@ -383,7 +383,7 @@ function WaitingForAllow(): ReactNode {
   )
 }
 
-function PairForm({ host, onPaired }: { host: string; onPaired: () => void }): ReactNode {
+function PairForm({ host, onPaired }: { host: string; onPaired: () => Promise<void> }): ReactNode {
   const [pairPort, setPairPort] = useState('')
   const [code, setCode] = useState('')
   const [connectPort, setConnectPort] = useState('')
@@ -396,7 +396,7 @@ function PairForm({ host, onPaired }: { host: string; onPaired: () => void }): R
     try {
       const r = await window.cytv.pair(host, Number(pairPort), code.trim(), Number(connectPort))
       setResult(r)
-      if (r.ok) onPaired()
+      if (r.ok) await onPaired()
     } catch (e) {
       setResult({ ok: false, summary: errorText(e), warnings: [] })
     } finally {
