@@ -3,20 +3,25 @@ import { Socket } from 'node:net'
 import { networkInterfaces } from 'node:os'
 import type { ScanHit } from '@shared/api'
 
+/** Private ranges only: a home TV sits on one, and the app has no business anywhere else. */
+export function isPrivateIpv4(address: string): boolean {
+  return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(address)
+}
+
 export function localSubnets(): string[] {
   const out = new Set<string>()
   for (const list of Object.values(networkInterfaces())) {
     for (const a of list ?? []) {
       if (a.family !== 'IPv4' || a.internal) continue
-      // Private ranges only; a /24 around this address is where a home TV sits.
-      if (!/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(a.address)) continue
+      // A /24 around this address is where a home TV sits.
+      if (!isPrivateIpv4(a.address)) continue
       out.add(a.address.split('.').slice(0, 3).join('.'))
     }
   }
   return [...out]
 }
 
-function probe(host: string, port: number, timeoutMs: number): Promise<boolean> {
+export function probe(host: string, port: number, timeoutMs: number): Promise<boolean> {
   return new Promise((resolve) => {
     const s = new Socket()
     const done = (open: boolean): void => { s.destroy(); resolve(open) }

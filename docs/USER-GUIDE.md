@@ -36,11 +36,11 @@ You need to switch on the TV's developer options, the same ones phone apps use. 
 
 ## 3. Connect (the Allow prompt)
 
-1. Open CleanMyTV on your computer. The **Setup** step checks the network and lists TVs it can see.
+1. Open CleanMyTV on your computer. The **Setup** step checks the network and lists the TVs on your Wi-Fi by name. Older TVs that don't announce themselves turn up when you press **Scan the network**.
 2. Pick your TV. The app connects and the TV shows an **Allow USB debugging?** prompt with your computer's identity on it.
 3. On the TV, choose **Allow**, and tick **Always allow from this computer** to skip the question next time.
 
-Google TVs that only offer *Wireless debugging* get a pairing form instead — the app walks you through the TV's Wireless-debugging screen and the six-digit code it shows.
+Google TVs that only offer *Wireless debugging* get a pairing form instead — the app walks you through the TV's Wireless-debugging screen. When the pairing screen opens, the ports fill in by themselves, and you type the six-digit code it shows.
 
 The app remembers each TV it has connected to. With one TV, it reconnects by itself next time. With more than one, it waits: Setup shows your TVs with a snapshot of each screen, and you pick one. The sidebar shows a thumbnail of the TV you're connected to.
 
