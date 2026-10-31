@@ -47,6 +47,11 @@ export interface FakeTv {
   homeConfig: Record<string, unknown>
   /** Home preference changes are ignored, as on TVs where another app grabs Home back. */
   homeStuck?: boolean
+  /**
+   * Components that beat the Home preference while their app is on, highest priority first: on Google TV 14
+   * launcherx (2), then setupwraith's RecoveryActivity (1), then any launcher set as Home (0).
+   */
+  homeOutranks?: string[]
   /** CleanMyTV Home was installed fresh and has no settings file yet. */
   homeFresh?: boolean
   /** ro.build.version.sdk; 31 when unset. */
@@ -69,6 +74,10 @@ export function newTv(): FakeTv {
     leanback: [], launcherApps: [], screenshot: Buffer.alloc(0), appDir: 'ok',
     homeConfig: { accent: '#FF3000', focus: 'glow', visualiser: true }
   }
+}
+
+function outranking(tv: FakeTv): string | undefined {
+  return tv.homeOutranks?.find((c) => tv.packages.get(c.split('/')[0]) === 'enabled')
 }
 
 function sh(tv: FakeTv, cmd: string): string {
@@ -125,11 +134,11 @@ function sh(tv: FakeTv, cmd: string): string {
   }
   if (cmd.startsWith('am start -W') && tv.appDir === 'missing') tv.appDir = 'ok'
   if (cmd.startsWith('am start -W')) return 'Starting: Intent { cmp=com.gathin.tvhome/.MainActivity }\nStatus: ok\nLaunchState: COLD\n'
-  if ((m = /^cmd package set-home-activity --user 0 (\S+\/\S+)$/.exec(cmd))) { if (!tv.homeStuck) tv.home = m[1]; return 'Success\n' }
+  if ((m = /^cmd package set-home-activity --user 0 (\S+\/\S+)$/.exec(cmd))) { if (!tv.homeStuck) tv.home = outranking(tv) ?? m[1]; return 'Success\n' }
   // set-home-activity $(resolve-activity ... <pkg> | tail -n 1): the TV's shell resolves the component.
   if ((m = /^cmd package set-home-activity --user 0 \$\(.* (\S+) \| tail -n 1\)$/.exec(cmd))) {
     const c = tv.homeClaims.find((h) => h.startsWith(m![1] + '/'))
-    if (c && tv.packages.get(m[1]) === 'enabled') tv.home = c
+    if (c && tv.packages.get(m[1]) === 'enabled') tv.home = outranking(tv) ?? c
     return 'Success\n'
   }
   if ((m = /^dumpsys package (\S+) \| grep/.exec(cmd))) {

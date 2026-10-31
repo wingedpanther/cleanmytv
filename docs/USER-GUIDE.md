@@ -84,6 +84,7 @@ If you used CleanMyTV 0.1, your TV may still have the old CleanYourTV launcher. 
 > - *Home still opens the old screen.* Press Home a second time — some TVs show a "use which app?" chooser the first time; pick CleanMyTV Home and **Always**. If it still lands wrong, the step's rollback runs automatically and tells you; nothing is left half-switched.
 > - *I want the old home back.* Overview → **Give Home back to the stock launcher**. See also [chapter 7](#7-safety-and-rollback).
 > - *"Which one is the TV's own launcher?"* The app couldn't tell which app is your TV's home screen. Pick the one the TV came with (usually the name with your brand in it). It stays on, and Undo gives Home back to it.
+> - *Google TV: "your saved Wi-Fi network belongs to" setupwraith.* On some Google TVs the setup wizard (setupwraith) grabs Home once the stock launcher is off, so the install switches it off too. If your Wi-Fi was saved during the TV's first setup, it belongs to the wizard and would be deleted with it. On the TV, forget the network and join it again in Settings > Network & Internet, then install again. Giving Home back to the stock launcher turns the wizard back on. With it off, phone casting may stop working after a restart on some TVs.
 > - *Xiaomi: the Mi button does nothing.* It opened PatchWall, which the cleanup switched off. Open **Remote buttons** and press **Make the Mi button go Home**.
 
 ---
@@ -138,6 +139,7 @@ The app remembers where you were — close it any time and come back; a TV that 
 | TV not found | Same Wi-Fi, same band, not guest network | 3 |
 | Allow prompt not appearing | Revoke authorisations on the TV, reconnect | 3 |
 | Home didn't switch | Press Home again; pick "Always" in the chooser | 5 |
+| Install says the Wi-Fi belongs to setupwraith | Forget and re-join the Wi-Fi on the TV, install again | 5 |
 | A package refused to disable | Leave it on; everything else still worked | 4 |
 | Something I use got disabled | Re-enable it one-by-one, or Restore | 7 |
 | TV got a new IP | Just reconnect; the app knows the TV by identity | 6 |

@@ -196,6 +196,7 @@ describe('CleanMyTV Home', () => {
     await L.useStock()
     let r = await D.apply({ listId: 'custom', disable: [D.SETUPWRAITH], enable: [] })
     expect(r.warnings.join('\n')).toMatch(/Kept on for now: com.google.android.tungsten.setupwraith/)
+    expect(r.summary).toBe('Nothing switched off yet: com.google.android.tungsten.setupwraith stayed on for now. The notes below say why.')
     expect(tv.packages.get(D.SETUPWRAITH)).toBe('enabled')
     expect((await L.switchTo('io.github.wingedpanther.cleanmytv.home/.MainActivity')).ok).toBe(true)
     r = await D.apply({ listId: 'custom', disable: [D.SETUPWRAITH], enable: [] })
@@ -311,5 +312,59 @@ describe('stock launchers other than Google\'s (#39)', () => {
     expect(plan.entries.find((e) => e.pkg === 'com.tcl.tguard')).toMatchObject({ added: true, state: 'disabled', recorded: 'enabled' })
     expect((await D.restore('custom')).ok).toBe(true)
     expect(tv.packages.get('com.tcl.tguard')).toBe('enabled')
+  })
+})
+
+describe('Google TV 14, where setupwraith outranks the Home preference (#40)', () => {
+  let tv: FakeTv
+  let server: Server
+  const OURS = 'io.github.wingedpanther.cleanmytv.home/.MainActivity'
+  const LX = 'com.google.android.apps.tv.launcherx/.home.HomeActivity'
+  beforeAll(async () => {
+    tv = newTv()
+    tv.maxData = 256 * 1024
+    for (const p of ['com.google.android.apps.tv.launcherx', D.SETUPWRAITH, 'com.android.tv.settings']) tv.packages.set(p, 'enabled')
+    tv.home = LX
+    tv.homeClaims = [LX, `${D.SETUPWRAITH}/.RecoveryActivity`, 'com.android.tv.settings/.FallbackHome']
+    tv.homeOutranks = [LX, `${D.SETUPWRAITH}/.RecoveryActivity`]
+    tv.wifiOwners = `cname=${D.SETUPWRAITH}`
+    let port: number
+    ;({ server, port } = await startFakeAdbd(tv))
+    expect((await T.connect(`127.0.0.1:${port}`)).state).toBe('connected')
+  })
+  afterAll(() => { T.disconnect(); server.close() })
+
+  it('leaves both on and says to re-join the Wi-Fi when the saved network belongs to setupwraith', async () => {
+    const r = await H.install()
+    expect(r.ok).toBe(false)
+    expect(r.warnings.join('\n')).toMatch(/forget the network and join it again/)
+    expect(tv.home).toBe(LX)
+    expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('enabled')
+    expect(tv.packages.get(D.SETUPWRAITH)).toBe('enabled')
+  })
+
+  it('switches setupwraith off itself once the Wi-Fi is the system\'s, so Home sticks', async () => {
+    tv.wifiOwners = 'cname=android.uid.system:1000'
+    const r = await H.install()
+    expect(r.ok).toBe(true)
+    expect(tv.home).toBe(OURS)
+    expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('disabled')
+    expect(tv.packages.get(D.SETUPWRAITH)).toBe('disabled')
+  })
+
+  it('turns setupwraith back on when Home goes back to the stock launcher', async () => {
+    expect((await L.useStock()).ok).toBe(true)
+    expect(tv.home).toBe(LX)
+    expect(tv.packages.get(D.SETUPWRAITH)).toBe('enabled')
+  })
+
+  it('puts both back when Home still does not stick', async () => {
+    tv.homeOutranks = [LX, `${D.SETUPWRAITH}/.RecoveryActivity`, 'com.android.tv.settings/.FallbackHome']
+    const r = await H.install()
+    tv.homeOutranks = [LX, `${D.SETUPWRAITH}/.RecoveryActivity`]
+    expect(r.ok).toBe(false)
+    expect(tv.home).toBe(LX)
+    expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('enabled')
+    expect(tv.packages.get(D.SETUPWRAITH)).toBe('enabled')
   })
 })

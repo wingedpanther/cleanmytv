@@ -564,6 +564,18 @@ function writeSavedList(file: string, title: string, header: string[], active: s
   writeFileSync(file, out.join('\n') + '\n')
 }
 
+/**
+ * Who owns the saved Wi-Fi networks. A network saved in the first-run wizard belongs to setupwraith, and
+ * Android deletes it the moment setupwraith is disabled. 'unknown' when the TV lists none or didn't answer.
+ */
+export async function wifiOwner(task: string): Promise<'setupwraith' | 'system' | 'unknown'> {
+  let wifi = ''
+  try { wifi = await T.sh(task, 'dumpsys wifi', { quiet: true }) } catch { wifi = '' }
+  const owners = wifi.match(/cname=[^ ]*/g) ?? []
+  if (!owners.length) return 'unknown'
+  return owners.some((o) => o.includes('setupwraith')) ? 'setupwraith' : 'system'
+}
+
 export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   const probe = T.getStatus().probe
   if (!probe) throw new Error('Connect to a TV first.')
@@ -576,13 +588,11 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   // A Wi-Fi network saved during the first-run wizard belongs to setupwraith, and Android deletes it the
   // moment setupwraith is disabled: the TV drops off Wi-Fi, and ADB with it.
   if (pkgs.includes(SETUPWRAITH) && !req.forceSetupwraith) {
-    let wifi = ''
-    try { wifi = await T.sh(TASK, 'dumpsys wifi', { quiet: true }) } catch { wifi = '' }
-    const owners = wifi.match(/cname=[^ ]*/g) ?? []
-    if (!owners.length) {
+    const owner = await wifiOwner(TASK)
+    if (owner === 'unknown') {
       warnings.push(`Skipped ${SETUPWRAITH}: could not check which app owns the saved Wi-Fi networks. Try again, or force it if the TV uses Ethernet.`)
       pkgs = pkgs.filter((p) => p !== SETUPWRAITH)
-    } else if (owners.some((o) => o.includes('setupwraith'))) {
+    } else if (owner === 'setupwraith') {
       warnings.push(`Skipped ${SETUPWRAITH}: the saved Wi-Fi network belongs to it, and disabling it would delete that network and take the TV off Wi-Fi. On the TV, forget the network and join it again in Settings > Network & Internet, then apply again.`)
       pkgs = pkgs.filter((p) => p !== SETUPWRAITH)
     }
@@ -635,7 +645,11 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   if (adbSecure === '0') {
     warnings.push('This TV reports ro.adb.secure=0: network debugging accepts any device on your network without the Allow prompt. Switch debugging off when you are done (Finish step).')
   }
-  const summary = `Disabled ${done} of ${pkgs.length} package${pkgs.length === 1 ? '' : 's'}` + (req.enable.length ? `, switched ${enabled} back on.` : '.')
+  // Everything picked was held back by a guard: "Disabled 0 of 0" read like a bug (#40).
+  const stayedOn = req.disable.filter((p) => !pkgs.includes(p))
+  const summary = (pkgs.length === 0 && stayedOn.length
+    ? `Nothing switched off yet: ${stayedOn.join(', ')} stayed on for now. The notes below say why`
+    : `Disabled ${done} of ${pkgs.length} package${pkgs.length === 1 ? '' : 's'}`) + (req.enable.length ? `, switched ${enabled} back on.` : '.')
   log(TASK, 'ok', summary)
   return { ok: done === pkgs.length && enabled === req.enable.length, summary, warnings }
 }
