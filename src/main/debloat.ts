@@ -564,6 +564,18 @@ function writeSavedList(file: string, title: string, header: string[], active: s
   writeFileSync(file, out.join('\n') + '\n')
 }
 
+/**
+ * Who owns the saved Wi-Fi networks. A network saved in the first-run wizard belongs to setupwraith, and
+ * Android deletes it the moment setupwraith is disabled. 'unknown' when the TV lists none or didn't answer.
+ */
+export async function wifiOwner(task: string): Promise<'setupwraith' | 'system' | 'unknown'> {
+  let wifi = ''
+  try { wifi = await T.sh(task, 'dumpsys wifi', { quiet: true }) } catch { wifi = '' }
+  const owners = wifi.match(/cname=[^ ]*/g) ?? []
+  if (!owners.length) return 'unknown'
+  return owners.some((o) => o.includes('setupwraith')) ? 'setupwraith' : 'system'
+}
+
 export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   const probe = T.getStatus().probe
   if (!probe) throw new Error('Connect to a TV first.')
@@ -576,13 +588,11 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   // A Wi-Fi network saved during the first-run wizard belongs to setupwraith, and Android deletes it the
   // moment setupwraith is disabled: the TV drops off Wi-Fi, and ADB with it.
   if (pkgs.includes(SETUPWRAITH) && !req.forceSetupwraith) {
-    let wifi = ''
-    try { wifi = await T.sh(TASK, 'dumpsys wifi', { quiet: true }) } catch { wifi = '' }
-    const owners = wifi.match(/cname=[^ ]*/g) ?? []
-    if (!owners.length) {
+    const owner = await wifiOwner(TASK)
+    if (owner === 'unknown') {
       warnings.push(`Skipped ${SETUPWRAITH}: could not check which app owns the saved Wi-Fi networks. Try again, or force it if the TV uses Ethernet.`)
       pkgs = pkgs.filter((p) => p !== SETUPWRAITH)
-    } else if (owners.some((o) => o.includes('setupwraith'))) {
+    } else if (owner === 'setupwraith') {
       warnings.push(`Skipped ${SETUPWRAITH}: the saved Wi-Fi network belongs to it, and disabling it would delete that network and take the TV off Wi-Fi. On the TV, forget the network and join it again in Settings > Network & Internet, then apply again.`)
       pkgs = pkgs.filter((p) => p !== SETUPWRAITH)
     }

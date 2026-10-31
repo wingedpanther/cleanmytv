@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import * as T from './tv'
 import { log } from './log'
 import { paths } from './paths'
-import { GOOGLE_LAUNCHERS, NOT_LAUNCHERS, SETUPWRAITH, stockLaunchers } from './debloat'
+import { GOOGLE_LAUNCHERS, NOT_LAUNCHERS, SETUPWRAITH, stockLaunchers, wifiOwner } from './debloat'
 import type { ApplyResult, InstallResult } from '@shared/api'
 
 const TASK = 'install'
@@ -110,6 +110,25 @@ export function rememberStock(stock: string): void {
   writeFileSync(stockFile(), JSON.stringify(all, null, 2))
 }
 
+// The TVs whose setupwraith the handover switched off, so giving Home back turns it on again.
+const wraithFile = (): string => join(paths.data, 'setupwraith-off.json')
+
+function wraithOff(): string[] {
+  try {
+    return existsSync(wraithFile()) ? (JSON.parse(readFileSync(wraithFile(), 'utf8')) as string[]) : []
+  } catch {
+    return []
+  }
+}
+
+function rememberWraith(off: boolean): void {
+  const key = tvKey()
+  if (!key) return
+  const rest = wraithOff().filter((k) => k !== key)
+  mkdirSync(paths.data, { recursive: true })
+  writeFileSync(wraithFile(), JSON.stringify(off ? [...rest, key] : rest, null, 2))
+}
+
 /** This TV's stock launcher: the one remembered from the handover, else a known one that is installed. */
 export function stockOnTv(installed: Set<string>): string | undefined {
   const mine = readStockFile()[tvKey()]
@@ -149,10 +168,27 @@ export async function handOver(stock: string, main: string): Promise<InstallResu
   ])
   let now: string | null = null
   try { now = await T.homeComponent() } catch { now = null }
+  // Google TV 14: with the stock launcher off, setupwraith's RecoveryActivity outranks the Home preference,
+  // and Clean up keeps setupwraith on until CleanMyTV Home is Home (#40). So it goes here, once `main` has
+  // started, unless the saved Wi-Fi is its: that network would be deleted with it.
+  let wraith: 'off' | 'setupwraith' | 'unknown' | null = null
+  if (stock !== 'none' && now?.startsWith(SETUPWRAITH + '/')) {
+    const owner = await wifiOwner(TASK)
+    if (owner === 'system') {
+      log(TASK, 'info', `${SETUPWRAITH} took Home; switching it off too`)
+      await T.batch(TASK, [`pm disable-user --user 0 ${SETUPWRAITH}`, `cmd package set-home-activity --user 0 ${main}`])
+      wraith = 'off'
+      try { now = await T.homeComponent() } catch { now = null }
+    } else {
+      wraith = owner
+    }
+  }
   if (now?.startsWith(pkg + '/')) {
     log(TASK, 'ok', `Home now resolves to ${now}`)
+    if (wraith === 'off') rememberWraith(true)
     return null
   }
+  if (wraith === 'off') await T.sh(TASK, `pm enable --user 0 ${SETUPWRAITH}`).catch(() => '')
   let back = false
   if (stock !== 'none') back = await rollback(stock)
   // No '$' here, unlike homeComponent(): the value goes into a shell command.
@@ -166,7 +202,13 @@ export async function handOver(stock: string, main: string): Promise<InstallResu
     summary: now ? `Home resolves to ${now}, not to the new launcher.` : 'The TV stopped answering while Home was switched.',
     warnings: [
       back ? `${was} was put back as Home.` : stock !== 'none' ? `Could not give Home back automatically. Run: pm enable --user 0 ${stock}` : 'Could not put the previous Home back automatically.',
-      'On Google TV this usually means com.google.android.tungsten.setupwraith also claims Home: add it to your cleanup list, apply it, then install again.'
+      ...(wraith === 'setupwraith'
+        ? ["Google TV's setup wizard (setupwraith) takes Home here, so it has to go, but your saved Wi-Fi network belongs to it and would be deleted with it. On the TV, forget the network and join it again in Settings > Network & Internet, then install again."]
+        : wraith === 'unknown'
+          ? ["Google TV's setup wizard (setupwraith) takes Home here, and the app couldn't check who owns your saved Wi-Fi, so it stayed on. Try again. On Ethernet, switch it off in Clean up with the safety overrides, then install again."]
+          : wraith === 'off'
+            ? [`${SETUPWRAITH} was switched off and Home still didn't stick, so it is back on.`]
+            : [])
     ]
   }
 }
@@ -237,8 +279,13 @@ export async function useStock(): Promise<ApplyResult> {
   const stock = stockOnTv(installed)
   if (!stock) return { ok: false, summary: 'No stock launcher this app knows is installed on the TV.', warnings: [] }
   const ok = await rollback(stock)
-  // The stock launcher is back: CleanMyTV Home's remote-button service goes with it.
+  // The stock launcher is back: CleanMyTV Home's remote-button service goes with it, and setupwraith comes
+  // back if the handover switched it off. The stock launcher outranks it, so Home stays put.
   if (ok) await dropServices(HOME_PKG)
+  if (ok && wraithOff().includes(tvKey()) && installed.has(SETUPWRAITH)) {
+    await T.sh(TASK, `pm enable --user 0 ${SETUPWRAITH}`)
+    rememberWraith(false)
+  }
   return ok
     ? { ok, summary: `${stock} is Home again. CleanMyTV Home stays installed; use it again from the Home screen step.`, warnings: [] }
     : { ok, summary: `Could not make ${stock} Home. Pick it in the TV's home settings.`, warnings: [] }
