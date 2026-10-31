@@ -38,6 +38,19 @@ export interface ScanHit {
   host: string
 }
 
+/** A TV that advertised itself on the network. Finding one never logs in to it. */
+export interface FoundTv {
+  host: string
+  /** The TV's own name, when it advertises one. */
+  name: string
+  /** Port 5555 is open: no pairing needed. */
+  ready: boolean
+  /** Wireless debugging's connect port, when it is on. */
+  connectPort?: number
+  /** Only while the TV's pairing screen is open. */
+  pairPort?: number
+}
+
 export type CheckStatus = 'ok' | 'missing' | 'warn' | 'optional' | 'checking'
 
 export interface CheckItem {
@@ -301,6 +314,9 @@ export interface CytvApi {
 
   // Connection
   scan(): Promise<ScanHit[]>
+  /** TVs advertising themselves right now. Starts listening on the first call. */
+  discover(): Promise<FoundTv[]>
+  stopDiscovery(): Promise<void>
   connect(host: string): Promise<ConnStatus>
   disconnect(): Promise<void>
   status(): Promise<ConnStatus>
