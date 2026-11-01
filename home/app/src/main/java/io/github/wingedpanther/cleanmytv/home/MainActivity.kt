@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.SystemClock
@@ -19,7 +20,8 @@ import androidx.core.graphics.drawable.toBitmap
 
 const val TAG = "CMTVHome"
 
-data class TvApp(val pkg: String, val label: String, val art: ImageBitmap, val banner: Boolean, val launch: Intent)
+/** [tint]: the icon's main colour, darkened, for the tile behind an app that has no TV banner (#4). */
+data class TvApp(val pkg: String, val label: String, val art: ImageBitmap, val banner: Boolean, val launch: Intent, val tint: Int? = null)
 
 class MainActivity : ComponentActivity() {
     private val visualiser = Visualiser()
@@ -99,10 +101,33 @@ fun loadApps(pm: PackageManager, self: String): List<TvApp> {
             val launch = Intent(Intent.ACTION_MAIN).addCategory(category)
                 .setClassName(ai.packageName, ai.name)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-            out += TvApp(ai.packageName, ri.loadLabel(pm).toString(), art.asImageBitmap(), banner != null, launch)
+            out += TvApp(ai.packageName, ri.loadLabel(pm).toString(), art.asImageBitmap(), banner != null, launch, if (banner == null) tileTint(art) else null)
         }
     }
     return out
+}
+
+/**
+ * A tile colour from an icon: the average of its colourful pixels, weighted by how colourful they are,
+ * then darkened so white text and the icon stand out. Null for grey or white icons, which keep the plain tile.
+ */
+fun tileTint(icon: Bitmap): Int? {
+    var r = 0.0; var g = 0.0; var b = 0.0; var weight = 0.0
+    val hsv = FloatArray(3)
+    // Every 4th pixel of a 128 px icon is 1,024 reads per app: cheap enough for a 2 GB box.
+    for (y in 0 until icon.height step 4) for (x in 0 until icon.width step 4) {
+        val c = icon.getPixel(x, y)
+        if (android.graphics.Color.alpha(c) < 200) continue
+        android.graphics.Color.colorToHSV(c, hsv)
+        val w = (hsv[1] * hsv[2]).toDouble()
+        if (w < 0.15) continue
+        r += android.graphics.Color.red(c) * w; g += android.graphics.Color.green(c) * w; b += android.graphics.Color.blue(c) * w; weight += w
+    }
+    if (weight < 8) return null
+    android.graphics.Color.colorToHSV(android.graphics.Color.rgb((r / weight).toInt(), (g / weight).toInt(), (b / weight).toInt()), hsv)
+    hsv[1] = hsv[1].coerceIn(0.35f, 0.75f)
+    hsv[2] = hsv[2].coerceAtMost(0.42f)
+    return android.graphics.Color.HSVToColor(hsv)
 }
 
 /** The same apps as loadApps, names only, for the desktop app's editor. */

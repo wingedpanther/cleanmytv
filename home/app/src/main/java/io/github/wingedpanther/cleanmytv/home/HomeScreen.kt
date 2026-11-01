@@ -63,6 +63,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -447,17 +448,39 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
             if (app.banner) {
                 Image(app.art, app.label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             } else {
-                Column(Modifier.fillMaxSize().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Image(app.art, null, Modifier.size(if (big) 40.dp else 32.dp))
-                    if (!ui.cfg.showNames) {
-                        Spacer(Modifier.height(4.dp))
-                        Text(app.label, color = TEXT, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
+                GeneratedTile(app, big, named = !ui.cfg.showNames)
             }
         }
         if (ui.cfg.showNames) {
             Text(app.label, color = TEXT, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 7.dp, start = 2.dp))
+        }
+    }
+}
+
+/**
+ * A tile for an app with no TV banner, like most sideloaded apps (#4): the icon on a gradient of its own
+ * colour. With names off it reads like a banner, icon on the left and the name beside it.
+ */
+@Composable
+private fun GeneratedTile(app: TvApp, big: Boolean, named: Boolean) {
+    val base = app.tint?.let { Color(it) }
+    val fill = if (base == null) Modifier else Modifier.background(Brush.linearGradient(listOf(lerp(base, Color.White, 0.12f), lerp(base, Color.Black, 0.35f))))
+    BoxWithConstraints(Modifier.fillMaxSize().then(fill), contentAlignment = Alignment.Center) {
+        // Grid tiles are ~120 dp wide: a name beside the icon would break mid-word, so it goes underneath.
+        val wide = maxWidth >= 170.dp
+        val icon = if (wide) (if (big) 52.dp else 44.dp) else 32.dp
+        when {
+            !named -> Image(app.art, null, Modifier.size(icon))
+            wide -> Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Image(app.art, null, Modifier.size(icon))
+                Spacer(Modifier.width(12.dp))
+                Text(app.label, color = TEXT, fontSize = if (big) 17.sp else 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 19.sp)
+            }
+            else -> Column(Modifier.padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Image(app.art, null, Modifier.size(icon))
+                Spacer(Modifier.height(5.dp))
+                Text(app.label, color = TEXT, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }
@@ -478,7 +501,7 @@ private fun FolderTile(folder: Pair<String, List<TvApp>>, ui: Ui, size: Modifier
                 folder.second.take(4).chunked(2).forEach { pair ->
                     Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         pair.forEach { app ->
-                            Image(app.art, null, Modifier.weight(1f).fillMaxHeight().background(Color.Black.copy(alpha = 0.25f), RoundedCornerShape(5.dp)), contentScale = if (app.banner) ContentScale.Crop else ContentScale.Fit)
+                            Image(app.art, null, Modifier.weight(1f).fillMaxHeight().background(app.tint?.let { Color(it) } ?: Color.Black.copy(alpha = 0.25f), RoundedCornerShape(5.dp)), contentScale = if (app.banner) ContentScale.Crop else ContentScale.Fit)
                         }
                         if (pair.size == 1) Spacer(Modifier.weight(1f))
                     }
