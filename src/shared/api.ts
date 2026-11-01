@@ -167,7 +167,7 @@ export type QuickEntry = QuickId | `app:${string}`
 export type ButtonAction = QuickId | 'home' | 'back' | 'none' | 'app'
 
 export interface HomeButton {
-  /** Android key code the remote sends, 1 to 400. */
+  /** Key code the remote sends, 1 to 65535. Vendor buttons go above Android's own, like TCL's 4001. */
   code: number
   action: ButtonAction
   /** Package to open when action is 'app'. */

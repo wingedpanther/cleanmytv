@@ -137,7 +137,7 @@ data class HomeConfig(
                     val code = b.optInt("code", -1)
                     val action = b.optString("action")
                     val app = b.optString("app").takeIf { PKG.matches(it) }
-                    if (code !in 1..400 || action !in BUTTON_ACTIONS || (action == "app" && app == null)) null
+                    if (code !in 1..65535 || action !in BUTTON_ACTIONS || (action == "app" && app == null)) null
                     else ButtonMap(code, action, if (action == "app") app else null)
                 }.distinctBy { it.code }
             }

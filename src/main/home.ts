@@ -59,6 +59,8 @@ const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
 /** Android 9: CleanMyTV Home's minSdk (home/app/build.gradle.kts). */
 export const MIN_SDK = 28
+// Above Android's own codes: TCL remotes send 4001 and up (#47).
+const MAX_KEY = 65535
 const BUTTON_ACTIONS = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'home', 'back', 'none', 'app']
 
 function bundledVersion(): string | undefined {
@@ -93,6 +95,28 @@ export function unsupported(): string | null {
   return `CleanMyTV Home needs Android 9 or newer, and this TV runs Android ${probe.release || '?'} (SDK ${probe.sdk}). Clean up still works on it.`
 }
 
+// "Requested internal only, but not enough space" on older Android, INSTALL_FAILED_INSUFFICIENT_STORAGE on newer (#48).
+const SPACE_RE = /not enough space|INSUFFICIENT_STORAGE/i
+
+/** Free space on /data in KB. Infinity when df can't tell, so pm install gives its own answer. */
+async function freeKb(): Promise<number> {
+  const out = await T.sh(TASK, 'df -k /data')
+  const line = out.trim().split('\n').reverse().find((l) => /\s\/data\s*$/.test(l) || /^\S+\s+\d+\s+\d+\s+\d+/.test(l))
+  const avail = line ? Number(line.trim().split(/\s+/)[3]) : NaN
+  return Number.isFinite(avail) ? avail : Infinity
+}
+
+/** Asks Android to clear every app's cache; apps rebuild them as they need. */
+async function trimCaches(): Promise<void> {
+  await T.sh(TASK, 'pm trim-caches 4096G')
+}
+
+function noSpace(free: number, need: number): string {
+  const mb = (kb: number): string => `${Math.max(0, kb / 1024).toFixed(kb < 10240 ? 1 : 0)} MB`
+  const has = Number.isFinite(free) ? `has ${mb(free)} free and ` : ''
+  return `The TV is out of storage: it ${has}CleanMyTV Home needs about ${mb(need)}. The app already cleared every app's cache. Uninstall an app you don't use, then try again.`
+}
+
 /** Installs or updates CleanMyTV Home, starts it, and only then makes it Home. */
 export async function install(chosen?: string): Promise<InstallResult> {
   if (!existsSync(paths.bundledHomeApk)) {
@@ -108,12 +132,29 @@ export async function install(chosen?: string): Promise<InstallResult> {
     throw e
   }
   log(TASK, 'info', `stock launcher: ${stock}`)
+  const apk = readFileSync(paths.bundledHomeApk)
+  // The upload's base64 copy, the APK, Android's own copy of it and the compiled code all sit on /data.
+  const need = Math.ceil((apk.length * 5) / 1024)
+  let trimmed = false
+  if ((await freeKb()) < need) {
+    await trimCaches()
+    trimmed = true
+    const free = await freeKb()
+    if (free < need) return { ok: false, summary: noSpace(free, need), warnings: [] }
+  }
   const tmp = '/data/local/tmp/cmtv-home.apk'
-  await T.pushB64(TASK, readFileSync(paths.bundledHomeApk), tmp)
+  await T.pushB64(TASK, apk, tmp)
   // -d: an older copy of this app may put its older launcher back over a newer one. An uninstall would
   // be the only other way, and it wipes the settings.
-  const out = await T.sh(TASK, `pm install -r -d ${tmp}`, { timeoutMs: 300000 })
+  const installCmd = `pm install -r -d ${tmp}`
+  let out = await T.sh(TASK, installCmd, { timeoutMs: 300000 })
+  if (SPACE_RE.test(out) && !trimmed) {
+    await trimCaches()
+    trimmed = true
+    out = await T.sh(TASK, installCmd, { timeoutMs: 300000 })
+  }
   await T.sh(TASK, `rm -f ${tmp}`)
+  if (SPACE_RE.test(out)) return { ok: false, summary: noSpace(await freeKb(), need), warnings: [out.trim()] }
   if (!out.includes('Success')) {
     return { ok: false, summary: 'Install failed; Home was left as it was.', warnings: [out.trim()] }
   }
@@ -203,12 +244,12 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
   if (o.buttons !== undefined) {
     const v = o.buttons
     const ok = Array.isArray(v) && v.length <= 30 && v.every((b) =>
-      b && typeof b === 'object' && Number.isInteger(b.code) && b.code >= 1 && b.code <= 400 && BUTTON_ACTIONS.includes(b.action) &&
+      b && typeof b === 'object' && Number.isInteger(b.code) && b.code >= 1 && b.code <= MAX_KEY && BUTTON_ACTIONS.includes(b.action) &&
       (b.action !== 'app' || (typeof b.app === 'string' && T.PACKAGE_RE.test(b.app))))
     if (ok) {
       const seen = new Set<number>()
       out.buttons = (v as HomeButton[]).filter((b) => !seen.has(b.code) && seen.add(b.code)).map((b) => ({ code: b.code, action: b.action, ...(b.action === 'app' ? { app: b.app } : {}) }))
-    } else bad('buttons must be up to 30 key codes (1 to 400), each with a known action')
+    } else bad('buttons must be up to 30 key codes (1 to 65535), each with a known action')
   }
   if (o.greeting !== undefined) {
     if (typeof o.greeting === 'string') out.greeting = plain(o.greeting, 40)

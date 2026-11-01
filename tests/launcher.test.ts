@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { Server } from 'node:net'
 import { configurePaths } from '../src/main/paths'
 import { setSinks } from '../src/main/log'
@@ -134,7 +134,10 @@ describe('CleanMyTV Home', () => {
     tv.settings.set('enabled_accessibility_services', 'com.other/.Svc')
     const cfg = await H.setConfig({ buttons: [{ code: 83, action: 'settings' }, { code: 83, action: 'home' }, { code: 183, action: 'app', app: 'com.netflix.ninja' }] })
     expect(cfg.buttons).toEqual([{ code: 83, action: 'settings' }, { code: 183, action: 'app', app: 'com.netflix.ninja' }])
-    await expect(H.setConfig({ buttons: [{ code: 900, action: 'settings' }] })).rejects.toThrow(/buttons/)
+    // TCL remotes send vendor codes like 4001 (#47).
+    expect((await H.setConfig({ buttons: [{ code: 4001, action: 'settings' }] })).buttons).toEqual([{ code: 4001, action: 'settings' }])
+    await expect(H.setConfig({ buttons: [{ code: 70000, action: 'settings' }] })).rejects.toThrow(/buttons/)
+    await expect(H.setConfig({ buttons: [{ code: 0, action: 'settings' }] })).rejects.toThrow(/buttons/)
     await expect(H.setConfig({ buttons: [{ code: 5, action: 'reboot' as never }] })).rejects.toThrow(/buttons/)
     await expect(H.setConfig({ buttons: [{ code: 5, action: 'app', app: 'bad;pkg' }] })).rejects.toThrow(/buttons/)
     expect((await H.setRemoteButtons(true)).buttons_on).toBe(true)
@@ -272,6 +275,45 @@ describe('CleanMyTV Home', () => {
     tv.sdk = undefined
     expect((await T.connect(host)).state).toBe('connected')
     expect((await H.status()).unsupported).toBeUndefined()
+  })
+
+  describe('a TV low on storage (#48)', () => {
+    afterEach(() => { tv.freeKb = undefined; tv.cacheKb = undefined })
+
+    it('clears the caches first when space is short, then installs', async () => {
+      // The test APK is 100 KB, so the install wants 500 KB.
+      tv.freeKb = 300; tv.cacheKb = 300000
+      const before = tv.commands.length
+      expect((await H.install()).ok).toBe(true)
+      const cmds = tv.commands.slice(before)
+      expect(cmds.indexOf('pm trim-caches 4096G')).toBeLessThan(cmds.findIndex((c) => c.startsWith('pm install')))
+    })
+
+    it('stops before uploading when clearing the caches is not enough, and says how much is needed', async () => {
+      tv.freeKb = 300; tv.cacheKb = 100
+      const before = tv.commands.length
+      const r = await H.install()
+      expect(r.ok).toBe(false)
+      expect(r.summary).toMatch(/out of storage: it has 0.4 MB free and CleanMyTV Home needs about 0.5 MB.*Uninstall an app/)
+      expect(tv.commands.slice(before).some((c) => c.startsWith('pm install') || c.includes('cmtv-home.apk.b64'))).toBe(false)
+    })
+
+    it('clears the caches and retries when pm install still runs out of space', async () => {
+      // df says there's room, but pm wants more than that.
+      tv.freeKb = 10100; tv.cacheKb = 50000
+      const before = tv.commands.length
+      expect((await H.install()).ok).toBe(true)
+      expect(tv.commands.slice(before).filter((c) => c.startsWith('pm install'))).toHaveLength(2)
+      expect(tv.commands).toContain('rm -f /data/local/tmp/cmtv-home.apk')
+    })
+
+    it('says so plainly when the retry fails too', async () => {
+      tv.freeKb = 10100; tv.cacheKb = 0
+      const r = await H.install()
+      expect(r.ok).toBe(false)
+      expect(r.summary).toMatch(/out of storage/)
+      expect(r.warnings[0]).toMatch(/not enough space/)
+    })
   })
 
 })

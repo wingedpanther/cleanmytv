@@ -60,6 +60,10 @@ export interface FakeTv {
   manufacturer?: string
   /** CleanMyTV Home's versionName once installed; 1.0.0 when unset. */
   homeVersion?: string
+  /** Free space on /data in KB; df answers nothing when unset. pm install needs 10 MB of it. */
+  freeKb?: number
+  /** What pm trim-caches frees, in KB. */
+  cacheKb?: number
   /** Packages that never stay running (pidof finds nothing), like a launcher crashing at boot. */
   crashing?: string[]
   /** Misbehaviour for client hardening tests. */
@@ -107,8 +111,15 @@ function sh(tv: FakeTv, cmd: string): string {
   }
   if ((m = /^settings put (?:global|secure) (\S+) (.*)$/.exec(cmd)) && !cmd.includes(';')) { tv.settings.set(m[1], m[2]); return '' }
   if ((m = /^settings get secure (\S+)$/.exec(cmd))) return (tv.settings.get(m[1]) ?? 'null') + '\n'
+  if (cmd === 'df -k /data' && tv.freeKb !== undefined) {
+    return `Filesystem      1K-blocks    Used Available Use% Mounted on\n/dev/block/dm-5  5806884 5700000 ${String(tv.freeKb).padStart(9)}  99% /data\n`
+  }
+  if (cmd === 'pm trim-caches 4096G') { if (tv.freeKb !== undefined) { tv.freeKb += tv.cacheKb ?? 0; tv.cacheKb = 0 } return '' }
   if ((m = /^pm install -r(?: -d)? (\S+)$/.exec(cmd))) {
     if (!tv.files.has(m[1])) return 'Failure [INSTALL_FAILED_INVALID_URI]\n'
+    if (tv.freeKb !== undefined && tv.freeKb < 10240) {
+      return 'Exception occurred while executing: android.os.ParcelableException: java.io.IOException: Requested internal only, but not enough space\n'
+    }
     const pkg = m[1].includes('cmtv-home') ? 'io.github.wingedpanther.cleanmytv.home' : 'com.gathin.tvhome'
     tv.packages.set(pkg, 'enabled'); tv.homeClaims = [...new Set([...tv.homeClaims, `${pkg}/.MainActivity`])]
     return 'Performing Streamed Install\nSuccess\n'
