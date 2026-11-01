@@ -98,19 +98,6 @@ export function unsupported(): string | null {
 // "Requested internal only, but not enough space" on older Android, INSTALL_FAILED_INSUFFICIENT_STORAGE on newer (#48).
 const SPACE_RE = /not enough space|INSUFFICIENT_STORAGE/i
 
-/** Free space on /data in KB. Infinity when df can't tell, so pm install gives its own answer. */
-async function freeKb(): Promise<number> {
-  const out = await T.sh(TASK, 'df -k /data')
-  const line = out.trim().split('\n').reverse().find((l) => /\s\/data\s*$/.test(l) || /^\S+\s+\d+\s+\d+\s+\d+/.test(l))
-  const avail = line ? Number(line.trim().split(/\s+/)[3]) : NaN
-  return Number.isFinite(avail) ? avail : Infinity
-}
-
-/** Asks Android to clear every app's cache; apps rebuild them as they need. */
-async function trimCaches(): Promise<void> {
-  await T.sh(TASK, 'pm trim-caches 4096G')
-}
-
 function noSpace(free: number, need: number): string {
   const mb = (kb: number): string => `${Math.max(0, kb / 1024).toFixed(kb < 10240 ? 1 : 0)} MB`
   const has = Number.isFinite(free) ? `has ${mb(free)} free and ` : ''
@@ -136,10 +123,10 @@ export async function install(chosen?: string): Promise<InstallResult> {
   // The upload's base64 copy, the APK, Android's own copy of it and the compiled code all sit on /data.
   const need = Math.ceil((apk.length * 5) / 1024)
   let trimmed = false
-  if ((await freeKb()) < need) {
-    await trimCaches()
+  if ((await T.freeKb(TASK)) < need) {
+    await T.trimCaches(TASK)
     trimmed = true
-    const free = await freeKb()
+    const free = await T.freeKb(TASK)
     if (free < need) return { ok: false, summary: noSpace(free, need), warnings: [] }
   }
   const tmp = '/data/local/tmp/cmtv-home.apk'
@@ -149,12 +136,12 @@ export async function install(chosen?: string): Promise<InstallResult> {
   const installCmd = `pm install -r -d ${tmp}`
   let out = await T.sh(TASK, installCmd, { timeoutMs: 300000 })
   if (SPACE_RE.test(out) && !trimmed) {
-    await trimCaches()
+    await T.trimCaches(TASK)
     trimmed = true
     out = await T.sh(TASK, installCmd, { timeoutMs: 300000 })
   }
   await T.sh(TASK, `rm -f ${tmp}`)
-  if (SPACE_RE.test(out)) return { ok: false, summary: noSpace(await freeKb(), need), warnings: [out.trim()] }
+  if (SPACE_RE.test(out)) return { ok: false, summary: noSpace(await T.freeKb(TASK), need), warnings: [out.trim()] }
   if (!out.includes('Success')) {
     return { ok: false, summary: 'Install failed; Home was left as it was.', warnings: [out.trim()] }
   }

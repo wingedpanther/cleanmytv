@@ -10,6 +10,7 @@ import * as T from '../src/main/tv'
 import * as L from '../src/main/launcher'
 import * as H from '../src/main/home'
 import * as D from '../src/main/debloat'
+import * as S from '../src/main/system'
 import { bootCheck } from '../src/main/bootcheck'
 import { FakeTv, newTv, startFakeAdbd } from './fake-adbd'
 
@@ -305,6 +306,15 @@ describe('CleanMyTV Home', () => {
       expect((await H.install()).ok).toBe(true)
       expect(tv.commands.slice(before).filter((c) => c.startsWith('pm install'))).toHaveLength(2)
       expect(tv.commands).toContain('rm -f /data/local/tmp/cmtv-home.apk')
+    })
+
+    it('shows free space in TV extras and clears the caches from there', async () => {
+      tv.freeKb = 200000; tv.cacheKb = 300000
+      expect((await S.state()).storage).toEqual({ freeKb: 200000, totalKb: 5806884 })
+      const r = await S.clearCaches()
+      expect(r).toEqual({ ok: true, summary: "Cleared every app's cache: 293 MB back, 488 MB free now. Apps rebuild some of it as you use them.", warnings: [] })
+      tv.freeKb = undefined
+      expect((await S.state()).storage).toBeNull()
     })
 
     it('says so plainly when the retry fails too', async () => {

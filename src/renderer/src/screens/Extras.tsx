@@ -56,6 +56,8 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
         </div>
       )}
 
+      {sys.storage && <Storage storage={sys.storage} busy={!!busy} onClear={() => run('Clearing app caches', () => window.cytv.clearCaches())} />}
+
       <div className="card">
           <h2>Animation speed</h2>
           <p className="muted small">How fast menus and apps open, across the whole TV. Off feels snappiest on slow TVs.</p>
@@ -156,6 +158,38 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
         </Confirm>
       )}
     </>
+  )
+}
+
+// Below this, installs and app updates start failing on most TVs (#48).
+const LOW_MB = 500
+
+function Storage({ storage, busy, onClear }: { storage: NonNullable<SystemState['storage']>; busy: boolean; onClear: () => void }): ReactNode {
+  const free = Math.round(storage.freeKb / 1024)
+  const total = Math.round(storage.totalKb / 1024)
+  const used = Math.min(100, Math.max(0, 100 - (storage.freeKb / storage.totalKb) * 100))
+  const gb = (mb: number): string => (mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`)
+  const low = free < LOW_MB
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h2>Storage</h2>
+        <span className={`chip ${low ? 'warn' : 'ok'}`}>{gb(free)} free</span>
+      </div>
+      <div className={`progress${low ? ' low' : ''}`} role="meter" aria-valuenow={Math.round(used)} aria-valuemin={0} aria-valuemax={100} aria-label="Storage used">
+        <div style={{ width: `${used}%` }} />
+      </div>
+      <p className="muted small" style={{ marginTop: 8 }}>
+        {gb(total - free)} of {gb(total)} used.{' '}
+        {low ? 'Low enough that installs and app updates can fail.' : 'Apps keep caches here that they rebuild when needed.'}
+      </p>
+      <div className="row" style={{ marginTop: 12 }}>
+        <button className="btn" disabled={busy} onClick={onClear}>
+          Clear app caches
+        </button>
+        <span className="muted small">Logins and settings stay. Apps may open a little slower the first time.</span>
+      </div>
+    </div>
   )
 }
 

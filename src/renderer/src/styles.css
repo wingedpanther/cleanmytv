@@ -278,6 +278,7 @@ input[type='checkbox'] { accent-color: var(--navy); width: 16px; height: 16px; }
 .progress { height: 6px; background: var(--navy-08); border-radius: 999px; overflow: hidden; margin-top: 8px; }
 .progress > div { height: 100%; background: var(--navy); transition: width 0.2s; }
 .progress.indeterminate > div { width: 30%; animation: slide 1.2s infinite ease-in-out; }
+.progress.low > div { background: var(--warn); }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
 
 .spinner {

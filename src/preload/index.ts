@@ -9,7 +9,7 @@ const methods = [
   'useStockLauncher', 'removeOldLauncher', 'homeStatus', 'installHome', 'useHome', 'homeApps', 'readHomeConfig', 'setRemoteButtons', 'homeKeys', 'setHomeConfig', 'setHomeWallpaper',
   'knownTvs', 'connectKnown', 'forgetTv', 'saveTvThumb',
   'screenshot', 'webGet',
-  'systemState', 'setPrivateDns', 'setAnimationScale', 'key', 'reboot'
+  'systemState', 'setPrivateDns', 'setAnimationScale', 'clearCaches', 'key', 'reboot'
 ] as const
 
 function listen<T>(channel: string, cb: (value: T) => void): () => void {

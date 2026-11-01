@@ -113,7 +113,8 @@ export function installMock(): void {
     sdk: 34,
     privateDnsMode: 'opportunistic',
     privateDnsHost: '',
-    animationScale: '1.0'
+    animationScale: '1.0',
+    storage: { freeKb: 831000, totalKb: 5806884 }
   }
 
   async function fakeDownload(tool: keyof typeof tools): Promise<ApplyResult> {
@@ -345,6 +346,10 @@ export function installMock(): void {
       sys.privateDnsMode = host ? 'hostname' : 'opportunistic'
       sys.privateDnsHost = host ?? ''
       return ok(host ? `Private DNS set to ${host}.` : 'Private DNS back to automatic.')
+    },
+    async clearCaches() {
+      if (sys.storage) sys.storage = { ...sys.storage, freeKb: sys.storage.freeKb + 412000 }
+      return ok("Cleared every app's cache: 402 MB back, 1210 MB free now.")
     },
     async setAnimationScale(scale) {
       sys.animationScale = String(scale)

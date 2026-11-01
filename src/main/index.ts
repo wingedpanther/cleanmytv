@@ -150,6 +150,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   systemState: () => system.state(),
   setPrivateDns: (host) => system.privateDns(host),
   setAnimationScale: (s) => system.animationScale(s),
+  clearCaches: () => system.clearCaches(),
   key: (code) => system.key(code),
   reboot: () => system.reboot()
 }

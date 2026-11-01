@@ -1,4 +1,4 @@
-// TV settings outside the launcher: ad-blocking Private DNS, animation speed, the remote, and a
+// TV settings outside the launcher: ad-blocking Private DNS, animation speed, storage, the remote, and a
 // screenshot of the TV.
 import { Socket } from 'node:net'
 import * as T from './tv'
@@ -12,7 +12,23 @@ export async function state(): Promise<SystemState> {
     sdk: T.getStatus().probe?.sdk ?? 0,
     privateDnsMode: await get('global', 'private_dns_mode'),
     privateDnsHost: await get('global', 'private_dns_specifier'),
-    animationScale: await get('global', 'window_animation_scale')
+    animationScale: await get('global', 'window_animation_scale'),
+    storage: await T.storage(TASK)
+  }
+}
+
+/** Clears every app's cache and says how much space that gave back. */
+export async function clearCaches(): Promise<ApplyResult> {
+  const before = await T.storage(TASK)
+  await T.trimCaches(TASK)
+  const after = await T.storage(TASK)
+  if (!before || !after) return { ok: true, summary: "Cleared every app's cache.", warnings: [] }
+  const mb = (kb: number): number => Math.round(kb / 1024)
+  const freed = mb(Math.max(0, after.freeKb - before.freeKb))
+  return {
+    ok: true,
+    summary: `Cleared every app's cache: ${freed} MB back, ${mb(after.freeKb)} MB free now.` + (freed ? ' Apps rebuild some of it as you use them.' : ''),
+    warnings: []
   }
 }
 

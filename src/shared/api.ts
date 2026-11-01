@@ -288,6 +288,8 @@ export interface SystemState {
   privateDnsHost: string
   /** window_animation_scale; "null" when never set. */
   animationScale: string
+  /** /data in KB; null when df can't tell. */
+  storage: { freeKb: number; totalKb: number } | null
 }
 
 export interface DownloadProgress {
@@ -392,6 +394,8 @@ export interface CytvApi {
   systemState(): Promise<SystemState>
   setPrivateDns(host: string | null): Promise<ApplyResult>
   setAnimationScale(scale: number): Promise<ApplyResult>
+  /** Clears every app's cache on the TV. */
+  clearCaches(): Promise<ApplyResult>
   key(keycode: number): Promise<void>
   reboot(): Promise<void>
 

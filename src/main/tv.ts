@@ -161,6 +161,24 @@ export async function pushB64(task: string, data: Buffer, remote: string, onChun
   log(task, 'ok', `uploaded ${remote}, checksum matches`)
 }
 
+/** Size and free space of /data in KB, or null when df can't tell. */
+export async function storage(task: string): Promise<{ freeKb: number; totalKb: number } | null> {
+  const out = await sh(task, 'df -k /data', { quiet: true })
+  const line = out.trim().split('\n').reverse().find((l) => /\s\/data\s*$/.test(l) || /^\S+\s+\d+\s+\d+\s+\d+/.test(l))
+  const [totalKb, , freeKb] = (line?.trim().split(/\s+/) ?? []).slice(1, 4).map(Number)
+  return Number.isFinite(freeKb) && Number.isFinite(totalKb) ? { freeKb, totalKb } : null
+}
+
+/** Free space on /data in KB. Infinity when df can't tell, so whatever runs next gives its own answer. */
+export async function freeKb(task: string): Promise<number> {
+  return (await storage(task))?.freeKb ?? Infinity
+}
+
+/** Asks Android to clear every app's cache. Apps rebuild them as they need; nothing else is lost. */
+export async function trimCaches(task: string): Promise<void> {
+  await sh(task, 'pm trim-caches 4096G')
+}
+
 /** Read a file from the TV, binary-safe: base64 on the TV, decoded here. Null when it is missing. */
 export async function pullB64(remote: string): Promise<Buffer | null> {
   q(remote)
