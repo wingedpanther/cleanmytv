@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import type { ConnStatus, KnownTv, UpdateInfo } from '@shared/api'
+import type { ConnStatus, HomeStatus, KnownTv, UpdateInfo } from '@shared/api'
 import { LogDrawer } from './components/LogDrawer'
 import { NotConnected } from './components/ui'
 import { TvThumb } from './components/TvPicker'
@@ -34,6 +34,8 @@ export interface ScreenProps {
   /** TVs used before, most recent first. */
   tvs: KnownTv[]
   refreshTvs: () => void
+  /** The Home screen step passes on each status it reads, so the sidebar's update note goes after an update. */
+  homeSeen: (hs: HomeStatus) => void
 }
 
 // A fresh snapshot for the sidebar and the TV list when the last one is older than this.
@@ -78,13 +80,15 @@ export default function App(): ReactNode {
     return () => { stale = true }
   }, [status.state, status.host])
 
+  function homeSeen(hs: HomeStatus): void {
+    setHomeBehind(hs.installed && !!hs.bundledVersion && hs.versionName !== hs.bundledVersion)
+  }
+
   // Checked again on every step change, so the note goes once the Home screen step has updated the TV.
   useEffect(() => {
     if (status.state !== 'connected') return setHomeBehind(false)
     let stale = false
-    window.cytv.homeStatus().then((hs) => {
-      if (!stale) setHomeBehind(hs.installed && !!hs.bundledVersion && hs.versionName !== hs.bundledVersion)
-    }, () => null)
+    window.cytv.homeStatus().then((hs) => { if (!stale) homeSeen(hs) }, () => null)
     return () => { stale = true }
   }, [status.state, status.host, step])
 
@@ -109,7 +113,7 @@ export default function App(): ReactNode {
 
   const connected = status.state === 'connected'
   const markDone = (s: StepId): void => setDone((prev) => new Set(prev).add(s))
-  const props: ScreenProps = { status, go: setStep, markDone, tvs, refreshTvs }
+  const props: ScreenProps = { status, go: setStep, markDone, tvs, refreshTvs, homeSeen }
   const steps = STEPS
   const current = steps.find((s) => s.id === step) ?? STEPS[1]
   const currentTv = connected ? tvs.find((t) => t.host === status.host) : undefined

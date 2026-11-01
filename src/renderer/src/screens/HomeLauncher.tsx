@@ -31,7 +31,7 @@ type SetFn = (change: Partial<HomeConfig>, wait?: number) => void
  * Everything for CleanMyTV Home. Each change is sent to the TV as soon as it's made (sliders and typing
  * wait until they settle), and the launcher redraws at once: there's no Apply button.
  */
-export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): ReactNode {
+export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenProps): ReactNode {
   const [home, setHome] = useState<HomeStatus | null>(null)
   const [cfg, setCfg] = useState<HomeConfig | null>(null)
   const [apps, setApps] = useState<TvApp[] | null>(null)
@@ -48,6 +48,7 @@ export function HomeLauncher({ markDone, refreshTvs, status }: ScreenProps): Rea
     try {
       const h = await window.cytv.homeStatus()
       setHome(h)
+      homeSeen(h)
       setCfg(null)
       // An older launcher on the TV doesn't know the newer settings; the page waits for Update.
       if (h.installed && !outdated(h)) {

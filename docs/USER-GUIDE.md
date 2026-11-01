@@ -85,6 +85,7 @@ If you used CleanMyTV 0.1, your TV may still have the old CleanYourTV launcher. 
 > - *I want the old home back.* Overview → **Give Home back to the stock launcher**. See also [chapter 7](#7-safety-and-rollback).
 > - *"Which one is the TV's own launcher?"* The app couldn't tell which app is your TV's home screen. Pick the one the TV came with (usually the name with your brand in it). It stays on, and Undo gives Home back to it.
 > - *Google TV: "your saved Wi-Fi network belongs to" setupwraith.* On some Google TVs the setup wizard (setupwraith) grabs Home once the stock launcher is off, so the install switches it off too. If your Wi-Fi was saved during the TV's first setup, it belongs to the wizard and would be deleted with it. On the TV, forget the network and join it again in Settings > Network & Internet, then install again. Giving Home back to the stock launcher turns the wizard back on. With it off, phone casting may stop working after a restart on some TVs.
+> - *"The TV is out of storage".* The install clears every app's cache first, and says how much space is still missing if that isn't enough. Uninstall an app you don't use, then install again. **TV extras** → **Storage** shows the free space.
 > - *Xiaomi: the Mi button does nothing.* It opened PatchWall, which the cleanup switched off. Open **Remote buttons** and press **Make the Mi button go Home**.
 
 ---
@@ -95,11 +96,11 @@ If you used CleanMyTV 0.1, your TV may still have the old CleanYourTV launcher. 
   - *Overview:* install or update, give Home back to the stock launcher, take a snapshot of the TV screen.
   - *Layout:* pick Shelf (the default), Split or Rail. Set the space above the apps. Put the dock, rows, folders and all apps in any order, or hide any of them. Choose quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars, Settings. An icon your TV can't open is marked "not on this TV". Add up to 6 apps as round icons in the same row, such as a VPN you open a lot: use **Add an app as an icon** under the list, and untick one to remove it. Also tile sizes, apps per row, app names, clock and greeting.
   - *Idle screen (in Layout):* after 1 to 30 minutes with no button pressed, Home fades out the apps and shows only the wallpaper, a large clock and the weather. Any button brings everything back, and that press doesn't open whatever had focus. Off by default.
-  - *Apps, rows & folders:* dock size, drag to reorder, hide apps, make named rows and folders.
+  - *Apps, rows & folders:* dock size, drag to reorder, hide apps, make named rows and folders. Apps without a TV banner, like most sideloaded ones, get a tile in their icon's colour.
   - *Look & wallpaper:* accent colour, focus glow, outline or none. Use your own picture or Bing's picture of the day, darken it, or pick a background colour.
   - *Widgets:* Now playing, a card with what any music or video app plays, with play, pause and next. Weather next to the clock: search for your town and pick °C or °F.
   - *Music bars:* bars that move with the TV's sound while music or video plays. Choose the style, colour, peak dots, number, height, opacity and sensitivity. The Music bars icon on the TV turns them on or off.
-- **TV extras** — ad-blocking Private DNS, animation speed, an on-screen remote, reboot.
+- **TV extras** — free space on the TV with a **Clear app caches** button, ad-blocking Private DNS, animation speed, an on-screen remote, reboot. Clearing caches keeps logins and settings.
 - **Finish** — first the restart check: the app restarts the TV, reconnects and checks the home screen comes up. If it doesn't, the app puts the stock launcher back while it still can. Only then does the guide walk you through switching debugging back **off**, and check that port 5555 is closed. Do this: an open debugging port is a plain-text shell anyone on the Wi-Fi could use, and some TVs don't ask permission again once paired.
 
 The app remembers where you were — close it any time and come back; a TV that already runs CleanMyTV Home opens straight at the Home screen step. Your settings and wallpaper are kept on the TV and survive a reboot.
@@ -142,6 +143,7 @@ The app remembers where you were — close it any time and come back; a TV that 
 | TV not found | Same Wi-Fi, same band, not guest network | 3 |
 | Allow prompt not appearing | Revoke authorisations on the TV, reconnect | 3 |
 | Home didn't switch | Press Home again; pick "Always" in the chooser | 5 |
+| Install says the TV is out of storage | Uninstall an app you don't use; TV extras shows free space | 5 |
 | Install says the Wi-Fi belongs to setupwraith | Forget and re-join the Wi-Fi on the TV, install again | 5 |
 | A package refused to disable | Leave it on; everything else still worked | 4 |
 | Something I use got disabled | Re-enable it one-by-one, or Restore | 7 |
@@ -151,4 +153,4 @@ The app remembers where you were — close it any time and come back; a TV that 
 
 ---
 
-*Guide version: v0.4 (2026-10-31). Written to match app v0.4.0; when the app's steps change, this guide is the place to update, alongside the README screenshots.*
+*Guide version: v0.4.1 (2026-11-01). Written to match app v0.4.1; when the app's steps change, this guide is the place to update, alongside the README screenshots.*
