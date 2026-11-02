@@ -199,6 +199,9 @@ export function installMock(): void {
       ]
       return items
     },
+    async bugReport() {
+      return 'CleanMyTV 0.0.0-dev, darwin 25.0.0 arm64\nTV: Sony BRAVIA 4K VH2 (device BRAVIA_VH2, product BRAVIA_VH2_EU), Android 12 (SDK 31), build mock'
+    },
     download: (tool) => fakeDownload(tool),
     async lists() {
       await wait(200)

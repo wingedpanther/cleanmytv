@@ -17,6 +17,7 @@ import { check as checkUpdate, type UpdateCache } from './updates'
 import { autoConnect, forgetTv, listTvs, rememberTv, setThumb } from './tvlist'
 import * as web from './web'
 import * as home from './home'
+import { bugReport } from './report'
 import type { CheckItem, ConnStatus, CytvApi, KnownTv } from '@shared/api'
 
 let win: BrowserWindow | null = null
@@ -123,6 +124,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   },
   // The pairing form connects once this returns. Connecting here too would do it twice.
   pair: (host, pairPort, code, connectPort) => tools.pair(host, pairPort, code, connectPort),
+  bugReport: () => bugReport(app.getVersion()),
   checks,
   download: (tool) => tools.get(tool),
   lists: async () => debloat.lists(T.getStatus().probe),

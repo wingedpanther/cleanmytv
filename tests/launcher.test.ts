@@ -10,6 +10,7 @@ import * as T from '../src/main/tv'
 import * as L from '../src/main/launcher'
 import * as H from '../src/main/home'
 import * as D from '../src/main/debloat'
+import { bugReport } from '../src/main/report'
 import * as S from '../src/main/system'
 import { bootCheck } from '../src/main/bootcheck'
 import { FakeTv, newTv, startFakeAdbd } from './fake-adbd'
@@ -200,6 +201,16 @@ describe('CleanMyTV Home', () => {
     // Short enough to have been logged as a command, which would carry the same values in base64.
     expect(text).not.toContain('set64')
     expect(text).toContain('wallpaper_begin')
+  })
+
+  it('describes the TV for a bug report without its address or the owner\'s settings', async () => {
+    await H.setConfig({ greeting: 'Hello Sam', weather_place: 'Dublin' })
+    const text = await bugReport('9.9.9')
+    expect(text).toMatch(/^CleanMyTV 9\.9\.9, /)
+    expect(text).toContain('TV: Sony BRAVIA 4K VH2')
+    expect(text).toMatch(/Home: \S+\/\S+/)
+    expect(text).toMatch(/CleanMyTV Home: \S+ installed/)
+    for (const secret of [T.host(), 'Sam', 'Dublin']) expect(text).not.toContain(secret)
   })
 
   it('takes weather places and gives now playing its access only with the section', async () => {

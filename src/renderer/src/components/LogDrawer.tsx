@@ -3,6 +3,10 @@ import type { LogLine } from '@shared/api'
 
 const MAX_LINES = 500
 
+const line = (l: LogLine): string => `${new Date(l.time).toISOString()} [${l.task}] ${l.level === 'cmd' ? '$ ' : ''}${l.text}`
+/** IPv4 addresses, which say nothing a bug report needs. */
+const noAddresses = (s: string): string => s.replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, 'x.x.x.x')
+
 export function LogDrawer(): ReactNode {
   const [lines, setLines] = useState<LogLine[]>([])
   const [open, setOpen] = useState(false)
@@ -43,23 +47,28 @@ export function LogDrawer(): ReactNode {
               <span className="x">{l.text}</span>
             </div>
           ))}
-          {lines.length > 0 && (
-            <div className="row" style={{ marginTop: 8 }}>
-              <button className="btn small ghost" onClick={() => setLines([])}>
-                Clear
-              </button>
-              <button
-                className="btn small ghost"
-                onClick={() =>
-                  navigator.clipboard.writeText(
-                    lines.map((l) => `${new Date(l.time).toISOString()} [${l.task}] ${l.level === 'cmd' ? '$ ' : ''}${l.text}`).join('\n')
-                  )
-                }
-              >
-                Copy all
-              </button>
-            </div>
-          )}
+          <div className="row" style={{ marginTop: 8 }}>
+            {lines.length > 0 && (
+              <>
+                <button className="btn small ghost" onClick={() => setLines([])}>
+                  Clear
+                </button>
+                <button className="btn small ghost" onClick={() => navigator.clipboard.writeText(lines.map(line).join('\n'))}>
+                  Copy all
+                </button>
+              </>
+            )}
+            <button
+              className="btn small ghost"
+              title="Your TV model, Android version and app versions, then this log, without IP addresses. Paste it into a GitHub issue."
+              onClick={async () => {
+                const details = await window.cytv.bugReport().catch((e) => `Could not read the details: ${(e as Error).message}`)
+                navigator.clipboard.writeText(noAddresses(`${details}\n\nActivity:\n${lines.map(line).join('\n') || '(empty)'}`))
+              }}
+            >
+              Copy for a bug report
+            </button>
+          </div>
         </div>
       )}
     </div>
