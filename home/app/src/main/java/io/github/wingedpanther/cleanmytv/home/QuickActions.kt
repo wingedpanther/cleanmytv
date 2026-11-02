@@ -73,12 +73,12 @@ fun availableQuick(ctx: Context): List<String> {
     return quickActions().values.filter { canOpen(ctx, it, hasInputs) }.map { it.id }
 }
 
-/** HDMI and other inputs, on TVs that have them. A box without inputs returns an empty list. */
+/** HDMI and other inputs, on TVs that have them, one per port. A box without inputs returns an empty list. */
 fun tvInputs(ctx: Context): List<Pair<String, String>> = runCatching {
     val tim = ctx.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager ?: return emptyList()
-    tim.tvInputList
-        .filter { it.isPassthroughInput && it.parentId == null || it.type == TvInputInfo.TYPE_HDMI }
-        .map { it.id to (it.loadLabel(ctx)?.toString() ?: "Input") }
+    pickInputs(tim.tvInputList.filter { it.isPassthroughInput }.map {
+        InputRow(it.id, it.parentId, it.type == TvInputInfo.TYPE_HDMI, it.isHidden(ctx), it.loadCustomLabel(ctx)?.toString(), it.loadLabel(ctx)?.toString())
+    })
 }.getOrElse { emptyList() }
 
 fun openInput(ctx: Context, id: String) {

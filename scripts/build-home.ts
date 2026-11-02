@@ -30,7 +30,7 @@ async function main(): Promise<void> {
   const gradlew = join(dir, win ? 'gradlew.bat' : 'gradlew')
   if (!win) chmodSync(gradlew, 0o755)
   const r = await tools.run('build', gradlew, [
-    'assembleRelease', '--no-daemon', '--console=plain',
+    'testDebugUnitTest', 'assembleRelease', '--no-daemon', '--console=plain',
     `-Pandroid.injected.signing.store.file=${paths.keystore}`,
     `-Pandroid.injected.signing.store.password=${tools.KEYSTORE.password}`,
     `-Pandroid.injected.signing.key.alias=${tools.KEYSTORE.alias}`,

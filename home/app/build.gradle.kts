@@ -12,8 +12,8 @@ android {
         // Android 9: the Mi Box S and nearly every TV still in use.
         minSdk = 28
         targetSdk = 36
-        versionCode = 9
-        versionName = "1.2.1"
+        versionCode = 10
+        versionName = "1.2.2"
     }
 
     buildTypes {
@@ -42,4 +42,5 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.13.0")
     // Drawn icons for the quick-settings bar; R8 keeps only the few used.
     implementation("androidx.compose.material:material-icons-extended")
+    testImplementation("junit:junit:4.13.2")
 }
