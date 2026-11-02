@@ -21,10 +21,10 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   useEffect(() => {
+    // Keep the order lists() gives: matches, then the TV's own brand, with "My TV is not listed" on top.
     window.cytv.lists().then((l) => {
-      const sorted = [...l].sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
-      setLists(sorted)
-      const best = sorted.find((x) => x.score > 0)
+      setLists(l)
+      const best = l.find((x) => x.score > 0)
       if (best) setListId(best.id)
     })
   }, [status.host])

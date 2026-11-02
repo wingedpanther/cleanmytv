@@ -142,6 +142,29 @@ describe('upstream lists', () => {
     expect(all.every((l) => l.score === 0)).toBe(true)
   })
 
+  it('lists each list once, the inferred one right after the matches', () => {
+    const xiaomi = { host: '', model: 'MiTV-MSSP9', device: 'huangshan_mssp9', product: 'mssp9', manufacturer: 'Xiaomi', release: '9', sdk: 28, build: '', adbSecure: '1' }
+    const sharp = { ...xiaomi, model: 'Unknown 99', device: 'nowhere', product: 'nowhere', manufacturer: 'Sharp' }
+    for (const probe of [undefined, xiaomi, sharp]) {
+      const ids = D.lists(probe).map((l) => l.id)
+      expect(new Set(ids).size).toBe(ids.length)
+    }
+    const all = D.lists(xiaomi)
+    expect(all[0].id).toBe('custom')
+    const at = all.findIndex((l) => l.title.startsWith('Inferred for your Xiaomi'))
+    expect(all.slice(1, at).every((l) => l.score > 0)).toBe(true)
+    expect(all[at + 1].score).toBe(0)
+  })
+
+  it('keeps a family list that matches a little as a match', () => {
+    // Redmi is in the Xiaomi family; the model alone matches the MSSP3 list, for a score under 5.
+    const all = D.lists({ host: '', model: 'MiTV-MSSP3', device: 'elsewhere', product: 'elsewhere', manufacturer: 'Redmi', release: '9', sdk: 28, build: '', adbSecure: '1' })
+    const own = all.filter((l) => l.id === 'xiaomi-mitv-mssp3')
+    expect(own).toHaveLength(1)
+    expect(own[0].score).toBeGreaterThan(0)
+    expect(own[0].score).toBeLessThan(5)
+  })
+
   it('does not infer a family when a list already matches exactly', () => {
     const all = D.lists({ host: '', model: 'MiTV-MSSP3', device: 'mssp3', product: 'mssp3', manufacturer: 'Xiaomi', release: '9', sdk: 28, build: '', adbSecure: '1' })
     expect(all.find((l) => l.title.startsWith('Inferred for your'))).toBeUndefined()
