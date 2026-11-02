@@ -76,10 +76,43 @@ fun availableQuick(ctx: Context): List<String> {
 /** HDMI and other inputs, on TVs that have them. A box without inputs returns an empty list. */
 fun tvInputs(ctx: Context): List<Pair<String, String>> = runCatching {
     val tim = ctx.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager ?: return emptyList()
-    tim.tvInputList
-        .filter { it.isPassthroughInput && it.parentId == null || it.type == TvInputInfo.TYPE_HDMI }
-        .map { it.id to (it.loadLabel(ctx)?.toString() ?: "Input") }
+    inputMenu(tim.tvInputList.map {
+        InputRow(
+            id = it.id,
+            parentId = it.parentId,
+            passthrough = it.isPassthroughInput || it.type == TvInputInfo.TYPE_HDMI,
+            hidden = it.isHidden(ctx),
+            customLabel = it.loadCustomLabel(ctx)?.toString(),
+            label = it.loadLabel(ctx)?.toString()
+        )
+    })
 }.getOrElse { emptyList() }
+
+/** What the Inputs menu needs to know about one of the TV's inputs. */
+data class InputRow(
+    val id: String,
+    val parentId: String?,
+    val passthrough: Boolean,
+    val hidden: Boolean,
+    val customLabel: String?,
+    val label: String?
+)
+
+/**
+ * One entry per input the owner can see. A device on an HDMI port (HDMI-CEC) is an input of its own with
+ * the port as its parent, so listing both showed every port twice (#50). The name the owner gave the port
+ * in the TV's settings comes first, then the one device on it, then the port's own name.
+ */
+fun inputMenu(rows: List<InputRow>): List<Pair<String, String>> {
+    val ids = rows.map { it.id }.toSet()
+    fun text(s: String?): String? = s?.trim()?.takeIf { it.isNotEmpty() }
+    return rows
+        .filter { it.passthrough && !it.hidden && (it.parentId == null || it.parentId !in ids) }
+        .map { port ->
+            val device = rows.singleOrNull { it.parentId == port.id && !it.hidden }
+            port.id to (text(port.customLabel) ?: text(device?.customLabel) ?: text(device?.label) ?: text(port.label) ?: "Input")
+        }
+}
 
 fun openInput(ctx: Context, id: String) {
     runCatching {

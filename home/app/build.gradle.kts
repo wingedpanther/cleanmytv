@@ -42,4 +42,5 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.13.0")
     // Drawn icons for the quick-settings bar; R8 keeps only the few used.
     implementation("androidx.compose.material:material-icons-extended")
+    testImplementation("junit:junit:4.13.2")
 }
