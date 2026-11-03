@@ -509,6 +509,9 @@ describe('theme files', () => {
   })
 
   it('built-in themes only carry valid look settings', () => {
+    expect(new Set(BUILT_IN_THEMES.map((b) => b.id)).size).toBe(BUILT_IN_THEMES.length)
+    expect(new Set(BUILT_IN_THEMES.map((b) => b.name)).size).toBe(BUILT_IN_THEMES.length)
+    expect(BUILT_IN_THEMES.filter((b) => b.from === 'omarchy')).toHaveLength(17)
     for (const b of BUILT_IN_THEMES) {
       expect(H.clean(b.look as Record<string, unknown>)).toEqual(b.look)
       expect(Object.keys(b.look).every((k) => (THEME_KEYS as readonly string[]).includes(k))).toBe(true)

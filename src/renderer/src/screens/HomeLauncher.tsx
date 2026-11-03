@@ -8,7 +8,7 @@ import { prepareWallpaper, thumbnail } from '../lib/image'
 import { fetchBingDaily } from '../lib/backgrounds'
 import { findPlaces, type Place } from '../lib/places'
 import { paintWallpaper } from '../lib/themes'
-import { BUILT_IN_THEMES, THEME_EXT, paintCss, parseTheme } from '@shared/themes'
+import { BUILT_IN_THEMES, THEME_EXT, paintCss, parseTheme, type BuiltInTheme } from '@shared/themes'
 
 type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'widgets' | 'music' | 'buttons'
 
@@ -699,6 +699,23 @@ interface ThemeActions {
   save: (name: string) => Promise<void>
 }
 
+function ThemeGrid({ themes, actions, busy }: { themes: BuiltInTheme[]; actions: ThemeActions; busy: boolean }): ReactNode {
+  return (
+    <div className="themes">
+      {themes.map((t) => (
+        <button key={t.id} className={`theme${actions.used === t.name ? ' on' : ''}`} disabled={busy} onClick={() => actions.builtIn(t.id)}>
+          <span className="theme-art" style={{ background: paintCss(t.paint) }}>
+            <span className="theme-tile" style={{ boxShadow: t.look.focus === 'outline' ? `0 0 0 2px ${t.look.accent}` : `0 0 12px 2px ${t.look.accent}` }} />
+            <span className="theme-tile" />
+            <span className="theme-tile" />
+          </span>
+          <span className="theme-name">{t.name}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): ReactNode {
   const file = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('My theme')
@@ -708,18 +725,16 @@ function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): 
       <p className="muted">
         A theme sets the wallpaper, colours, tile sizes and music bars in one go. Your apps, rows and layout stay as they are.
       </p>
-      <div className="themes">
-        {BUILT_IN_THEMES.map((t) => (
-          <button key={t.id} className={`theme${themes.used === t.name ? ' on' : ''}`} disabled={busy} onClick={() => themes.builtIn(t.id)}>
-            <span className="theme-art" style={{ background: paintCss(t.paint) }}>
-              <span className="theme-tile" style={{ boxShadow: t.look.focus === 'outline' ? `0 0 0 2px ${t.look.accent}` : `0 0 12px 2px ${t.look.accent}` }} />
-              <span className="theme-tile" />
-              <span className="theme-tile" />
-            </span>
-            <span className="theme-name">{t.name}</span>
-          </button>
-        ))}
-      </div>
+      <ThemeGrid themes={BUILT_IN_THEMES.filter((t) => !t.from)} actions={themes} busy={busy} />
+      <h3 className="theme-group">From Omarchy</h3>
+      <p className="small muted" style={{ marginTop: 0 }}>
+        Colours from the themes in{' '}
+        <a href="https://github.com/omacom/omarchy/tree/quattro/themes" target="_blank" rel="noreferrer">
+          Omarchy
+        </a>{' '}
+        (MIT), with wallpapers drawn to match.
+      </p>
+      <ThemeGrid themes={BUILT_IN_THEMES.filter((t) => t.from === 'omarchy')} actions={themes} busy={busy} />
       {themes.used && (
         <div className="row" style={{ marginTop: 12 }}>
           <span className="small">The TV is using {themes.used}.</span>

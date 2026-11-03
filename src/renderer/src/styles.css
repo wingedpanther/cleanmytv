@@ -280,7 +280,8 @@ input[type='checkbox'] { accent-color: var(--navy); width: 16px; height: 16px; }
 .progress.indeterminate > div { width: 30%; animation: slide 1.2s infinite ease-in-out; }
 .progress.low > div { background: var(--warn); }
 
-.themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.theme-group { font-size: 14px; margin: 22px 0 4px; }
 .theme { font: inherit; display: flex; flex-direction: column; gap: 8px; padding: 6px; background: var(--white); border: 1.5px solid var(--line); border-radius: var(--radius); cursor: pointer; text-align: left; color: var(--navy); }
 .theme:hover:not(:disabled) { border-color: var(--navy-50); }
 .theme.on { border-color: var(--navy); box-shadow: 0 0 0 1px var(--navy); }

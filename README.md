@@ -185,6 +185,10 @@ The debloat side is a TypeScript port of upstream's `tools/`, and the launcher h
 
 Upstream's themes aren't bundled. They are for upstream's launcher.
 
+The "From Omarchy" home screen themes use the colours of the dark themes in
+[Omarchy](https://github.com/omacom/omarchy/tree/quattro/themes) by David Heinemeier Hansson (MIT). Only
+the colours are used; the wallpapers are drawn by the app. Its licence ships in `resources/licenses/`.
+
 ### The launcher APK
 
 CleanMyTV Home lives in `home/`: Kotlin and Jetpack Compose for TV, package
@@ -243,4 +247,4 @@ The tag has to match the version in `package.json`, or the release step stops.
 
 MIT, see [LICENSE](LICENSE). The bundled debloat lists are from
 [cleanyourtv](https://github.com/Gathin23/cleanyourtv) by Gathin23, also MIT; its licence ships in
-`resources/upstream/LICENSE`.
+`resources/upstream/LICENSE`. The Omarchy theme colours are MIT too; see `resources/licenses/omarchy-LICENSE.txt`.
