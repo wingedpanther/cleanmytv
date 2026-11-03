@@ -14,6 +14,24 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
+### New in 0.5.0
+
+- **Themes.** 28 looks for the home screen in one click, each with its own wallpaper art drawn by the
+  app: auroras, dunes, starfields, contour maps, a sunset grid and more. Save any look to a
+  `.cmtvtheme` file to share or load later. **Put it back** returns to how Home looked before your first
+  theme.
+- **Lift focus.** The focused tile floats on a soft shadow with a faint halo in your accent colour, and
+  a light sweeps across it once. Glow, Outline and None are still there.
+- **Feel options**, all off until you turn them on: the tile leans toward the button you pressed, the
+  focused tile stays put while the row slides under it, and the background takes the focused app's
+  colour.
+- **App names:** Always, Focused app only, or Off.
+- **The wallpaper travels with the TV.** The app keeps a copy on the TV, so any computer can save the
+  look with its wallpaper.
+- **Copy for a bug report** in Activity copies the app version, TV model and recent log in one go.
+- **Clean up** leaves the Ambient screensaver and its Google Photos albums alone unless you tick them.
+
+
 
 
 https://github.com/user-attachments/assets/4e3eb18a-d196-4a51-8d0e-93ce98e11913
@@ -100,16 +118,16 @@ tabs have a live preview of the TV screen at the top.
 | Tab | What you set |
 |---|---|
 | **Overview** | Install or update Home, and how to use it. Give Home back to the stock launcher. Remove the old CleanYourTV launcher in one click if it's still on the TV. Take a snapshot of the TV screen. |
-| **Layout** | Three layouts: Shelf (the default), Split and Rail. Space above the apps. The now playing, dock, rows, folders and all apps sections, in any order, each one can be hidden. Quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars and Settings. Icons the TV can't open are marked "not on this TV". Up to 6 apps as round icons in the same row, like a VPN. Dock and row tile sizes, apps per row, app names, clock and greeting. An idle screen: after a set time with no button pressed, only the wallpaper and a large clock show. |
+| **Layout** | Three layouts: Shelf (the default), Split and Rail. Space above the apps. The now playing, dock, rows, folders and all apps sections, in any order, each one can be hidden. Quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars and Settings. Icons the TV can't open are marked "not on this TV". Up to 6 apps as round icons in the same row, like a VPN. Dock and row tile sizes, apps per row, app names (always, focused app only, or off), clock and greeting. An idle screen: after a set time with no button pressed, only the wallpaper and a large clock show. |
 | **Apps, rows & folders** | Dock size, drag to reorder, hide apps, named rows and folders. |
-| **Look & wallpaper** | Accent colour, focus style (glow, outline or none), your own picture or Bing's picture of the day, darken, background colour. |
+| **Look & wallpaper** | Themes: 28 looks with their own wallpaper art, saved to and loaded from `.cmtvtheme` files, and Put it back to undo them. Accent colour. Focus style (lift, glow, outline or none), with options to lean the tile toward the move, keep it in place while the row slides, and tint the background in the focused app's colour. Your own picture or Bing's picture of the day, darken, background colour. |
 | **Widgets** | Now playing: what any music or video app plays, with play, pause and next. Weather next to the clock for a town you pick, in °C or °F. |
 | **Music bars** | On or off; bars, mirrored or wave; accent, rainbow or white; peak dots, number of bars, height, opacity and sensitivity. |
 | **Remote buttons** | Find what a remote button sends, then give it a job in every app: open Settings, Inputs, an app, Home, Back, and more. Off until you turn it on. Only the buttons you map are touched. Power, volume and the mic button are usually handled before Android sees them. On Xiaomi TVs, one click makes the Mi button go Home. |
 
 Your settings and wallpaper stay through updates and reboots. The app also keeps a copy on your
 computer: if CleanMyTV Home ever starts empty (after an uninstall or a factory reset), installing it
-puts the copy back. What the launcher can access is under [Security and privacy](#security-and-privacy).
+puts the copy back. The wallpaper is also kept on the TV, so another computer can save the look with it. What the launcher can access is under [Security and privacy](#security-and-privacy).
 
 CleanMyTV Home needs Android 9 (API 28) or newer.
 
