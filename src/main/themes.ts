@@ -1,13 +1,32 @@
-// Themes for CleanMyTV Home (src/shared/themes.ts): apply one, undo it, or save the TV's look to a file.
-import { writeFileSync } from 'node:fs'
+// Themes for CleanMyTV Home (src/shared/themes.ts): apply one, put the old look back, or save the TV's
+// look to a file. Before the first theme on a TV, its look and wallpaper are saved on this computer,
+// and stay there until the owner puts them back or forgets them, through restarts of the app.
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { log } from './log'
-import * as T from './tv'
+import { paths } from './paths'
 import * as H from './home'
 import { pickLook, themeName, themeToFile } from '@shared/themes'
-import type { ApplyResult, HomeConfig, HomeTheme } from '@shared/api'
+import type { ApplyResult, HomeConfig, HomeTheme, ThemeBackup } from '@shared/api'
 
-/** The look before the last theme, for the TV it was on. */
-let previous: { host: string; theme: HomeTheme } | null = null
+interface Saved {
+  savedAt: number
+  theme: HomeTheme
+}
+
+function backupFile(): string | null {
+  const base = H.backupBase()
+  return base ? base + '.before-themes.json' : null
+}
+
+function readSaved(): Saved | null {
+  const f = backupFile()
+  if (!f || !existsSync(f)) return null
+  try {
+    return JSON.parse(readFileSync(f, 'utf8')) as Saved
+  } catch {
+    return null
+  }
+}
 
 /** The TV's look now. The wallpaper is left out when it wasn't sent from this computer. */
 async function current(name: string): Promise<{ theme: HomeTheme; missing: boolean }> {
@@ -24,26 +43,38 @@ async function put(theme: HomeTheme): Promise<HomeConfig> {
   return cfg
 }
 
-/**
- * `trying`: the TV shows another theme the owner hasn't changed since, so Undo keeps going back to
- * the look from before the first one.
- */
-export async function apply(theme: HomeTheme, trying = false): Promise<HomeConfig> {
-  const host = T.getStatus().host ?? ''
-  const keep = trying && previous?.host === host
-  const before = keep ? null : (await current('Before')).theme
+export async function backup(): Promise<ThemeBackup> {
+  const s = readSaved()
+  if (s) return { savedAt: s.savedAt, withWallpaper: s.theme.wallpaper !== undefined, wallpaperAtRisk: false }
+  const cfg = await H.readConfig()
+  return { savedAt: null, withWallpaper: false, wallpaperAtRisk: cfg.has_wallpaper === true && !H.wallpaperCopy() }
+}
+
+export async function apply(theme: HomeTheme): Promise<HomeConfig> {
+  const f = backupFile()
+  if (f && !readSaved()) {
+    const { theme: before, missing } = await current('Before themes')
+    mkdirSync(paths.homeBackups, { recursive: true, mode: 0o700 })
+    writeFileSync(f, JSON.stringify({ savedAt: Date.now(), theme: before } satisfies Saved), { mode: 0o600 })
+    log('theme', 'info', `saved the look from before themes${missing ? " (the wallpaper wasn't sent from this computer, so it isn't in the copy)" : ''}`)
+  }
   log('theme', 'info', `theme: ${themeName(theme.name)}`)
-  const cfg = await put(theme)
-  if (before) previous = { host, theme: before }
+  return put(theme)
+}
+
+/** Puts the look from before the first theme back, then forgets it. */
+export async function restore(): Promise<HomeConfig> {
+  const s = readSaved()
+  if (!s) throw new Error("There's no saved look for this TV.")
+  log('theme', 'info', 'putting the look from before themes back')
+  const cfg = await put(s.theme)
+  forget()
   return cfg
 }
 
-export async function undo(): Promise<HomeConfig> {
-  if (!previous || previous.host !== (T.getStatus().host ?? '')) throw new Error('There is no theme to undo on this TV.')
-  const { theme } = previous
-  previous = null
-  log('theme', 'info', 'theme: undo')
-  return put(theme)
+export function forget(): void {
+  const f = backupFile()
+  if (f) rmSync(f, { force: true })
 }
 
 /** `pick` asks where to save; it returns null when the owner cancels. */

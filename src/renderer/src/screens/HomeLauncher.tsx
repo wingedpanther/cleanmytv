@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, HomeTheme, HomeLayout, HomeSection, HomeStatus, KeyPress, QuickEntry, QuickId, TvApp } from '@shared/api'
+import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, HomeTheme, ThemeBackup, HomeLayout, HomeSection, HomeStatus, KeyPress, QuickEntry, QuickId, TvApp } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { AppOrder } from '../components/AppOrder'
 import { HomePreview, QuickMark, quickApp, quickLabel } from '../components/HomePreview'
@@ -44,6 +44,9 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
   const [askStock, setAskStock] = useState(false)
   const [stockPick, setStockPick] = useState<StockPick | null>(null)
   const [themeUsed, setThemeUsed] = useState<string | null>(null)
+  const [themeBackup, setThemeBackup] = useState<ThemeBackup | null>(null)
+  /** A theme waiting for the owner to accept that their wallpaper can't be saved first. */
+  const [riskyTheme, setRiskyTheme] = useState<(() => void) | null>(null)
   const pending = useRef<Partial<HomeConfig>>({})
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -129,7 +132,11 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
     }
   }
 
-  /** `used`: the theme now on the TV, which can be undone; null after an undo. */
+  const readThemeBackup = (): void => {
+    window.cytv.themeBackup().then(setThemeBackup, () => setThemeBackup(null))
+  }
+
+  /** `used`: the theme now on the TV; null once the old look is back. */
   async function themeStep(label: string, fn: () => Promise<HomeConfig>, used: string | null): Promise<void> {
     // A slider still settling would land on top of the theme.
     if (timer.current) clearTimeout(timer.current)
@@ -144,14 +151,21 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
       setResult({ ok: false, summary: errorText(e), warnings: [] })
     } finally {
       setBusy(null)
+      readThemeBackup()
     }
+  }
+
+  // Before the first theme, the look gets saved; say so first if the wallpaper can't be part of it.
+  const guarded = (go: () => void): void => {
+    if (themeBackup?.savedAt === null && themeBackup.wallpaperAtRisk) setRiskyTheme(() => go)
+    else go()
   }
 
   const themes: ThemeActions = {
     used: themeUsed,
     builtIn: (id) => {
       const t = BUILT_IN_THEMES.find((b) => b.id === id)
-      if (t) themeStep(`Putting ${t.name} on the TV`, async () => window.cytv.applyHomeTheme({ name: t.name, look: t.look, wallpaper: paintWallpaper(t.paint, `${t.id}.jpg`).base64 }, !!themeUsed), t.name)
+      if (t) guarded(() => themeStep(`Putting ${t.name} on the TV`, async () => window.cytv.applyHomeTheme({ name: t.name, look: t.look, wallpaper: paintWallpaper(t.paint, `${t.id}.jpg`).base64 }), t.name))
     },
     file: (text) => {
       let t: HomeTheme
@@ -161,9 +175,11 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
         setResult({ ok: false, summary: errorText(e), warnings: [] })
         return
       }
-      themeStep(`Putting ${t.name} on the TV`, () => window.cytv.applyHomeTheme(t, !!themeUsed), t.name)
+      guarded(() => themeStep(`Putting ${t.name} on the TV`, () => window.cytv.applyHomeTheme(t), t.name))
     },
-    undo: () => themeStep('Putting the last look back', () => window.cytv.undoHomeTheme(), null),
+    backup: themeBackup,
+    restore: () => themeStep('Putting your saved look back', () => window.cytv.restoreThemeBackup(), null),
+    forget: () => window.cytv.forgetThemeBackup().then(readThemeBackup),
     save: async (name) => {
       try {
         const r = await window.cytv.saveHomeTheme(name)
@@ -175,6 +191,9 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
   }
 
   const ready = !!home?.installed && !outdated(home) && !!cfg
+  useEffect(() => {
+    if (ready) readThemeBackup()
+  }, [ready])
 
   return (
     <>
@@ -226,6 +245,25 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
           {ready && tab === 'buttons' && apps && <ButtonsTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} brand={status.probe?.manufacturer} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
           {ready && tab !== 'overview' && <p className="small muted">{saving ? 'Sending to the TV…' : 'Saved on the TV.'}</p>}
         </>
+      )}
+
+      {riskyTheme && (
+        <Confirm
+          title="Your wallpaper can't be saved"
+          confirmLabel="Use the theme anyway"
+          onCancel={() => setRiskyTheme(null)}
+          onConfirm={() => {
+            const go = riskyTheme
+            setRiskyTheme(null)
+            go()
+          }}
+        >
+          <p>
+            Before the first theme, the app saves your look so you can put it back. Your wallpaper was set from another computer,
+            so it can't be part of that: putting your look back keeps the theme's wallpaper.
+          </p>
+          <p>To keep it, set the same picture again from this computer first, under Wallpaper below.</p>
+        </Confirm>
       )}
 
       {askStock && (
@@ -698,7 +736,9 @@ interface ThemeActions {
   used: string | null
   builtIn: (id: string) => void
   file: (text: string) => void
-  undo: () => void
+  backup: ThemeBackup | null
+  restore: () => void
+  forget: () => void
   save: (name: string) => Promise<void>
 }
 
@@ -728,15 +768,25 @@ function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): 
       <p className="muted">
         A theme sets the wallpaper, colours, tile sizes and music bars in one go. Your apps, rows and layout stay as they are.
       </p>
-      <ThemeGrid themes={BUILT_IN_THEMES} actions={themes} busy={busy} />
-      {themes.used && (
-        <div className="row" style={{ marginTop: 12 }}>
-          <span className="small">The TV is using {themes.used}.</span>
-          <button className="btn small ghost" disabled={busy} onClick={themes.undo}>
-            Undo
-          </button>
+      {themes.backup?.savedAt ? (
+        <div className="notice row" style={{ justifyContent: 'space-between' }}>
+          <span>
+            Your look from {new Date(themes.backup.savedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} is saved
+            {themes.backup.withWallpaper ? '' : ', without its wallpaper'}.
+          </span>
+          <span className="row" style={{ gap: 8 }}>
+            <button className="btn small" disabled={busy} onClick={themes.restore}>
+              Put it back
+            </button>
+            <button className="btn small ghost" disabled={busy} onClick={themes.forget}>
+              Forget it
+            </button>
+          </span>
         </div>
+      ) : (
+        <p className="small muted">Your current look is saved before the first theme, so you can always put it back.</p>
       )}
+      <ThemeGrid themes={BUILT_IN_THEMES} actions={themes} busy={busy} />
       <input
         ref={file}
         type="file"

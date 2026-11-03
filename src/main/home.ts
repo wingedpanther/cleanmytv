@@ -317,7 +317,7 @@ export async function setConfig(change: Partial<HomeConfig>): Promise<HomeConfig
 // launcher starts it empty. The app keeps the last settings it saw for each TV, and the last wallpaper
 // it sent, and puts them back when a fresh install reports `configured: false`.
 
-function backupBase(): string | null {
+export function backupBase(): string | null {
   const p = T.getStatus().probe
   if (!p?.device) return null
   return join(paths.homeBackups, `${p.device}-${p.host}`.replace(/[^A-Za-z0-9._-]/g, '_'))

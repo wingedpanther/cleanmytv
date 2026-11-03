@@ -147,8 +147,10 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   homeKeys: () => home.keys(),
   setHomeConfig: (change) => home.setConfig(change ?? {}),
   setHomeWallpaper: (jpeg) => home.setWallpaper(jpeg),
-  applyHomeTheme: (theme, trying) => themes.apply(theme, trying === true),
-  undoHomeTheme: () => themes.undo(),
+  applyHomeTheme: (theme) => themes.apply(theme),
+  themeBackup: () => themes.backup(),
+  restoreThemeBackup: () => themes.restore(),
+  forgetThemeBackup: async () => themes.forget(),
   saveHomeTheme: (name) =>
     themes.save(String(name ?? ''), async (n) => {
       const opts = { title: 'Save the theme', defaultPath: join(app.getPath('documents'), themeFileName(n)), filters: [{ name: 'CleanMyTV theme', extensions: [THEME_EXT] }] }

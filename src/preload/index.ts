@@ -6,7 +6,7 @@ const methods = [
   'scan', 'discover', 'stopDiscovery', 'connect', 'disconnect', 'status', 'lastHost', 'reconnect', 'checkAdbClosed', 'bootCheck', 'checkUpdate', 'pair',
   'checks', 'download',
   'lists', 'plan', 'tvPackages', 'applyDebloat', 'restore',
-  'useStockLauncher', 'removeOldLauncher', 'homeStatus', 'installHome', 'useHome', 'homeApps', 'readHomeConfig', 'setRemoteButtons', 'homeKeys', 'setHomeConfig', 'setHomeWallpaper', 'applyHomeTheme', 'undoHomeTheme', 'saveHomeTheme',
+  'useStockLauncher', 'removeOldLauncher', 'homeStatus', 'installHome', 'useHome', 'homeApps', 'readHomeConfig', 'setRemoteButtons', 'homeKeys', 'setHomeConfig', 'setHomeWallpaper', 'applyHomeTheme', 'themeBackup', 'restoreThemeBackup', 'forgetThemeBackup', 'saveHomeTheme',
   'knownTvs', 'connectKnown', 'forgetTv', 'saveTvThumb',
   'screenshot', 'webGet',
   'systemState', 'setPrivateDns', 'setAnimationScale', 'clearCaches', 'key', 'reboot'

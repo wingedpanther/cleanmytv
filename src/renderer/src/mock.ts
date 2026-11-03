@@ -54,6 +54,7 @@ export function installMock(): void {
   let homeInstalled = false
   let homeIsHome = false
   let keySeq = 0
+  let themeSavedAt: number | null = null
   const homeConfig: HomeConfig = {
     layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
     rows: [{ name: 'Watch', apps: ['com.netflix.ninja', 'com.google.android.youtube.tv'] }], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [],
@@ -318,13 +319,21 @@ export function installMock(): void {
     },
     async applyHomeTheme(theme) {
       await wait(900)
+      themeSavedAt ??= Date.now()
       Object.assign(homeConfig, theme.look)
       if (theme.wallpaper !== undefined) homeConfig.has_wallpaper = theme.wallpaper !== null
       return { ...homeConfig }
     },
-    async undoHomeTheme() {
+    async themeBackup() {
+      return { savedAt: themeSavedAt, withWallpaper: true, wallpaperAtRisk: false }
+    },
+    async restoreThemeBackup() {
       await wait(600)
+      themeSavedAt = null
       return { ...homeConfig }
+    },
+    async forgetThemeBackup() {
+      themeSavedAt = null
     },
     async saveHomeTheme(name) {
       await wait(300)

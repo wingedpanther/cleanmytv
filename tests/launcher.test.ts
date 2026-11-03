@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
@@ -204,10 +204,12 @@ describe('CleanMyTV Home', () => {
     expect(text).toContain('wallpaper_begin')
   })
 
-  it('puts a theme on the TV, leaves the layout alone, and undoes it', async () => {
+  it('saves the look before the first theme, keeps it through more themes, and puts it back', async () => {
+    Th.forget()
     const mine = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(30 * 1024)])
     await H.setWallpaper(mine.toString('base64'))
     await H.setConfig({ accent: '#123456', focus: 'none', tile_scale: 80, columns: 4, rows: [{ name: 'Kids', apps: ['com.netflix.ninja'] }] })
+    expect(await Th.backup()).toEqual({ savedAt: null, withWallpaper: false, wallpaperAtRisk: false })
     const art = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(10 * 1024)])
     // Layout and personal keys in a theme are ignored.
     const cfg = await Th.apply({ name: 'Aurora', look: { ...BUILT_IN_THEMES[0].look, columns: 8, greeting: 'Hi' } as never, wallpaper: art.toString('base64') })
@@ -215,19 +217,44 @@ describe('CleanMyTV Home', () => {
     expect(cfg.greeting).not.toBe('Hi')
     expect(cfg.rows).toEqual([{ name: 'Kids', apps: ['com.netflix.ninja'] }])
     expect(tv.files.get('/data/data/home/wallpaper.jpg')?.equals(art)).toBe(true)
+    const saved = await Th.backup()
+    expect(saved).toMatchObject({ withWallpaper: true, wallpaperAtRisk: false })
+    expect(saved.savedAt).toBeGreaterThan(0)
 
-    // Trying a second theme straight after: Undo still goes back to the look before the first.
-    await Th.apply({ name: 'Ember', look: BUILT_IN_THEMES[1].look, wallpaper: art.toString('base64') }, true)
-    const back = await Th.undo()
+    // More themes and a change of the owner's own don't replace the saved look.
+    await Th.apply({ name: 'Ember', look: BUILT_IN_THEMES[1].look, wallpaper: art.toString('base64') })
+    await H.setConfig({ accent: '#ABCDEF' })
+    expect((await Th.backup()).savedAt).toBe(saved.savedAt)
+
+    const back = await Th.restore()
     expect(back).toMatchObject({ accent: '#123456', focus: 'none', tile_scale: 80 })
     expect(tv.files.get('/data/data/home/wallpaper.jpg')?.equals(mine)).toBe(true)
-    await expect(Th.undo()).rejects.toThrow(/no theme to undo/)
+    expect((await Th.backup()).savedAt).toBeNull()
+    await expect(Th.restore()).rejects.toThrow(/no saved look/)
 
     // A theme without a wallpaper key keeps the TV's; null removes it.
     await Th.apply({ name: 'Plain', look: { accent: '#FFFFFF' } })
     expect(tv.files.has('/data/data/home/wallpaper.jpg')).toBe(true)
     await Th.apply({ name: 'Bare', look: {}, wallpaper: null })
     expect(tv.files.has('/data/data/home/wallpaper.jpg')).toBe(false)
+    // Putting back a look that had no wallpaper removes the theme's.
+    Th.forget()
+    await Th.apply({ name: 'Aurora', look: {}, wallpaper: art.toString('base64') })
+    await Th.restore()
+    expect(tv.files.has('/data/data/home/wallpaper.jpg')).toBe(false)
+  })
+
+  it("warns before the first theme when the TV's wallpaper came from elsewhere", async () => {
+    Th.forget()
+    await H.setWallpaper(Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(4 * 1024)]).toString('base64'))
+    // Set from another computer: this one has no copy.
+    const copy = H.backupBase() + '.jpg'
+    rmSync(copy)
+    expect(await Th.backup()).toMatchObject({ savedAt: null, wallpaperAtRisk: true })
+    await Th.apply({ name: 'Nord', look: { accent: '#81A1C1' } })
+    expect(await Th.backup()).toMatchObject({ withWallpaper: false, wallpaperAtRisk: false })
+    Th.forget()
+    await H.setWallpaper(null)
   })
 
   it('saves the look with the wallpaper this computer sent, and reads it back', async () => {
@@ -244,7 +271,9 @@ describe('CleanMyTV Home', () => {
     expect(t.look).toMatchObject({ accent: '#7C5CFF', viz_style: 'mirror' })
     expect(Object.keys(t.look).sort()).toEqual([...THEME_KEYS].sort())
     expect(Buffer.from(t.wallpaper as string, 'base64').equals(jpeg)).toBe(true)
-    expect(readFileSync(out, 'utf8')).not.toContain('Sam')
+    // Not the whole file: the random wallpaper's base64 can spell anything.
+    expect(JSON.stringify(t.look)).not.toContain('Sam')
+    expect(t.look).not.toHaveProperty('greeting')
     expect(await Th.save('x', async () => null)).toBeNull()
     await H.setWallpaper(null)
   })

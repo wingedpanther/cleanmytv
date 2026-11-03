@@ -261,6 +261,16 @@ export interface HomeTheme {
   wallpaper?: string | null
 }
 
+/** The look kept on this computer from before the first theme on the connected TV. */
+export interface ThemeBackup {
+  /** Epoch ms, or null when nothing is saved. */
+  savedAt: number | null
+  /** The saved look includes the wallpaper. */
+  withWallpaper: boolean
+  /** Nothing saved yet, and the TV's wallpaper wasn't sent from this computer, so it can't be. */
+  wallpaperAtRisk: boolean
+}
+
 /** A TV this app has connected to before. */
 export interface KnownTv {
   host: string
@@ -384,11 +394,13 @@ export interface CytvApi {
   homeKeys(): Promise<KeyPress[]>
   /** A prepared JPEG (base64) for the home screen, or null to remove it. */
   setHomeWallpaper(jpegBase64: string | null): Promise<HomeConfig>
-  /** Puts a theme on the TV and keeps the look it replaced for undoHomeTheme. `trying`: another theme is
-   * on and unchanged, so keep the look from before that one instead. */
-  applyHomeTheme(theme: HomeTheme, trying?: boolean): Promise<HomeConfig>
-  /** Puts back the look from before the last theme. */
-  undoHomeTheme(): Promise<HomeConfig>
+  /** Puts a theme on the TV. Before the first one, saves the TV's look on this computer. */
+  applyHomeTheme(theme: HomeTheme): Promise<HomeConfig>
+  /** The look saved before the first theme on this TV, if any. */
+  themeBackup(): Promise<ThemeBackup>
+  /** Puts that look back on the TV and forgets it. */
+  restoreThemeBackup(): Promise<HomeConfig>
+  forgetThemeBackup(): Promise<void>
   /** Saves the TV's current look to a .cmtvtheme file the owner picks; null if they cancel. */
   saveHomeTheme(name: string): Promise<ApplyResult | null>
 
