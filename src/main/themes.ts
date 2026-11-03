@@ -28,10 +28,10 @@ function readSaved(): Saved | null {
   }
 }
 
-/** The TV's look now. The wallpaper is left out when it wasn't sent from this computer. */
+/** The TV's look now. The wallpaper is left out when no copy of it is on the TV or this computer. */
 async function current(name: string): Promise<{ theme: HomeTheme; missing: boolean }> {
   const cfg = await H.readConfig()
-  const copy = cfg.has_wallpaper ? H.wallpaperCopy() : null
+  const copy = cfg.has_wallpaper ? await H.wallpaperCopy() : null
   const wallpaper = cfg.has_wallpaper ? (copy ?? undefined) : null
   return { theme: { name, look: pickLook(cfg), wallpaper }, missing: cfg.has_wallpaper === true && !copy }
 }
@@ -47,7 +47,7 @@ export async function backup(): Promise<ThemeBackup> {
   const s = readSaved()
   if (s) return { savedAt: s.savedAt, withWallpaper: s.theme.wallpaper !== undefined, wallpaperAtRisk: false }
   const cfg = await H.readConfig()
-  return { savedAt: null, withWallpaper: false, wallpaperAtRisk: cfg.has_wallpaper === true && !H.wallpaperCopy() }
+  return { savedAt: null, withWallpaper: false, wallpaperAtRisk: cfg.has_wallpaper === true && !(await H.wallpaperCopy()) }
 }
 
 export async function apply(theme: HomeTheme): Promise<HomeConfig> {
@@ -56,7 +56,7 @@ export async function apply(theme: HomeTheme): Promise<HomeConfig> {
     const { theme: before, missing } = await current('Before themes')
     mkdirSync(paths.homeBackups, { recursive: true, mode: 0o700 })
     writeFileSync(f, JSON.stringify({ savedAt: Date.now(), theme: before } satisfies Saved), { mode: 0o600 })
-    log('theme', 'info', `saved the look from before themes${missing ? " (the wallpaper wasn't sent from this computer, so it isn't in the copy)" : ''}`)
+    log('theme', 'info', `saved the look from before themes${missing ?  " (there's no copy of the wallpaper, so it isn't in it)" : ''}`)
   }
   log('theme', 'info', `theme: ${themeName(theme.name)}`)
   return put(theme)
@@ -86,6 +86,6 @@ export async function save(name: string, pick: (fileName: string) => Promise<str
   return {
     ok: true,
     summary: `Saved “${theme.name}”. Load it on any TV from Look & wallpaper → Themes.`,
-    warnings: missing ? ["The wallpaper isn't in the file: it was set from another computer. Set it again from here, then save."] : []
+    warnings: missing ? ["The wallpaper isn't in the file: an older CleanMyTV set it and kept no copy. Set it again, then save."] : []
   }
 }

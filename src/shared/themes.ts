@@ -51,12 +51,23 @@ export function parseTheme(text: string): HomeTheme {
   return { name: themeName(o.name), look, wallpaper: w as string | null | undefined }
 }
 
-/** A built-in theme draws its own wallpaper: a dark base with soft coloured light. */
+/** Pictures the app draws over a theme's base, in the theme's colours (src/renderer/src/lib/themes.ts). */
+export interface ThemeArt {
+  kind: 'aurora' | 'ridges' | 'dunes' | 'flow' | 'stars' | 'contours' | 'bokeh' | 'horizon' | 'rings'
+  colours: string[]
+  /** The same seed draws the same picture. */
+  seed: number
+  /** stars: 1 adds a planet. rings: 1 centres them bottom-left. */
+  variant?: number
+}
+
+/** A built-in theme draws its own wallpaper: a dark base with soft coloured light, and its art. */
 export interface ThemePaint {
   /** Top-left to bottom-right. */
   base: [string, string]
   /** x and y as fractions of the screen, r as a fraction of its width, a as opacity. */
   glows: { colour: string; x: number; y: number; r: number; a: number }[]
+  art?: ThemeArt
 }
 
 export interface BuiltInTheme {
@@ -92,6 +103,13 @@ const OMARCHY: [string, string, string, string, string][] = [
   ['Vantablack', '#000000', '#070707', '#8D8D8D', '#CECECE']
 ]
 
+const OMARCHY_ART: Record<string, [ThemeArt['kind'], number?]> = {
+  Catppuccin: ['bokeh'], Ethereal: ['aurora'], Everforest: ['ridges'], Hackerman: ['horizon'], 'Jade Horse': ['flow'],
+  Kanagawa: ['flow'], 'Last Horizon': ['dunes'], Lumon: ['contours'], 'Matte Black': ['rings'], Miasma: ['contours'],
+  Nord: ['ridges'], 'Retro 82': ['horizon'], Ristretto: ['rings', 1], Solitude: ['stars'], Starship: ['stars', 1],
+  'Tokyo Night': ['bokeh'], Vantablack: ['rings']
+}
+
 function omarchy(): BuiltInTheme[] {
   const styles = ['bars', 'mirror', 'wave'] as const
   return OMARCHY.map(([name, bg, darker, accent, second], i) => {
@@ -101,13 +119,14 @@ function omarchy(): BuiltInTheme[] {
       id: `omarchy-${name.toLowerCase().replace(/ /g, '-')}`,
       name,
       from: 'omarchy',
-      look: { accent, focus: 'glow', background: darker, wallpaper_dim: 0, viz_style: styles[i % 3], viz_colour: 'accent', viz_peaks: i % 2 === 0 },
+      look: { accent, focus: 'lift', background: darker, wallpaper_dim: 0, viz_style: styles[i % 3], viz_colour: 'accent', viz_peaks: i % 2 === 0 },
       paint: {
         base: flip ? [darker, bg] : [bg, darker],
         glows: [
           { colour: accent, x: flip ? 0.88 : 0.12, y: 0.12, r: 0.45, a: 0.16 },
           { colour: second, x: flip ? 0.1 : 0.9, y: 0.92, r: 0.4, a: 0.11 }
-        ]
+        ],
+        art: { kind: OMARCHY_ART[name][0], colours: [accent, second], seed: 100 + i, variant: OMARCHY_ART[name][1] }
       }
     }
   })
@@ -117,51 +136,55 @@ export const BUILT_IN_THEMES: BuiltInTheme[] = [
   {
     id: 'aurora',
     name: 'Aurora',
-    look: { accent: '#2EC4B6', focus: 'glow', background: '#08161E', wallpaper_dim: 0, viz_style: 'wave', viz_colour: 'accent', viz_peaks: false },
+    look: { accent: '#2EC4B6', focus: 'lift', background: '#08161E', wallpaper_dim: 0, viz_style: 'wave', viz_colour: 'accent', viz_peaks: false },
     paint: {
       base: ['#06121B', '#0A2530'],
       glows: [
         { colour: '#2EC4B6', x: 0.18, y: 0.1, r: 0.55, a: 0.32 },
         { colour: '#3DDC84', x: 0.72, y: 0.02, r: 0.4, a: 0.18 },
         { colour: '#7C5CFF', x: 0.92, y: 0.78, r: 0.45, a: 0.2 }
-      ]
+      ],
+      art: { kind: 'aurora', colours: ['#2EC4B6', '#3DDC84', '#7C5CFF'], seed: 11 }
     }
   },
   {
     id: 'ember',
     name: 'Ember',
-    look: { accent: '#FFB23C', focus: 'glow', background: '#140806', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'accent', viz_peaks: true },
+    look: { accent: '#FFB23C', focus: 'lift', background: '#140806', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'accent', viz_peaks: true },
     paint: {
       base: ['#100605', '#26100A'],
       glows: [
         { colour: '#FF3000', x: 0.88, y: 0.95, r: 0.55, a: 0.3 },
         { colour: '#FFB23C', x: 0.55, y: 1.05, r: 0.35, a: 0.2 },
         { colour: '#7A1A00', x: 0.05, y: 0.2, r: 0.4, a: 0.25 }
-      ]
+      ],
+      art: { kind: 'dunes', colours: ['#FF3000', '#FFB23C'], seed: 12 }
     }
   },
   {
     id: 'midnight',
     name: 'Midnight',
-    look: { accent: '#7C5CFF', focus: 'glow', background: '#070B1E', wallpaper_dim: 0, viz_style: 'mirror', viz_colour: 'accent', viz_peaks: false },
+    look: { accent: '#7C5CFF', focus: 'lift', background: '#070B1E', wallpaper_dim: 0, viz_style: 'mirror', viz_colour: 'accent', viz_peaks: false },
     paint: {
       base: ['#060A1C', '#111938'],
       glows: [
         { colour: '#7C5CFF', x: 0.12, y: 0.88, r: 0.5, a: 0.28 },
         { colour: '#3A6BFF', x: 0.82, y: 0.15, r: 0.45, a: 0.22 }
-      ]
+      ],
+      art: { kind: 'stars', colours: ['#7C5CFF', '#3A6BFF', '#C9B8FF'], seed: 13 }
     }
   },
   {
     id: 'forest',
     name: 'Forest',
-    look: { accent: '#4CAF50', focus: 'glow', background: '#1C2A1F', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'accent', viz_peaks: true },
+    look: { accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'accent', viz_peaks: true },
     paint: {
       base: ['#0C1710', '#1C2A1F'],
       glows: [
         { colour: '#3DDC84', x: 0.1, y: 0.05, r: 0.5, a: 0.16 },
         { colour: '#8BC34A', x: 0.95, y: 0.95, r: 0.45, a: 0.14 }
-      ]
+      ],
+      art: { kind: 'ridges', colours: ['#3DDC84', '#8BC34A'], seed: 14 }
     }
   },
   {
@@ -170,32 +193,35 @@ export const BUILT_IN_THEMES: BuiltInTheme[] = [
     look: { accent: '#FFFFFF', focus: 'outline', background: '#111214', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'white', viz_peaks: false },
     paint: {
       base: ['#0D0E10', '#1D1F23'],
-      glows: [{ colour: '#FFFFFF', x: 0.5, y: -0.25, r: 0.7, a: 0.07 }]
+      glows: [{ colour: '#FFFFFF', x: 0.5, y: -0.25, r: 0.7, a: 0.07 }],
+      art: { kind: 'contours', colours: ['#FFFFFF', '#9AA0A6'], seed: 15 }
     }
   },
   // Gruvbox dark (github.com/morhetz/gruvbox). Only the dark palette: Home's text is white.
   {
     id: 'gruvbox',
     name: 'Gruvbox',
-    look: { accent: '#FE8019', focus: 'glow', background: '#1D2021', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'accent', viz_peaks: true },
+    look: { accent: '#FE8019', focus: 'lift', background: '#1D2021', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'accent', viz_peaks: true },
     paint: {
       base: ['#1D2021', '#32302F'],
       glows: [
         { colour: '#FE8019', x: 0.9, y: 0.9, r: 0.45, a: 0.16 },
         { colour: '#FABD2F', x: 0.08, y: 0.1, r: 0.4, a: 0.1 }
-      ]
+      ],
+      art: { kind: 'ridges', colours: ['#FE8019', '#FABD2F'], seed: 16 }
     }
   },
   {
     id: 'gruvbox-aqua',
     name: 'Gruvbox Aqua',
-    look: { accent: '#8EC07C', focus: 'glow', background: '#1D2021', wallpaper_dim: 0, viz_style: 'mirror', viz_colour: 'accent', viz_peaks: false },
+    look: { accent: '#8EC07C', focus: 'lift', background: '#1D2021', wallpaper_dim: 0, viz_style: 'mirror', viz_colour: 'accent', viz_peaks: false },
     paint: {
       base: ['#1D2021', '#282828'],
       glows: [
         { colour: '#8EC07C', x: 0.15, y: 0.9, r: 0.45, a: 0.15 },
         { colour: '#83A598', x: 0.85, y: 0.1, r: 0.45, a: 0.14 }
-      ]
+      ],
+      art: { kind: 'flow', colours: ['#8EC07C', '#83A598'], seed: 17 }
     }
   },
   {
@@ -207,31 +233,34 @@ export const BUILT_IN_THEMES: BuiltInTheme[] = [
       glows: [
         { colour: '#D3869B', x: 0.8, y: 0.85, r: 0.45, a: 0.14 },
         { colour: '#FB4934', x: 0.1, y: 0.05, r: 0.35, a: 0.08 }
-      ]
+      ],
+      art: { kind: 'bokeh', colours: ['#D3869B', '#B16286', '#FB4934'], seed: 18 }
     }
   },
   {
     id: 'gruvbox-yellow',
     name: 'Gruvbox Yellow',
-    look: { accent: '#FABD2F', focus: 'glow', background: '#1D2021', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'accent', viz_peaks: false },
+    look: { accent: '#FABD2F', focus: 'lift', background: '#1D2021', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'accent', viz_peaks: false },
     paint: {
       base: ['#282828', '#1D2021'],
       glows: [
         { colour: '#FABD2F', x: 0.12, y: 0.12, r: 0.45, a: 0.13 },
         { colour: '#D79921', x: 0.9, y: 0.95, r: 0.4, a: 0.12 }
-      ]
+      ],
+      art: { kind: 'dunes', colours: ['#FABD2F', '#D79921'], seed: 19 }
     }
   },
   {
     id: 'gruvbox-blue',
     name: 'Gruvbox Blue',
-    look: { accent: '#83A598', focus: 'glow', background: '#1D2021', wallpaper_dim: 0, viz_style: 'wave', viz_colour: 'accent', viz_peaks: false },
+    look: { accent: '#83A598', focus: 'lift', background: '#1D2021', wallpaper_dim: 0, viz_style: 'wave', viz_colour: 'accent', viz_peaks: false },
     paint: {
       base: ['#1D2021', '#32302F'],
       glows: [
         { colour: '#83A598', x: 0.88, y: 0.12, r: 0.5, a: 0.16 },
         { colour: '#458588', x: 0.1, y: 0.92, r: 0.4, a: 0.16 }
-      ]
+      ],
+      art: { kind: 'contours', colours: ['#83A598', '#458588'], seed: 20 }
     }
   },
   {
@@ -243,17 +272,9 @@ export const BUILT_IN_THEMES: BuiltInTheme[] = [
       glows: [
         { colour: '#B8BB26', x: 0.5, y: 1.1, r: 0.5, a: 0.13 },
         { colour: '#98971A', x: 0.05, y: 0.05, r: 0.35, a: 0.1 }
-      ]
+      ],
+      art: { kind: 'horizon', colours: ['#B8BB26', '#98971A', '#FABD2F'], seed: 21 }
     }
   },
   ...omarchy()
 ]
-
-/** The same picture as CSS, for the small swatches in the app. */
-export function paintCss(p: ThemePaint): string {
-  const glows = p.glows.map((g) => {
-    const a = Math.round(g.a * 255).toString(16).padStart(2, '0')
-    return `radial-gradient(circle at ${g.x * 100}% ${g.y * 100}%, ${g.colour}${a} 0, transparent ${g.r * 100}%)`
-  })
-  return [...glows, `linear-gradient(135deg, ${p.base[0]}, ${p.base[1]})`].join(', ')
-}

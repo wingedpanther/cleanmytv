@@ -18,15 +18,15 @@ const HEX = /^#[0-9A-Fa-f]{6}$/
 export const DEFAULTS: HomeConfig = {
   layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
   rows: [], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [],
-  accent: '#4CAF50', focus: 'glow', background: '#1C2A1F', wallpaper_dim: 35,
-  order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, clock: 'time_date', greeting: '', idle_minutes: 0,
+  accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
+  order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false, clock: 'time_date', greeting: '', idle_minutes: 0,
   weather_place: '', weather_lat: 0, weather_lon: 0, weather_unit: 'c',
   visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
 }
 
 const CHOICES = {
   layout: ['shelf', 'split', 'rail'],
-  focus: ['glow', 'outline', 'none'],
+  focus: ['lift', 'glow', 'outline', 'none'],
   clock: ['time_date', 'time', 'off'],
   viz_style: ['bars', 'mirror', 'wave'],
   viz_colour: ['accent', 'rainbow', 'white'],
@@ -53,7 +53,7 @@ const RANGES = {
   viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300]
 } as const
 
-const BOOLS = ['show_names', 'visualiser', 'viz_peaks', 'buttons_on'] as const
+const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'visualiser', 'viz_peaks', 'buttons_on'] as const
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 /** Lets the launcher see other apps' media sessions; on only while the Now playing section is. */
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
@@ -316,6 +316,9 @@ export async function setConfig(change: Partial<HomeConfig>): Promise<HomeConfig
 // Updates keep the launcher's settings, but an uninstall, a factory reset or a move from another
 // launcher starts it empty. The app keeps the last settings it saw for each TV, and the last wallpaper
 // it sent, and puts them back when a fresh install reports `configured: false`.
+// The launcher can't hand its wallpaper back, so the app also leaves a copy on the TV, where only ADB
+// reads it: any computer can then save the look with its wallpaper, whichever one set it.
+const TV_WALLPAPER = '/data/local/tmp/cleanmytv-wallpaper.jpg'
 
 export function backupBase(): string | null {
   const p = T.getStatus().probe
@@ -350,11 +353,32 @@ function keepWallpaper(jpeg: Buffer | null): void {
   }
 }
 
-/** The last wallpaper this computer sent to the connected TV, in base64. */
-export function wallpaperCopy(): string | null {
+async function keepOnTv(jpeg: Buffer | null): Promise<void> {
+  try {
+    if (jpeg) await T.pushB64('theme', jpeg, TV_WALLPAPER)
+    else await T.tv().shell(`rm -f ${TV_WALLPAPER}`)
+  } catch (e) {
+    log('theme', 'info', `could not keep the wallpaper copy on the TV: ${(e as Error).message}`)
+  }
+}
+
+const isJpeg = (b: Buffer | null): b is Buffer => !!b && b.length > 2 && b[0] === 0xff && b[1] === 0xd8
+
+/**
+ * The wallpaper on the connected TV, in base64: the copy on the TV first, as another computer may have
+ * set a newer one, then this computer's. A copy only this computer has goes onto the TV too.
+ */
+export async function wallpaperCopy(): Promise<string | null> {
+  const onTv = await T.pullB64(TV_WALLPAPER).catch(() => null)
+  if (isJpeg(onTv)) {
+    keepWallpaper(onTv)
+    return onTv.toString('base64')
+  }
   const base = backupBase()
   if (!base || !existsSync(base + '.jpg')) return null
-  return readFileSync(base + '.jpg').toString('base64')
+  const here = readFileSync(base + '.jpg')
+  await keepOnTv(here)
+  return here.toString('base64')
 }
 
 /** Puts the saved settings and wallpaper back on a launcher that has none. True if there was a copy. */
@@ -365,7 +389,8 @@ async function restoreBackup(): Promise<boolean> {
     const saved = JSON.parse(readFileSync(base + '.json', 'utf8')) as Record<string, unknown>
     log(TASK, 'info', "CleanMyTV Home started empty; putting this computer's copy of its settings back")
     await setConfig(clean(saved, true))
-    if (existsSync(base + '.jpg')) await setWallpaper(readFileSync(base + '.jpg').toString('base64'))
+    const wallpaper = await wallpaperCopy()
+    if (wallpaper) await setWallpaper(wallpaper)
     return true
   } catch (e) {
     log(TASK, 'error', `could not put the settings back: ${(e as Error).message}`)
@@ -382,6 +407,7 @@ async function nowPlayingAccess(on: boolean): Promise<void> {
 export async function setWallpaper(jpegBase64: string | null): Promise<HomeConfig> {
   if (jpegBase64 === null) {
     keepWallpaper(null)
+    await keepOnTv(null)
     return parse(await call('wallpaper_remove'))
   }
   if (typeof jpegBase64 !== 'string' || !/^[A-Za-z0-9+/]+=*$/.test(jpegBase64)) throw new Error('the wallpaper must be a JPEG in base64')
@@ -397,6 +423,7 @@ export async function setWallpaper(jpegBase64: string | null): Promise<HomeConfi
   for (let i = 0; i < data.length; i += chunk) await call('wallpaper_chunk', data.subarray(i, i + chunk).toString('base64'))
   const cfg = parse(await call('wallpaper_end', createHash('md5').update(data).digest('hex')))
   keepWallpaper(data)
+  await keepOnTv(data)
   log('theme', 'ok', 'wallpaper set')
   return cfg
 }

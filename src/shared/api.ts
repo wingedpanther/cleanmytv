@@ -207,9 +207,10 @@ export interface HomeConfig {
   buttons_on: boolean
   buttons: HomeButton[]
   // Look
-  /** #RRGGBB, for the focus glow or outline and the music bars. */
+  /** #RRGGBB, for the focus halo, glow or outline and the music bars. */
   accent: string
-  focus: 'glow' | 'outline' | 'none'
+  /** lift: the tile floats on a soft shadow (launcher 1.3.0 and newer). */
+  focus: 'lift' | 'glow' | 'outline' | 'none'
   /** #RRGGBB behind everything when there's no wallpaper. */
   background: string
   /** Percent of black over the wallpaper, 0 to 80. */
@@ -223,6 +224,14 @@ export interface HomeConfig {
   /** Apps per row in the grid, 3 to 8. */
   columns: number
   show_names: boolean
+  /** With show_names: only the focused app's name shows. */
+  name_focus: boolean
+  /** The background takes the focused app's colour. */
+  follow_colour: boolean
+  /** The focused tile stays put and its row slides under it. */
+  pin_focus: boolean
+  /** With lift: the tile leans toward the move, then settles. */
+  tilt: boolean
   clock: 'time_date' | 'time' | 'off'
   /** A name for "Good evening, …"; empty for none. */
   greeting: string
@@ -418,6 +427,8 @@ export interface CytvApi {
 
   /** PNG of the TV screen as a data URL. */
   screenshot(): Promise<string>
+  /** The same for the TV list's picture, taken in the background: null instead of an error. */
+  thumbShot(): Promise<string | null>
   /** HTTPS GET from Bing only (the page itself has no network access). */
   webGet(url: string): Promise<WebResponse>
 

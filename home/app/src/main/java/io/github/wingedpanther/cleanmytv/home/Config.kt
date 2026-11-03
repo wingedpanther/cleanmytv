@@ -29,7 +29,7 @@ data class HomeConfig(
     val buttons: List<ButtonMap> = emptyList(),
     // Look: CleanMyTV's dark green-and-earth world by default
     val accent: Long = 0xFF4CAF50,
-    val focus: String = "glow", // glow, outline, none
+    val focus: String = "lift", // lift, glow, outline, none
     val background: Long = 0xFF1C2A1F,
     val wallpaperDim: Int = 35, // percent of black over the wallpaper
     // Layout
@@ -38,6 +38,11 @@ data class HomeConfig(
     val dockSize: Int = 5, // the first visible apps in `order` sit in the dock
     val columns: Int = 6, // apps per row in the grid
     val showNames: Boolean = true,
+    // Feel
+    val nameFocus: Boolean = false, // with showNames: only the focused app's name shows
+    val followColour: Boolean = false, // the background takes the focused app's colour
+    val pinFocus: Boolean = false, // the focused tile stays put and the row slides under it
+    val tilt: Boolean = false, // with lift: the tile leans toward the move, then settles
     val clock: String = "time_date", // time_date, time, off
     val greeting: String = "",
     // Idle screen: after this many minutes without a button press, only the wallpaper and the clock show; 0 is off
@@ -77,6 +82,10 @@ data class HomeConfig(
         .put("dock_size", dockSize)
         .put("columns", columns)
         .put("show_names", showNames)
+        .put("name_focus", nameFocus)
+        .put("follow_colour", followColour)
+        .put("pin_focus", pinFocus)
+        .put("tilt", tilt)
         .put("clock", clock)
         .put("greeting", greeting)
         .put("idle_minutes", idleMinutes)
@@ -157,7 +166,7 @@ data class HomeConfig(
                 dockScale = int("dock_scale", base.dockScale, 60, 150),
                 tileScale = int("tile_scale", base.tileScale, 60, 150),
                 accent = colour("accent", base.accent),
-                focus = choice("focus", base.focus, setOf("glow", "outline", "none")),
+                focus = choice("focus", base.focus, setOf("lift", "glow", "outline", "none")),
                 background = colour("background", base.background),
                 wallpaperDim = int("wallpaper_dim", base.wallpaperDim, 0, 80),
                 order = pkgs("order") ?: base.order,
@@ -165,6 +174,10 @@ data class HomeConfig(
                 dockSize = int("dock_size", base.dockSize, 0, 8),
                 columns = int("columns", base.columns, 3, 8),
                 showNames = bool("show_names", base.showNames),
+                nameFocus = bool("name_focus", base.nameFocus),
+                followColour = bool("follow_colour", base.followColour),
+                pinFocus = bool("pin_focus", base.pinFocus),
+                tilt = bool("tilt", base.tilt),
                 clock = choice("clock", base.clock, setOf("time_date", "time", "off")),
                 idleMinutes = int("idle_minutes", base.idleMinutes, 0, 60),
                 greeting = if (o.has("greeting")) o.optString("greeting").take(40) else base.greeting,

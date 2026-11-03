@@ -7,8 +7,8 @@ import { Busy, Confirm, ResultNotice, Slider, StatusChip, Toggle, errorText } fr
 import { prepareWallpaper, thumbnail } from '../lib/image'
 import { fetchBingDaily } from '../lib/backgrounds'
 import { findPlaces, type Place } from '../lib/places'
-import { paintWallpaper } from '../lib/themes'
-import { BUILT_IN_THEMES, THEME_EXT, paintCss, parseTheme, type BuiltInTheme } from '@shared/themes'
+import { drawWallpaper, paintWallpaper } from '../lib/themes'
+import { BUILT_IN_THEMES, THEME_EXT, parseTheme, type BuiltInTheme } from '@shared/themes'
 
 type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'widgets' | 'music' | 'buttons'
 
@@ -265,10 +265,10 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
           }}
         >
           <p>
-            Before the first theme, the app saves your look so you can put it back. Your wallpaper was set from another computer,
-            so it can't be part of that: putting your look back keeps the theme's wallpaper.
+            Before the first theme, the app saves your look so you can put it back. Your wallpaper was set by an older CleanMyTV,
+            which kept no copy of it, so it can't be part of that: putting your look back keeps the theme's wallpaper.
           </p>
-          <p>To keep it, set the same picture again from this computer first, under Wallpaper below.</p>
+          <p>To keep it, set the same picture again first, under Wallpaper below.</p>
         </Confirm>
       )}
 
@@ -665,7 +665,18 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
         <Slider label="Dock tiles" value={cfg.dock_scale} min={60} max={150} step={5} unit="%" onChange={(v) => set({ dock_scale: v }, 250)} />
         <Slider label="Row and folder tiles" value={cfg.tile_scale} min={60} max={150} step={5} unit="%" onChange={(v) => set({ tile_scale: v }, 250)} />
         <Slider label="Apps per row in All apps" value={cfg.columns} min={3} max={8} onChange={(v) => set({ columns: v }, 250)} />
-        <Toggle label="Show app names" hint="Under each tile. Apps without a TV banner always show their name." checked={cfg.show_names} onChange={(v) => set({ show_names: v })} />
+        <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>App names</p>
+        <div className="seg">
+          {([['always', 'Always', { show_names: true, name_focus: false }], ['focus', 'Focused app only', { show_names: true, name_focus: true }], ['off', 'Off', { show_names: false, name_focus: false }]] as const).map(([id, label, v]) => (
+            <button key={id} className={(!cfg.show_names ? 'off' : cfg.name_focus ? 'focus' : 'always') === id ? 'on' : ''} onClick={() => set(v)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="small muted">
+          {!cfg.show_names ? 'No names under tiles. Apps without a TV banner still show their name on the tile.'
+            : cfg.name_focus ? 'Only the app you move onto shows its name. The others stay hidden.' : 'Every tile shows its name underneath.'}
+        </p>
       </div>
 
       <div className="grid-2">
@@ -738,6 +749,13 @@ function Colour({ label, hint, value, onChange }: { label: string; hint?: string
   )
 }
 
+const FOCUS_SWATCH: Record<HomeConfig['focus'], (accent: string) => string> = {
+  lift: (a) => `0 4px 8px rgba(0, 0, 0, 0.55), 0 0 12px 1px ${a}59, inset 0 0 0 1px rgba(255, 255, 255, 0.28)`,
+  glow: (a) => `0 0 12px 2px ${a}`,
+  outline: (a) => `0 0 0 2px ${a}`,
+  none: () => 'none'
+}
+
 interface ThemeActions {
   used: string | null
   builtIn: (id: string) => void
@@ -749,12 +767,14 @@ interface ThemeActions {
 }
 
 function ThemeGrid({ themes, actions, busy }: { themes: BuiltInTheme[]; actions: ThemeActions; busy: boolean }): ReactNode {
+  // Each card shows a small copy of the wallpaper the theme draws.
+  const art = useMemo(() => new Map(themes.map((t) => [t.id, `url(${drawWallpaper(t.paint, 320, 180).toDataURL('image/jpeg', 0.85)})`])), [themes])
   return (
     <div className="themes">
       {themes.map((t) => (
         <button key={t.id} className={`theme${actions.used === t.name ? ' on' : ''}`} disabled={busy} onClick={() => actions.builtIn(t.id)}>
-          <span className="theme-art" style={{ background: paintCss(t.paint) }}>
-            <span className="theme-tile" style={{ boxShadow: t.look.focus === 'outline' ? `0 0 0 2px ${t.look.accent}` : `0 0 12px 2px ${t.look.accent}` }} />
+          <span className="theme-art" style={{ backgroundImage: art.get(t.id), backgroundSize: 'cover' }}>
+            <span className="theme-tile" style={{ boxShadow: FOCUS_SWATCH[t.look.focus ?? 'lift'](t.look.accent ?? '#FFFFFF') }} />
             <span className="theme-tile" />
             <span className="theme-tile" />
           </span>
@@ -847,12 +867,19 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
         <h2>Focus</h2>
         <p className="muted">How the tile under the remote's cursor stands out.</p>
         <div className="seg">
-          {([['glow', 'Glow'], ['outline', 'Outline'], ['none', 'None']] as const).map(([id, label]) => (
+          {([['lift', 'Lift'], ['glow', 'Glow'], ['outline', 'Outline'], ['none', 'None']] as const).map(([id, label]) => (
             <button key={id} className={cfg.focus === id ? 'on' : ''} onClick={() => set({ focus: id })}>
               {label}
             </button>
           ))}
         </div>
+        <p className="small muted">
+          {cfg.focus === 'lift' ? 'The tile floats on a soft shadow with a faint halo in your accent, and a light sweeps across it once.'
+            : cfg.focus === 'glow' ? 'A glow in your accent and a white ring.' : cfg.focus === 'outline' ? 'A line in your accent.' : 'Only the tile colour changes.'}
+        </p>
+        {cfg.focus === 'lift' && <Toggle label="Lean toward the move" hint="The tile tilts a little the way you pressed, then settles." checked={cfg.tilt} onChange={(v) => set({ tilt: v })} />}
+        <Toggle label="Keep the focused tile in place" hint="The row slides under it, one step in from the left." checked={cfg.pin_focus} onChange={(v) => set({ pin_focus: v })} />
+        <Toggle label="Background takes the app's colour" hint="A tint of the focused app's colour washes in from the top." checked={cfg.follow_colour} onChange={(v) => set({ follow_colour: v })} />
       </div>
 
       <div className="card">

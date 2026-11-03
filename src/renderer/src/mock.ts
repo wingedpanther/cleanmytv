@@ -58,8 +58,8 @@ export function installMock(): void {
   const homeConfig: HomeConfig = {
     layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
     rows: [{ name: 'Watch', apps: ['com.netflix.ninja', 'com.google.android.youtube.tv'] }], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [],
-    accent: '#4CAF50', focus: 'glow', background: '#1C2A1F', wallpaper_dim: 35,
-    order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, clock: 'time_date', greeting: '', idle_minutes: 0,
+    accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
+    order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false, clock: 'time_date', greeting: '', idle_minutes: 0,
     weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'c',
     visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100,
     has_wallpaper: false
@@ -358,6 +358,9 @@ export function installMock(): void {
     },
     async screenshot() {
       await wait(900)
+      return gradientUrl('#101820', '#0b2a3a', '#000000')
+    },
+    async thumbShot() {
       return gradientUrl('#101820', '#0b2a3a', '#000000')
     },
     async webGet(url) {

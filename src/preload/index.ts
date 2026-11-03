@@ -8,7 +8,7 @@ const methods = [
   'lists', 'plan', 'tvPackages', 'applyDebloat', 'restore',
   'useStockLauncher', 'removeOldLauncher', 'homeStatus', 'installHome', 'useHome', 'homeApps', 'readHomeConfig', 'setRemoteButtons', 'homeKeys', 'setHomeConfig', 'setHomeWallpaper', 'applyHomeTheme', 'themeBackup', 'restoreThemeBackup', 'forgetThemeBackup', 'saveHomeTheme',
   'knownTvs', 'connectKnown', 'forgetTv', 'saveTvThumb',
-  'screenshot', 'webGet',
+  'screenshot', 'thumbShot', 'webGet',
   'systemState', 'setPrivateDns', 'setAnimationScale', 'clearCaches', 'key', 'reboot'
 ] as const
 

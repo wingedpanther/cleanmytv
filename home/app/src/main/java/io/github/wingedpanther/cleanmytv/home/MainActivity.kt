@@ -20,8 +20,11 @@ import androidx.core.graphics.drawable.toBitmap
 
 const val TAG = "CMTVHome"
 
-/** [tint]: the icon's main colour, darkened, for the tile behind an app that has no TV banner (#4). */
-data class TvApp(val pkg: String, val label: String, val art: ImageBitmap, val banner: Boolean, val launch: Intent, val tint: Int? = null)
+/**
+ * [tint]: the icon's main colour, darkened, for the tile behind an app that has no TV banner (#4).
+ * [colour]: the same for every app, banner or icon, for the background that follows focus.
+ */
+data class TvApp(val pkg: String, val label: String, val art: ImageBitmap, val banner: Boolean, val launch: Intent, val tint: Int? = null, val colour: Int? = null)
 
 class MainActivity : ComponentActivity() {
     private val visualiser = Visualiser()
@@ -101,7 +104,8 @@ fun loadApps(pm: PackageManager, self: String): List<TvApp> {
             val launch = Intent(Intent.ACTION_MAIN).addCategory(category)
                 .setClassName(ai.packageName, ai.name)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-            out += TvApp(ai.packageName, ri.loadLabel(pm).toString(), art.asImageBitmap(), banner != null, launch, if (banner == null) tileTint(art) else null)
+            val colour = tileTint(art)
+            out += TvApp(ai.packageName, ri.loadLabel(pm).toString(), art.asImageBitmap(), banner != null, launch, if (banner == null) colour else null, colour)
         }
     }
     return out
@@ -114,7 +118,7 @@ fun loadApps(pm: PackageManager, self: String): List<TvApp> {
 fun tileTint(icon: Bitmap): Int? {
     var r = 0.0; var g = 0.0; var b = 0.0; var weight = 0.0
     val hsv = FloatArray(3)
-    // Every 4th pixel of a 128 px icon is 1,024 reads per app: cheap enough for a 2 GB box.
+    // Every 4th pixel: 1,024 reads for a 128 px icon, 3,600 for a 320x180 banner. Cheap enough for a 2 GB box.
     for (y in 0 until icon.height step 4) for (x in 0 until icon.width step 4) {
         val c = icon.getPixel(x, y)
         if (android.graphics.Color.alpha(c) < 200) continue

@@ -461,7 +461,10 @@ const FEATURES: Record<string, string> = {
   'com.google.android.tv.remote.service': 'the phone remote (Google TV / Android TV Remote app)',
   'com.google.android.apps.mediashell': 'casting from phones (Chromecast built-in)',
   'com.google.android.katniss': 'voice search and the remote\'s mic button',
-  'com.google.android.speech.pumpkin': 'voice search and the remote\'s mic button'
+  'com.google.android.speech.pumpkin': 'voice search and the remote\'s mic button',
+  // Both are needed: with backdrop off, dreamx still runs but shows Google's gallery, not the owner's albums (#57).
+  'com.google.android.apps.tv.dreamx': 'the Ambient screensaver and its Google Photos albums',
+  'com.google.android.backdrop': 'the Ambient screensaver and its Google Photos albums'
 }
 
 /** Why a package is the owner's decision rather than a default, or undefined when it is plain bloat. */

@@ -17,6 +17,7 @@ import { BUILT_IN_THEMES, THEME_KEYS, parseTheme, themeFileName, themeToFile } f
 import { bootCheck } from '../src/main/bootcheck'
 import { FakeTv, newTv, startFakeAdbd } from './fake-adbd'
 
+const TV_COPY = '/data/local/tmp/cleanmytv-wallpaper.jpg'
 const home = mkdtempSync(join(tmpdir(), 'cytv-test-'))
 process.env.HOME = home
 // A resources folder of its own: the real lists and a stand-in APK, so this runs without the launcher
@@ -214,7 +215,7 @@ describe('CleanMyTV Home', () => {
     const art = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(10 * 1024)])
     // Layout and personal keys in a theme are ignored.
     const cfg = await Th.apply({ name: 'Aurora', look: { ...BUILT_IN_THEMES[0].look, columns: 8, greeting: 'Hi' } as never, wallpaper: art.toString('base64') })
-    expect(cfg).toMatchObject({ accent: '#2EC4B6', focus: 'glow', tile_scale: 80, columns: 4 })
+    expect(cfg).toMatchObject({ accent: '#2EC4B6', focus: 'lift', tile_scale: 80, columns: 4 })
     expect(cfg.greeting).not.toBe('Hi')
     expect(cfg.rows).toEqual([{ name: 'Kids', apps: ['com.netflix.ninja'] }])
     expect(tv.files.get('/data/data/home/wallpaper.jpg')?.equals(art)).toBe(true)
@@ -248,14 +249,33 @@ describe('CleanMyTV Home', () => {
   it("warns before the first theme when the TV's wallpaper came from elsewhere", async () => {
     Th.forget()
     await H.setWallpaper(Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(4 * 1024)]).toString('base64'))
-    // Set from another computer: this one has no copy.
-    const copy = H.backupBase() + '.jpg'
-    rmSync(copy)
+    // Set by an older app on another computer: no copy here or on the TV.
+    rmSync(H.backupBase() + '.jpg')
+    tv.files.delete(TV_COPY)
     expect(await Th.backup()).toMatchObject({ savedAt: null, wallpaperAtRisk: true })
     await Th.apply({ name: 'Nord', look: { accent: '#81A1C1' } })
     expect(await Th.backup()).toMatchObject({ withWallpaper: false, wallpaperAtRisk: false })
     Th.forget()
     await H.setWallpaper(null)
+  })
+
+  it('keeps a copy of the wallpaper on the TV for other computers', async () => {
+    const jpeg = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(12 * 1024)])
+    await H.setWallpaper(jpeg.toString('base64'))
+    expect(tv.files.get(TV_COPY)?.equals(jpeg)).toBe(true)
+    // Another computer: no copy here, but the TV has one.
+    rmSync(H.backupBase() + '.jpg')
+    expect(await Th.backup()).toMatchObject({ savedAt: null, wallpaperAtRisk: false })
+    const out = join(home, 'elsewhere.cmtvtheme')
+    expect(await Th.save('Elsewhere', async () => out)).toMatchObject({ ok: true, warnings: [] })
+    expect(Buffer.from(parseTheme(readFileSync(out, 'utf8')).wallpaper as string, 'base64').equals(jpeg)).toBe(true)
+    expect(readFileSync(H.backupBase() + '.jpg').equals(jpeg)).toBe(true)
+    // Set by the older app from here: the copy here goes onto the TV.
+    tv.files.delete(TV_COPY)
+    expect(await H.wallpaperCopy()).toBe(jpeg.toString('base64'))
+    expect(tv.files.get(TV_COPY)?.equals(jpeg)).toBe(true)
+    await H.setWallpaper(null)
+    expect(tv.files.has(TV_COPY)).toBe(false)
   })
 
   it('saves the look with the wallpaper this computer sent, and reads it back', async () => {
@@ -287,6 +307,14 @@ describe('CleanMyTV Home', () => {
     expect(text).toMatch(/Home: \S+\/\S+/)
     expect(text).toMatch(/CleanMyTV Home: \S+ installed/)
     for (const secret of [T.host(), 'Sam', 'Dublin']) expect(text).not.toContain(secret)
+  })
+
+  it('takes the 1.3.0 focus and feel settings', async () => {
+    const cfg = await H.setConfig({ focus: 'lift', name_focus: true, follow_colour: true, pin_focus: true, tilt: true })
+    expect(cfg).toMatchObject({ focus: 'lift', name_focus: true, follow_colour: true, pin_focus: true, tilt: true })
+    await expect(H.setConfig({ focus: 'sparkle' as never })).rejects.toThrow(/focus/)
+    await expect(H.setConfig({ tilt: 'yes' as never })).rejects.toThrow(/tilt/)
+    await H.setConfig({ focus: 'glow', name_focus: false, follow_colour: false, pin_focus: false, tilt: false })
   })
 
   it('takes weather places and gives now playing its access only with the section', async () => {

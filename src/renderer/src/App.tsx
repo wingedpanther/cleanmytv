@@ -73,7 +73,7 @@ export default function App(): ReactNode {
       setTvs(list)
       const tv = list.find((t) => t.host === host)
       if (!tv || (tv.thumb && Date.now() - (tv.thumbAt ?? 0) < THUMB_MAX_AGE)) return
-      const shot = await window.cytv.screenshot().catch(() => null)
+      const shot = await window.cytv.thumbShot().catch(() => null)
       if (!shot || stale) return
       setTvs(await window.cytv.saveTvThumb(host, await thumbnail(shot)))
     }).catch(() => null)

@@ -132,7 +132,7 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; }
 
 /* ---------- shell ---------- */
 
-.app { display: grid; grid-template-columns: 248px 1fr; grid-template-rows: minmax(0, 1fr); position: fixed; inset: 0; overflow: hidden; }
+.app { display: grid; grid-template-columns: 248px 1fr; grid-template-rows: minmax(0, 1fr); position: fixed; inset: 0; overflow: clip; }
 
 .sidebar {
   background: var(--sidebar);
@@ -257,7 +257,7 @@ input[type='color'] { width: 44px; height: 34px; padding: 2px; border: 1.5px sol
 input[type='range'] { accent-color: var(--red); width: 100%; }
 input[type='checkbox'] { accent-color: var(--navy); width: 16px; height: 16px; }
 
-.toggle { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; cursor: pointer; }
+.toggle { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; cursor: pointer; }
 .toggle + .toggle { border-top: 1px solid var(--line); }
 .toggle-switch {
   flex: none; width: 38px; height: 22px; border-radius: 999px; background: var(--navy-15);

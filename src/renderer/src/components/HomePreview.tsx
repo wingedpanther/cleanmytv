@@ -74,14 +74,16 @@ function Tile({ app, w, names, focused, cfg }: { app: TvApp; w: number; names: b
       ? { boxShadow: `0 0 0 2px #F0EBE5, 0 0 16px 4px ${cfg.accent}`, transform: 'scale(1.08)' }
       : cfg.focus === 'outline'
         ? { outline: `3px solid ${cfg.accent}`, outlineOffset: 0, transform: 'scale(1.08)' }
-        : {}
+        : cfg.focus === 'lift'
+          ? { boxShadow: `0 10px 18px -4px rgba(0,0,0,.6), 0 0 22px 1px ${cfg.accent}59, inset 0 0 0 1px rgba(255,255,255,.28)`, transform: 'scale(1.09) translateY(-3px)' }
+          : {}
     : {}
   return (
     <div style={{ width: w, flex: 'none' }}>
       <div style={{ height: (w * 9) / 16, borderRadius: 10, background: '#2D3A2E', display: 'grid', placeItems: 'center', color: '#F0EBE5', fontWeight: 500, fontSize: Math.max(12, w / 11), padding: '0 8px', textAlign: 'center', lineHeight: 1.15, overflow: 'hidden', ...ring }}>
         {app.label}
       </div>
-      {names && <div style={{ marginTop: 6, fontSize: 14, color: '#F0EBE5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{app.label}</div>}
+      {names && <div style={{ visibility: focused || !cfg.name_focus ? 'visible' : 'hidden', marginTop: 6, fontSize: 14, color: '#F0EBE5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{app.label}</div>}
     </div>
   )
 }

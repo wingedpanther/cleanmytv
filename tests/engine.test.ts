@@ -192,6 +192,9 @@ describe('upstream lists', () => {
     expect(D.choiceFor(by('com.google.android.tv.remote.service'))).toMatch(/phone remote/)
     // Known features are protected even where a list does not label them.
     expect(D.choiceFor({ pkg: 'com.google.android.tv.remote.service', note: '', suggested: true })).toMatch(/phone remote/)
+    for (const pkg of ['com.google.android.apps.tv.dreamx', 'com.google.android.backdrop']) {
+      expect(D.choiceFor({ pkg, note: '', suggested: true }), pkg).toMatch(/Google Photos/)
+    }
     expect(D.choiceFor({ pkg: 'com.vendor.ads', note: '', suggested: true, section: 'Optional: uncomment what you do not use' })).toMatch(/^Optional/)
   })
 

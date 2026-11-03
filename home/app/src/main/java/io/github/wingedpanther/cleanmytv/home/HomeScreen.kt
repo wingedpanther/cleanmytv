@@ -2,10 +2,17 @@ package io.github.wingedpanther.cleanmytv.home
 
 import android.graphics.BitmapFactory
 import android.util.Log
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
@@ -45,6 +52,7 @@ import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material.icons.outlined.WbCloudy
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -57,6 +65,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.KeyEventType
@@ -70,6 +80,10 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.graphics.ImageBitmap
@@ -118,8 +132,8 @@ private fun scrim(alpha: Float) = GROUND.copy(alpha = alpha)
 private val SAFE_X = 48.dp
 private val SAFE_Y = 27.dp
 private val GAP = 16.dp
-// Room on each side of a row so a focused tile's glow and zoom aren't clipped.
-private val BLEED = 14.dp
+// Room on each side of a row so a focused tile's glow, shadow and zoom aren't clipped.
+private val BLEED = 22.dp
 
 /** Everything the layouts draw, worked out once from the apps on the TV and the settings. */
 private class Home(apps: List<TvApp>, val cfg: HomeConfig) {
@@ -221,11 +235,15 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     }
     val first = remember { FocusRequester() }
     LaunchedEffect(home.first, cfg.layout) { if (home.first != null) runCatching { first.requestFocus() } }
-    val ui = Ui(cfg, accent, first, home.first, onFolder = { openFolder = it }, track = track, weather = weather)
+    var focusColour by remember { mutableStateOf<Color?>(null) }
+    val tint by animateColorAsState(focusColour ?: Color.Transparent, tween(600), label = "tint")
+    val ui = Ui(cfg, accent, first, home.first, onFolder = { openFolder = it }, track = track, weather = weather,
+        onFocusApp = { a -> focusColour = a.colour?.let { Color(it) } })
 
     Box(
         Modifier.fillMaxSize().background(Color(cfg.background)).onPreviewKeyEvent { e ->
             lastPress = System.currentTimeMillis()
+            if (e.type == KeyEventType.KeyDown) Motion.seen(e.key)
             when {
                 idle && e.type == KeyEventType.KeyDown -> { idle = false; swallowUp = true; true }
                 swallowUp && e.type == KeyEventType.KeyUp -> { swallowUp = false; true }
@@ -237,6 +255,8 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = cfg.wallpaperDim / 100f)))
         }
+        // The focused app's colour washes in from the top; the wallpaper still shows through.
+        if (cfg.followColour) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(tint.copy(alpha = tint.alpha * 0.5f), Color.Transparent))))
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = shown }) {
             // Rows sit over the lower half of the photo; a ground-tinted shade keeps their names readable.
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to scrim(0.8f))))
@@ -263,6 +283,7 @@ private class Ui(
     val onFolder: (Pair<String, List<TvApp>>) -> Unit,
     val track: Track? = null,
     val weather: WeatherNow? = null,
+    val onFocusApp: (TvApp) -> Unit = {},
 ) {
     fun focusFor(section: String, app: TvApp): Modifier = if ("$section:${app.pkg}" == focusKey) Modifier.focusRequester(focus) else Modifier
 }
@@ -374,7 +395,7 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
                 "folders" -> if (showFolders && home.folders.isNotEmpty()) {
                     item("folders-title") { SectionTitle("Folders") }
                     item("folders") {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 12.dp)) {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 16.dp)) {
                             items(home.folders, key = { it.first }) { f -> FolderTile(f, ui, Modifier.width(148.dp * (cfg.tileScale / 100f))) }
                         }
                     }
@@ -412,36 +433,123 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun TileRow(section: String, list: List<TvApp>, ui: Ui, w: Dp, big: Boolean) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 12.dp)) {
-        items(list, key = { it.pkg }) { app -> Tile(section, app, ui, Modifier.width(w), big) }
+    val row = @Composable {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 16.dp)) {
+            items(list, key = { it.pkg }) { app -> Tile(section, app, ui, Modifier.width(w), big) }
+        }
     }
+    if (ui.cfg.pinFocus) CompositionLocalProvider(LocalBringIntoViewSpec provides PINNED) { row() } else row()
 }
 
 // ---- Tiles ----------------------------------------------------------------------------------------
 
+/** [lifted]: the caller zooms the tile itself with [lift], so the surface doesn't. */
 @Composable
-private fun focusStyle(ui: Ui, shape: RoundedCornerShape, zoom: Float = 1.08f) = Triple(
-    ClickableSurfaceDefaults.scale(focusedScale = if (ui.cfg.focus == "none") 1f else zoom),
-    ClickableSurfaceDefaults.glow(focusedGlow = if (ui.cfg.focus == "glow") Glow(ui.accent, 16.dp) else Glow.None),
+private fun focusStyle(ui: Ui, shape: RoundedCornerShape, zoom: Float = 1.08f, lifted: Boolean = false) = Triple(
+    ClickableSurfaceDefaults.scale(focusedScale = if (ui.cfg.focus == "none" || (lifted && ui.cfg.focus == "lift")) 1f else zoom),
+    ClickableSurfaceDefaults.glow(
+        focusedGlow = when (ui.cfg.focus) {
+            "glow" -> Glow(ui.accent, 16.dp)
+            "lift" -> Glow(ui.accent.copy(alpha = 0.35f), 16.dp) // a faint halo; the shadow does the lifting
+            else -> Glow.None
+        }
+    ),
     ClickableSurfaceDefaults.border(
         focusedBorder = when (ui.cfg.focus) {
             "outline" -> Border(BorderStroke(3.dp, ui.accent), shape = shape)
             "glow" -> Border(BorderStroke(2.dp, TEXT), shape = shape) // a light ring that reads on any banner
+            "lift" -> Border(BorderStroke(1.dp, Color.White.copy(alpha = 0.28f)), shape = shape)
             else -> Border.None
         }
     ),
 )
 
+/** The last D-pad move, for the tilt: -1 or 1 on one axis. */
+private object Motion {
+    var dx = 0
+    var dy = 0
+    fun seen(k: Key) {
+        when (k) {
+            Key.DirectionLeft -> { dx = -1; dy = 0 }
+            Key.DirectionRight -> { dx = 1; dy = 0 }
+            Key.DirectionUp -> { dx = 0; dy = -1 }
+            Key.DirectionDown -> { dx = 0; dy = 1 }
+            else -> {}
+        }
+    }
+}
+
+/** Lift: the tile springs up on a soft shadow and, with tilt on, leans toward the move and settles. */
+@Composable
+private fun Modifier.lift(ui: Ui, shape: Shape, focused: Boolean): Modifier {
+    if (ui.cfg.focus != "lift") return this
+    val scale by animateFloatAsState(if (focused) 1.09f else 1f, spring(dampingRatio = 0.62f, stiffness = 420f), label = "lift")
+    val lean = remember { Animatable(0f) }
+    val leanX = remember { mutableStateOf(true) }
+    LaunchedEffect(focused) {
+        if (focused && ui.cfg.tilt && (Motion.dx != 0 || Motion.dy != 0)) {
+            leanX.value = Motion.dx != 0
+            lean.snapTo(if (Motion.dx != 0) Motion.dx * 4f else -Motion.dy * 4f)
+            lean.animateTo(0f, tween(220))
+        } else lean.snapTo(0f)
+    }
+    return zIndex(if (focused) 1f else 0f)
+        .graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+            translationY = -(scale - 1f) * 40f
+            if (leanX.value) rotationY = lean.value else rotationX = lean.value
+            cameraDistance = 12f * density
+        }
+        .shadow(if (focused) 12.dp else 0.dp, shape, clip = false, ambientColor = Color.Black, spotColor = Color.Black)
+}
+
+/** Over a lifted tile: one sweep of light when focus lands, and a slight dim on the tiles around it. */
+@Composable
+private fun LiftLight(ui: Ui, focused: Boolean) {
+    if (ui.cfg.focus != "lift") return
+    val p = remember { Animatable(0f) }
+    LaunchedEffect(focused) {
+        p.snapTo(0f)
+        if (focused) { delay(80); p.animateTo(1f, tween(650, easing = FastOutSlowInEasing)) }
+    }
+    if (!focused) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
+    else if (p.value in 0.001f..0.999f) Box(
+        Modifier.fillMaxSize().drawWithContent {
+            val w = size.width
+            val x = -w * 0.8f + p.value * w * 1.6f
+            drawRect(
+                Brush.linearGradient(
+                    0f to Color.Transparent, 0.45f to Color.White.copy(alpha = 0.22f), 0.55f to Color.White.copy(alpha = 0.05f), 1f to Color.Transparent,
+                    start = Offset(x, 0f), end = Offset(x + w * 0.6f, size.height * 0.4f)
+                )
+            )
+        }
+    )
+}
+
+/** Keeps the focused tile one step in from the left; the row slides under it. */
+@OptIn(ExperimentalFoundationApi::class)
+private val PINNED = object : BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = offset - containerSize * 0.12f
+}
+
 @Composable
 private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boolean) {
     val ctx = LocalContext.current
     val shape = RoundedCornerShape(if (big) 12.dp else 10.dp)
-    val (scale, glow, border) = focusStyle(ui, shape)
+    val (scale, glow, border) = focusStyle(ui, shape, lifted = true)
+    var focused by remember { mutableStateOf(false) }
+    // With names on focus, the name keeps its room so the rows don't jump.
+    val nameAlpha by animateFloatAsState(if (!ui.cfg.nameFocus || focused) 1f else 0f, tween(200), label = "name")
     Column(size) {
         Surface(
             onClick = { runCatching { ctx.startActivity(app.launch) }.onFailure { Log.w(TAG, "launch ${app.pkg}: $it") } },
-            modifier = ui.focusFor(section, app).fillMaxWidth().aspectRatio(16f / 9f),
+            modifier = ui.focusFor(section, app).fillMaxWidth().aspectRatio(16f / 9f)
+                .onFocusChanged { focused = it.isFocused; if (it.isFocused) ui.onFocusApp(app) }
+                .lift(ui, shape, focused),
             shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
             colors = ClickableSurfaceDefaults.colors(containerColor = TILE, focusedContainerColor = TILE_FOCUSED)
         ) {
@@ -450,9 +558,10 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
             } else {
                 GeneratedTile(app, big, named = !ui.cfg.showNames)
             }
+            LiftLight(ui, focused)
         }
         if (ui.cfg.showNames) {
-            Text(app.label, color = TEXT, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 7.dp, start = 2.dp))
+            Text(app.label, color = TEXT, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 7.dp, start = 2.dp).graphicsLayer { alpha = nameAlpha })
         }
     }
 }
@@ -489,11 +598,12 @@ private fun GeneratedTile(app: TvApp, big: Boolean, named: Boolean) {
 @Composable
 private fun FolderTile(folder: Pair<String, List<TvApp>>, ui: Ui, size: Modifier) {
     val shape = RoundedCornerShape(10.dp)
-    val (scale, glow, border) = focusStyle(ui, shape)
+    val (scale, glow, border) = focusStyle(ui, shape, lifted = true)
+    var focused by remember { mutableStateOf(false) }
     Column(size) {
         Surface(
             onClick = { ui.onFolder(folder) },
-            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).onFocusChanged { focused = it.isFocused }.lift(ui, shape, focused),
             shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
             colors = ClickableSurfaceDefaults.colors(containerColor = TILE, focusedContainerColor = TILE_FOCUSED)
         ) {
@@ -507,6 +617,7 @@ private fun FolderTile(folder: Pair<String, List<TvApp>>, ui: Ui, size: Modifier
                     }
                 }
             }
+            LiftLight(ui, focused)
         }
         Text("${folder.first} · ${folder.second.size}", color = TEXT, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 7.dp, start = 2.dp))
     }

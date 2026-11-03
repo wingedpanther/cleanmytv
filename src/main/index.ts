@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { configurePaths, paths } from './paths'
-import { setSinks } from './log'
+import { log, setSinks } from './log'
 import * as T from './tv'
 import * as debloat from './debloat'
 import * as launcher from './launcher'
@@ -160,6 +160,11 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
       return r.canceled || !r.filePath ? null : r.filePath
     }),
   screenshot: () => system.screenshot(),
+  // Nobody asked for this one, so a TV that can't take it (a Mi Box S, on first connect) gets a note, not an error.
+  thumbShot: () => system.screenshot().catch((e: Error) => {
+    log('screenshot', 'info', `no picture of the TV screen for the list this time: ${e.message}`)
+    return null
+  }),
   webGet: (url) => web.get(String(url)),
   systemState: () => system.state(),
   setPrivateDns: (host) => system.privateDns(host),
