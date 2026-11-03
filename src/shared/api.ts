@@ -360,6 +360,9 @@ export interface CytvApi {
   /** Wireless-debugging pairing with Google's adb (downloaded on demand), then opens port 5555. */
   pair(host: string, pairPort: number, code: string, connectPort: number): Promise<ApplyResult>
 
+  /** App, computer and TV details for a bug report: no address, serial or settings. */
+  bugReport(): Promise<string>
+
   // Readiness
   checks(): Promise<CheckItem[]>
   download(tool: ToolId): Promise<ApplyResult>

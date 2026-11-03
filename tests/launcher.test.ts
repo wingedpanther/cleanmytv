@@ -10,6 +10,7 @@ import * as T from '../src/main/tv'
 import * as L from '../src/main/launcher'
 import * as H from '../src/main/home'
 import * as D from '../src/main/debloat'
+import { bugReport } from '../src/main/report'
 import * as S from '../src/main/system'
 import * as Th from '../src/main/themes'
 import { BUILT_IN_THEMES, THEME_KEYS, parseTheme, themeFileName, themeToFile } from '../src/shared/themes'
@@ -276,6 +277,16 @@ describe('CleanMyTV Home', () => {
     expect(t.look).not.toHaveProperty('greeting')
     expect(await Th.save('x', async () => null)).toBeNull()
     await H.setWallpaper(null)
+  })
+
+  it('describes the TV for a bug report without its address or the owner\'s settings', async () => {
+    await H.setConfig({ greeting: 'Hello Sam', weather_place: 'Dublin' })
+    const text = await bugReport('9.9.9')
+    expect(text).toMatch(/^CleanMyTV 9\.9\.9, /)
+    expect(text).toContain('TV: Sony BRAVIA 4K VH2')
+    expect(text).toMatch(/Home: \S+\/\S+/)
+    expect(text).toMatch(/CleanMyTV Home: \S+ installed/)
+    for (const secret of [T.host(), 'Sam', 'Dublin']) expect(text).not.toContain(secret)
   })
 
   it('takes weather places and gives now playing its access only with the section', async () => {
