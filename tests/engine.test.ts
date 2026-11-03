@@ -212,3 +212,35 @@ it('creates the app key once and derives its public half', () => {
   expect(readFileSync(join(home, 'data', 'adbkey.pub'), 'utf8').trim()).toBe(keys[0].pub)
   expect(createHash('md5').update('x').digest('hex')).toHaveLength(32)
 })
+
+describe('who owns the Wi-Fi (discussion #13, #55)', () => {
+  const W = `cname=${D.SETUPWRAITH}`
+  const SYS = 'cname=android.uid.system:1000'
+  const net = (head: string, id: number, ssid: string, cname: string): string =>
+    `${head}ID: ${id} SSID: "${ssid}" PROVIDER-NAME: null BSSID: null FQDN: null PRIO: 0 HIDDEN: false\n NetworkSelectionStatus NETWORK_SELECTION_ENABLED\n hasEverConnected: true\n cuid=1000 ${cname} luid=1000 lname=x\n`
+  const dump = (nets: string, extra = ''): string =>
+    `${extra}Dump of WifiConfigManager\nWifiConfigManager - Log Begin ----\n2026 addOrUpdateNetwork ${W}\nWifiConfigManager - Log End ----\n` +
+    `WifiConfigManager - Configured networks Begin ----\n${nets}WifiConfigManager - Configured networks End ----\n` +
+    `WifiConfigManager - ConfigurationMap Begin ----\nmPerID={0=ID: 0 SSID: "Old" ${W}}\nWifiConfigManager - ConfigurationMap End ----\nWifiConfigManager - Last selected network ID 1\n`
+
+  it('judges the network in use, not old ones or the rest of the dump (Android 9)', () => {
+    // Joined again after setup: the network in use is the system's; an old one from setup is still saved.
+    expect(D.parseWifi(dump(net('- DSBLE ', 0, 'Old', W) + net('* ', 1, 'Home', SYS)))).toEqual({ owner: 'system', lost: 1 })
+    expect(D.parseWifi(dump(net('* ', 0, 'Home', W)))).toEqual({ owner: 'setupwraith', lost: 0 })
+  })
+
+  it('finds the network in use from mWifiInfo on newer Android', () => {
+    const connected = 'mWifiInfo SSID: "Home", BSSID: aa:bb, MAC: 02:00, IP: /10.0.0.5, Security type: 2, Supplicant state: COMPLETED, RSSI: -50\n'
+    expect(D.parseWifi(dump(net('', 0, 'Old', W) + net('', 1, 'Home', SYS), connected))).toEqual({ owner: 'system', lost: 1 })
+    expect(D.parseWifi(dump(net('', 1, 'Home', W), connected))).toEqual({ owner: 'setupwraith', lost: 0 })
+  })
+
+  it('stays careful with nothing in use (Ethernet) or an unusual dump', () => {
+    const idle = 'mWifiInfo SSID: <unknown ssid>, BSSID: <none>, Supplicant state: DISCONNECTED\n'
+    expect(D.parseWifi(dump(net('', 0, 'Old', W) + net('', 1, 'Home', SYS), idle))).toEqual({ owner: 'setupwraith', lost: 0 })
+    expect(D.parseWifi(dump(net('', 1, 'Home', SYS), idle))).toEqual({ owner: 'system', lost: 0 })
+    expect(D.parseWifi(dump(''))).toEqual({ owner: 'unknown', lost: 0 })
+    expect(D.parseWifi('')).toEqual({ owner: 'unknown', lost: 0 })
+    expect(D.parseWifi(`something ${W} else`)).toEqual({ owner: 'setupwraith', lost: 0 })
+  })
+})

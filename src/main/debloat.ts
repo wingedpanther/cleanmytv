@@ -576,16 +576,57 @@ function writeSavedList(file: string, title: string, header: string[], active: s
   writeFileSync(file, out.join('\n') + '\n')
 }
 
+export interface WifiCheck {
+  owner: 'setupwraith' | 'system' | 'unknown'
+  /** Other saved networks that belong to setupwraith and go with it; the one in use is fine. */
+  lost: number
+}
+
 /**
- * Who owns the saved Wi-Fi networks. A network saved in the first-run wizard belongs to setupwraith, and
- * Android deletes it the moment setupwraith is disabled. 'unknown' when the TV lists none or didn't answer.
+ * Who owns the saved Wi-Fi network the TV uses. A network saved in the first-run wizard belongs to
+ * setupwraith, and Android deletes it the moment setupwraith is disabled. Only the saved-networks list
+ * counts: the rest of the dump repeats networks, old ones included, and a TV whose owner joined the
+ * network again still matched there (discussion #13, #55). With no network in use (Ethernet), any
+ * network of setupwraith's counts. 'unknown' when the TV lists none or didn't answer.
  */
-export async function wifiOwner(task: string): Promise<'setupwraith' | 'system' | 'unknown'> {
+export async function wifiOwner(task: string): Promise<WifiCheck> {
   let wifi = ''
   try { wifi = await T.sh(task, 'dumpsys wifi', { quiet: true }) } catch { wifi = '' }
-  const owners = wifi.match(/cname=[^ ]*/g) ?? []
-  if (!owners.length) return 'unknown'
-  return owners.some((o) => o.includes('setupwraith')) ? 'setupwraith' : 'system'
+  return parseWifi(wifi)
+}
+
+const isWraith = (cname: string | undefined): boolean => !!cname?.includes('setupwraith')
+
+export function parseWifi(wifi: string): WifiCheck {
+  const section = /Configured networks Begin -+\n([\s\S]*?)^[^\n]*Configured networks End/m.exec(wifi)?.[1]
+  if (section === undefined) {
+    // A dump without the usual section: the old, cautious reading.
+    const owners = wifi.match(/cname=[^ ]*/g) ?? []
+    if (!owners.length) return { owner: 'unknown', lost: 0 }
+    return { owner: owners.some((o) => o.includes('setupwraith')) ? 'setupwraith' : 'system', lost: 0 }
+  }
+  // "* ID:" is the network in use on older Android; newer ones say so in mWifiInfo.
+  const nets = section.split(/\n(?=(?:\* |- DSBLE |- )?ID: \d+ SSID: )/).flatMap((b) => {
+    const m = /^(\* )?(?:- DSBLE |- )?ID: (\d+) SSID: (.*?) PROVIDER-NAME:/.exec(b.trim())
+    return m ? [{ id: Number(m[2]), ssid: m[3].replace(/^"|"$/g, ''), current: !!m[1], cname: /cname=(\S+)/.exec(b)?.[1] }] : []
+  })
+  if (!nets.length) return { owner: 'unknown', lost: 0 }
+  const info = /mWifiInfo SSID: (.*?), BSSID: [^\n]*?Supplicant state: (\w+)/.exec(wifi)
+  const inUse =
+    nets.find((n) => n.current) ??
+    (info && info[2] === 'COMPLETED' ? nets.find((n) => n.ssid === info[1].replace(/^"|"$/g, '')) : undefined)
+  if (inUse) {
+    if (!inUse.cname) return { owner: 'unknown', lost: 0 }
+    return { owner: isWraith(inUse.cname) ? 'setupwraith' : 'system', lost: nets.filter((n) => n !== inUse && isWraith(n.cname)).length }
+  }
+  if (nets.some((n) => !n.cname)) return { owner: 'unknown', lost: 0 }
+  return { owner: nets.some((n) => isWraith(n.cname)) ? 'setupwraith' : 'system', lost: 0 }
+}
+
+/** For the warnings: saved networks from the first setup that go with setupwraith. No names: logs get pasted. */
+export function lostNetworks(n: number): string[] {
+  if (!n) return []
+  return [`${n === 1 ? 'One other saved Wi-Fi network' : `${n} other saved Wi-Fi networks`} from the TV's first setup went with setupwraith. If you use ${n === 1 ? 'it' : 'them'}, join again in Settings > Network & Internet.`]
 }
 
 export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
@@ -603,7 +644,8 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   // A Wi-Fi network saved during the first-run wizard belongs to setupwraith, and Android deletes it the
   // moment setupwraith is disabled: the TV drops off Wi-Fi, and ADB with it.
   if (pkgs.includes(SETUPWRAITH) && !req.forceSetupwraith) {
-    const owner = await wifiOwner(TASK)
+    const { owner, lost } = await wifiOwner(TASK)
+    if (owner === 'system') warnings.push(...lostNetworks(lost))
     if (owner === 'unknown') {
       warnings.push(`Skipped ${SETUPWRAITH}: could not check which app owns the saved Wi-Fi networks. Try again, or force it if the TV uses Ethernet.`)
       pkgs = pkgs.filter((p) => p !== SETUPWRAITH)
