@@ -117,6 +117,15 @@ export const BUILT_IN_THEMES: BuiltInTheme[] = [
       ]
     }
   },
+  {
+    id: 'graphite',
+    name: 'Graphite',
+    look: { accent: '#FFFFFF', focus: 'outline', background: '#111214', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'white', viz_peaks: false },
+    paint: {
+      base: ['#0D0E10', '#1D1F23'],
+      glows: [{ colour: '#FFFFFF', x: 0.5, y: -0.25, r: 0.7, a: 0.07 }]
+    }
+  },
   // Gruvbox dark (github.com/morhetz/gruvbox). Only the dark palette: Home's text is white.
   {
     id: 'gruvbox',
@@ -155,12 +164,39 @@ export const BUILT_IN_THEMES: BuiltInTheme[] = [
     }
   },
   {
-    id: 'graphite',
-    name: 'Graphite',
-    look: { accent: '#FFFFFF', focus: 'outline', background: '#111214', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'white', viz_peaks: false },
+    id: 'gruvbox-yellow',
+    name: 'Gruvbox Yellow',
+    look: { accent: '#FABD2F', focus: 'glow', background: '#1D2021', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'accent', viz_peaks: false },
     paint: {
-      base: ['#0D0E10', '#1D1F23'],
-      glows: [{ colour: '#FFFFFF', x: 0.5, y: -0.25, r: 0.7, a: 0.07 }]
+      base: ['#282828', '#1D2021'],
+      glows: [
+        { colour: '#FABD2F', x: 0.12, y: 0.12, r: 0.45, a: 0.13 },
+        { colour: '#D79921', x: 0.9, y: 0.95, r: 0.4, a: 0.12 }
+      ]
+    }
+  },
+  {
+    id: 'gruvbox-blue',
+    name: 'Gruvbox Blue',
+    look: { accent: '#83A598', focus: 'glow', background: '#1D2021', wallpaper_dim: 0, viz_style: 'wave', viz_colour: 'accent', viz_peaks: false },
+    paint: {
+      base: ['#1D2021', '#32302F'],
+      glows: [
+        { colour: '#83A598', x: 0.88, y: 0.12, r: 0.5, a: 0.16 },
+        { colour: '#458588', x: 0.1, y: 0.92, r: 0.4, a: 0.16 }
+      ]
+    }
+  },
+  {
+    id: 'gruvbox-green',
+    name: 'Gruvbox Green',
+    look: { accent: '#B8BB26', focus: 'outline', background: '#282828', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'accent', viz_peaks: true },
+    paint: {
+      base: ['#1D2021', '#282828'],
+      glows: [
+        { colour: '#B8BB26', x: 0.5, y: 1.1, r: 0.5, a: 0.13 },
+        { colour: '#98971A', x: 0.05, y: 0.05, r: 0.35, a: 0.1 }
+      ]
     }
   }
 ]
