@@ -201,8 +201,13 @@ export function lists(probe: Probe | undefined): DebloatListSummary[] {
   if (probe && bestExact < 5) {
     const family = familyFor(probe)
     const base = family ? upstreamLists().find((l) => l.id === family.baseListId) : undefined
-    if (family && base && !all.some((l) => l.id === base.id && l.score >= 5)) {
-      out.push({
+    // A base list that already matches a little keeps its own row and score.
+    if (family && base && !all.some((l) => l.id === base.id && l.score > 0)) {
+      // It replaces the base list's own row, so each id is listed once, and goes right after any matches.
+      const own = out.findIndex((l) => l.id === base.id)
+      if (own >= 0) out.splice(own, 1)
+      const unmatched = out.findIndex((l) => l.score === 0)
+      out.splice(unmatched < 0 ? out.length : unmatched, 0, {
         id: base.id,
         title: `Inferred for your ${family.label} device — review each package`,
         score: 0
