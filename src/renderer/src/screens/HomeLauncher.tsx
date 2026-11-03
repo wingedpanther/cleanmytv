@@ -194,6 +194,12 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
   useEffect(() => {
     if (ready) readThemeBackup()
   }, [ready])
+  // Why the other tabs are greyed out (#38).
+  const locked = !home?.installed
+    ? 'Install CleanMyTV Home on the Overview tab first.'
+    : outdated(home)
+      ? 'Press Update and use on the Overview tab first.'
+      : "Waiting for CleanMyTV Home's settings. If this stays, reconnect from Setup."
 
   return (
     <>
@@ -222,7 +228,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
         <>
           <div className="tabs" role="tablist">
             {TABS.map(([id, label]) => (
-              <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} disabled={id !== 'overview' && !ready} onClick={() => setTab(id)}>
+              <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} disabled={id !== 'overview' && !ready} title={id !== 'overview' && !ready ? locked : undefined} onClick={() => setTab(id)}>
                 {label}
               </button>
             ))}
@@ -230,8 +236,8 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
 
           {outdated(home) && (
             <div className="notice warn">
-              The TV has CleanMyTV Home {home.versionName}; this app carries {home.bundledVersion}. Press Update and use to change its
-              layout, apps and look from here.
+              The TV has CleanMyTV Home {home.versionName}; this app carries {home.bundledVersion}. Press Update and use below to change
+              its layout, apps, look and remote buttons from here. The other tabs open after that.
             </div>
           )}
           {tab === 'overview' && (
