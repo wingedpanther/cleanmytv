@@ -725,16 +725,7 @@ function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): 
       <p className="muted">
         A theme sets the wallpaper, colours, tile sizes and music bars in one go. Your apps, rows and layout stay as they are.
       </p>
-      <ThemeGrid themes={BUILT_IN_THEMES.filter((t) => !t.from)} actions={themes} busy={busy} />
-      <h3 className="theme-group">From Omarchy</h3>
-      <p className="small muted" style={{ marginTop: 0 }}>
-        Colours from the themes in{' '}
-        <a href="https://github.com/omacom/omarchy/tree/quattro/themes" target="_blank" rel="noreferrer">
-          Omarchy
-        </a>{' '}
-        (MIT), with wallpapers drawn to match.
-      </p>
-      <ThemeGrid themes={BUILT_IN_THEMES.filter((t) => t.from === 'omarchy')} actions={themes} busy={busy} />
+      <ThemeGrid themes={BUILT_IN_THEMES} actions={themes} busy={busy} />
       {themes.used && (
         <div className="row" style={{ marginTop: 12 }}>
           <span className="small">The TV is using {themes.used}.</span>

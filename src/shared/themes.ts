@@ -62,7 +62,7 @@ export interface ThemePaint {
 export interface BuiltInTheme {
   id: string
   name: string
-  /** Where the colours come from; shown with credit in the app. */
+  /** Where the colours come from; credited in the README. */
   from?: 'omarchy'
   look: Partial<HomeConfig>
   paint: ThemePaint
