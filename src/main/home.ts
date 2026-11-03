@@ -151,7 +151,7 @@ export async function install(chosen?: string): Promise<InstallResult> {
   if (!start.includes('Status: ok') || /^Error/im.test(start)) {
     return { ok: false, summary: 'CleanMyTV Home did not start, so Home was left as it was.', warnings: [start.trim()] }
   }
-  const failed = await handOver(toSwitchOff(stock), MAIN)
+  const { failed, notes } = await handOver(toSwitchOff(stock), MAIN)
   if (failed) return failed
   rememberStock(stock)
   // Android switches accessibility services off when their app is reinstalled: turn the button service back on.
@@ -162,7 +162,7 @@ export async function install(chosen?: string): Promise<InstallResult> {
   return {
     ok: true,
     summary: 'CleanMyTV Home is Home now. Press Home on the remote to see it.' + (restored ? " It started empty, so your settings and wallpaper came back from this computer's copy." : ''),
-    warnings: []
+    warnings: notes
   }
 }
 

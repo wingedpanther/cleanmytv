@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import * as T from './tv'
 import { log } from './log'
 import { paths } from './paths'
-import { GOOGLE_LAUNCHERS, NOT_LAUNCHERS, SETUPWRAITH, stockLaunchers, wifiOwner } from './debloat'
+import { GOOGLE_LAUNCHERS, NOT_LAUNCHERS, SETUPWRAITH, lostNetworks, stockLaunchers, wifiOwner } from './debloat'
 import type { ApplyResult, InstallResult } from '@shared/api'
 
 const TASK = 'install'
@@ -158,7 +158,8 @@ export async function rollback(stock: string): Promise<boolean> {
  * candidate can be the setup wizard, which crash-loops; so anything but `main` puts the old Home back.
  * Returns null on success, or the result to show.
  */
-export async function handOver(stock: string, main: string): Promise<InstallResult | null> {
+/** `failed` when Home didn't move; `notes` for the owner when it did. */
+export async function handOver(stock: string, main: string): Promise<{ failed: InstallResult | null; notes: string[] }> {
   const pkg = main.split('/')[0]
   const previous = await T.homeComponent().catch(() => null)
   await T.batch(TASK, [
@@ -172,9 +173,11 @@ export async function handOver(stock: string, main: string): Promise<InstallResu
   // and Clean up keeps setupwraith on until CleanMyTV Home is Home (#40). So it goes here, once `main` has
   // started, unless the saved Wi-Fi is its: that network would be deleted with it.
   let wraith: 'off' | 'setupwraith' | 'unknown' | null = null
+  let lostWifi = 0
   if (stock !== 'none' && now?.startsWith(SETUPWRAITH + '/')) {
-    const owner = await wifiOwner(TASK)
+    const { owner, lost } = await wifiOwner(TASK)
     if (owner === 'system') {
+      lostWifi = lost
       log(TASK, 'info', `${SETUPWRAITH} took Home; switching it off too`)
       await T.batch(TASK, [`pm disable-user --user 0 ${SETUPWRAITH}`, `cmd package set-home-activity --user 0 ${main}`])
       wraith = 'off'
@@ -186,7 +189,7 @@ export async function handOver(stock: string, main: string): Promise<InstallResu
   if (now?.startsWith(pkg + '/')) {
     log(TASK, 'ok', `Home now resolves to ${now}`)
     if (wraith === 'off') rememberWraith(true)
-    return null
+    return { failed: null, notes: wraith === 'off' ? lostNetworks(lostWifi) : [] }
   }
   if (wraith === 'off') await T.sh(TASK, `pm enable --user 0 ${SETUPWRAITH}`).catch(() => '')
   let back = false
@@ -197,7 +200,7 @@ export async function handOver(stock: string, main: string): Promise<InstallResu
     back = (await T.homeComponent().catch(() => null)) === previous
   }
   const was = stock !== 'none' ? stock : previous ?? 'the previous launcher'
-  return {
+  const failed: InstallResult = {
     ok: false,
     summary: now ? `Home resolves to ${now}, not to the new launcher.` : 'The TV stopped answering while Home was switched.',
     warnings: [
@@ -211,6 +214,7 @@ export async function handOver(stock: string, main: string): Promise<InstallResu
             : [])
     ]
   }
+  return { failed, notes: [] }
 }
 
 /**
@@ -229,9 +233,9 @@ export async function switchTo(main: string, chosen?: string): Promise<ApplyResu
   if (!start.includes('Status: ok') || /^Error/im.test(start)) {
     return { ok: false, summary: 'That launcher did not start, so Home was left as it was.', warnings: [start.trim()] }
   }
-  const failed = await handOver(toSwitchOff(stock), main)
+  const { failed, notes } = await handOver(toSwitchOff(stock), main)
   if (!failed) rememberStock(stock)
-  return failed ?? { ok: true, summary: 'Switched. Press Home on the remote to see it.', warnings: [] }
+  return failed ?? { ok: true, summary: 'Switched. Press Home on the remote to see it.', warnings: notes }
 }
 
 /** Takes a package's accessibility services out of the TV's enabled list, keeping everyone else's. */

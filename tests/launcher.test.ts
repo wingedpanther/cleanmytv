@@ -427,9 +427,14 @@ describe('Google TV 14, where setupwraith outranks the Home preference (#40)', (
   })
 
   it('switches setupwraith off itself once the Wi-Fi is the system\'s, so Home sticks', async () => {
-    tv.wifiOwners = 'cname=android.uid.system:1000'
+    // Joined again after setup: the network in use is the system's, an old one is setupwraith's.
+    tv.wifiOwners = 'WifiConfigManager - Configured networks Begin ----\n' +
+      `- DSBLE ID: 0 SSID: "Old" PROVIDER-NAME: null\n cuid=10023 cname=${D.SETUPWRAITH}\n` +
+      '* ID: 1 SSID: "Home" PROVIDER-NAME: null\n cuid=1000 cname=android.uid.system:1000\n' +
+      'WifiConfigManager - Configured networks End ----\n'
     const r = await H.install()
     expect(r.ok).toBe(true)
+    expect(r.warnings.join('\n')).toMatch(/One other saved Wi-Fi network from the TV's first setup went with setupwraith/)
     expect(tv.home).toBe(OURS)
     expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('disabled')
     expect(tv.packages.get(D.SETUPWRAITH)).toBe('disabled')
