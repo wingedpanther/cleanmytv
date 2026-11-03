@@ -117,6 +117,43 @@ export const BUILT_IN_THEMES: BuiltInTheme[] = [
       ]
     }
   },
+  // Gruvbox dark (github.com/morhetz/gruvbox). Only the dark palette: Home's text is white.
+  {
+    id: 'gruvbox',
+    name: 'Gruvbox',
+    look: { accent: '#FE8019', focus: 'glow', background: '#1D2021', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'accent', viz_peaks: true },
+    paint: {
+      base: ['#1D2021', '#32302F'],
+      glows: [
+        { colour: '#FE8019', x: 0.9, y: 0.9, r: 0.45, a: 0.16 },
+        { colour: '#FABD2F', x: 0.08, y: 0.1, r: 0.4, a: 0.1 }
+      ]
+    }
+  },
+  {
+    id: 'gruvbox-aqua',
+    name: 'Gruvbox Aqua',
+    look: { accent: '#8EC07C', focus: 'glow', background: '#1D2021', wallpaper_dim: 0, viz_style: 'mirror', viz_colour: 'accent', viz_peaks: false },
+    paint: {
+      base: ['#1D2021', '#282828'],
+      glows: [
+        { colour: '#8EC07C', x: 0.15, y: 0.9, r: 0.45, a: 0.15 },
+        { colour: '#83A598', x: 0.85, y: 0.1, r: 0.45, a: 0.14 }
+      ]
+    }
+  },
+  {
+    id: 'gruvbox-purple',
+    name: 'Gruvbox Purple',
+    look: { accent: '#D3869B', focus: 'outline', background: '#282828', wallpaper_dim: 0, viz_style: 'wave', viz_colour: 'accent', viz_peaks: false },
+    paint: {
+      base: ['#282828', '#1D2021'],
+      glows: [
+        { colour: '#D3869B', x: 0.8, y: 0.85, r: 0.45, a: 0.14 },
+        { colour: '#FB4934', x: 0.1, y: 0.05, r: 0.35, a: 0.08 }
+      ]
+    }
+  },
   {
     id: 'graphite',
     name: 'Graphite',
