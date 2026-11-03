@@ -279,6 +279,15 @@ input[type='checkbox'] { accent-color: var(--navy); width: 16px; height: 16px; }
 .progress > div { height: 100%; background: var(--navy); transition: width 0.2s; }
 .progress.indeterminate > div { width: 30%; animation: slide 1.2s infinite ease-in-out; }
 .progress.low > div { background: var(--warn); }
+
+.themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.theme { font: inherit; display: flex; flex-direction: column; gap: 8px; padding: 6px; background: var(--white); border: 1.5px solid var(--line); border-radius: var(--radius); cursor: pointer; text-align: left; color: var(--navy); }
+.theme:hover:not(:disabled) { border-color: var(--navy-50); }
+.theme.on { border-color: var(--navy); box-shadow: 0 0 0 1px var(--navy); }
+.theme:disabled { cursor: default; opacity: 0.6; }
+.theme-art { aspect-ratio: 16 / 9; border-radius: var(--radius-sm); display: flex; align-items: flex-end; gap: 6%; padding: 0 8% 12%; }
+.theme-tile { flex: 1; aspect-ratio: 16 / 10; border-radius: 3px; background: rgba(255, 255, 255, 0.16); }
+.theme-name { font-size: 13px; font-weight: 600; padding: 0 4px 2px; }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
 
 .spinner {

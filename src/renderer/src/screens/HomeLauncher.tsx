@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, HomeLayout, HomeSection, HomeStatus, KeyPress, QuickEntry, QuickId, TvApp } from '@shared/api'
+import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, HomeTheme, HomeLayout, HomeSection, HomeStatus, KeyPress, QuickEntry, QuickId, TvApp } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { AppOrder } from '../components/AppOrder'
 import { HomePreview, QuickMark, quickApp, quickLabel } from '../components/HomePreview'
@@ -7,6 +7,8 @@ import { Busy, Confirm, ResultNotice, Slider, StatusChip, Toggle, errorText } fr
 import { prepareWallpaper, thumbnail } from '../lib/image'
 import { fetchBingDaily } from '../lib/backgrounds'
 import { findPlaces, type Place } from '../lib/places'
+import { paintWallpaper } from '../lib/themes'
+import { BUILT_IN_THEMES, THEME_EXT, paintCss, parseTheme } from '@shared/themes'
 
 type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'widgets' | 'music' | 'buttons'
 
@@ -41,6 +43,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
   const [saving, setSaving] = useState(false)
   const [askStock, setAskStock] = useState(false)
   const [stockPick, setStockPick] = useState<StockPick | null>(null)
+  const [themeUsed, setThemeUsed] = useState<string | null>(null)
   const pending = useRef<Partial<HomeConfig>>({})
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -123,6 +126,51 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
     }
   }
 
+  /** `used`: the theme now on the TV, which can be undone; null after an undo. */
+  async function themeStep(label: string, fn: () => Promise<HomeConfig>, used: string | null): Promise<void> {
+    // A slider still settling would land on top of the theme.
+    if (timer.current) clearTimeout(timer.current)
+    await flush()
+    setBusy(label)
+    setResult(null)
+    try {
+      setCfg(await fn())
+      setThemeUsed(used)
+      markDone('home')
+    } catch (e) {
+      setResult({ ok: false, summary: errorText(e), warnings: [] })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const themes: ThemeActions = {
+    used: themeUsed,
+    builtIn: (id) => {
+      const t = BUILT_IN_THEMES.find((b) => b.id === id)
+      if (t) themeStep(`Putting ${t.name} on the TV`, async () => window.cytv.applyHomeTheme({ name: t.name, look: t.look, wallpaper: paintWallpaper(t.paint, `${t.id}.jpg`).base64 }), t.name)
+    },
+    file: (text) => {
+      let t: HomeTheme
+      try {
+        t = parseTheme(text)
+      } catch (e) {
+        setResult({ ok: false, summary: errorText(e), warnings: [] })
+        return
+      }
+      themeStep(`Putting ${t.name} on the TV`, () => window.cytv.applyHomeTheme(t), t.name)
+    },
+    undo: () => themeStep('Putting the last look back', () => window.cytv.undoHomeTheme(), null),
+    save: async (name) => {
+      try {
+        const r = await window.cytv.saveHomeTheme(name)
+        if (r) setResult(r)
+      } catch (e) {
+        setResult({ ok: false, summary: errorText(e), warnings: [] })
+      }
+    }
+  }
+
   const ready = !!home?.installed && !outdated(home) && !!cfg
 
   return (
@@ -169,7 +217,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
           )}
           {ready && tab === 'apps' && apps && <AppsTab apps={apps} cfg={cfg} set={set} />}
           {ready && tab === 'layout' && apps && <LayoutTab apps={apps} cfg={cfg} set={set} />}
-          {ready && tab === 'look' && <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} />}
+          {ready && tab === 'look' && <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} themes={themes} />}
           {ready && tab === 'widgets' && <WidgetsTab cfg={cfg} set={set} />}
           {ready && tab === 'music' && <MusicTab cfg={cfg} set={set} />}
           {ready && tab === 'buttons' && apps && <ButtonsTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} brand={status.probe?.manufacturer} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
@@ -643,11 +691,76 @@ function Colour({ label, hint, value, onChange }: { label: string; hint?: string
   )
 }
 
-function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper: (label: string, get: () => Promise<string | null>) => Promise<void> }): ReactNode {
-  const { cfg, set, busy, wallpaper } = props
+interface ThemeActions {
+  used: string | null
+  builtIn: (id: string) => void
+  file: (text: string) => void
+  undo: () => void
+  save: (name: string) => Promise<void>
+}
+
+function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): ReactNode {
+  const file = useRef<HTMLInputElement>(null)
+  const [name, setName] = useState('My theme')
+  return (
+    <div className="card">
+      <h2>Themes</h2>
+      <p className="muted">
+        A theme sets the wallpaper, colours, tile sizes and music bars in one go. Your apps, rows and layout stay as they are.
+      </p>
+      <div className="themes">
+        {BUILT_IN_THEMES.map((t) => (
+          <button key={t.id} className={`theme${themes.used === t.name ? ' on' : ''}`} disabled={busy} onClick={() => themes.builtIn(t.id)}>
+            <span className="theme-art" style={{ background: paintCss(t.paint) }}>
+              <span className="theme-tile" style={{ boxShadow: t.look.focus === 'outline' ? `0 0 0 2px ${t.look.accent}` : `0 0 12px 2px ${t.look.accent}` }} />
+              <span className="theme-tile" />
+              <span className="theme-tile" />
+            </span>
+            <span className="theme-name">{t.name}</span>
+          </button>
+        ))}
+      </div>
+      {themes.used && (
+        <div className="row" style={{ marginTop: 12 }}>
+          <span className="small">The TV is using {themes.used}.</span>
+          <button className="btn small ghost" disabled={busy} onClick={themes.undo}>
+            Undo
+          </button>
+        </div>
+      )}
+      <input
+        ref={file}
+        type="file"
+        accept={`.${THEME_EXT}`}
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          e.target.value = ''
+          if (f) f.text().then(themes.file)
+        }}
+      />
+      <div className="row" style={{ marginTop: 16 }}>
+        <input type="text" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} aria-label="Theme name" style={{ width: 180 }} />
+        <button className="btn" disabled={busy || !name.trim()} onClick={() => themes.save(name)}>
+          Save this look…
+        </button>
+        <button className="btn ghost" disabled={busy} onClick={() => file.current?.click()}>
+          Load a theme file…
+        </button>
+      </div>
+      <p className="small muted" style={{ marginTop: 8, marginBottom: 0 }}>
+        Theme files end in .{THEME_EXT}. Share one and anyone can load it on their TV.
+      </p>
+    </div>
+  )
+}
+
+function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper: (label: string, get: () => Promise<string | null>) => Promise<void>; themes: ThemeActions }): ReactNode {
+  const { cfg, set, busy, wallpaper, themes } = props
   const file = useRef<HTMLInputElement>(null)
   return (
     <>
+      <ThemesCard themes={themes} busy={busy} />
       <div className="card">
         <h2>Accent colour</h2>
         <p className="muted">For the focus glow or outline and the music bars.</p>

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -17,6 +17,8 @@ import { check as checkUpdate, type UpdateCache } from './updates'
 import { autoConnect, forgetTv, listTvs, rememberTv, setThumb } from './tvlist'
 import * as web from './web'
 import * as home from './home'
+import * as themes from './themes'
+import { THEME_EXT, themeFileName } from '@shared/themes'
 import type { CheckItem, ConnStatus, CytvApi, KnownTv } from '@shared/api'
 
 let win: BrowserWindow | null = null
@@ -145,6 +147,14 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   homeKeys: () => home.keys(),
   setHomeConfig: (change) => home.setConfig(change ?? {}),
   setHomeWallpaper: (jpeg) => home.setWallpaper(jpeg),
+  applyHomeTheme: (theme) => themes.apply(theme),
+  undoHomeTheme: () => themes.undo(),
+  saveHomeTheme: (name) =>
+    themes.save(String(name ?? ''), async (n) => {
+      const opts = { title: 'Save the theme', defaultPath: join(app.getPath('documents'), themeFileName(n)), filters: [{ name: 'CleanMyTV theme', extensions: [THEME_EXT] }] }
+      const r = win && !win.isDestroyed() ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
+      return r.canceled || !r.filePath ? null : r.filePath
+    }),
   screenshot: () => system.screenshot(),
   webGet: (url) => web.get(String(url)),
   systemState: () => system.state(),

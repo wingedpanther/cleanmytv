@@ -350,6 +350,13 @@ function keepWallpaper(jpeg: Buffer | null): void {
   }
 }
 
+/** The last wallpaper this computer sent to the connected TV, in base64. */
+export function wallpaperCopy(): string | null {
+  const base = backupBase()
+  if (!base || !existsSync(base + '.jpg')) return null
+  return readFileSync(base + '.jpg').toString('base64')
+}
+
 /** Puts the saved settings and wallpaper back on a launcher that has none. True if there was a copy. */
 async function restoreBackup(): Promise<boolean> {
   const base = backupBase()

@@ -316,6 +316,20 @@ export function installMock(): void {
       homeConfig.has_wallpaper = jpeg !== null
       return { ...homeConfig }
     },
+    async applyHomeTheme(theme) {
+      await wait(900)
+      Object.assign(homeConfig, theme.look)
+      if (theme.wallpaper !== undefined) homeConfig.has_wallpaper = theme.wallpaper !== null
+      return { ...homeConfig }
+    },
+    async undoHomeTheme() {
+      await wait(600)
+      return { ...homeConfig }
+    },
+    async saveHomeTheme(name) {
+      await wait(300)
+      return { ok: true, summary: `Saved “${name}”.`, warnings: [] }
+    },
     async knownTvs() {
       return tvs.map((t) => ({ ...t }))
     },

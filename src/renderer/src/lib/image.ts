@@ -26,7 +26,11 @@ export async function prepareWallpaper(file: File, name?: string): Promise<Prepa
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(bitmap, (TV_W - w) / 2, (TV_H - h) / 2, w, h)
   bitmap.close()
+  return canvasJpeg(canvas, name ?? file.name)
+}
 
+/** A JPEG of the canvas, lowering quality until it fits under 300 KB. */
+export function canvasJpeg(canvas: HTMLCanvasElement, name: string): PreparedImage {
   let quality = 0.88
   let dataUrl = canvas.toDataURL('image/jpeg', quality)
   while (bytesOf(dataUrl) > MAX_BYTES && quality > 0.3) {
@@ -34,7 +38,7 @@ export async function prepareWallpaper(file: File, name?: string): Promise<Prepa
     dataUrl = canvas.toDataURL('image/jpeg', quality)
   }
   const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
-  return { name: safeName(name ?? file.name), base64, dataUrl, bytes: bytesOf(dataUrl) }
+  return { name: safeName(name), base64, dataUrl, bytes: bytesOf(dataUrl) }
 }
 
 /** Letters, digits, underscores, dots and hyphens only (theme.sh refuses anything else), always .jpg. */

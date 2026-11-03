@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
@@ -11,6 +11,8 @@ import * as L from '../src/main/launcher'
 import * as H from '../src/main/home'
 import * as D from '../src/main/debloat'
 import * as S from '../src/main/system'
+import * as Th from '../src/main/themes'
+import { BUILT_IN_THEMES, THEME_KEYS, parseTheme, themeFileName, themeToFile } from '../src/shared/themes'
 import { bootCheck } from '../src/main/bootcheck'
 import { FakeTv, newTv, startFakeAdbd } from './fake-adbd'
 
@@ -200,6 +202,49 @@ describe('CleanMyTV Home', () => {
     // Short enough to have been logged as a command, which would carry the same values in base64.
     expect(text).not.toContain('set64')
     expect(text).toContain('wallpaper_begin')
+  })
+
+  it('puts a theme on the TV, leaves the layout alone, and undoes it', async () => {
+    const mine = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(30 * 1024)])
+    await H.setWallpaper(mine.toString('base64'))
+    await H.setConfig({ accent: '#123456', focus: 'none', tile_scale: 80, columns: 4, rows: [{ name: 'Kids', apps: ['com.netflix.ninja'] }] })
+    const art = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(10 * 1024)])
+    // Layout and personal keys in a theme are ignored.
+    const cfg = await Th.apply({ name: 'Aurora', look: { ...BUILT_IN_THEMES[0].look, columns: 8, greeting: 'Hi' } as never, wallpaper: art.toString('base64') })
+    expect(cfg).toMatchObject({ accent: '#2EC4B6', focus: 'glow', tile_scale: 80, columns: 4 })
+    expect(cfg.greeting).not.toBe('Hi')
+    expect(cfg.rows).toEqual([{ name: 'Kids', apps: ['com.netflix.ninja'] }])
+    expect(tv.files.get('/data/data/home/wallpaper.jpg')?.equals(art)).toBe(true)
+
+    const back = await Th.undo()
+    expect(back).toMatchObject({ accent: '#123456', focus: 'none', tile_scale: 80 })
+    expect(tv.files.get('/data/data/home/wallpaper.jpg')?.equals(mine)).toBe(true)
+    await expect(Th.undo()).rejects.toThrow(/no theme to undo/)
+
+    // A theme without a wallpaper key keeps the TV's; null removes it.
+    await Th.apply({ name: 'Plain', look: { accent: '#FFFFFF' } })
+    expect(tv.files.has('/data/data/home/wallpaper.jpg')).toBe(true)
+    await Th.apply({ name: 'Bare', look: {}, wallpaper: null })
+    expect(tv.files.has('/data/data/home/wallpaper.jpg')).toBe(false)
+  })
+
+  it('saves the look with the wallpaper this computer sent, and reads it back', async () => {
+    const jpeg = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(8 * 1024)])
+    await H.setWallpaper(jpeg.toString('base64'))
+    await H.setConfig({ accent: '#7C5CFF', viz_style: 'mirror', greeting: 'Hello Sam' })
+    const out = join(home, 'saved.cmtvtheme')
+    let asked = ''
+    const r = await Th.save('  Living room ', async (n) => { asked = n; return out })
+    expect(asked).toBe('Living room')
+    expect(r).toMatchObject({ ok: true, warnings: [] })
+    const t = parseTheme(readFileSync(out, 'utf8'))
+    expect(t.name).toBe('Living room')
+    expect(t.look).toMatchObject({ accent: '#7C5CFF', viz_style: 'mirror' })
+    expect(Object.keys(t.look).sort()).toEqual([...THEME_KEYS].sort())
+    expect(Buffer.from(t.wallpaper as string, 'base64').equals(jpeg)).toBe(true)
+    expect(readFileSync(out, 'utf8')).not.toContain('Sam')
+    expect(await Th.save('x', async () => null)).toBeNull()
+    await H.setWallpaper(null)
   })
 
   it('takes weather places and gives now playing its access only with the section', async () => {
@@ -449,5 +494,24 @@ describe('Google TV 14, where setupwraith outranks the Home preference (#40)', (
     expect(tv.home).toBe(LX)
     expect(tv.packages.get('com.google.android.apps.tv.launcherx')).toBe('enabled')
     expect(tv.packages.get(D.SETUPWRAITH)).toBe('enabled')
+  })
+})
+
+describe('theme files', () => {
+  it('reads back what it writes and refuses anything else', () => {
+    const t = { name: 'Neon / night', look: { accent: '#FF3000', columns: 8 } as never, wallpaper: null }
+    expect(parseTheme(themeToFile(t))).toEqual({ name: 'Neon / night', look: { accent: '#FF3000' }, wallpaper: null })
+    expect(themeFileName('Neon / night')).toBe('Neon - night.cmtvtheme')
+    expect(() => parseTheme('{"look":{}}')).toThrow(/isn't a CleanMyTV theme/)
+    expect(() => parseTheme('not json')).toThrow(/isn't a CleanMyTV theme/)
+    expect(() => parseTheme('{"format":"cleanmytv-theme","version":2}')).toThrow(/newer CleanMyTV/)
+    expect(() => parseTheme('{"format":"cleanmytv-theme","version":1,"wallpaper":"<script>"}')).toThrow(/damaged/)
+  })
+
+  it('built-in themes only carry valid look settings', () => {
+    for (const b of BUILT_IN_THEMES) {
+      expect(H.clean(b.look as Record<string, unknown>)).toEqual(b.look)
+      expect(Object.keys(b.look).every((k) => (THEME_KEYS as readonly string[]).includes(k))).toBe(true)
+    }
   })
 })

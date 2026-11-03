@@ -1,0 +1,138 @@
+// Themes for CleanMyTV Home: the look in one go, from a built-in set or a .cmtvtheme file someone shared.
+// A theme never touches apps, rows, folders, layout, buttons or anything personal like the weather place.
+import type { HomeConfig, HomeTheme } from './api'
+
+/** The settings a theme carries. */
+export const THEME_KEYS = [
+  'accent', 'focus', 'background', 'wallpaper_dim', 'top_space', 'dock_scale', 'tile_scale', 'show_names', 'clock',
+  'visualiser', 'viz_style', 'viz_bars', 'viz_height', 'viz_opacity', 'viz_colour', 'viz_peaks', 'viz_sensitivity'
+] as const satisfies readonly (keyof HomeConfig)[]
+
+export const THEME_EXT = 'cmtvtheme'
+const FORMAT = 'cleanmytv-theme'
+// A 1920x1080 wallpaper is under 300 KB; 4 MB is the launcher's own limit.
+const MAX_WALLPAPER_B64 = Math.ceil((4 * 1024 * 1024 * 4) / 3)
+
+export function pickLook(o: Partial<HomeConfig> | Record<string, unknown>): Partial<HomeConfig> {
+  const src = o as Record<string, unknown>
+  return Object.fromEntries(THEME_KEYS.filter((k) => src[k] !== undefined).map((k) => [k, src[k]])) as Partial<HomeConfig>
+}
+
+export function themeName(s: unknown): string {
+  // eslint-disable-next-line no-control-regex
+  const n = typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40) : ''
+  return n || 'My theme'
+}
+
+/** "Living room.cmtvtheme": safe on Mac and Windows. */
+export function themeFileName(name: string): string {
+  return `${themeName(name).replace(/[\\/:*?"<>|]+/g, '-')}.${THEME_EXT}`
+}
+
+export function themeToFile(t: HomeTheme): string {
+  return JSON.stringify({ format: FORMAT, version: 1, name: themeName(t.name), look: pickLook(t.look), wallpaper: t.wallpaper }, null, 2) + '\n'
+}
+
+/** Reads a .cmtvtheme file. Values are checked again on the way to the TV. */
+export function parseTheme(text: string): HomeTheme {
+  let o: Record<string, unknown>
+  try {
+    o = JSON.parse(text) as Record<string, unknown>
+  } catch {
+    throw new Error("This isn't a CleanMyTV theme file.")
+  }
+  if (!o || typeof o !== 'object' || o.format !== FORMAT) throw new Error("This isn't a CleanMyTV theme file.")
+  if (o.version !== 1) throw new Error('This theme was saved by a newer CleanMyTV. Update the app, then load it again.')
+  const look = o.look && typeof o.look === 'object' ? pickLook(o.look as Record<string, unknown>) : {}
+  const w = o.wallpaper
+  if (w !== undefined && w !== null && (typeof w !== 'string' || w.length > MAX_WALLPAPER_B64 || !/^[A-Za-z0-9+/]+=*$/.test(w))) {
+    throw new Error("The wallpaper in this theme file is damaged.")
+  }
+  return { name: themeName(o.name), look, wallpaper: w as string | null | undefined }
+}
+
+/** A built-in theme draws its own wallpaper: a dark base with soft coloured light. */
+export interface ThemePaint {
+  /** Top-left to bottom-right. */
+  base: [string, string]
+  /** x and y as fractions of the screen, r as a fraction of its width, a as opacity. */
+  glows: { colour: string; x: number; y: number; r: number; a: number }[]
+}
+
+export interface BuiltInTheme {
+  id: string
+  name: string
+  look: Partial<HomeConfig>
+  paint: ThemePaint
+}
+
+export const BUILT_IN_THEMES: BuiltInTheme[] = [
+  {
+    id: 'aurora',
+    name: 'Aurora',
+    look: { accent: '#2EC4B6', focus: 'glow', background: '#08161E', wallpaper_dim: 0, viz_style: 'wave', viz_colour: 'accent', viz_peaks: false },
+    paint: {
+      base: ['#06121B', '#0A2530'],
+      glows: [
+        { colour: '#2EC4B6', x: 0.18, y: 0.1, r: 0.55, a: 0.32 },
+        { colour: '#3DDC84', x: 0.72, y: 0.02, r: 0.4, a: 0.18 },
+        { colour: '#7C5CFF', x: 0.92, y: 0.78, r: 0.45, a: 0.2 }
+      ]
+    }
+  },
+  {
+    id: 'ember',
+    name: 'Ember',
+    look: { accent: '#FFB23C', focus: 'glow', background: '#140806', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'accent', viz_peaks: true },
+    paint: {
+      base: ['#100605', '#26100A'],
+      glows: [
+        { colour: '#FF3000', x: 0.88, y: 0.95, r: 0.55, a: 0.3 },
+        { colour: '#FFB23C', x: 0.55, y: 1.05, r: 0.35, a: 0.2 },
+        { colour: '#7A1A00', x: 0.05, y: 0.2, r: 0.4, a: 0.25 }
+      ]
+    }
+  },
+  {
+    id: 'midnight',
+    name: 'Midnight',
+    look: { accent: '#7C5CFF', focus: 'glow', background: '#070B1E', wallpaper_dim: 0, viz_style: 'mirror', viz_colour: 'accent', viz_peaks: false },
+    paint: {
+      base: ['#060A1C', '#111938'],
+      glows: [
+        { colour: '#7C5CFF', x: 0.12, y: 0.88, r: 0.5, a: 0.28 },
+        { colour: '#3A6BFF', x: 0.82, y: 0.15, r: 0.45, a: 0.22 }
+      ]
+    }
+  },
+  {
+    id: 'forest',
+    name: 'Forest',
+    look: { accent: '#4CAF50', focus: 'glow', background: '#1C2A1F', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'accent', viz_peaks: true },
+    paint: {
+      base: ['#0C1710', '#1C2A1F'],
+      glows: [
+        { colour: '#3DDC84', x: 0.1, y: 0.05, r: 0.5, a: 0.16 },
+        { colour: '#8BC34A', x: 0.95, y: 0.95, r: 0.45, a: 0.14 }
+      ]
+    }
+  },
+  {
+    id: 'graphite',
+    name: 'Graphite',
+    look: { accent: '#FFFFFF', focus: 'outline', background: '#111214', wallpaper_dim: 0, viz_style: 'bars', viz_colour: 'white', viz_peaks: false },
+    paint: {
+      base: ['#0D0E10', '#1D1F23'],
+      glows: [{ colour: '#FFFFFF', x: 0.5, y: -0.25, r: 0.7, a: 0.07 }]
+    }
+  }
+]
+
+/** The same picture as CSS, for the small swatches in the app. */
+export function paintCss(p: ThemePaint): string {
+  const glows = p.glows.map((g) => {
+    const a = Math.round(g.a * 255).toString(16).padStart(2, '0')
+    return `radial-gradient(circle at ${g.x * 100}% ${g.y * 100}%, ${g.colour}${a} 0, transparent ${g.r * 100}%)`
+  })
+  return [...glows, `linear-gradient(135deg, ${p.base[0]}, ${p.base[1]})`].join(', ')
+}

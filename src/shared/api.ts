@@ -252,6 +252,15 @@ export interface HomeConfig {
   configured?: boolean
 }
 
+/** The look of CleanMyTV Home, from a built-in theme or a .cmtvtheme file (src/shared/themes.ts). */
+export interface HomeTheme {
+  name: string
+  /** Only the look settings in THEME_KEYS. */
+  look: Partial<HomeConfig>
+  /** JPEG in base64, null for no wallpaper, or left out to keep the TV's. */
+  wallpaper?: string | null
+}
+
 /** A TV this app has connected to before. */
 export interface KnownTv {
   host: string
@@ -375,6 +384,12 @@ export interface CytvApi {
   homeKeys(): Promise<KeyPress[]>
   /** A prepared JPEG (base64) for the home screen, or null to remove it. */
   setHomeWallpaper(jpegBase64: string | null): Promise<HomeConfig>
+  /** Puts a theme on the TV and keeps the look it replaced for undoHomeTheme. */
+  applyHomeTheme(theme: HomeTheme): Promise<HomeConfig>
+  /** Puts back the look from before the last theme. */
+  undoHomeTheme(): Promise<HomeConfig>
+  /** Saves the TV's current look to a .cmtvtheme file the owner picks; null if they cancel. */
+  saveHomeTheme(name: string): Promise<ApplyResult | null>
 
   // TVs
   /** TVs connected before, most recent first. */
