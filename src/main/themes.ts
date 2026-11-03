@@ -24,12 +24,17 @@ async function put(theme: HomeTheme): Promise<HomeConfig> {
   return cfg
 }
 
-export async function apply(theme: HomeTheme): Promise<HomeConfig> {
+/**
+ * `trying`: the TV shows another theme the owner hasn't changed since, so Undo keeps going back to
+ * the look from before the first one.
+ */
+export async function apply(theme: HomeTheme, trying = false): Promise<HomeConfig> {
   const host = T.getStatus().host ?? ''
-  const before = (await current('Before')).theme
+  const keep = trying && previous?.host === host
+  const before = keep ? null : (await current('Before')).theme
   log('theme', 'info', `theme: ${themeName(theme.name)}`)
   const cfg = await put(theme)
-  previous = { host, theme: before }
+  if (before) previous = { host, theme: before }
   return cfg
 }
 

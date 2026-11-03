@@ -216,6 +216,8 @@ describe('CleanMyTV Home', () => {
     expect(cfg.rows).toEqual([{ name: 'Kids', apps: ['com.netflix.ninja'] }])
     expect(tv.files.get('/data/data/home/wallpaper.jpg')?.equals(art)).toBe(true)
 
+    // Trying a second theme straight after: Undo still goes back to the look before the first.
+    await Th.apply({ name: 'Ember', look: BUILT_IN_THEMES[1].look, wallpaper: art.toString('base64') }, true)
     const back = await Th.undo()
     expect(back).toMatchObject({ accent: '#123456', focus: 'none', tile_scale: 80 })
     expect(tv.files.get('/data/data/home/wallpaper.jpg')?.equals(mine)).toBe(true)

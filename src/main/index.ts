@@ -147,7 +147,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   homeKeys: () => home.keys(),
   setHomeConfig: (change) => home.setConfig(change ?? {}),
   setHomeWallpaper: (jpeg) => home.setWallpaper(jpeg),
-  applyHomeTheme: (theme) => themes.apply(theme),
+  applyHomeTheme: (theme, trying) => themes.apply(theme, trying === true),
   undoHomeTheme: () => themes.undo(),
   saveHomeTheme: (name) =>
     themes.save(String(name ?? ''), async (n) => {

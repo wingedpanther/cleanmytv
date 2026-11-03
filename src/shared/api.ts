@@ -384,8 +384,9 @@ export interface CytvApi {
   homeKeys(): Promise<KeyPress[]>
   /** A prepared JPEG (base64) for the home screen, or null to remove it. */
   setHomeWallpaper(jpegBase64: string | null): Promise<HomeConfig>
-  /** Puts a theme on the TV and keeps the look it replaced for undoHomeTheme. */
-  applyHomeTheme(theme: HomeTheme): Promise<HomeConfig>
+  /** Puts a theme on the TV and keeps the look it replaced for undoHomeTheme. `trying`: another theme is
+   * on and unchanged, so keep the look from before that one instead. */
+  applyHomeTheme(theme: HomeTheme, trying?: boolean): Promise<HomeConfig>
   /** Puts back the look from before the last theme. */
   undoHomeTheme(): Promise<HomeConfig>
   /** Saves the TV's current look to a .cmtvtheme file the owner picks; null if they cancel. */

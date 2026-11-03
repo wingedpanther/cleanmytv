@@ -88,6 +88,8 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
 
   // Shown here at once, sent once the control settles.
   const set: SetFn = (change, wait = 150) => {
+    // A change of the owner's own: Undo no longer means the theme.
+    setThemeUsed(null)
     setCfg((prev) => (prev ? { ...prev, ...change } : prev))
     pending.current = { ...pending.current, ...change }
     if (timer.current) clearTimeout(timer.current)
@@ -118,6 +120,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
     try {
       const jpeg = await get()
       setCfg(await window.cytv.setHomeWallpaper(jpeg))
+      setThemeUsed(null)
       markDone('home')
     } catch (e) {
       setResult({ ok: false, summary: errorText(e), warnings: [] })
@@ -148,7 +151,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
     used: themeUsed,
     builtIn: (id) => {
       const t = BUILT_IN_THEMES.find((b) => b.id === id)
-      if (t) themeStep(`Putting ${t.name} on the TV`, async () => window.cytv.applyHomeTheme({ name: t.name, look: t.look, wallpaper: paintWallpaper(t.paint, `${t.id}.jpg`).base64 }), t.name)
+      if (t) themeStep(`Putting ${t.name} on the TV`, async () => window.cytv.applyHomeTheme({ name: t.name, look: t.look, wallpaper: paintWallpaper(t.paint, `${t.id}.jpg`).base64 }, !!themeUsed), t.name)
     },
     file: (text) => {
       let t: HomeTheme
@@ -158,7 +161,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
         setResult({ ok: false, summary: errorText(e), warnings: [] })
         return
       }
-      themeStep(`Putting ${t.name} on the TV`, () => window.cytv.applyHomeTheme(t), t.name)
+      themeStep(`Putting ${t.name} on the TV`, () => window.cytv.applyHomeTheme(t, !!themeUsed), t.name)
     },
     undo: () => themeStep('Putting the last look back', () => window.cytv.undoHomeTheme(), null),
     save: async (name) => {
