@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ApplyResult, DebloatPlan } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { Busy, StatusChip, errorText } from '../components/ui'
+import { defaultOff } from '../lib/ticks'
 
 type Phase =
   | { t: 'plan' }                       // picking the list, building the plan
@@ -31,11 +32,8 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
         return
       }
       const plan = await window.cytv.plan(best.id)
-      const suggested = plan.entries.filter((e) => e.suggested).map((e) => e.pkg)
-      if (suggested.length === 0) {
-        setPhase({ t: 'failed', message: 'The matching list has no suggested packages. Use Clean up to choose by hand.' })
-        return
-      }
+      // What Clean up would switch off with its defaults: features people use stay on (#57).
+      const suggested = defaultOff(plan.entries)
       setPhase({ t: 'ready', plan, disable: suggested })
     } catch (e) {
       setPhase({ t: 'failed', message: errorText(e) })
@@ -48,7 +46,7 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
     setPhase({ t: 'run', step: 'Preparing' })
     const notes: string[] = []
     try {
-      if (!skipDebloat) {
+      if (!skipDebloat && p.disable.length) {
         setPhase({ t: 'run', step: `Disabling ${p.disable.length} packages from "${p.plan.title}"` })
         // No safety overrides: the stock launcher and setupwraith stay on until CleanMyTV Home is Home,
         // and the Wi-Fi check runs (#33).
@@ -57,7 +55,7 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
         notes.push(`Cleaned up: ${r.summary.replace(/\.$/, '')}`)
         if (alive.current) markDone('debloat')
       } else {
-        notes.push('Clean up skipped')
+        notes.push(skipDebloat ? 'Clean up skipped' : 'Nothing left to clean up')
       }
 
       const before = await window.cytv.homeStatus()
@@ -115,8 +113,14 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
               List: <b>{phase.plan.title}</b> — the closest match for your TV.
             </p>
             <p style={{ margin: '8px 0' }}>
-              Will disable <b>{phase.disable.length} packages</b> (the list's suggested set — the same
-              defaults Clean up pre-ticks), then install CleanMyTV Home and hand Home to it.
+              {phase.disable.length > 0 ? (
+                <>
+                  Will disable <b>{phase.disable.length} packages</b> (the list's suggested set — the same
+                  defaults Clean up pre-ticks), then install CleanMyTV Home and hand Home to it.
+                </>
+              ) : (
+                <>Nothing on this list is left to switch off with Clean up's defaults, so this installs CleanMyTV Home and hands Home to it.</>
+              )}
             </p>
             <p className="muted small" style={{ margin: 0 }}>
               Restore puts every package back exactly as it is now; Home can go back to the stock
