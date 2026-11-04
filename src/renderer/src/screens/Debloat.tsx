@@ -13,6 +13,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
   const [loadingPlan, setLoadingPlan] = useState(false)
   const [ticked, setTicked] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState<Filter>('all')
+  const [find, setFind] = useState('')
   const [confirm, setConfirm] = useState<'apply' | 'restore' | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [result, setResult] = useState<ApplyResult | null>(null)
@@ -64,12 +65,14 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
   }, [plan, ticked])
 
   const shown = useMemo(() => {
-    const e = plan?.entries ?? []
+    // The search looks at the package name and the list's note, on top of the tab's filter.
+    const q = find.trim().toLowerCase()
+    const e = (plan?.entries ?? []).filter((x) => !q || x.pkg.toLowerCase().includes(q) || x.note.toLowerCase().includes(q))
     if (filter === 'disable') return e.filter((x) => ticked.has(x.pkg) && x.state === 'enabled')
     if (filter === 'disabled') return e.filter((x) => x.state === 'disabled')
     if (filter === 'absent') return e.filter((x) => x.state === 'absent')
     return e
-  }, [plan, ticked, filter])
+  }, [plan, ticked, filter, find])
 
   const visibleLists = useMemo(() => {
     if (!lists) return []
@@ -248,6 +251,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
                 </button>
               ))}
             </div>
+            <input type="search" placeholder="Find a package" value={find} onChange={(e) => setFind(e.target.value)} aria-label="Find a package" style={{ width: 200 }} />
             <span className="spacer" />
             <button className="btn small ghost" onClick={() => setTicked(new Set(plan.entries.filter(defaultTick).map((e) => e.pkg)))}>
               Back to the list's choices
@@ -294,7 +298,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
                 {shown.length === 0 && (
                   <tr>
                     <td colSpan={4} className="muted">
-                      Nothing here.
+                      {find.trim() ? `No package here matches “${find.trim()}”.` : 'Nothing here.'}
                     </td>
                   </tr>
                 )}
