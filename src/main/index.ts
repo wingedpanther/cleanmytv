@@ -234,7 +234,7 @@ app.whenReady().then(() => {
       try {
         return await (fn as (...a: unknown[]) => Promise<unknown>)(...args)
       } catch (e) {
-        send('log', { task: name, level: 'error', text: (e as Error).message, time: Date.now() })
+        log(name, 'error', (e as Error).message)
         throw e
       }
     })
