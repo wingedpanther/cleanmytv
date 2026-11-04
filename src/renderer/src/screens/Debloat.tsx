@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { ApplyResult, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { ActionButton, Confirm, ResultNotice, Skeleton, Toggle, UndoToast, errorText, usePhase } from '../components/ui'
+import { defaultTick } from '../lib/ticks'
 
 type Filter = 'all' | 'disable' | 'disabled' | 'absent'
 
@@ -548,13 +549,6 @@ function AddPackage({ have, onAdd }: { have: DebloatEntry[]; onAdd: (e: DebloatE
       {error && <div className="notice warn" style={{ marginTop: 12, marginBottom: 0 }}>{error}</div>}
     </div>
   )
-}
-
-function defaultTick(e: DebloatEntry): boolean {
-  // Keep earlier choices: a package this app switched off stays ticked.
-  if (e.state === 'disabled') return e.suggested || e.recorded === 'enabled'
-  // Features people use (phone remote, casting, voice) are the user's call, never a default.
-  return e.suggested && e.state === 'enabled' && !e.choice
 }
 
 function StateBadge({ state, recorded, ticked }: { state: PackageState; recorded?: PackageState; ticked: boolean }): ReactNode {
