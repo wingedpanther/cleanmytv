@@ -152,6 +152,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   themePackBegin: () => home.themePackBegin(),
   themePackPut: (item) => home.themePackPut(item),
   themePackEnd: (order) => home.themePackEnd(order),
+  fireplace: (action) => home.fireplace(action === 'saver' ? 'saver' : 'show'),
   homeKeys: () => home.keys(),
   setHomeConfig: (change) => home.setConfig(change ?? {}),
   setHomeWallpaper: (jpeg) => home.setWallpaper(jpeg),

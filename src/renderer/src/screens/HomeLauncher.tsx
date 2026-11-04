@@ -284,7 +284,12 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
           {ready && tab === 'apps' && apps && <AppsTab apps={apps} cfg={cfg} set={set} />}
           {ready && tab === 'layout' && apps && <LayoutTab apps={apps} cfg={cfg} set={set} />}
           {ready && tab === 'look' && <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} themes={themes} />}
-          {ready && tab === 'widgets' && <WidgetsTab cfg={cfg} set={set} />}
+          {ready && tab === 'widgets' && (
+            <>
+              <WidgetsTab cfg={cfg} set={set} />
+              <FireplaceCard cfg={cfg} set={set} onResult={setResult} />
+            </>
+          )}
           {ready && tab === 'music' && <MusicTab cfg={cfg} set={set} />}
           {ready && tab === 'lock' && apps && <LockTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
           {ready && tab === 'buttons' && apps && <ButtonsTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} brand={status.probe?.manufacturer} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
@@ -601,7 +606,7 @@ const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, num
 
 const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: 'Now playing', dock: 'Dock', rows: 'Rows', folders: 'Folders', grid: 'All apps' }
 const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'dock', 'rows', 'folders', 'grid']
-const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'settings']
+const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'settings']
 /** As the launcher's HomeConfig.MAX_QUICK_APPS. */
 const MAX_QUICK_APPS = 6
 const IDLE_CHOICES: [number, string][] = [[0, 'Off'], [1, '1 min'], [2, '2 min'], [5, '5 min'], [10, '10 min'], [15, '15 min'], [30, '30 min']]
@@ -1157,6 +1162,7 @@ const ACTIONS: [ButtonAction, string][] = [
   ['music', 'Music bars on or off'],
   ['panel', 'Open Quick settings'],
   ['themes', 'Open Themes'],
+  ['fireplace', 'Show the fireplace'],
   ['next_wallpaper', "Next picture of the theme"],
   ['none', 'Do nothing']
 ]
@@ -1504,5 +1510,38 @@ function LockTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c
         </Confirm>
       )}
     </>
+  )
+}
+
+/** The fireplace: drawn live on the TV, as its screensaver or full screen from an icon or a button. */
+function FireplaceCard({ cfg, set, onResult }: { cfg: HomeConfig; set: SetFn; onResult: (r: ApplyResult) => void }): ReactNode {
+  const go = (action: 'show' | 'saver'): void => {
+    window.cytv.fireplace(action).then(onResult, (e) => onResult({ ok: false, summary: errorText(e), warnings: [] }))
+  }
+  return (
+    <div className="card">
+      <h2>Fireplace</h2>
+      <p className="muted">
+        A fire drawn live on the TV, with its crackle. Make it the screensaver, or open it any time with the Fireplace icon
+        (Layout → top bar) or a remote button.
+      </p>
+      <div className="row" style={{ marginBottom: 12 }}>
+        <button className="btn" onClick={() => go('show')}>Show it on the TV now</button>
+        <button className="btn ghost" onClick={() => go('saver')}>Make it the screensaver</button>
+      </div>
+      <p style={{ margin: '6px 0 8px', fontWeight: 600 }}>Scene</p>
+      <div className="seg">
+        {([['hearth', 'Brick hearth'], ['fire', 'Just the fire']] as const).map(([id, label]) => (
+          <button key={id} className={cfg.fire_scene === id ? 'on' : ''} onClick={() => set({ fire_scene: id })}>{label}</button>
+        ))}
+      </div>
+      <div style={{ height: 14 }} />
+      <Slider label="Flames" value={cfg.fire_height} min={50} max={150} step={5} unit="%" onChange={(v) => set({ fire_height: v }, 250)} />
+      <Slider label="Warmth" hint="From orange-red to a hotter yellow." value={cfg.fire_warmth} min={0} max={100} step={5} unit="%" onChange={(v) => set({ fire_warmth: v }, 250)} />
+      <Toggle label="Sparks" checked={cfg.fire_sparks} onChange={(v) => set({ fire_sparks: v })} />
+      <Toggle label="Crackle when you open it" checked={cfg.fire_sound} onChange={(v) => set({ fire_sound: v })} />
+      <Toggle label="Crackle as the screensaver too" hint="Off by default, so the fire doesn't wake anyone." checked={cfg.fire_saver_sound} onChange={(v) => set({ fire_saver_sound: v })} />
+      {(cfg.fire_sound || cfg.fire_saver_sound) && <Slider label="Volume" value={cfg.fire_volume} min={0} max={100} step={5} unit="%" onChange={(v) => set({ fire_volume: v }, 250)} />}
+    </div>
   )
 }

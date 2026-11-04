@@ -22,6 +22,7 @@ export const DEFAULTS: HomeConfig = {
   order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
   icon_style: 'banner', tile_shape: 'wide', intro: true, wallpaper_from: '',
   lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge',
+  fire_scene: 'hearth', fire_height: 100, fire_warmth: 55, fire_sparks: true, fire_sound: true, fire_saver_sound: false, fire_volume: 60,
   clock: 'time_date', greeting: '', idle_minutes: 0,
   weather_place: '', weather_lat: 0, weather_lon: 0, weather_unit: 'c',
   visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
@@ -37,14 +38,15 @@ const CHOICES = {
   icon_style: ['banner', 'colour', 'mono', 'duo'],
   tile_shape: ['wide', 'square', 'squircle', 'round'],
   lock_for: ['sleep', '15', 'always'],
-  lock_show: ['badge', 'hide']
+  lock_show: ['badge', 'hide'],
+  fire_scene: ['hearth', 'fire']
 } as const
 
 const LISTS = {
   sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid']
 } as const
 
-const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes'] as const
+const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace'] as const
 /** App shortcuts the top bar takes, as the launcher's HomeConfig.MAX_QUICK_APPS. */
 export const MAX_QUICK_APPS = 6
 const quickApp = (q: unknown): boolean => typeof q === 'string' && q.startsWith('app:') && T.PACKAGE_RE.test(q.slice(4))
@@ -57,10 +59,11 @@ const plain = (s: string, max: number): string => s.replace(/[\u0000-\u001f\u007
 const RANGES = {
   top_space: [0, 40], dock_scale: [60, 150], tile_scale: [60, 150],
   wallpaper_dim: [0, 80], dock_size: [0, 8], columns: [3, 8], idle_minutes: [0, 60],
-  viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300]
+  viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300],
+  fire_height: [50, 150], fire_warmth: [0, 100], fire_volume: [0, 100]
 } as const
 
-const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'visualiser', 'viz_peaks', 'buttons_on'] as const
+const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_sparks', 'fire_sound', 'fire_saver_sound', 'visualiser', 'viz_peaks', 'buttons_on'] as const
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 /** Lets the launcher see other apps' media sessions; on only while the Now playing section is. */
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
@@ -68,7 +71,7 @@ const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
 export const MIN_SDK = 28
 // Above Android's own codes: TCL remotes send 4001 and up (#47).
 const MAX_KEY = 65535
-const BUTTON_ACTIONS = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'next_wallpaper', 'home', 'back', 'none', 'app']
+const BUTTON_ACTIONS = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'next_wallpaper', 'home', 'back', 'none', 'app']
 /** A built-in theme's picture, as "<theme id>:<picture>". */
 const THEME_PICTURE = /^[a-z0-9-]{1,40}:[0-9]$/
 
@@ -341,6 +344,20 @@ export async function clearAppLock(): Promise<HomeConfig> {
   if (!cfg.buttons_on) await dropServices(HOME_PKG)
   log('theme', 'ok', 'app lock off and its PIN forgotten')
   return cfg
+}
+
+// ---- fireplace ----------------------------------------------------------------------------------
+
+const FIRE_DREAM = `${HOME_PKG}/.FireplaceDream`
+
+export async function fireplace(action: 'show' | 'saver'): Promise<{ ok: boolean; summary: string; warnings: string[] }> {
+  if (action === 'saver') {
+    await T.sh('theme', `settings put secure screensaver_components ${FIRE_DREAM}; settings put secure screensaver_enabled 1`)
+    return { ok: true, summary: 'The fireplace is the TV\'s screensaver now. It starts when the TV has been idle for the screensaver time.', warnings: [] }
+  }
+  // Through Home, which opens it; the fireplace screen itself isn't open to other apps.
+  await T.sh('theme', `am start -n ${MAIN} --es open fireplace`)
+  return { ok: true, summary: 'The fireplace is on the TV. Back on the remote closes it.', warnings: [] }
 }
 
 // ---- themes on the TV ---------------------------------------------------------------------------
