@@ -245,10 +245,14 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; }
 
 label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 13px; }
 label.field .hint { font-weight: 500; color: var(--navy-70); font-size: 12px; }
-input[type='text'], input[type='number'], input[type='date'], input[type='search'], select, textarea {
+input[type='text'], input[type='password'], input[type='number'], input[type='date'], input[type='search'], select, textarea {
   font: inherit; font-size: 14px; color: var(--navy);
   background: var(--white); border: 1.5px solid var(--line); border-radius: var(--radius-sm);
   padding: 8px 10px; min-width: 0;
+}
+/* One height for a field and the button beside it, so a row of them lines up. */
+input[type='text'], input[type='password'], input[type='number'], input[type='date'], input[type='search'], select, .btn:not(.small) {
+  box-sizing: border-box; height: 38px;
 }
 input:focus, select:focus, textarea:focus, .btn:focus-visible, .step:focus-visible {
   outline: 2px solid var(--navy); outline-offset: 1px;

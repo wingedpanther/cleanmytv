@@ -1407,7 +1407,7 @@ function PinForm({ label, onSet }: { label: string; onSet: (pin: string) => Prom
           {label}
         </button>
       </div>
-      <p className="small muted" style={{ marginBottom: 0 }}>{note || '4 to 6 digits. Type it on the TV with the remote\'s number keys or the on-screen pad.'}</p>
+      <p className="small muted" style={{ marginTop: 8, marginBottom: 0 }}>{note || '4 to 6 digits. Type it on the TV with the remote\'s number keys or the on-screen pad.'}</p>
     </div>
   )
 }
