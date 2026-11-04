@@ -19,13 +19,12 @@ const QUICK_GLYPH: Record<QuickId, string> = {
   music: 'M9 18V6l10-2v12M9 18a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0zM19 16a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z',
   settings: 'M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1',
   panel: 'M4 7h10M18 7h2M4 17h4M12 17h8M14 5v4M8 15v4',
-  themes: 'M12 4a8 8 0 1 0 0 16c1 0 1.5-.8 1.5-1.6 0-1.4 1-2.4 2.4-2.4H18a2 2 0 0 0 2-2A8 8 0 0 0 12 4zM8 11h.01M11 8h.01M15 8h.01',
-  fireplace: 'M12 21c-3.5 0-6-2.4-6-5.6 0-3.2 2.6-5 3.5-8.4 1.8 1.4 2.6 3 2.6 4.6 1-.7 1.6-1.8 1.7-3 1.6 1.6 2.2 3.6 2.2 5.6 0 3.4-2.5 6.8-4 6.8z'
+  themes: 'M12 4a8 8 0 1 0 0 16c1 0 1.5-.8 1.5-1.6 0-1.4 1-2.4 2.4-2.4H18a2 2 0 0 0 2-2A8 8 0 0 0 12 4zM8 11h.01M11 8h.01M15 8h.01'
 }
 
 export const QUICK_LABEL: Record<QuickId, string> = {
   inputs: 'Inputs', wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: 'Picture & sound', apps: 'Apps', sleep: 'Screensaver', search: 'Search', music: 'Music bars', settings: 'Settings',
-  panel: 'Quick settings', themes: 'Themes', fireplace: 'Fireplace'
+  panel: 'Quick settings', themes: 'Themes'
 }
 
 export function QuickIcon({ id, size = 16 }: { id: QuickId; size?: number }): ReactNode {

@@ -159,7 +159,7 @@ export interface HomeStatus {
 
 export type HomeLayout = 'shelf' | 'split' | 'rail'
 export type HomeSection = 'nowplaying' | 'dock' | 'rows' | 'folders' | 'grid'
-export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes' | 'fireplace'
+export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes'
 /** A top-bar icon: a quick-settings action, or `app:<package>` for an app shortcut (CleanMyTV Home 1.2.0 and later). */
 export type QuickEntry = QuickId | `app:${string}`
 
@@ -249,18 +249,6 @@ export interface HomeConfig {
   lock_for: 'sleep' | '15' | 'always'
   /** Locked apps on Home: with a small lock, or left out. */
   lock_show: 'badge' | 'hide'
-  // Fireplace (launcher 1.4.0): drawn live, as a screensaver or full screen on demand
-  fire_scene: 'hearth' | 'fire'
-  /** Percent, 50 to 150. */
-  fire_height: number
-  /** 0 (orange-red) to 100 (hotter yellow). */
-  fire_warmth: number
-  fire_sparks: boolean
-  /** Crackle when opened on demand. */
-  fire_sound: boolean
-  /** Crackle as the screensaver too; off so a sleeping house stays asleep. */
-  fire_saver_sound: boolean
-  fire_volume: number
   clock: 'time_date' | 'time' | 'off'
   /** A name for "Good evening, …"; empty for none. */
   greeting: string
@@ -460,8 +448,6 @@ export interface CytvApi {
   themePackBegin(): Promise<void>
   themePackPut(item: ThemePackItem): Promise<void>
   themePackEnd(order: string[]): Promise<HomeConfig>
-  /** Shows the fireplace on the TV now, or makes it the TV's screensaver. */
-  fireplace(action: 'show' | 'saver'): Promise<ApplyResult>
   /** The last buttons the TV received, newest last. */
   homeKeys(): Promise<KeyPress[]>
   /** A prepared JPEG (base64) for the home screen, or null to remove it. */

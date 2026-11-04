@@ -66,7 +66,6 @@ class KeyService : AccessibilityService() {
             "music" -> ConfigStore.update(this, JSONObject().put("visualiser", !ConfigStore.config.value.visualiser))
             "panel", "themes" -> startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN, b.action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             "next_wallpaper" -> ThemePack.next(this)
-            "fireplace" -> startActivity(Intent(this, FireplaceActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             "app" -> b.app?.let { pkg ->
                 (packageManager.getLeanbackLaunchIntentForPackage(pkg) ?: packageManager.getLaunchIntentForPackage(pkg))
                     ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)?.let { startActivity(it) }
