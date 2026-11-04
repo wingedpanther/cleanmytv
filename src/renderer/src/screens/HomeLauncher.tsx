@@ -3,7 +3,7 @@ import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, Home
 import type { ScreenProps } from '../App'
 import { AppOrder } from '../components/AppOrder'
 import { HomePreview, QuickMark, quickApp, quickLabel } from '../components/HomePreview'
-import { Busy, Confirm, ResultNotice, Slider, StatusChip, Toggle, errorText } from '../components/ui'
+import { ActionButton, Busy, Confirm, PinBoxes, ResultNotice, Slider, StatusChip, Toggle, errorText } from '../components/ui'
 import { prepareWallpaper, thumbnail } from '../lib/image'
 import { fetchBingDaily } from '../lib/backgrounds'
 import { findPlaces, type Place } from '../lib/places'
@@ -34,7 +34,7 @@ type SetFn = (change: Partial<HomeConfig>, wait?: number) => void
  * Everything for CleanMyTV Home. Each change is sent to the TV as soon as it's made (sliders and typing
  * wait until they settle), and the launcher redraws at once: there's no Apply button.
  */
-export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenProps): ReactNode {
+export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }: ScreenProps & { openTab?: { tab: string; n: number } | null }): ReactNode {
   const [home, setHome] = useState<HomeStatus | null>(null)
   const [cfg, setCfg] = useState<HomeConfig | null>(null)
   const [apps, setApps] = useState<TvApp[] | null>(null)
@@ -229,6 +229,10 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
   }
 
   const ready = !!home?.installed && !outdated(home) && !!cfg
+  // ⌘K asked for a tab: it opens once the launcher's settings are in.
+  useEffect(() => {
+    if (openTab && (ready || openTab.tab === 'overview') && TABS.some(([id]) => id === openTab.tab)) setTab(openTab.tab as Tab)
+  }, [openTab, ready])
   useEffect(() => {
     if (ready) readThemeBackup()
   }, [ready])
@@ -279,7 +283,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
             </div>
           )}
           {tab === 'overview' && (
-            <Overview home={home} busy={!!busy} run={run} askStock={() => setAskStock(true)} host={status.host} onShot={refreshTvs} />
+            <Overview home={home} busy={!!busy} busyText={busy} run={run} askStock={() => setAskStock(true)} host={status.host} onShot={refreshTvs} />
           )}
           {ready && tab === 'apps' && apps && <AppsTab apps={apps} cfg={cfg} set={set} />}
           {ready && tab === 'layout' && apps && <LayoutTab apps={apps} cfg={cfg} set={set} />}
@@ -372,7 +376,7 @@ function StockPicker({ pick, onPick, onCancel }: { pick: StockPick; onPick: (sto
   )
 }
 
-function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string, fn: () => Promise<ApplyResult>, retry?: (stock: string) => Promise<ApplyResult>) => Promise<void>; askStock: () => void; host?: string; onShot: () => void }): ReactNode {
+function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string, fn: () => Promise<ApplyResult>, retry?: (stock: string) => Promise<ApplyResult>) => Promise<void>; askStock: () => void; host?: string; onShot: () => void; busyText?: string | null }): ReactNode {
   const { home, busy, run } = props
   const [shot, setShot] = useState<string | null>(null)
   const [shooting, setShooting] = useState(false)
@@ -420,9 +424,14 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
         )}
         <div className="row" style={{ marginTop: 16 }}>
           {(!home.installed || outdated(home)) && (
-            <button className="btn primary" disabled={busy || !home.bundled || !!home.unsupported} onClick={() => run('Installing CleanMyTV Home. Keep the TV on.', () => window.cytv.installHome(), (s) => window.cytv.installHome(s))}>
-              {home.installed ? 'Update and use' : 'Install and use'}
-            </button>
+            <ActionButton
+              primary
+              phase={props.busyText?.startsWith('Installing') ? 'busy' : 'idle'}
+              label={home.installed ? 'Update and use' : 'Install and use'}
+              busyLabel={home.installed ? 'Updating' : 'Installing'}
+              disabled={busy || !home.bundled || !!home.unsupported}
+              onClick={() => run('Installing CleanMyTV Home. Keep the TV on.', () => window.cytv.installHome(), (s) => window.cytv.installHome(s))}
+            />
           )}
           {home.installed && !home.isHome && (
             <button className="btn primary" disabled={busy} onClick={() => run('Switching Home to CleanMyTV Home', () => window.cytv.useHome(), (s) => window.cytv.useHome(s))}>
@@ -1385,23 +1394,39 @@ function BarsPreview({ cfg }: { cfg: HomeConfig }): ReactNode {
   )
 }
 
-/** Typed twice, digits only. */
+/** Typed twice, digits only, one box per digit. */
 function PinForm({ label, onSet }: { label: string; onSet: (pin: string) => Promise<void> }): ReactNode {
   const [a, setA] = useState('')
   const [b, setB] = useState('')
   const [busy, setBusy] = useState(false)
-  const digits = (v: string): string => v.replace(/\D/g, '').slice(0, 6)
-  const note = a.length > 0 && a.length < 4 ? 'At least 4 digits.' : b && a !== b ? "The two PINs don't match." : ''
+  const note = a.length > 0 && a.length < 4 ? 'At least 4 digits.' : b.length >= a.length && b && a !== b ? "The two PINs don't match." : ''
   return (
-    <div>
-      <div className="row">
-        <input type="password" inputMode="numeric" autoComplete="new-password" placeholder="PIN" value={a} onChange={(e) => setA(digits(e.target.value))} aria-label="PIN" style={{ width: 120 }} />
-        <input type="password" inputMode="numeric" autoComplete="new-password" placeholder="Again" value={b} onChange={(e) => setB(digits(e.target.value))} aria-label="PIN again" style={{ width: 120 }} />
-        <button className="btn" disabled={busy || a.length < 4 || a !== b} onClick={() => { setBusy(true); onSet(a).finally(() => { setBusy(false); setA(''); setB('') }) }}>
-          {label}
-        </button>
+    <div className="stack" style={{ gap: 12 }}>
+      <div className="pin-row">
+        <span>PIN</span>
+        <PinBoxes value={a} onChange={setA} label="PIN" />
       </div>
-      <p className="small muted" style={{ marginTop: 8, marginBottom: 0 }}>{note || '4 to 6 digits. Type it on the TV with the remote\'s number keys or the on-screen pad.'}</p>
+      <div className="pin-row">
+        <span>Again</span>
+        <PinBoxes value={b} onChange={setB} label="PIN again" />
+      </div>
+      <div className="row">
+        <ActionButton
+          phase={busy ? 'busy' : 'idle'}
+          label={label}
+          busyLabel="Sending"
+          disabled={a.length < 4 || a !== b}
+          onClick={() => {
+            setBusy(true)
+            onSet(a).finally(() => {
+              setBusy(false)
+              setA('')
+              setB('')
+            })
+          }}
+        />
+        <span className="small muted">{note || "4 to 6 digits. Type it on the TV with the remote's number keys or the on-screen pad."}</span>
+      </div>
     </div>
   )
 }

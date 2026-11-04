@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import type { ConnStatus, HomeStatus, KnownTv, UpdateInfo } from '@shared/api'
+import { Jump, MOD_KEY, type JumpItem } from './components/Jump'
 import { LogDrawer } from './components/LogDrawer'
 import { NotConnected } from './components/ui'
 import { TvThumb } from './components/TvPicker'
@@ -38,6 +39,27 @@ export interface ScreenProps {
   homeSeen: (hs: HomeStatus) => void
 }
 
+// What ⌘K finds. "home:<tab>" opens that tab of the Home screen step.
+const JUMP_ITEMS: JumpItem[] = [
+  ...STEPS.map((s) => ({ id: `step:${s.id}`, title: s.label, where: 'Step', words: s.sub.toLowerCase() })),
+  { id: 'step:setup', title: 'Pair with a code', where: 'Setup', words: 'connect wireless debugging adb ip' },
+  { id: 'step:debloat', title: 'Restore', where: 'Clean up', words: 'undo put back packages' },
+  { id: 'step:debloat', title: 'Add a package', where: 'Clean up', words: 'package app missing list' },
+  { id: 'step:extras', title: 'Animation speed', where: 'TV extras', words: 'animations faster' },
+  { id: 'step:extras', title: 'Block ads inside apps', where: 'TV extras', words: 'dns private ad blocking adguard' },
+  { id: 'step:extras', title: 'Remote', where: 'TV extras', words: 'buttons keys' },
+  { id: 'step:extras', title: 'Storage', where: 'TV extras', words: 'space disk free' },
+  { id: 'step:finish', title: 'Restart check', where: 'Finish', words: 'reboot' },
+  { id: 'home:overview', title: 'Install or update CleanMyTV Home', where: 'Home screen', words: 'launcher stock give back' },
+  { id: 'home:layout', title: 'Layout', where: 'Home screen', words: 'sections quick settings sizes clock greeting idle screensaver' },
+  { id: 'home:apps', title: 'Apps, rows & folders', where: 'Home screen', words: 'dock order hide rename folder row' },
+  { id: 'home:look', title: 'Look & wallpaper', where: 'Home screen', words: 'themes accent colour color focus app icons tile shape wallpaper sunrise picture' },
+  { id: 'home:widgets', title: 'Widgets', where: 'Home screen', words: 'weather' },
+  { id: 'home:music', title: 'Music bars', where: 'Home screen', words: 'visualiser style size' },
+  { id: 'home:buttons', title: 'Remote buttons', where: 'Home screen', words: 'button jobs shortcut key press' },
+  { id: 'home:lock', title: 'App lock', where: 'Home screen', words: 'pin password lock apps' }
+].map((it, i) => ({ ...it, id: `${it.id}#${i}` }))
+
 // A fresh snapshot for the sidebar and the TV list when the last one is older than this.
 const THUMB_MAX_AGE = 6 * 3600_000
 
@@ -52,6 +74,29 @@ export default function App(): ReactNode {
   const [update, setUpdate] = useState<UpdateInfo | null>(null)
   // The TV runs an older CleanMyTV Home than this app carries.
   const [homeBehind, setHomeBehind] = useState(false)
+  const [jumping, setJumping] = useState(false)
+  /** A Home tab asked for from ⌘K; n changes each time, so the same tab can be asked for twice. */
+  const [homeTab, setHomeTab] = useState<{ tab: string; n: number } | null>(null)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setJumping((j) => !j)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  function jump(id: string): void {
+    setJumping(false)
+    const [kind, rest] = id.split('#')[0].split(':')
+    if (kind === 'home') {
+      setStep('home')
+      setHomeTab((t) => ({ tab: rest, n: (t?.n ?? 0) + 1 }))
+    } else setStep(rest as StepId)
+  }
 
   useEffect(() => {
     window.cytv.checkUpdate().then(setUpdate, () => null)
@@ -123,7 +168,7 @@ export default function App(): ReactNode {
   else if (current.id === 'guided') screen = <Guided {...props} />
   else if (current.id === 'setup') screen = <Setup {...props} />
   else if (current.id === 'debloat') screen = <Debloat {...props} />
-  else if (current.id === 'home') screen = <HomeLauncher {...props} />
+  else if (current.id === 'home') screen = <HomeLauncher {...props} openTab={homeTab} />
   else if (current.id === 'extras') screen = <Extras {...props} />
   else screen = <Finish {...props} />
 
@@ -140,6 +185,10 @@ export default function App(): ReactNode {
           </button>
         )}
         <ConnPill status={status} />
+        <button className="jump-btn" onClick={() => setJumping(true)}>
+          <span>Find a setting</span>
+          <kbd>{MOD_KEY}K</kbd>
+        </button>
         <nav>
           <ol className="steps">
             {steps.map((s, i) => {
@@ -182,6 +231,7 @@ export default function App(): ReactNode {
         <div className="content">{screen}</div>
         <LogDrawer />
       </main>
+      {jumping && <Jump items={JUMP_ITEMS} onPick={jump} onClose={() => setJumping(false)} />}
     </div>
   )
 }

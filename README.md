@@ -219,6 +219,10 @@ the colours are used; the wallpapers are drawn by the app. Its licence ships in 
 The drawn app icons come from [Simple Icons](https://simpleicons.org) (CC0). Brand marks belong to their
 owners; Home only shows them to open the app they belong to.
 
+The undo toast, the Apply button that changes as it works, the PIN boxes, the step bar, the loading rows and
+the ⌘K search follow components from [EasyUI](https://github.com/Surajmaurya1/easyui) by Suraj Maurya (MIT),
+rewritten in plain CSS. Its licence ships in `resources/licenses/`.
+
 ### The launcher APK
 
 CleanMyTV Home lives in `home/`: Kotlin and Jetpack Compose for TV, package

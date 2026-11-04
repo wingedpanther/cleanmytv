@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { ApplyResult, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState } from '@shared/api'
 import type { ScreenProps } from '../App'
-import { Busy, Confirm, ResultNotice, Toggle, errorText } from '../components/ui'
+import { ActionButton, Confirm, ResultNotice, Skeleton, Toggle, UndoToast, errorText, usePhase } from '../components/ui'
 
 type Filter = 'all' | 'disable' | 'disabled' | 'absent'
 
@@ -15,7 +15,11 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
   const [filter, setFilter] = useState<Filter>('all')
   const [find, setFind] = useState('')
   const [confirm, setConfirm] = useState<'apply' | 'restore' | null>(null)
-  const [busy, setBusy] = useState<string | null>(null)
+  const [applyPhase, setApplyPhase] = usePhase()
+  const [restorePhase, setRestorePhase] = usePhase()
+  const busy = applyPhase === 'busy' || restorePhase === 'busy'
+  /** What the last Apply changed, so the toast can put it back. */
+  const [undo, setUndo] = useState<{ text: string; disable: string[]; enable: string[] } | null>(null)
   const [result, setResult] = useState<ApplyResult | null>(null)
   const [forceHome, setForceHome] = useState(false)
   const [forceSetup, setForceSetup] = useState(false)
@@ -30,9 +34,12 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
     })
   }, [status.host])
 
-  async function loadPlan(id: string): Promise<void> {
-    setLoadingPlan(true)
-    setResult(null)
+  /** quiet: a reload after Apply or Restore keeps the table on screen instead of the placeholder. */
+  async function loadPlan(id: string, quiet = false): Promise<void> {
+    if (!quiet) {
+      setLoadingPlan(true)
+      setResult(null)
+    }
     try {
       const p = await window.cytv.plan(id)
       setPlan(p)
@@ -46,6 +53,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
   }
 
   useEffect(() => {
+    setUndo(null)
     if (listId) loadPlan(listId)
   }, [listId])
 
@@ -92,36 +100,55 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
   async function apply(): Promise<void> {
     if (!plan) return
     setConfirm(null)
-    setBusy('Applying the list on the TV')
+    setUndo(null)
+    setResult(null)
+    setApplyPhase('busy')
+    const disable = toDisable.map((e) => e.pkg)
+    const enable = toEnable.map((e) => e.pkg)
     try {
-      const r = await window.cytv.applyDebloat({
-        listId: plan.listId,
-        disable: toDisable.map((e) => e.pkg),
-        enable: toEnable.map((e) => e.pkg),
-        forceHome,
-        forceSetupwraith: forceSetup
-      })
-      setResult(r)
-      if (r.ok) markDone('debloat')
+      const r = await window.cytv.applyDebloat({ listId: plan.listId, disable, enable, forceHome, forceSetupwraith: forceSetup })
+      setApplyPhase(r.ok ? 'done' : 'failed')
+      // A clean run shows in the toast; anything with notes stays on the page.
+      if (!r.ok || r.warnings.length) setResult(r)
+      if (r.ok) {
+        markDone('debloat')
+        setUndo({ text: r.summary, disable, enable })
+      }
+    } catch (e) {
+      setApplyPhase('failed')
+      setResult({ ok: false, summary: errorText(e), warnings: [] })
+    } finally {
+      loadPlan(plan.listId, true)
+    }
+  }
+
+  /** Undo turns back on what Apply switched off, and off again what it turned on. */
+  async function undoApply(): Promise<void> {
+    if (!plan || !undo) return
+    try {
+      const r = await window.cytv.applyDebloat({ listId: plan.listId, disable: undo.enable, enable: undo.disable, forceHome, forceSetupwraith: forceSetup })
+      if (!r.ok || r.warnings.length) setResult(r)
     } catch (e) {
       setResult({ ok: false, summary: errorText(e), warnings: [] })
     } finally {
-      setBusy(null)
-      loadPlan(plan.listId)
+      await loadPlan(plan.listId, true)
     }
   }
 
   async function restore(): Promise<void> {
     if (!plan) return
     setConfirm(null)
-    setBusy('Putting the recorded state back')
+    setUndo(null)
+    setRestorePhase('busy')
     try {
-      setResult(await window.cytv.restore(plan.listId))
+      const r = await window.cytv.restore(plan.listId)
+      setRestorePhase(r.ok ? 'done' : 'failed')
+      setResult(r)
     } catch (e) {
+      setRestorePhase('failed')
       setResult({ ok: false, summary: errorText(e), warnings: [] })
     } finally {
-      setBusy(null)
-      loadPlan(plan.listId)
+      loadPlan(plan.listId, true)
     }
   }
 
@@ -151,7 +178,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
           <input type="search" placeholder="Search brand or model" value={query} onChange={(e) => setQuery(e.target.value)} style={{ width: 240 }} />
         </div>
         {!lists ? (
-          <Busy text="Loading lists" />
+          <Skeleton rows={4} label="Loading lists" />
         ) : (
           <div className="list-picker" role="listbox">
             {visibleLists.map((l) => (
@@ -174,13 +201,12 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
       </div>
 
       <ResultNotice result={result} onDismiss={() => setResult(null)} />
-      {busy && (
-        <div className="notice">
-          <Busy text={busy} />
+
+      {loadingPlan && (
+        <div className="card white">
+          <Skeleton rows={8} label="Reading what's installed on the TV" />
         </div>
       )}
-
-      {loadingPlan && <Busy text="Reading what's installed on the TV" />}
 
       {plan && !loadingPlan && (
         <div className="card white">
@@ -337,17 +363,38 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
             )}
           </div>
 
-          <div className="row" style={{ marginTop: 18 }}>
-            <button
-              className="btn primary"
-              disabled={!!busy || (toDisable.length === 0 && toEnable.length === 0)}
+          <div className="action-bar">
+            {toDisable.length + toEnable.length > 0 && !busy && (
+              <span className="basket" key={toDisable.length + toEnable.length}>
+                <span className="basket-count">{toDisable.length + toEnable.length}</span>
+                {[toDisable.length && `${toDisable.length} to switch off`, toEnable.length && `${toEnable.length} back on`].filter(Boolean).join(' · ')}
+                <button
+                  className="icon-btn"
+                  onClick={() => setTicked(new Set(plan.entries.filter((e) => e.state === 'disabled').map((e) => e.pkg)))}
+                  aria-label="Clear the changes"
+                  title="Leave the TV as it is"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
+            <ActionButton
+              primary
+              phase={applyPhase}
+              label="Apply to TV"
+              busyLabel="Applying"
+              doneLabel="Applied"
+              disabled={busy || (toDisable.length === 0 && toEnable.length === 0)}
               onClick={() => setConfirm('apply')}
-            >
-              Apply to TV
-            </button>
-            <button className="btn" disabled={!!busy || !plan.record} onClick={() => setConfirm('restore')}>
-              Restore
-            </button>
+            />
+            <ActionButton
+              phase={restorePhase}
+              label="Restore"
+              busyLabel="Restoring"
+              doneLabel="Restored"
+              disabled={busy || !plan.record}
+              onClick={() => setConfirm('restore')}
+            />
             <span className="spacer" />
             <button className="btn ghost" onClick={() => go('home')}>
               Next: the home screen
@@ -355,6 +402,8 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
           </div>
         </div>
       )}
+
+      {undo && <UndoToast key={undo.text + undo.disable.length} text={undo.text} undoneText="Put back as it was" onUndo={undoApply} onClose={() => setUndo(null)} />}
 
       {confirm === 'apply' && plan && (
         <Confirm title="Apply these changes?" confirmLabel="Apply" onConfirm={apply} onCancel={() => setConfirm(null)}>
@@ -437,7 +486,7 @@ function AddPackage({ have, onAdd }: { have: DebloatEntry[]; onAdd: (e: DebloatE
         covers it, and Restore switches it back on.
       </p>
       {!all && !error ? (
-        <Busy text="Reading the TV's packages" />
+        <Skeleton rows={3} label="Reading the TV's packages" />
       ) : (
         <div className="row">
           <input

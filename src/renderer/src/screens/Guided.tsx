@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ApplyResult, DebloatPlan } from '@shared/api'
 import type { ScreenProps } from '../App'
-import { Busy, StatusChip, errorText } from '../components/ui'
+import { Busy, StatusChip, Stepper, errorText } from '../components/ui'
 
 type Phase =
   | { t: 'plan' }                       // picking the list, building the plan
@@ -15,8 +15,13 @@ type Phase =
   | { t: 'done'; result: ApplyResult; customised: boolean }
   | { t: 'failed'; message: string }
 
+const STAGES = ['Pick the list', 'Clean up', 'Install Home', 'Last pass']
+
 export default function Guided({ go, markDone }: ScreenProps): React.ReactElement {
   const [phase, setPhase] = useState<Phase>({ t: 'plan' })
+  // Which of STAGES is running; past the end means all done.
+  const [at, setAt] = useState(0)
+  const [skipped, setSkipped] = useState(false)
   const alive = useRef(true)
   useEffect(() => () => { alive.current = false }, [])
 
@@ -37,6 +42,7 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
         return
       }
       setPhase({ t: 'ready', plan, disable: suggested })
+      setAt(1)
     } catch (e) {
       setPhase({ t: 'failed', message: errorText(e) })
     }
@@ -46,6 +52,7 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
     const p = phase
     if (p.t !== 'ready') return
     setPhase({ t: 'run', step: 'Preparing' })
+    setSkipped(skipDebloat)
     const notes: string[] = []
     try {
       if (!skipDebloat) {
@@ -60,9 +67,11 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
         notes.push('Clean up skipped')
       }
 
+      setAt(2)
       const before = await window.cytv.homeStatus()
       if (before.unsupported) {
         notes.push(before.unsupported)
+        setAt(STAGES.length)
         setPhase({ t: 'done', result: { ok: true, summary: notes.join(' · '), warnings: [] }, customised: false })
         return
       }
@@ -77,6 +86,7 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
         notes.push('CleanMyTV Home already Home — left as it was')
       }
 
+      setAt(3)
       if (!skipDebloat) {
         // What the first pass kept on because CleanMyTV Home wasn't Home yet.
         const plan = await window.cytv.plan(p.plan.listId)
@@ -89,6 +99,7 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
       }
       notes.push('Next: the restart check on Finish')
 
+      setAt(STAGES.length)
       setPhase({ t: 'done', result: { ok: true, summary: notes.join(' · '), warnings: [] }, customised: true })
     } catch (e) {
       notes.push('Stopped: ' + errorText(e))
@@ -104,6 +115,8 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
         Home installed and set as Home — then you land on the Home screen step to arrange it. Nothing is
         uninstalled and every step stays open in the sidebar if you want to go slower.
       </p>
+
+      <Stepper steps={STAGES} at={at} failed={phase.t === 'failed'} skipped={skipped ? [1, 3] : []} />
 
       {phase.t === 'plan' && <Busy text="Reading your TV and picking the matching list" />}
 
@@ -150,7 +163,7 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
         <div className="stack" style={{ gap: 16 }}>
           <div className="notice error">{phase.message}</div>
           <div className="row">
-            <button className="btn" onClick={() => { setPhase({ t: 'plan' }); void prepare() }}>Try again</button>
+            <button className="btn" onClick={() => { setPhase({ t: 'plan' }); setAt(0); setSkipped(false); void prepare() }}>Try again</button>
             <button className="btn ghost" onClick={() => go('debloat')}>Use the step-by-step screens</button>
           </div>
         </div>
