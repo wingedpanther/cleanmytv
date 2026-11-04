@@ -461,7 +461,7 @@ const isJpeg = (b: Buffer | null): b is Buffer => !!b && b.length > 2 && b[0] ==
  * The wallpaper on the connected TV, in base64: the copy on the TV first, as another computer may have
  * set a newer one, then this computer's. A copy only this computer has goes onto the TV too.
  */
-/** The wallpaper the launcher has now, from launcher 1.4.0 on; null from older ones or with no wallpaper. */
+/** The wallpaper the launcher has now, from launcher 1.5.0 on; null from older ones or with no wallpaper. */
 async function wallpaperFromLauncher(): Promise<Buffer | null> {
   const parts: Buffer[] = []
   let size = -1
@@ -483,7 +483,7 @@ async function wallpaperFromLauncher(): Promise<Buffer | null> {
 }
 
 export async function wallpaperCopy(): Promise<string | null> {
-  // Launcher 1.4.0 hands its wallpaper back, including one picked on the TV's theme carousel.
+  // Launcher 1.5.0 hands its wallpaper back, including one picked on the TV's theme carousel.
   const live = await wallpaperFromLauncher().catch(() => null)
   if (isJpeg(live)) { keepWallpaper(live); return live.toString('base64') }
   const onTv = await T.pullB64(TV_WALLPAPER).catch(() => null)

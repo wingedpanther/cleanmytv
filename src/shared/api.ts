@@ -232,7 +232,7 @@ export interface HomeConfig {
   pin_focus: boolean
   /** With lift: the tile leans toward the move, then settles. */
   tilt: boolean
-  /** banner: each app's own TV banner. The rest redraw every app's logo the same way (launcher 1.4.0). */
+  /** banner: each app's own TV banner. The rest redraw every app's logo the same way (launcher 1.5.0). */
   icon_style: 'banner' | 'colour' | 'mono' | 'duo'
   /** Tile outline for the icon styles; banners stay wide. */
   tile_shape: 'wide' | 'square' | 'squircle' | 'round'
@@ -240,7 +240,7 @@ export interface HomeConfig {
   intro: boolean
   /** The built-in theme picture the wallpaper is, as "<theme id>:<picture>", or "" for any other. */
   wallpaper_from: string
-  // App lock (launcher 1.4.0). The PIN is set with setLockPin and never comes back.
+  // App lock (launcher 1.5.0). The PIN is set with setLockPin and never comes back.
   lock_on: boolean
   lock_apps: string[]
   /** Settings, the Play Store, the uninstaller and Home's Quick settings ask for the PIN too. */
