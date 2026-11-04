@@ -4,7 +4,7 @@
 import { Socket } from 'node:net'
 import * as T from './tv'
 import { log } from './log'
-import { SETUPWRAITH } from './debloat'
+import { NOT_LAUNCHERS } from './debloat'
 import { rollback, stockOnTv } from './launcher'
 import type { BootCheckResult } from '@shared/api'
 
@@ -61,12 +61,13 @@ export async function bootCheck(deps: BootCheckDeps = realDeps): Promise<BootChe
   const booted = await until(deps, 120000, 3000, async () => (await T.tv().shell('getprop sys.boot_completed')).trim() === '1')
   if (!booted) log(TASK, 'info', 'sys.boot_completed never turned 1; checking Home anyway')
 
-  // Home must resolve to a real launcher, and that launcher must be running.
+  // Home must resolve to a real launcher, and that launcher must be running. Settings' FallbackHome
+  // answers Home when no launcher does, and Settings is always running, so it doesn't count.
   const seen = { home: null as string | null }
   const running = await until(deps, 45000, 3000, async () => {
     seen.home = await T.homeComponent()
     const pkg = seen.home?.split('/')[0]
-    if (!pkg || pkg === SETUPWRAITH) return false
+    if (!pkg || NOT_LAUNCHERS.includes(pkg)) return false
     return (await T.tv().shell(`pidof ${pkg}`)).trim() !== ''
   })
   const home = seen.home

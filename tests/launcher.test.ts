@@ -373,6 +373,17 @@ describe('CleanMyTV Home', () => {
     expect(tv.home).toBe('com.google.android.apps.tv.launcherx/.home.HomeActivity')
   })
 
+  it("doesn't take Settings' FallbackHome for a home screen after the restart", async () => {
+    tv.packages.set('com.android.tv.settings', 'enabled')
+    tv.home = 'com.android.tv.settings/.FallbackHome'
+    const r = await bootCheck(instant)
+    tv.packages.delete('com.android.tv.settings')
+    expect(r).toMatchObject({ ok: false, reconnected: true })
+    expect(r.summary).toMatch(/Home resolves to com.android.tv.settings\/.FallbackHome/)
+    expect(r.advice).toMatch(/switched com.google.android.apps.tv.launcherx back on/)
+    expect(tv.home).toBe('com.google.android.apps.tv.launcherx/.home.HomeActivity')
+  })
+
   it('says so when the TV does not come back after the restart', async () => {
     const r = await bootCheck({ sleep: async () => {}, portOpen: async () => false })
     expect(r).toMatchObject({ ok: false, reconnected: false })
