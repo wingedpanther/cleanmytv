@@ -5,7 +5,8 @@ import type { HomeConfig, HomeTheme } from './api'
 /** The settings a theme carries. */
 export const THEME_KEYS = [
   'accent', 'focus', 'background', 'wallpaper_dim', 'top_space', 'dock_scale', 'tile_scale', 'show_names', 'clock',
-  'visualiser', 'viz_style', 'viz_bars', 'viz_height', 'viz_opacity', 'viz_colour', 'viz_peaks', 'viz_sensitivity'
+  'visualiser', 'viz_style', 'viz_bars', 'viz_height', 'viz_opacity', 'viz_colour', 'viz_peaks', 'viz_sensitivity',
+  'icon_style', 'tile_shape'
 ] as const satisfies readonly (keyof HomeConfig)[]
 
 export const THEME_EXT = 'cmtvtheme'
@@ -278,3 +279,11 @@ export const BUILT_IN_THEMES: BuiltInTheme[] = [
   },
   ...omarchy()
 ]
+
+/** Pictures per theme on the TV's carousel and behind "Another picture". */
+export const THEME_PICTURES = 3
+
+/** Picture [n] of a theme: the same art, from another seed. Picture 0 is the theme as it always was. */
+export function withPicture(p: ThemePaint, n: number): ThemePaint {
+  return p.art && n ? { ...p, art: { ...p.art, seed: p.art.seed + n * 7919 } } : p
+}

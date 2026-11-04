@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
@@ -9,6 +10,12 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- Weather next to the clock, from Open-Meteo. Nothing else goes online. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The Quick settings panel's network row: Wi-Fi or Ethernet, and the TV's address. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- The Quick settings panel: screensaver, sleep, Private DNS, animations, clock. CleanMyTV grants
+         these over ADB when it installs Home; without them the panel opens the TV's own screens. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
 
     <!-- Android 11+ hides other apps unless we say which ones we look for. -->
     <queries>
@@ -49,7 +56,18 @@
             </intent-filter>
         </activity>
 
-        <!-- Remote buttons mapped in CleanMyTV. Off until the desktop app turns it on over ADB. -->
+        <!-- The app lock's PIN pad, over a locked app however it was opened. Its own task, so Back
+             and recents never land on it by mistake. -->
+        <activity
+            android:name=".LockActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen"
+            android:screenOrientation="landscape" />
+
+        <!-- Remote buttons mapped in CleanMyTV, and the app lock's guard. Off until the desktop app turns it on over ADB. -->
         <service
             android:name=".KeyService"
             android:exported="false"

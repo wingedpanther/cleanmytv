@@ -24,7 +24,7 @@ const val TAG = "CMTVHome"
  * [tint]: the icon's main colour, darkened, for the tile behind an app that has no TV banner (#4).
  * [colour]: the same for every app, banner or icon, for the background that follows focus.
  */
-data class TvApp(val pkg: String, val label: String, val art: ImageBitmap, val banner: Boolean, val launch: Intent, val tint: Int? = null, val colour: Int? = null)
+data class TvApp(val pkg: String, val label: String, val art: ImageBitmap, val banner: Boolean, val launch: Intent, val tint: Int? = null, val colour: Int? = null, val glyph: Glyph? = null)
 
 class MainActivity : ComponentActivity() {
     private val visualiser = Visualiser()
@@ -89,8 +89,10 @@ class MainActivity : ComponentActivity() {
     companion object { const val OPEN = "open" }
 }
 
-/** TV apps (with their banners), then phone apps that only have an icon. */
-fun loadApps(pm: PackageManager, self: String): List<TvApp> {
+/** TV apps (with their banners), then phone apps that only have an icon. [glyphs]: also each app's logo, for the icon styles. */
+fun loadApps(ctx: Context, glyphs: Boolean): List<TvApp> {
+    val pm = ctx.packageManager
+    val self = ctx.packageName
     val seen = HashSet<String>()
     val out = ArrayList<TvApp>()
     for ((category, isTv) in listOf(Intent.CATEGORY_LEANBACK_LAUNCHER to true, Intent.CATEGORY_LAUNCHER to false)) {
@@ -105,7 +107,8 @@ fun loadApps(pm: PackageManager, self: String): List<TvApp> {
                 .setClassName(ai.packageName, ai.name)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
             val colour = tileTint(art)
-            out += TvApp(ai.packageName, ri.loadLabel(pm).toString(), art.asImageBitmap(), banner != null, launch, if (banner == null) colour else null, colour)
+            val glyph = if (glyphs) IconArt.glyph(ctx, ai.packageName, ai.loadIcon(pm)) else null
+            out += TvApp(ai.packageName, ri.loadLabel(pm).toString(), art.asImageBitmap(), banner != null, launch, if (banner == null) colour else null, colour, glyph)
         }
     }
     return out

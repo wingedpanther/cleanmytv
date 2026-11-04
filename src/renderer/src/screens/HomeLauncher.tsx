@@ -8,9 +8,9 @@ import { prepareWallpaper, thumbnail } from '../lib/image'
 import { fetchBingDaily } from '../lib/backgrounds'
 import { findPlaces, type Place } from '../lib/places'
 import { drawWallpaper, paintWallpaper } from '../lib/themes'
-import { BUILT_IN_THEMES, THEME_EXT, parseTheme, type BuiltInTheme } from '@shared/themes'
+import { BUILT_IN_THEMES, THEME_EXT, THEME_PICTURES, parseTheme, withPicture, type BuiltInTheme } from '@shared/themes'
 
-type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'widgets' | 'music' | 'buttons'
+type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'widgets' | 'music' | 'buttons' | 'lock'
 
 const TABS: [Tab, string][] = [
   ['overview', 'Overview'],
@@ -19,7 +19,8 @@ const TABS: [Tab, string][] = [
   ['look', 'Look & wallpaper'],
   ['widgets', 'Widgets'],
   ['music', 'Music bars'],
-  ['buttons', 'Remote buttons']
+  ['buttons', 'Remote buttons'],
+  ['lock', 'App lock']
 ]
 
 const ACCENTS = ['#FF3000', '#2EC4B6', '#FFB23C', '#7C5CFF', '#3DDC84', '#FFFFFF']
@@ -132,6 +133,30 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
     }
   }
 
+  /** Draws every built-in theme's pictures and puts them on the TV, for its own theme carousel. */
+  async function themesToTv(): Promise<void> {
+    const total = BUILT_IN_THEMES.length * THEME_PICTURES
+    setResult(null)
+    try {
+      setBusy('Putting the themes on the TV')
+      await window.cytv.themePackBegin()
+      let i = 0
+      for (const t of BUILT_IN_THEMES) {
+        for (let n = 0; n < THEME_PICTURES; n++) {
+          setBusy(`Putting the themes on the TV: picture ${++i} of ${total}`)
+          const jpeg = paintWallpaper(withPicture(t.paint, n), `${t.id}-${n}.jpg`).base64
+          await window.cytv.themePackPut({ id: t.id, name: t.name, look: t.look, picture: n, jpeg })
+        }
+      }
+      setCfg(await window.cytv.themePackEnd(BUILT_IN_THEMES.map((t) => t.id)))
+      setResult({ ok: true, summary: `${BUILT_IN_THEMES.length} themes are on the TV, ${THEME_PICTURES} pictures each. Open them with the Themes icon (Layout → top bar icons) or a remote button.`, warnings: [] })
+    } catch (e) {
+      setResult({ ok: false, summary: errorText(e), warnings: [] })
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const readThemeBackup = (): void => {
     window.cytv.themeBackup().then(setThemeBackup, () => setThemeBackup(null))
   }
@@ -163,10 +188,23 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
 
   const themes: ThemeActions = {
     used: themeUsed,
-    builtIn: (id) => {
+    builtIn: (id, picture = 0) => {
       const t = BUILT_IN_THEMES.find((b) => b.id === id)
-      if (t) guarded(() => themeStep(`Putting ${t.name} on the TV`, async () => window.cytv.applyHomeTheme({ name: t.name, look: t.look, wallpaper: paintWallpaper(t.paint, `${t.id}.jpg`).base64 }), t.name))
+      if (t) guarded(() => themeStep(`Putting ${t.name} on the TV`, async () =>
+        window.cytv.applyHomeTheme({ name: t.name, look: t.look, wallpaper: paintWallpaper(withPicture(t.paint, picture), `${t.id}.jpg`).base64, from: `${t.id}:${picture}` }), t.name))
     },
+    current: cfg?.wallpaper_from ?? '',
+    another: () => {
+      const [id, n] = (cfg?.wallpaper_from ?? '').split(':')
+      const t = BUILT_IN_THEMES.find((b) => b.id === id)
+      if (!t) return
+      const next = ((Number(n) || 0) + 1) % THEME_PICTURES
+      themeStep(`Drawing another picture for ${t.name}`, async () =>
+        window.cytv.setHomeWallpaper(paintWallpaper(withPicture(t.paint, next), `${t.id}.jpg`).base64).then(() =>
+          window.cytv.setHomeConfig({ wallpaper_from: `${t.id}:${next}` })), t.name)
+    },
+    onTv: cfg?.themes_on_tv ?? 0,
+    toTv: () => themesToTv(),
     file: (text) => {
       let t: HomeTheme
       try {
@@ -248,6 +286,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen }: ScreenP
           {ready && tab === 'look' && <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} themes={themes} />}
           {ready && tab === 'widgets' && <WidgetsTab cfg={cfg} set={set} />}
           {ready && tab === 'music' && <MusicTab cfg={cfg} set={set} />}
+          {ready && tab === 'lock' && apps && <LockTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
           {ready && tab === 'buttons' && apps && <ButtonsTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} brand={status.probe?.manufacturer} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
           {ready && tab !== 'overview' && <p className="small muted">{saving ? 'Sending to the TV…' : 'Saved on the TV.'}</p>}
         </>
@@ -562,7 +601,7 @@ const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, num
 
 const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: 'Now playing', dock: 'Dock', rows: 'Rows', folders: 'Folders', grid: 'All apps' }
 const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'dock', 'rows', 'folders', 'grid']
-const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'settings']
+const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'settings']
 /** As the launcher's HomeConfig.MAX_QUICK_APPS. */
 const MAX_QUICK_APPS = 6
 const IDLE_CHOICES: [number, string][] = [[0, 'Off'], [1, '1 min'], [2, '2 min'], [5, '5 min'], [10, '10 min'], [15, '15 min'], [30, '30 min']]
@@ -758,7 +797,13 @@ const FOCUS_SWATCH: Record<HomeConfig['focus'], (accent: string) => string> = {
 
 interface ThemeActions {
   used: string | null
-  builtIn: (id: string) => void
+  builtIn: (id: string, picture?: number) => void
+  /** The theme picture on the TV now ("<id>:<n>"), or "". */
+  current: string
+  another: () => void
+  /** Themes already on the TV for its carousel. */
+  onTv: number
+  toTv: () => void
   file: (text: string) => void
   backup: ThemeBackup | null
   restore: () => void
@@ -813,6 +858,18 @@ function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): 
         <p className="small muted">Your current look is saved before the first theme, so you can always put it back.</p>
       )}
       <ThemeGrid themes={BUILT_IN_THEMES} actions={themes} busy={busy} />
+      <div className="row" style={{ marginTop: 12 }}>
+        <button className="btn ghost" disabled={busy || !BUILT_IN_THEMES.some((t) => themes.current.startsWith(`${t.id}:`))} onClick={themes.another}>
+          Another picture
+        </button>
+        <button className="btn ghost" disabled={busy} onClick={themes.toTv}>
+          {themes.onTv ? 'Put the themes on the TV again' : 'Put the themes on the TV'}
+        </button>
+      </div>
+      <p className="small muted" style={{ marginTop: 8 }}>
+        Each theme has {THEME_PICTURES} pictures. With the themes on the TV, you can switch them with the remote: add the Themes icon to the top bar
+        on the Layout tab, or give a remote button the Themes job. {themes.onTv ? `${themes.onTv} themes are on the TV now.` : 'It takes a minute or two.'}
+      </p>
       <input
         ref={file}
         type="file"
@@ -883,6 +940,37 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
       </div>
 
       <div className="card">
+        <h2>App icons</h2>
+        <p className="muted">Banners are each app's own TV picture. The other styles redraw every app's logo the same way, so the rows match.</p>
+        <div className="seg">
+          {([['banner', 'Banners'], ['colour', 'Colour'], ['mono', 'Mono'], ['duo', 'Duotone']] as const).map(([id, label]) => (
+            <button key={id} className={cfg.icon_style === id ? 'on' : ''} onClick={() => set({ icon_style: id })}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="small muted">
+          {cfg.icon_style === 'banner' ? 'What every TV app ships with.'
+            : cfg.icon_style === 'colour' ? 'The logo in white on its brand colour.'
+            : cfg.icon_style === 'mono' ? 'Every logo in one colour from your accent, on the same glass tile.'
+            : "Every logo in two shades of your accent, on your theme's colours."}
+          {cfg.icon_style !== 'banner' && ' An app without a usable logo shows its first letter.'}
+        </p>
+        {cfg.icon_style !== 'banner' && (
+          <>
+            <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Tile shape</p>
+            <div className="seg">
+              {([['wide', 'Wide'], ['square', 'Square'], ['squircle', 'Squircle'], ['round', 'Round']] as const).map(([id, label]) => (
+                <button key={id} className={cfg.tile_shape === id ? 'on' : ''} onClick={() => set({ tile_shape: id })}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="card">
         <h2>Wallpaper</h2>
         <p className="muted">{cfg.has_wallpaper ? 'A wallpaper is set.' : 'No wallpaper: the background colour shows.'}</p>
         <input
@@ -910,6 +998,7 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
           )}
         </div>
         <Slider label="Darken the wallpaper" hint="Keeps names and the clock readable on bright pictures." value={cfg.wallpaper_dim} min={0} max={80} unit="%" onChange={(v) => set({ wallpaper_dim: v }, 300)} />
+        <Toggle label="Sunrise when it changes" hint="A new wallpaper starts dim and the light comes in from the top. Off when the TV's animations are off." checked={cfg.intro} onChange={(v) => set({ intro: v })} />
         <Colour label="Background colour" hint="Behind everything when there's no wallpaper. Keep it dark: text is white." value={cfg.background} onChange={(c, w) => set({ background: c }, w)} />
       </div>
     </>
@@ -1066,6 +1155,9 @@ const ACTIONS: [ButtonAction, string][] = [
   ['sleep', 'Start the screensaver'],
   ['search', 'Open Search'],
   ['music', 'Music bars on or off'],
+  ['panel', 'Open Quick settings'],
+  ['themes', 'Open Themes'],
+  ['next_wallpaper', "Next picture of the theme"],
   ['none', 'Do nothing']
 ]
 
@@ -1290,5 +1382,127 @@ function BarsPreview({ cfg }: { cfg: HomeConfig }): ReactNode {
         {body}
       </svg>
     </div>
+  )
+}
+
+/** Typed twice, digits only. */
+function PinForm({ label, onSet }: { label: string; onSet: (pin: string) => Promise<void> }): ReactNode {
+  const [a, setA] = useState('')
+  const [b, setB] = useState('')
+  const [busy, setBusy] = useState(false)
+  const digits = (v: string): string => v.replace(/\D/g, '').slice(0, 6)
+  const note = a.length > 0 && a.length < 4 ? 'At least 4 digits.' : b && a !== b ? "The two PINs don't match." : ''
+  return (
+    <div>
+      <div className="row">
+        <input type="password" inputMode="numeric" autoComplete="new-password" placeholder="PIN" value={a} onChange={(e) => setA(digits(e.target.value))} aria-label="PIN" style={{ width: 120 }} />
+        <input type="password" inputMode="numeric" autoComplete="new-password" placeholder="Again" value={b} onChange={(e) => setB(digits(e.target.value))} aria-label="PIN again" style={{ width: 120 }} />
+        <button className="btn" disabled={busy || a.length < 4 || a !== b} onClick={() => { setBusy(true); onSet(a).finally(() => { setBusy(false); setA(''); setB('') }) }}>
+          {label}
+        </button>
+      </div>
+      <p className="small muted" style={{ marginBottom: 0 }}>{note || '4 to 6 digits. Type it on the TV with the remote\'s number keys or the on-screen pad.'}</p>
+    </div>
+  )
+}
+
+function LockTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c: HomeConfig) => void; onError: (e: unknown) => void }): ReactNode {
+  const { cfg, set, apps, setCfg, onError } = props
+  const [q, setQ] = useState('')
+  const [changing, setChanging] = useState(false)
+  const [forgetting, setForgetting] = useState(false)
+  const locked = new Set(cfg.lock_apps)
+  const shown = apps.filter((a) => !q || a.label.toLowerCase().includes(q.toLowerCase()) || a.pkg.includes(q.toLowerCase()))
+  const call = (p: Promise<HomeConfig>): Promise<void> => p.then(setCfg, onError)
+  if (!cfg.lock_pin_set) {
+    return (
+      <div className="card">
+        <h2>Set a PIN</h2>
+        <p className="muted">
+          Locked apps ask for this PIN on the TV before they open, however they're opened: from Home, by voice, or from Settings.
+          The TV keeps it scrambled, and this app can't read it back.
+        </p>
+        <PinForm label="Set PIN" onSet={(pin) => call(window.cytv.setLockPin(pin))} />
+      </div>
+    )
+  }
+  const toggle = (pkg: string): void => set({ lock_apps: locked.has(pkg) ? cfg.lock_apps.filter((p) => p !== pkg) : [...cfg.lock_apps, pkg] })
+  return (
+    <>
+      <div className="card">
+        <h2>App lock</h2>
+        <Toggle
+          label="App lock on"
+          hint={cfg.lock_on ? `${cfg.lock_apps.length} ${cfg.lock_apps.length === 1 ? 'app is' : 'apps are'} locked${cfg.lock_system ? ', plus Settings, the Play Store and Quick settings' : ''}.` : 'Your PIN and the list stay while it\'s off.'}
+          checked={cfg.lock_on}
+          onChange={(v) => call(window.cytv.setAppLock(v))}
+        />
+        <p className="small muted" style={{ marginBottom: 0 }}>
+          A family lock: it stops a quick tap, not someone with this app or a factory reset. Anyone with ADB access to the TV can turn it off.
+        </p>
+      </div>
+
+      <div className="card">
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <h2 style={{ margin: 0 }}>Locked apps</h2>
+          <span className="row" style={{ gap: 8 }}>
+            <button className="btn small ghost" onClick={() => set({ lock_apps: [...new Set([...cfg.lock_apps, ...shown.map((a) => a.pkg)])] })}>Lock all shown</button>
+            <button className="btn small ghost" disabled={!cfg.lock_apps.length} onClick={() => set({ lock_apps: [] })}>Unlock all</button>
+          </span>
+        </div>
+        <input type="search" placeholder="Find an app" value={q} onChange={(e) => setQ(e.target.value)} style={{ margin: '12px 0', width: '100%' }} aria-label="Find an app" />
+        <div className="list-picker" style={{ maxHeight: 360 }}>
+          {!q && (
+            <label className="row" style={{ gap: 10, cursor: 'pointer' }}>
+              <input type="checkbox" checked={cfg.lock_system} onChange={(e) => set({ lock_system: e.target.checked })} />
+              <span>Settings, Play Store and Quick settings</span>
+              <span className="small muted">also the uninstaller, so the lock can't be switched off or uninstalled around</span>
+            </label>
+          )}
+          {shown.map((a) => (
+            <label key={a.pkg} className="row" style={{ gap: 10, cursor: 'pointer' }}>
+              <input type="checkbox" checked={locked.has(a.pkg)} onChange={() => toggle(a.pkg)} />
+              <span>{a.label}</span>
+              <span className="small muted mono">{a.pkg}</span>
+            </label>
+          ))}
+          {!shown.length && <p className="small muted">No app matches.</p>}
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>Options</h2>
+        <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>An unlock lasts</p>
+        <div className="seg">
+          {([['sleep', 'Until the TV sleeps'], ['15', '15 minutes'], ['always', 'Until another app opens']] as const).map(([id, label]) => (
+            <button key={id} className={cfg.lock_for === id ? 'on' : ''} onClick={() => set({ lock_for: id })}>{label}</button>
+          ))}
+        </div>
+        <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Locked apps on Home</p>
+        <div className="seg">
+          {([['badge', 'Show them with a lock'], ['hide', 'Hide them']] as const).map(([id, label]) => (
+            <button key={id} className={cfg.lock_show === id ? 'on' : ''} onClick={() => set({ lock_show: id })}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>PIN</h2>
+        {changing ? (
+          <PinForm label="Change PIN" onSet={(pin) => call(window.cytv.setLockPin(pin)).then(() => setChanging(false))} />
+        ) : (
+          <div className="row">
+            <button className="btn ghost" onClick={() => setChanging(true)}>Change PIN</button>
+            <button className="btn ghost" onClick={() => setForgetting(true)}>Forget the PIN and turn the lock off</button>
+          </div>
+        )}
+        <p className="small muted" style={{ marginBottom: 0 }}>Forgot it? Change it here: this computer can always set a new one.</p>
+      </div>
+      {forgetting && (
+        <Confirm title="Forget the PIN?" confirmLabel="Forget it" onConfirm={() => { setForgetting(false); call(window.cytv.clearAppLock()) }} onCancel={() => setForgetting(false)}>
+          <p>The lock turns off and every app opens freely. Your list of locked apps stays for next time.</p>
+        </Confirm>
+      )}
+    </>
   )
 }

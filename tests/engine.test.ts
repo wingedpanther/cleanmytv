@@ -246,4 +246,14 @@ describe('who owns the Wi-Fi (discussion #13, #55)', () => {
     expect(D.parseWifi('')).toEqual({ owner: 'unknown', lost: 0 })
     expect(D.parseWifi(`something ${W} else`)).toEqual({ owner: 'setupwraith', lost: 0 })
   })
+
+  it('knows a box on Ethernet, where no Wi-Fi can be forgotten and joined again', () => {
+    const ip = '1: lo    inet 127.0.0.1/8 scope host lo\n2: eth0    inet 192.168.0.8/24 brd 192.168.0.255 scope global eth0\n3: wlan0    inet 192.168.0.9/24 scope global wlan0\n'
+    expect(D.onEthernet(ip, '192.168.0.8')).toBe(true)
+    expect(D.onEthernet(ip, '192.168.0.9')).toBe(false)
+    expect(D.onEthernet(ip, '192.168.0.80')).toBe(false)
+    expect(D.onEthernet('', '192.168.0.8')).toBe(false)
+    expect(D.wraithNetworks(dump(net('', 0, 'Old', W) + net('', 1, 'Cafe', W) + net('', 2, 'Home', SYS)))).toBe(2)
+    expect(D.wraithNetworks('')).toBe(0)
+  })
 })

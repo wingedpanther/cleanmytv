@@ -593,3 +593,29 @@ describe('theme files', () => {
     }
   })
 })
+
+describe('launcher 1.4.0 settings', () => {
+  it('takes icon styles, tile shapes, the intro and the app lock, and refuses bad values', () => {
+    expect(H.clean({ icon_style: 'mono', tile_shape: 'squircle', intro: false, lock_on: true, lock_apps: ['com.netflix.ninja'], lock_for: '15', lock_show: 'hide', lock_system: false }))
+      .toEqual({ icon_style: 'mono', tile_shape: 'squircle', intro: false, lock_on: true, lock_apps: ['com.netflix.ninja'], lock_for: '15', lock_show: 'hide', lock_system: false })
+    expect(() => H.clean({ icon_style: 'neon' })).toThrow(/icon_style/)
+    expect(() => H.clean({ lock_apps: ['not a package'] })).toThrow(/lock_apps/)
+    expect(H.clean({ wallpaper_from: 'aurora:2' })).toEqual({ wallpaper_from: 'aurora:2' })
+    expect(H.clean({ wallpaper_from: '' })).toEqual({ wallpaper_from: '' })
+    expect(() => H.clean({ wallpaper_from: '../x:1' })).toThrow(/wallpaper_from/)
+    expect(H.clean({ quick: ['panel', 'themes'] })).toEqual({ quick: ['panel', 'themes'] })
+    expect(H.clean({ buttons: [{ code: 183, action: 'next_wallpaper' }] })).toEqual({ buttons: [{ code: 183, action: 'next_wallpaper' }] })
+  })
+
+  it('reads the lock and theme state the launcher reports, and never a PIN', () => {
+    const cfg = H.parse('Result: Bundle[{config={"lock_pin_set":true,"themes_on_tv":28,"can_change_settings":false,"pin":"1234"}}]')
+    expect(cfg.lock_pin_set).toBe(true)
+    expect(cfg.themes_on_tv).toBe(28)
+    expect(cfg.can_change_settings).toBe(false)
+    expect(JSON.stringify(cfg)).not.toContain('1234')
+  })
+
+  it('only sends a PIN of 4 to 6 digits', async () => {
+    for (const bad of ['123', '1234567', '12a4', '']) await expect(H.setLockPin(bad)).rejects.toThrow(/4 to 6 digits/)
+  })
+})

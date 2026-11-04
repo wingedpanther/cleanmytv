@@ -39,7 +39,7 @@ async function current(name: string): Promise<{ theme: HomeTheme; missing: boole
 async function put(theme: HomeTheme): Promise<HomeConfig> {
   // Lenient: a file from a newer app may carry values this one doesn't know.
   let cfg = await H.setConfig(H.clean(pickLook(theme.look), true))
-  if (theme.wallpaper !== undefined) cfg = await H.setWallpaper(theme.wallpaper)
+  if (theme.wallpaper !== undefined) cfg = await H.setWallpaper(theme.wallpaper, typeof theme.from === 'string' ? theme.from : '')
   return cfg
 }
 

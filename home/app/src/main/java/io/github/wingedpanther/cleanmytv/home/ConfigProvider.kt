@@ -22,6 +22,12 @@ import java.security.MessageDigest
  *   wallpaper_remove           back to the plain background
  *   apps                       the apps Home can show, with the names the TV uses
  *   keys                       the last remote buttons the TV received (for the button finder)
+ *   wallpaper_read <offset>    a piece of the wallpaper in use, so any computer can save the look with it
+ *   lock_pin <base64 JSON>     set the app lock PIN ({"pin":"1234"}); it is stored hashed and never read back
+ *   lock_clear                 forget the PIN and turn the lock off
+ *   pack_begin, pack_meta <base64 JSON>, pack_file_begin <base64 "id:n">, pack_file_chunk <base64>,
+ *   pack_file_end <md5>, pack_end <base64 JSON order>, pack_clear
+ *                              the built-in themes and their pictures, for switching themes on the TV
  * Only the shell user (ADB) and root may call it, so other apps on the TV can't restyle Home.
  */
 class ConfigProvider : ContentProvider() {
@@ -40,6 +46,16 @@ class ConfigProvider : ContentProvider() {
         }
         if (method == "apps") {
             out.putString("apps", listApps(ctx.packageManager, ctx.packageName).toString())
+            return out
+        }
+        if (method == "wallpaper_read") {
+            // Bundles cross a binder limit, so the picture comes back in pieces; the caller asks until done.
+            val f = ConfigStore.wallpaper(ctx)
+            if (!f.exists()) { out.putLong("size", 0); return out }
+            val bytes = f.readBytes()
+            val at = (arg?.toIntOrNull() ?: 0).coerceIn(0, bytes.size)
+            out.putLong("size", bytes.size.toLong())
+            out.putString("data", Base64.encodeToString(bytes, at, minOf(READ_PIECE, bytes.size - at), Base64.NO_WRAP))
             return out
         }
         when (method) {
@@ -65,14 +81,47 @@ class ConfigProvider : ContentProvider() {
             }
             "wallpaper_remove" -> {
                 ConfigStore.wallpaper(ctx).delete()
+                ConfigStore.update(ctx, JSONObject().put("wallpaper_from", ""))
                 ConfigStore.wallpaperChanged()
             }
+            "lock_pin" -> {
+                val pin = json(String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8)).optString("pin")
+                Lock.setPin(ctx, pin)
+            }
+            "lock_clear" -> {
+                Lock.clearPin(ctx)
+                ConfigStore.update(ctx, JSONObject().put("lock_on", false))
+            }
+            "pack_begin" -> ThemePack.begin(ctx)
+            "pack_meta" -> ThemePack.meta(ctx, json(String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8)))
+            "pack_file_begin" -> {
+                packFile = ThemePack.target(ctx, String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8))
+                packFile!!.writeBytes(ByteArray(0))
+            }
+            "pack_file_chunk" -> {
+                val f = packFile ?: throw IllegalStateException("pack_file_begin first")
+                val bytes = Base64.decode(arg ?: "", Base64.DEFAULT)
+                if (f.length() + bytes.size > MAX_WALLPAPER) throw IllegalArgumentException("picture is over 4 MB")
+                f.appendBytes(bytes)
+            }
+            "pack_file_end" -> {
+                val f = packFile ?: throw IllegalStateException("pack_file_begin first")
+                val got = MessageDigest.getInstance("MD5").digest(f.readBytes()).joinToString("") { "%02x".format(it) }
+                if (got != arg?.lowercase()) { f.delete(); throw IllegalArgumentException("picture upload is damaged (md5 $got)") }
+                packFile = null
+            }
+            "pack_end" -> ThemePack.end(ctx, runCatching { org.json.JSONArray(String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8)) }
+                .getOrElse { throw IllegalArgumentException("arg must be a JSON list of theme ids") })
+            "pack_clear" -> ThemePack.clear(ctx)
             else -> throw IllegalArgumentException("unknown method: $method")
         }
         val config = ConfigStore.config.value.toJson()
             .put("has_wallpaper", ConfigStore.wallpaper(ctx).exists())
             .put("configured", ConfigStore.configured(ctx))
             .put("quick_available", org.json.JSONArray(availableQuick(ctx)))
+            .put("lock_pin_set", Lock.hasPin(ctx))
+            .put("themes_on_tv", ThemePack.list(ctx).size)
+            .put("can_change_settings", TvSettings.canWriteSecure(ctx))
         out.putString("config", config.toString())
         return out
     }
@@ -90,5 +139,8 @@ class ConfigProvider : ContentProvider() {
         const val SHELL_UID = 2000
         const val ROOT_UID = 0
         const val MAX_WALLPAPER = 4 * 1024 * 1024
+        const val READ_PIECE = 192 * 1024
+        /** The picture being uploaded for the theme pack, between pack_file_begin and pack_file_end. */
+        @Volatile var packFile: java.io.File? = null
     }
 }

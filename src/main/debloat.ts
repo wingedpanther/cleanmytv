@@ -583,6 +583,8 @@ export interface WifiCheck {
   owner: 'setupwraith' | 'system' | 'unknown'
   /** Other saved networks that belong to setupwraith and go with it; the one in use is fine. */
   lost: number
+  /** The TV reaches this computer over Ethernet, so deleting saved Wi-Fi can't cut ADB off. */
+  ethernet?: boolean
 }
 
 /**
@@ -595,7 +597,27 @@ export interface WifiCheck {
 export async function wifiOwner(task: string): Promise<WifiCheck> {
   let wifi = ''
   try { wifi = await T.sh(task, 'dumpsys wifi', { quiet: true }) } catch { wifi = '' }
-  return parseWifi(wifi)
+  const check = parseWifi(wifi)
+  if (check.owner === 'system') return check
+  // A box on Ethernet has no Wi-Fi to forget and join again. If the address this app talks to sits
+  // on an Ethernet port, setupwraith can go: only saved Wi-Fi from the first setup goes with it.
+  let ip = ''
+  try { ip = await T.sh(task, 'ip -o -4 addr show', { quiet: true }) } catch { ip = '' }
+  if (onEthernet(ip, T.host())) return { owner: 'system', lost: wraithNetworks(wifi), ethernet: true }
+  return check
+}
+
+/** Whether [host] is the address of an Ethernet port, from `ip -o -4 addr show`. */
+export function onEthernet(ipAddr: string, host: string): boolean {
+  const line = ipAddr.split('\n').find((l) => l.includes(` inet ${host}/`))
+  const iface = line?.trim().split(/\s+/)[1] ?? ''
+  return /^eth\d/.test(iface)
+}
+
+/** Saved networks that belong to setupwraith, in the saved-networks section or, failing that, the whole dump. */
+export function wraithNetworks(wifi: string): number {
+  const section = /Configured networks Begin -+\n([\s\S]*?)^[^\n]*Configured networks End/m.exec(wifi)?.[1] ?? ''
+  return section.split(/\n(?=(?:\* |- DSBLE |- )?ID: \d+ SSID: )/).filter((b) => /cname=\S*setupwraith/.test(b)).length
 }
 
 const isWraith = (cname: string | undefined): boolean => !!cname?.includes('setupwraith')

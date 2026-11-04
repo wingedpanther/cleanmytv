@@ -159,12 +159,12 @@ export interface HomeStatus {
 
 export type HomeLayout = 'shelf' | 'split' | 'rail'
 export type HomeSection = 'nowplaying' | 'dock' | 'rows' | 'folders' | 'grid'
-export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music'
+export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes'
 /** A top-bar icon: a quick-settings action, or `app:<package>` for an app shortcut (CleanMyTV Home 1.2.0 and later). */
 export type QuickEntry = QuickId | `app:${string}`
 
 /** What a mapped remote button does: a quick-settings action, Home, Back, nothing, or open an app. */
-export type ButtonAction = QuickId | 'home' | 'back' | 'none' | 'app'
+export type ButtonAction = QuickId | 'home' | 'back' | 'none' | 'app' | 'next_wallpaper'
 
 export interface HomeButton {
   /** Key code the remote sends, 1 to 65535. Vendor buttons go above Android's own, like TCL's 4001. */
@@ -232,6 +232,23 @@ export interface HomeConfig {
   pin_focus: boolean
   /** With lift: the tile leans toward the move, then settles. */
   tilt: boolean
+  /** banner: each app's own TV banner. The rest redraw every app's logo the same way (launcher 1.4.0). */
+  icon_style: 'banner' | 'colour' | 'mono' | 'duo'
+  /** Tile outline for the icon styles; banners stay wide. */
+  tile_shape: 'wide' | 'square' | 'squircle' | 'round'
+  /** A new wallpaper comes in like a sunrise. */
+  intro: boolean
+  /** The built-in theme picture the wallpaper is, as "<theme id>:<picture>", or "" for any other. */
+  wallpaper_from: string
+  // App lock (launcher 1.4.0). The PIN is set with setLockPin and never comes back.
+  lock_on: boolean
+  lock_apps: string[]
+  /** Settings, the Play Store, the uninstaller and Home's Quick settings ask for the PIN too. */
+  lock_system: boolean
+  /** How long an unlock lasts: until the TV sleeps, 15 minutes, or until another app opens. */
+  lock_for: 'sleep' | '15' | 'always'
+  /** Locked apps on Home: with a small lock, or left out. */
+  lock_show: 'badge' | 'hide'
   clock: 'time_date' | 'time' | 'off'
   /** A name for "Good evening, …"; empty for none. */
   greeting: string
@@ -259,6 +276,23 @@ export interface HomeConfig {
   quick_available?: QuickId[]
   /** Read only: false on a fresh install that has no settings yet (launcher 1.1.0 and later). */
   configured?: boolean
+  /** Read only: an app lock PIN is set. */
+  lock_pin_set?: boolean
+  /** Read only: how many built-in themes are on the TV for its carousel. */
+  themes_on_tv?: number
+  /** Read only: the launcher may change TV settings (Quick settings panel). */
+  can_change_settings?: boolean
+}
+
+/** One picture of a built-in theme, for the TV's own theme carousel. */
+export interface ThemePackItem {
+  id: string
+  name: string
+  look: Partial<HomeConfig>
+  /** Which picture of the theme, 0 to 3. */
+  picture: number
+  /** JPEG in base64. */
+  jpeg: string
 }
 
 /** The look of CleanMyTV Home, from a built-in theme or a .cmtvtheme file (src/shared/themes.ts). */
@@ -268,6 +302,8 @@ export interface HomeTheme {
   look: Partial<HomeConfig>
   /** JPEG in base64, null for no wallpaper, or left out to keep the TV's. */
   wallpaper?: string | null
+  /** The built-in theme picture the wallpaper is ("<theme id>:<picture>"), so the TV can show its other pictures. */
+  from?: string
 }
 
 /** The look kept on this computer from before the first theme on the connected TV. */
@@ -402,6 +438,16 @@ export interface CytvApi {
   setHomeConfig(change: Partial<HomeConfig>): Promise<HomeConfig>
   /** Turns the remote-button service on or off on the TV. */
   setRemoteButtons(on: boolean): Promise<HomeConfig>
+  /** Sets the app lock PIN (4 to 6 digits). The TV keeps it hashed; nothing can read it back. */
+  setLockPin(pin: string): Promise<HomeConfig>
+  /** Turns the app lock on or off; the PIN and the list stay. */
+  setAppLock(on: boolean): Promise<HomeConfig>
+  /** Forgets the PIN and turns the lock off. */
+  clearAppLock(): Promise<HomeConfig>
+  /** Replaces the themes on the TV: begin, one call per picture, then end with the order. */
+  themePackBegin(): Promise<void>
+  themePackPut(item: ThemePackItem): Promise<void>
+  themePackEnd(order: string[]): Promise<HomeConfig>
   /** The last buttons the TV received, newest last. */
   homeKeys(): Promise<KeyPress[]>
   /** A prepared JPEG (base64) for the home screen, or null to remove it. */

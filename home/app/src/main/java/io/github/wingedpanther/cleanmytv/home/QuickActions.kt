@@ -15,6 +15,8 @@ import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Input
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.MusicOff
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tv
@@ -51,6 +53,9 @@ fun quickActions(): Map<String, QuickAction> = listOf(
     // Handled by Home itself: turns the music bars on and off.
     QuickAction("music", "Music bars", Icons.Outlined.MusicNote, emptyList()),
     QuickAction("settings", "Settings", Icons.Outlined.Settings, listOf(settings(Settings.ACTION_SETTINGS))),
+    // Handled by Home itself: its own settings panel, and the theme carousel.
+    QuickAction("panel", "Quick settings", Icons.Outlined.Tune, emptyList()),
+    QuickAction("themes", "Themes", Icons.Outlined.Palette, emptyList()),
 ).associateBy { it.id }
 
 /** The first of the action's intents this TV can open, or null when none can (the icon is then left out). */
@@ -60,7 +65,7 @@ fun resolve(ctx: Context, a: QuickAction): Intent? =
 /** Inputs needs inputs, Music bars always works, the rest need a screen on this TV that opens them. */
 fun canOpen(ctx: Context, a: QuickAction, hasInputs: Boolean): Boolean = when (a.id) {
     "inputs" -> hasInputs
-    "music" -> true
+    "music", "panel", "themes" -> true
     else -> resolve(ctx, a) != null
 }
 

@@ -17,11 +17,14 @@ const QUICK_GLYPH: Record<QuickId, string> = {
   sleep: 'M17 14A7 7 0 0 1 10 5a7 7 0 1 0 7 9z',
   search: 'M11 5a6 6 0 1 1 0 12 6 6 0 0 1 0-12zM16 16l4 4',
   music: 'M9 18V6l10-2v12M9 18a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0zM19 16a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z',
-  settings: 'M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1'
+  settings: 'M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1',
+  panel: 'M4 7h10M18 7h2M4 17h4M12 17h8M14 5v4M8 15v4',
+  themes: 'M12 4a8 8 0 1 0 0 16c1 0 1.5-.8 1.5-1.6 0-1.4 1-2.4 2.4-2.4H18a2 2 0 0 0 2-2A8 8 0 0 0 12 4zM8 11h.01M11 8h.01M15 8h.01'
 }
 
 export const QUICK_LABEL: Record<QuickId, string> = {
-  inputs: 'Inputs', wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: 'Picture & sound', apps: 'Apps', sleep: 'Screensaver', search: 'Search', music: 'Music bars', settings: 'Settings'
+  inputs: 'Inputs', wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: 'Picture & sound', apps: 'Apps', sleep: 'Screensaver', search: 'Search', music: 'Music bars', settings: 'Settings',
+  panel: 'Quick settings', themes: 'Themes'
 }
 
 export function QuickIcon({ id, size = 16 }: { id: QuickId; size?: number }): ReactNode {
@@ -78,12 +81,20 @@ function Tile({ app, w, names, focused, cfg }: { app: TvApp; w: number; names: b
           ? { boxShadow: `0 10px 18px -4px rgba(0,0,0,.6), 0 0 22px 1px ${cfg.accent}59, inset 0 0 0 1px rgba(255,255,255,.28)`, transform: 'scale(1.09) translateY(-3px)' }
           : {}
     : {}
+  // The icon styles: square, squircle or round tiles, a little narrower; the logo shows on the TV, the
+  // preview draws the first letter in its place.
+  const icons = cfg.icon_style !== 'banner'
+  const shape = icons ? cfg.tile_shape : 'wide'
+  const side = shape === 'wide' ? w : w * 0.72
+  const radius = shape === 'round' ? '50%' : shape === 'squircle' ? '32%' : shape === 'square' ? '22%' : 10
+  const fill = cfg.icon_style === 'mono' ? 'rgba(255,255,255,.12)' : cfg.icon_style === 'duo' ? `color-mix(in srgb, ${cfg.background} 70%, ${cfg.accent})` : '#2D3A2E'
+  const ink = cfg.icon_style === 'mono' || cfg.icon_style === 'duo' ? `color-mix(in srgb, ${cfg.accent} 65%, white)` : '#F0EBE5'
   return (
-    <div style={{ width: w, flex: 'none' }}>
-      <div style={{ height: (w * 9) / 16, borderRadius: 10, background: '#2D3A2E', display: 'grid', placeItems: 'center', color: '#F0EBE5', fontWeight: 500, fontSize: Math.max(12, w / 11), padding: '0 8px', textAlign: 'center', lineHeight: 1.15, overflow: 'hidden', ...ring }}>
-        {app.label}
+    <div style={{ width: side, flex: 'none' }}>
+      <div style={{ height: shape === 'wide' ? (w * 9) / 16 : side, borderRadius: radius, background: fill, display: 'grid', placeItems: 'center', color: ink, fontWeight: icons ? 600 : 500, fontSize: icons && shape !== 'wide' ? side * 0.4 : Math.max(12, w / 11), padding: '0 8px', textAlign: 'center', lineHeight: 1.15, overflow: 'hidden', ...ring }}>
+        {icons ? app.label.charAt(0).toUpperCase() : app.label}
       </div>
-      {names && <div style={{ visibility: focused || !cfg.name_focus ? 'visible' : 'hidden', marginTop: 6, fontSize: 14, color: '#F0EBE5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{app.label}</div>}
+      {names && <div style={{ visibility: focused || !cfg.name_focus ? 'visible' : 'hidden', marginTop: 6, fontSize: 14, color: '#F0EBE5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: shape === 'wide' ? 'left' : 'center' }}>{app.label}</div>}
     </div>
   )
 }

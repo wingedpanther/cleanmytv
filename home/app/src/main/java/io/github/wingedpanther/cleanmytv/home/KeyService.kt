@@ -2,7 +2,10 @@ package io.github.wingedpanther.cleanmytv.home
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
@@ -25,13 +28,21 @@ object KeyLog {
 }
 
 /**
+ * Remote buttons and the app lock's guard.
+ *
  * Remote buttons, mapped from CleanMyTV. Only buttons in the map are handled (and swallowed, so the
  * TV doesn't also do its own thing); every other button returns false and reaches apps untouched.
  * That is the line upstream's key helper crossed in #26.
  */
 class KeyService : AccessibilityService() {
+    // An unlock lasts until the TV sleeps, unless the owner picked 15 minutes or every time.
+    private val screenOff = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) { Lock.lockAll() }
+    }
+
     override fun onServiceConnected() {
         ConfigStore.load(this)
+        registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF))
         // Some builds ignore the flag in the XML; asking again here turns key filtering on.
         serviceInfo = serviceInfo.apply { flags = flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS }
         Log.i(TAG, "key service on, flags ${serviceInfo.flags}")
@@ -53,6 +64,8 @@ class KeyService : AccessibilityService() {
             "none" -> Unit
             "inputs" -> startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN, "inputs").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             "music" -> ConfigStore.update(this, JSONObject().put("visualiser", !ConfigStore.config.value.visualiser))
+            "panel", "themes" -> startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN, b.action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            "next_wallpaper" -> ThemePack.next(this)
             "app" -> b.app?.let { pkg ->
                 (packageManager.getLeanbackLaunchIntentForPackage(pkg) ?: packageManager.getLaunchIntentForPackage(pkg))
                     ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)?.let { startActivity(it) }
@@ -61,6 +74,19 @@ class KeyService : AccessibilityService() {
         }
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    /** A locked app came to the front, however it was opened: cover it with the PIN pad. */
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val pkg = event.packageName?.toString() ?: return
+        Lock.seen(pkg, lockScreen = event.className?.toString()?.endsWith("LockActivity") == true)
+        if (pkg == packageName || pkg == LockActivity.showing || Lock.justBackedOut(pkg)) return
+        if (Lock.needsPin(this, pkg)) runCatching { startActivity(LockActivity.intent(this, pkg)) }.onFailure { Log.w(TAG, "lock $pkg: $it") }
+    }
+
+    override fun onDestroy() {
+        runCatching { unregisterReceiver(screenOff) }
+        super.onDestroy()
+    }
+
     override fun onInterrupt() {}
 }

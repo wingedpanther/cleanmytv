@@ -43,6 +43,18 @@ data class HomeConfig(
     val followColour: Boolean = false, // the background takes the focused app's colour
     val pinFocus: Boolean = false, // the focused tile stays put and the row slides under it
     val tilt: Boolean = false, // with lift: the tile leans toward the move, then settles
+    // Icons: "banner" is the app's own TV banner; the rest redraw every app's logo the same way
+    val iconStyle: String = "banner", // banner, colour, mono, duo
+    val tileShape: String = "wide", // wide, square, squircle, round; banner tiles are always wide
+    val intro: Boolean = true, // a new wallpaper comes in like a sunrise
+    /** Which built-in theme picture the wallpaper is, as "<theme id>:<picture>", or "" for anything else. */
+    val wallpaperFrom: String = "",
+    // App lock: the PIN itself lives in Lock, never in these settings
+    val lockOn: Boolean = false,
+    val lockApps: List<String> = emptyList(),
+    val lockSystem: Boolean = false, // Settings, the Play Store, the uninstaller and Quick settings too; off until ticked
+    val lockFor: String = "sleep", // sleep, 15, always: how long an unlock lasts
+    val lockShow: String = "badge", // badge, hide: locked apps on Home
     val clock: String = "time_date", // time_date, time, off
     val greeting: String = "",
     // Idle screen: after this many minutes without a button press, only the wallpaper and the clock show; 0 is off
@@ -86,6 +98,15 @@ data class HomeConfig(
         .put("follow_colour", followColour)
         .put("pin_focus", pinFocus)
         .put("tilt", tilt)
+        .put("icon_style", iconStyle)
+        .put("tile_shape", tileShape)
+        .put("intro", intro)
+        .put("wallpaper_from", wallpaperFrom)
+        .put("lock_on", lockOn)
+        .put("lock_apps", JSONArray(lockApps))
+        .put("lock_system", lockSystem)
+        .put("lock_for", lockFor)
+        .put("lock_show", lockShow)
         .put("clock", clock)
         .put("greeting", greeting)
         .put("idle_minutes", idleMinutes)
@@ -107,9 +128,10 @@ data class HomeConfig(
         private val PKG = Regex("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")
 
         private fun hex(c: Long) = "#%06X".format(c and 0xFFFFFF)
-        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music")
+        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes")
+        private val THEME_PICTURE = Regex("^[a-z0-9-]{1,40}:[0-9]$")
         private val SECTIONS = setOf("nowplaying", "dock", "rows", "folders", "grid")
-        val BUTTON_ACTIONS = QUICK - "inputs" + setOf("inputs", "home", "back", "none", "app")
+        val BUTTON_ACTIONS = QUICK - "inputs" + setOf("inputs", "home", "back", "none", "app", "next_wallpaper")
         /** App shortcuts in the top bar, after the quick-settings icons that fit. */
         const val MAX_QUICK_APPS = 6
         fun quickApp(entry: String): String? = entry.removePrefix("app:").takeIf { entry.startsWith("app:") && PKG.matches(it) }
@@ -178,6 +200,15 @@ data class HomeConfig(
                 followColour = bool("follow_colour", base.followColour),
                 pinFocus = bool("pin_focus", base.pinFocus),
                 tilt = bool("tilt", base.tilt),
+                iconStyle = choice("icon_style", base.iconStyle, setOf("banner", "colour", "mono", "duo")),
+                tileShape = choice("tile_shape", base.tileShape, setOf("wide", "square", "squircle", "round")),
+                intro = bool("intro", base.intro),
+                wallpaperFrom = if (o.has("wallpaper_from")) o.optString("wallpaper_from").takeIf { it.isEmpty() || THEME_PICTURE.matches(it) } ?: base.wallpaperFrom else base.wallpaperFrom,
+                lockOn = bool("lock_on", base.lockOn),
+                lockApps = pkgs("lock_apps") ?: base.lockApps,
+                lockSystem = bool("lock_system", base.lockSystem),
+                lockFor = choice("lock_for", base.lockFor, setOf("sleep", "15", "always")),
+                lockShow = choice("lock_show", base.lockShow, setOf("badge", "hide")),
                 clock = choice("clock", base.clock, setOf("time_date", "time", "off")),
                 idleMinutes = int("idle_minutes", base.idleMinutes, 0, 60),
                 greeting = if (o.has("greeting")) o.optString("greeting").take(40) else base.greeting,
@@ -229,9 +260,12 @@ object ConfigStore {
     fun update(ctx: Context, json: JSONObject): HomeConfig {
         load(ctx)
         val next = HomeConfig.fromJson(json, _config.value)
+        val text = next.toJson().toString(2)
         val tmp = File(ctx.filesDir, "config.json.tmp")
-        tmp.writeText(next.toJson().toString(2))
-        tmp.renameTo(file(ctx))
+        // On adopted storage a temp file left by an earlier install can refuse to be written (#59): then the
+        // settings go straight into config.json, without the swap.
+        val swapped = runCatching { tmp.writeText(text); tmp.renameTo(file(ctx)) }.getOrDefault(false)
+        if (!swapped) { tmp.delete(); file(ctx).writeText(text) }
         _config.value = next
         return next
     }

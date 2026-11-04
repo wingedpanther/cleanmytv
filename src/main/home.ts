@@ -8,7 +8,7 @@ import { paths } from './paths'
 import { log } from './log'
 import * as T from './tv'
 import { HOME_PKG, OLD_PKG, StockUnknown, addService, detectStock, dropServices, handOver, rememberStock, toSwitchOff } from './launcher'
-import type { HomeButton, HomeConfig, HomeGroup, HomeStatus, InstallResult, KeyPress, QuickId, TvApp } from '@shared/api'
+import type { HomeButton, HomeConfig, HomeGroup, HomeStatus, InstallResult, KeyPress, QuickId, ThemePackItem, TvApp } from '@shared/api'
 
 const TASK = 'install'
 const MAIN = `${HOME_PKG}/.MainActivity`
@@ -19,7 +19,10 @@ export const DEFAULTS: HomeConfig = {
   layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
   rows: [], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [],
   accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
-  order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false, clock: 'time_date', greeting: '', idle_minutes: 0,
+  order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
+  icon_style: 'banner', tile_shape: 'wide', intro: true, wallpaper_from: '',
+  lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge',
+  clock: 'time_date', greeting: '', idle_minutes: 0,
   weather_place: '', weather_lat: 0, weather_lon: 0, weather_unit: 'c',
   visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
 }
@@ -30,14 +33,18 @@ const CHOICES = {
   clock: ['time_date', 'time', 'off'],
   viz_style: ['bars', 'mirror', 'wave'],
   viz_colour: ['accent', 'rainbow', 'white'],
-  weather_unit: ['c', 'f']
+  weather_unit: ['c', 'f'],
+  icon_style: ['banner', 'colour', 'mono', 'duo'],
+  tile_shape: ['wide', 'square', 'squircle', 'round'],
+  lock_for: ['sleep', '15', 'always'],
+  lock_show: ['badge', 'hide']
 } as const
 
 const LISTS = {
   sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid']
 } as const
 
-const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music'] as const
+const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes'] as const
 /** App shortcuts the top bar takes, as the launcher's HomeConfig.MAX_QUICK_APPS. */
 export const MAX_QUICK_APPS = 6
 const quickApp = (q: unknown): boolean => typeof q === 'string' && q.startsWith('app:') && T.PACKAGE_RE.test(q.slice(4))
@@ -53,7 +60,7 @@ const RANGES = {
   viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300]
 } as const
 
-const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'visualiser', 'viz_peaks', 'buttons_on'] as const
+const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'visualiser', 'viz_peaks', 'buttons_on'] as const
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 /** Lets the launcher see other apps' media sessions; on only while the Now playing section is. */
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
@@ -61,7 +68,9 @@ const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
 export const MIN_SDK = 28
 // Above Android's own codes: TCL remotes send 4001 and up (#47).
 const MAX_KEY = 65535
-const BUTTON_ACTIONS = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'home', 'back', 'none', 'app']
+const BUTTON_ACTIONS = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'next_wallpaper', 'home', 'back', 'none', 'app']
+/** A built-in theme's picture, as "<theme id>:<picture>". */
+const THEME_PICTURE = /^[a-z0-9-]{1,40}:[0-9]$/
 
 function bundledVersion(): string | undefined {
   try {
@@ -147,6 +156,9 @@ export async function install(chosen?: string): Promise<InstallResult> {
   }
   // The music bars read the TV's sound output. Granted here so the TV never asks.
   await T.sh(TASK, `pm grant ${HOME_PKG} android.permission.RECORD_AUDIO 2>/dev/null; echo audio-granted`)
+  // The Quick settings panel changes screensaver, sleep, DNS, animations and clock settings. Some TVs refuse
+  // one or both; the panel then opens the TV's own screens for those rows.
+  await T.sh(TASK, `pm grant ${HOME_PKG} android.permission.WRITE_SECURE_SETTINGS 2>/dev/null; appops set ${HOME_PKG} WRITE_SETTINGS allow 2>/dev/null; echo settings-granted`)
   const start = await T.sh(TASK, `am start -W -n ${MAIN}`)
   if (!start.includes('Status: ok') || /^Error/im.test(start)) {
     return { ok: false, summary: 'CleanMyTV Home did not start, so Home was left as it was.', warnings: [start.trim()] }
@@ -156,7 +168,7 @@ export async function install(chosen?: string): Promise<InstallResult> {
   rememberStock(stock)
   // Android switches accessibility services off when their app is reinstalled: turn the button service back on.
   const cfg = await readConfig().catch(() => null)
-  if (cfg?.buttons_on) await addService(KEY_SERVICE)
+  if (cfg?.buttons_on || cfg?.lock_on) await addService(KEY_SERVICE)
   if (cfg) await nowPlayingAccess(cfg.sections.includes('nowplaying'))
   const restored = cfg?.configured === false ? await restoreBackup() : false
   return {
@@ -174,6 +186,9 @@ export function parse(out: string): HomeConfig {
   const cfg: HomeConfig = { ...DEFAULTS, ...clean(o, true) }
   cfg.has_wallpaper = o.has_wallpaper === true
   if (typeof o.configured === 'boolean') cfg.configured = o.configured
+  if (typeof o.lock_pin_set === 'boolean') cfg.lock_pin_set = o.lock_pin_set
+  if (typeof o.themes_on_tv === 'number') cfg.themes_on_tv = o.themes_on_tv
+  if (typeof o.can_change_settings === 'boolean') cfg.can_change_settings = o.can_change_settings
   // Older launchers don't report this; leave it unset so the editor doesn't mark everything unavailable.
   if (Array.isArray(o.quick_available)) cfg.quick_available = o.quick_available.filter((q): q is QuickId => (QUICK as readonly unknown[]).includes(q))
   return cfg
@@ -203,7 +218,11 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
     if (typeof o[k] === 'boolean') out[k] = o[k]
     else bad(`${k} must be true or false`)
   }
-  for (const k of ['order', 'hidden'] as const) {
+  if (o.wallpaper_from !== undefined) {
+    if (typeof o.wallpaper_from === 'string' && (o.wallpaper_from === '' || THEME_PICTURE.test(o.wallpaper_from))) out.wallpaper_from = o.wallpaper_from
+    else bad('wallpaper_from must be "<theme id>:<picture>" or empty')
+  }
+  for (const k of ['order', 'hidden', 'lock_apps'] as const) {
     if (o[k] === undefined) continue
     if (Array.isArray(o[k]) && (o[k] as unknown[]).length <= 500 && (o[k] as unknown[]).every((p) => typeof p === 'string' && T.PACKAGE_RE.test(p))) out[k] = [...new Set(o[k] as string[])]
     else bad(`${k} must be a list of package names`)
@@ -262,7 +281,7 @@ function call(method: string, arg?: string, task = 'theme'): Promise<string> {
   const cmd = `content call --uri ${URI} --method ${method}${arg !== undefined ? ` --arg ${arg}` : ''}`
   // Every answer carries all the settings, which include the home location and the greeting, so answers
   // stay out of the log. So do set64's arguments, which are those settings in base64.
-  if ((!arg || arg.length <= 200) && method !== 'set64') log(task, 'cmd', cmd)
+  if ((!arg || arg.length <= 200) && method !== 'set64' && method !== 'lock_pin') log(task, 'cmd', cmd)
   return T.tv().shell(cmd)
 }
 
@@ -294,8 +313,82 @@ export async function keys(): Promise<KeyPress[]> {
 /** Switches the remote-button service on or off: the TV's accessibility setting plus the launcher's flag. */
 export async function setRemoteButtons(on: boolean): Promise<HomeConfig> {
   if (on) await addService(KEY_SERVICE)
-  else await dropServices(HOME_PKG)
+  // The same service guards locked apps; it stays on while the lock is.
+  else if (!(await readConfig()).lock_on) await dropServices(HOME_PKG)
   return setConfig({ buttons_on: on === true })
+}
+
+// ---- app lock -----------------------------------------------------------------------------------
+// The PIN goes to the launcher once, in base64 so it needs no quoting, and is never logged or read back.
+
+export async function setLockPin(pin: string): Promise<HomeConfig> {
+  if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) throw new Error('The PIN must be 4 to 6 digits.')
+  log('theme', 'cmd', 'set the app lock PIN')
+  return keep(parse(await call('lock_pin', Buffer.from(JSON.stringify({ pin })).toString('base64'))))
+}
+
+/** The key service watches which app comes to the front; it's on while the lock or the remote buttons are. */
+export async function setAppLock(on: boolean): Promise<HomeConfig> {
+  const cfg = await readConfig()
+  if (on && !cfg.lock_pin_set) throw new Error('Set a PIN first.')
+  if (on) await addService(KEY_SERVICE)
+  else if (!cfg.buttons_on) await dropServices(HOME_PKG)
+  return setConfig({ lock_on: on === true })
+}
+
+export async function clearAppLock(): Promise<HomeConfig> {
+  const cfg = keep(parse(await call('lock_clear')))
+  if (!cfg.buttons_on) await dropServices(HOME_PKG)
+  log('theme', 'ok', 'app lock off and its PIN forgotten')
+  return cfg
+}
+
+// ---- themes on the TV ---------------------------------------------------------------------------
+// The renderer draws each built-in theme's pictures; they go up like a wallpaper, into a staging folder
+// the launcher only swaps in when the last one has arrived.
+
+const THEME_ID = /^[a-z0-9-]{1,40}$/
+
+export async function themePackBegin(): Promise<void> {
+  log('theme', 'cmd', 'put the themes on the TV')
+  await call('pack_begin')
+}
+
+export async function themePackPut(item: ThemePackItem): Promise<void> {
+  if (!item || !THEME_ID.test(item.id) || !Number.isInteger(item.picture) || item.picture < 0 || item.picture > 3) throw new Error('bad theme picture')
+  if (item.picture === 0) {
+    const meta = { id: item.id, name: plain(String(item.name ?? ''), 40), look: clean((item.look ?? {}) as Record<string, unknown>, true) }
+    await call('pack_meta', Buffer.from(JSON.stringify(meta)).toString('base64'))
+  }
+  const data = jpeg(item.jpeg)
+  await call('pack_file_begin', Buffer.from(`${item.id}:${item.picture}`).toString('base64'))
+  for (const piece of pieces(data)) await call('pack_file_chunk', piece)
+  await call('pack_file_end', createHash('md5').update(data).digest('hex'))
+}
+
+export async function themePackEnd(order: string[]): Promise<HomeConfig> {
+  const ids = (Array.isArray(order) ? order : []).filter((id) => typeof id === 'string' && THEME_ID.test(id))
+  const cfg = parse(await call('pack_end', Buffer.from(JSON.stringify(ids)).toString('base64')))
+  log('theme', 'ok', `${cfg.themes_on_tv ?? ids.length} themes are on the TV`)
+  return cfg
+}
+
+function jpeg(b64: unknown): Buffer {
+  if (typeof b64 !== 'string' || !/^[A-Za-z0-9+/]+=*$/.test(b64)) throw new Error('the picture must be a JPEG in base64')
+  const data = Buffer.from(b64, 'base64')
+  if (data.length > 4 * 1024 * 1024) throw new Error('the picture is over 4 MB')
+  if (data[0] !== 0xff || data[1] !== 0xd8) throw new Error('the picture must be a JPEG')
+  return data
+}
+
+/** Base64 pieces that fit one ADB payload with the command; a multiple of 3 keeps '=' padding at the end. */
+function pieces(data: Buffer): string[] {
+  let chunk = Math.min(48 * 1024, Math.floor(((T.tv().maxData - 200) * 3) / 4))
+  chunk -= chunk % 3
+  if (chunk < 3) throw new Error('this TV accepts commands too short to upload a picture')
+  const out: string[] = []
+  for (let i = 0; i < data.length; i += chunk) out.push(data.subarray(i, i + chunk).toString('base64'))
+  return out
 }
 
 export async function readConfig(): Promise<HomeConfig> {
@@ -368,7 +461,31 @@ const isJpeg = (b: Buffer | null): b is Buffer => !!b && b.length > 2 && b[0] ==
  * The wallpaper on the connected TV, in base64: the copy on the TV first, as another computer may have
  * set a newer one, then this computer's. A copy only this computer has goes onto the TV too.
  */
+/** The wallpaper the launcher has now, from launcher 1.4.0 on; null from older ones or with no wallpaper. */
+async function wallpaperFromLauncher(): Promise<Buffer | null> {
+  const parts: Buffer[] = []
+  let size = -1
+  let at = 0
+  while (size < 0 || at < size) {
+    const out = await T.tv().shell(`content call --uri ${URI} --method wallpaper_read --arg ${at}`)
+    const m = /size=(\d+)/.exec(out)
+    if (!m) return null
+    size = Number(m[1])
+    if (size === 0) return null
+    const d = /data=([A-Za-z0-9+/=]+)/.exec(out)
+    if (!d) return null
+    const piece = Buffer.from(d[1], 'base64')
+    if (!piece.length) return null
+    parts.push(piece)
+    at += piece.length
+  }
+  return Buffer.concat(parts)
+}
+
 export async function wallpaperCopy(): Promise<string | null> {
+  // Launcher 1.4.0 hands its wallpaper back, including one picked on the TV's theme carousel.
+  const live = await wallpaperFromLauncher().catch(() => null)
+  if (isJpeg(live)) { keepWallpaper(live); return live.toString('base64') }
   const onTv = await T.pullB64(TV_WALLPAPER).catch(() => null)
   if (isJpeg(onTv)) {
     keepWallpaper(onTv)
@@ -404,7 +521,7 @@ async function nowPlayingAccess(on: boolean): Promise<void> {
 }
 
 /** Uploads a JPEG in base64 pieces, then has the launcher check its MD5 and swap it in. */
-export async function setWallpaper(jpegBase64: string | null): Promise<HomeConfig> {
+export async function setWallpaper(jpegBase64: string | null, from = ''): Promise<HomeConfig> {
   if (jpegBase64 === null) {
     keepWallpaper(null)
     await keepOnTv(null)
@@ -414,14 +531,12 @@ export async function setWallpaper(jpegBase64: string | null): Promise<HomeConfi
   const data = Buffer.from(jpegBase64, 'base64')
   if (data.length > 4 * 1024 * 1024) throw new Error('the wallpaper is over 4 MB')
   if (data[0] !== 0xff || data[1] !== 0xd8) throw new Error('the wallpaper must be a JPEG')
-  // Each piece plus the command must fit one ADB payload; a multiple of 3 keeps '=' padding at the end.
-  let chunk = Math.min(48 * 1024, Math.floor(((T.tv().maxData - 200) * 3) / 4))
-  chunk -= chunk % 3
-  if (chunk < 3) throw new Error('this TV accepts commands too short to upload a wallpaper')
   log('theme', 'cmd', `upload wallpaper (${Math.round(data.length / 1024)} KB)`)
   await call('wallpaper_begin')
-  for (let i = 0; i < data.length; i += chunk) await call('wallpaper_chunk', data.subarray(i, i + chunk).toString('base64'))
-  const cfg = parse(await call('wallpaper_end', createHash('md5').update(data).digest('hex')))
+  for (const piece of pieces(data)) await call('wallpaper_chunk', piece)
+  let cfg = parse(await call('wallpaper_end', createHash('md5').update(data).digest('hex')))
+  // Which theme picture this is, or none: the TV's "next wallpaper" button only steps through a theme's own.
+  if (cfg.wallpaper_from !== from) cfg = await setConfig({ wallpaper_from: THEME_PICTURE.test(from) ? from : '' })
   keepWallpaper(data)
   await keepOnTv(data)
   log('theme', 'ok', 'wallpaper set')

@@ -59,7 +59,10 @@ export function installMock(): void {
     layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
     rows: [{ name: 'Watch', apps: ['com.netflix.ninja', 'com.google.android.youtube.tv'] }], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [],
     accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
-    order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false, clock: 'time_date', greeting: '', idle_minutes: 0,
+    order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
+    icon_style: 'banner', tile_shape: 'wide', intro: true, wallpaper_from: '',
+    lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge', lock_pin_set: false, themes_on_tv: 0, can_change_settings: true,
+    clock: 'time_date', greeting: '', idle_minutes: 0,
     weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'c',
     visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100,
     has_wallpaper: false
@@ -300,6 +303,31 @@ export function installMock(): void {
     async setRemoteButtons(on) {
       await wait(400)
       homeConfig.buttons_on = on
+      return { ...homeConfig }
+    },
+    async setLockPin(pin) {
+      await wait(300)
+      if (!/^\d{4,6}$/.test(pin)) throw new Error('The PIN must be 4 to 6 digits.')
+      homeConfig.lock_pin_set = true
+      return { ...homeConfig }
+    },
+    async setAppLock(on) {
+      await wait(300)
+      if (on && !homeConfig.lock_pin_set) throw new Error('Set a PIN first.')
+      homeConfig.lock_on = on
+      return { ...homeConfig }
+    },
+    async clearAppLock() {
+      await wait(300)
+      homeConfig.lock_on = false
+      homeConfig.lock_pin_set = false
+      return { ...homeConfig }
+    },
+    async themePackBegin() { await wait(200) },
+    async themePackPut() { await wait(60) },
+    async themePackEnd(order) {
+      await wait(300)
+      homeConfig.themes_on_tv = order.length
       return { ...homeConfig }
     },
     async homeKeys() {

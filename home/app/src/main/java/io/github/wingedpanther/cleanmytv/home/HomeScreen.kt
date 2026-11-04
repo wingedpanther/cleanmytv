@@ -36,12 +36,14 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Dehaze
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.NightsStay
 import androidx.compose.material.icons.outlined.Pause
@@ -93,6 +95,7 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -136,7 +139,9 @@ private val GAP = 16.dp
 private val BLEED = 22.dp
 
 /** Everything the layouts draw, worked out once from the apps on the TV and the settings. */
-private class Home(apps: List<TvApp>, val cfg: HomeConfig) {
+private class Home(all: List<TvApp>, val cfg: HomeConfig) {
+    // "Hide locked apps": they stay out of every section, and only open from elsewhere with the PIN.
+    private val apps = if (cfg.lockOn && cfg.lockShow == "hide") all.filter { it.pkg !in cfg.lockApps } else all
     private val byPkg = apps.associateBy { it.pkg }
     val shown = arrange(apps, cfg)
     private val inFolders = cfg.folders.flatMap { it.apps }.toSet()
@@ -162,16 +167,28 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     val wallVersion by ConfigStore.wallpaperVersion.collectAsState()
     var apps by remember { mutableStateOf<List<TvApp>>(emptyList()) }
     var inputs by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
-    LaunchedEffect(appsVersion) {
-        apps = withContext(Dispatchers.Default) { loadApps(ctx.packageManager, ctx.packageName) }
+    val glyphs = cfg.iconStyle != "banner"
+    LaunchedEffect(appsVersion, glyphs) {
+        apps = withContext(Dispatchers.Default) { loadApps(ctx, glyphs) }
         inputs = withContext(Dispatchers.Default) { tvInputs(ctx) }
     }
+    // Animations off in the TV's settings (or from CleanMyTV): Home stops moving too.
+    var motion by remember { mutableStateOf(true) }
+    LaunchedEffect(appsVersion) {
+        motion = runCatching { android.provider.Settings.Global.getFloat(ctx.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) }.getOrDefault(1f) > 0f
+    }
     var wallpaper by remember { mutableStateOf<ImageBitmap?>(null) }
+    val intro = remember { Animatable(1f) }
+    var wallSeen by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(wallVersion) {
         wallpaper = withContext(Dispatchers.IO) {
             val f = ConfigStore.wallpaper(ctx)
             if (f.exists()) runCatching { BitmapFactory.decodeFile(f.path)?.asImageBitmap() }.getOrNull() else null
         }
+        // A new wallpaper, not the one Home opened with, comes in like a sunrise.
+        val fresh = wallSeen != null && wallSeen != wallVersion
+        wallSeen = wallVersion
+        if (fresh && wallpaper != null && cfg.intro && motion) { intro.snapTo(0f); intro.animateTo(1f, tween(1800, easing = FastOutSlowInEasing)) }
     }
     // Idle screen: no button pressed for cfg.idleMinutes, and nothing open over Home. Any button wakes it,
     // and that press only wakes it, so it can't open the app that happens to have focus.
@@ -218,18 +235,28 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     }.filter { canOpen(ctx, it, inputs.isNotEmpty()) }
     var openFolder by remember { mutableStateOf<Pair<String, List<TvApp>>?>(null) }
     var showInputs by remember { mutableStateOf(false) }
-    LaunchedEffect(lastPress, cfg.idleMinutes, openFolder, showInputs) {
-        if (cfg.idleMinutes == 0 || openFolder != null || showInputs) return@LaunchedEffect
+    var showPanel by remember { mutableStateOf(false) }
+    var showThemes by remember { mutableStateOf(false) }
+    var panelPin by remember { mutableStateOf(false) }
+    val openPanel = { if (Lock.needsPin(ctx, Lock.PANEL)) panelPin = true else showPanel = true }
+    LaunchedEffect(lastPress, cfg.idleMinutes, openFolder, showInputs, showPanel, showThemes) {
+        if (cfg.idleMinutes == 0 || openFolder != null || showInputs || showPanel || showThemes) return@LaunchedEffect
         delay(cfg.idleMinutes * 60_000L)
         idle = true
     }
     val shown by animateFloatAsState(if (idle) 0f else 1f, tween(if (idle) 1200 else 250), label = "idle")
     LaunchedEffect(open.value) {
-        if (open.value == "inputs") showInputs = true
+        when (open.value) {
+            "inputs" -> showInputs = true
+            "panel" -> openPanel()
+            "themes" -> showThemes = true
+        }
         open.value = null
     }
     val onQuick: (QuickAction) -> Unit = { a ->
         if (a.id == "inputs") showInputs = true
+        else if (a.id == "panel") openPanel()
+        else if (a.id == "themes") showThemes = true
         else if (a.id == "music") ConfigStore.update(ctx, org.json.JSONObject().put("visualiser", !cfg.visualiser))
         else resolve(ctx, a)?.let { i -> runCatching { ctx.startActivity(i) }.onFailure { Log.w(TAG, "${a.id}: $it") } }
     }
@@ -238,7 +265,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var focusColour by remember { mutableStateOf<Color?>(null) }
     val tint by animateColorAsState(focusColour ?: Color.Transparent, tween(600), label = "tint")
     val ui = Ui(cfg, accent, first, home.first, onFolder = { openFolder = it }, track = track, weather = weather,
-        onFocusApp = { a -> focusColour = a.colour?.let { Color(it) } })
+        onFocusApp = { a -> focusColour = a.colour?.let { Color(it) } }, motion = motion)
 
     Box(
         Modifier.fillMaxSize().background(Color(cfg.background)).onPreviewKeyEvent { e ->
@@ -255,6 +282,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = cfg.wallpaperDim / 100f)))
         }
+        if (intro.value < 1f) Sunrise(intro.value)
         // The focused app's colour washes in from the top; the wallpaper still shows through.
         if (cfg.followColour) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(tint.copy(alpha = tint.alpha * 0.5f), Color.Transparent))))
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = shown }) {
@@ -272,6 +300,32 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
 
     openFolder?.let { (name, list) -> FolderOverlay(name, list, ui) { openFolder = null } }
     if (showInputs) InputsOverlay(inputs, ui) { showInputs = false }
+    if (showPanel) SettingsPanel(accent) { showPanel = false }
+    if (showThemes) ThemeCarousel(accent) { showThemes = false }
+    if (panelPin) Dialog(onDismissRequest = { panelPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        PinPad("Enter the PIN for Quick settings", Lock.PANEL, accent) { panelPin = false; showPanel = true }
+    }
+}
+
+/**
+ * A new wallpaper's entrance: the picture starts in a cool, dim twilight, the light arrives from the top
+ * down, and a soft band of light crosses it once. [p] runs from 0 to 1.
+ */
+@Composable
+private fun Sunrise(p: Float) {
+    Box(Modifier.fillMaxSize().drawWithContent {
+        val dusk = Color(0xFF0A1424)
+        val edge = -0.25f + p * 1.5f
+        val a = (edge - 0.3f).coerceIn(0f, 0.999f)
+        val b = edge.coerceIn(a + 0.001f, 1f)
+        drawRect(Brush.verticalGradient(a to dusk.copy(alpha = 0f), b to dusk.copy(alpha = 0.92f), 1f to dusk.copy(alpha = 0.92f)))
+        drawRect(dusk.copy(alpha = 0.35f * (1f - p)))
+        val w = size.width
+        val x = -w * 0.6f + p * w * 1.8f
+        val glow = kotlin.math.sin(p * Math.PI).toFloat() * 0.16f
+        drawRect(Brush.linearGradient(0f to Color.Transparent, 0.5f to Color.White.copy(alpha = glow), 1f to Color.Transparent,
+            start = Offset(x, 0f), end = Offset(x + w * 0.35f, size.height)))
+    })
 }
 
 /** What every tile and section needs to know. */
@@ -284,7 +338,11 @@ private class Ui(
     val track: Track? = null,
     val weather: WeatherNow? = null,
     val onFocusApp: (TvApp) -> Unit = {},
+    /** False when the TV's animations are off: tiles still lift, without springs, tilt or sheen. */
+    val motion: Boolean = true,
 ) {
+    /** Banners are always wide; the icon styles take the chosen shape. */
+    val shape: String = if (cfg.iconStyle == "banner") "wide" else cfg.tileShape
     fun focusFor(section: String, app: TvApp): Modifier = if ("$section:${app.pkg}" == focusKey) Modifier.focusRequester(focus) else Modifier
 }
 
@@ -437,7 +495,8 @@ private fun SectionTitle(text: String) {
 private fun TileRow(section: String, list: List<TvApp>, ui: Ui, w: Dp, big: Boolean) {
     val row = @Composable {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 16.dp)) {
-            items(list, key = { it.pkg }) { app -> Tile(section, app, ui, Modifier.width(w), big) }
+            val tw = if (ui.shape == "wide") w else w * 0.72f
+            items(list, key = { it.pkg }) { app -> Tile(section, app, ui, Modifier.width(tw), big) }
         }
     }
     if (ui.cfg.pinFocus) CompositionLocalProvider(LocalBringIntoViewSpec provides PINNED) { row() } else row()
@@ -447,7 +506,7 @@ private fun TileRow(section: String, list: List<TvApp>, ui: Ui, w: Dp, big: Bool
 
 /** [lifted]: the caller zooms the tile itself with [lift], so the surface doesn't. */
 @Composable
-private fun focusStyle(ui: Ui, shape: RoundedCornerShape, zoom: Float = 1.08f, lifted: Boolean = false) = Triple(
+private fun focusStyle(ui: Ui, shape: Shape, zoom: Float = 1.08f, lifted: Boolean = false) = Triple(
     ClickableSurfaceDefaults.scale(focusedScale = if (ui.cfg.focus == "none" || (lifted && ui.cfg.focus == "lift")) 1f else zoom),
     ClickableSurfaceDefaults.glow(
         focusedGlow = when (ui.cfg.focus) {
@@ -485,11 +544,11 @@ private object Motion {
 @Composable
 private fun Modifier.lift(ui: Ui, shape: Shape, focused: Boolean): Modifier {
     if (ui.cfg.focus != "lift") return this
-    val scale by animateFloatAsState(if (focused) 1.09f else 1f, spring(dampingRatio = 0.62f, stiffness = 420f), label = "lift")
+    val scale by animateFloatAsState(if (focused) 1.09f else 1f, if (ui.motion) spring(dampingRatio = 0.62f, stiffness = 420f) else androidx.compose.animation.core.snap(), label = "lift")
     val lean = remember { Animatable(0f) }
     val leanX = remember { mutableStateOf(true) }
     LaunchedEffect(focused) {
-        if (focused && ui.cfg.tilt && (Motion.dx != 0 || Motion.dy != 0)) {
+        if (focused && ui.cfg.tilt && ui.motion && (Motion.dx != 0 || Motion.dy != 0)) {
             leanX.value = Motion.dx != 0
             lean.snapTo(if (Motion.dx != 0) Motion.dx * 4f else -Motion.dy * 4f)
             lean.animateTo(0f, tween(220))
@@ -513,7 +572,7 @@ private fun LiftLight(ui: Ui, focused: Boolean) {
     val p = remember { Animatable(0f) }
     LaunchedEffect(focused) {
         p.snapTo(0f)
-        if (focused) { delay(80); p.animateTo(1f, tween(650, easing = FastOutSlowInEasing)) }
+        if (focused && ui.motion) { delay(80); p.animateTo(1f, tween(650, easing = FastOutSlowInEasing)) }
     }
     if (!focused) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)))
     else if (p.value in 0.001f..0.999f) Box(
@@ -539,29 +598,108 @@ private val PINNED = object : BringIntoViewSpec {
 @Composable
 private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boolean) {
     val ctx = LocalContext.current
-    val shape = RoundedCornerShape(if (big) 12.dp else 10.dp)
+    val shape = tileShape(ui.shape, big)
     val (scale, glow, border) = focusStyle(ui, shape, lifted = true)
     var focused by remember { mutableStateOf(false) }
     // With names on focus, the name keeps its room so the rows don't jump.
-    val nameAlpha by animateFloatAsState(if (!ui.cfg.nameFocus || focused) 1f else 0f, tween(200), label = "name")
-    Column(size) {
+    val nameAlpha by animateFloatAsState(if (!ui.cfg.nameFocus || focused) 1f else 0f, tween(if (ui.motion) 200 else 0), label = "name")
+    val wide = ui.shape == "wide"
+    // In the grid and folders each slot keeps its width; a square tile sits in the middle of it.
+    val inSlot = section == "grid" || section == "folder"
+    val banner = ui.cfg.iconStyle == "banner"
+    Column(size, horizontalAlignment = if (wide) Alignment.Start else Alignment.CenterHorizontally) {
         Surface(
-            onClick = { runCatching { ctx.startActivity(app.launch) }.onFailure { Log.w(TAG, "launch ${app.pkg}: $it") } },
-            modifier = ui.focusFor(section, app).fillMaxWidth().aspectRatio(16f / 9f)
+            onClick = { launch(ctx, app) },
+            modifier = ui.focusFor(section, app).fillMaxWidth(if (!wide && inSlot) 0.72f else 1f).aspectRatio(if (wide) 16f / 9f else 1f)
                 .onFocusChanged { focused = it.isFocused; if (it.isFocused) ui.onFocusApp(app) }
                 .lift(ui, shape, focused),
             shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
-            colors = ClickableSurfaceDefaults.colors(containerColor = TILE, focusedContainerColor = TILE_FOCUSED)
+            colors = ClickableSurfaceDefaults.colors(containerColor = if (banner) TILE else Color.Transparent, focusedContainerColor = if (banner) TILE_FOCUSED else Color.Transparent)
         ) {
-            if (app.banner) {
-                Image(app.art, app.label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            } else {
-                GeneratedTile(app, big, named = !ui.cfg.showNames)
+            when {
+                !banner -> IconTile(app, ui)
+                app.banner -> Image(app.art, app.label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                else -> GeneratedTile(app, big, named = !ui.cfg.showNames)
             }
             LiftLight(ui, focused)
+            if (Lock.isLocked(ui.cfg, app.pkg)) LockBadge(Modifier.align(if (ui.shape == "round") Alignment.BottomCenter else Alignment.TopEnd))
         }
         if (ui.cfg.showNames) {
-            Text(app.label, color = TEXT, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 7.dp, start = 2.dp).graphicsLayer { alpha = nameAlpha })
+            Text(app.label, color = TEXT, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = if (wide) TextAlign.Start else TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 7.dp, start = 2.dp).graphicsLayer { alpha = nameAlpha })
+        }
+    }
+}
+
+/** Opens an app, through the PIN pad when it's locked. */
+private fun launch(ctx: android.content.Context, app: TvApp) {
+    val i = if (Lock.needsPin(ctx, app.pkg)) LockActivity.intent(ctx, app.pkg, app.launch) else app.launch
+    runCatching { ctx.startActivity(i) }.onFailure { Log.w(TAG, "launch ${app.pkg}: $it") }
+}
+
+/** Rounded rectangle, rounded square, squircle (a superellipse, like Samsung's and Belle UI's) or circle. */
+private fun tileShape(kind: String, big: Boolean): Shape = when (kind) {
+    "square" -> RoundedCornerShape(22)
+    "squircle" -> SQUIRCLE
+    "round" -> CircleShape
+    else -> RoundedCornerShape(if (big) 12.dp else 10.dp)
+}
+
+private val SQUIRCLE = GenericShape { size, _ ->
+    val cx = size.width / 2; val cy = size.height / 2
+    for (i in 0..96) {
+        val t = i / 96.0 * Math.PI * 2
+        val c = kotlin.math.cos(t); val s = kotlin.math.sin(t)
+        val x = cx + cx * Math.signum(c) * kotlin.math.sqrt(kotlin.math.abs(c))
+        val y = cy + cy * Math.signum(s) * kotlin.math.sqrt(kotlin.math.abs(s))
+        if (i == 0) moveTo(x.toFloat(), y.toFloat()) else lineTo(x.toFloat(), y.toFloat())
+    }
+    close()
+}
+
+/** The small lock in a locked app's corner. */
+@Composable
+private fun LockBadge(modifier: Modifier) {
+    Box(modifier.padding(6.dp).size(20.dp).background(Color.Black.copy(alpha = 0.6f), CircleShape), contentAlignment = Alignment.Center) {
+        Image(Icons.Outlined.Lock, "Locked", Modifier.size(12.dp), colorFilter = ColorFilter.tint(TEXT))
+    }
+}
+
+/**
+ * An app in one of the icon styles: its logo on a tile, every app drawn the same way.
+ * Mono: the logo in one colour from the accent, on glass. Colour: white on the brand's own colour (or
+ * the logo's own colours on a dark tile). Duotone: two shades of the accent on the theme's colours.
+ * An app with no usable logo gets its first letter, in the same style.
+ */
+@Composable
+private fun IconTile(app: TvApp, ui: Ui) {
+    val accent = ui.accent
+    val ground = Color(ui.cfg.background)
+    // A picture icon has no logo to recolour: Mono and Duotone use the letter instead.
+    val g = app.glyph?.takeIf { !it.picture || ui.cfg.iconStyle == "colour" }
+    val ink = lerp(accent, Color.White, 0.35f)
+    val back: Brush; val filter: ColorFilter?; val letterInk: Color
+    when (ui.cfg.iconStyle) {
+        "mono" -> { back = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.13f), Color.White.copy(alpha = 0.07f))); filter = ColorFilter.tint(ink); letterInk = ink }
+        "duo" -> {
+            back = Brush.linearGradient(listOf(lerp(ground, accent, 0.3f), lerp(ground, Color.Black, 0.2f)))
+            filter = ColorFilter.colorMatrix(IconArt.duotone(lerp(accent, Color.Black, 0.25f), lerp(accent, Color.White, 0.55f))); letterInk = accent
+        }
+        else -> {
+            val plate = g?.plate?.let { Color(it) } ?: if (g == null) lerp(accent, Color.Black, 0.35f) else null
+            back = if (plate != null) Brush.linearGradient(listOf(lerp(plate, Color.White, 0.08f), lerp(plate, Color.Black, 0.25f)))
+                   else Brush.linearGradient(listOf(lerp(ground, Color.White, 0.12f), lerp(ground, Color.White, 0.06f)))
+            filter = if (plate != null) ColorFilter.tint(Color.White) else null; letterInk = Color.White
+        }
+    }
+    BoxWithConstraints(Modifier.fillMaxSize().background(back), contentAlignment = Alignment.Center) {
+        val wide = ui.shape == "wide"
+        if (g != null && g.picture && ui.cfg.iconStyle == "colour") {
+            Image(g.art, app.label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        } else if (g != null && !g.picture) {
+            Image(g.art, app.label, Modifier.size(width = maxWidth * 0.62f, height = maxHeight * (if (wide) 0.48f else 0.46f)), contentScale = ContentScale.Fit, colorFilter = filter)
+        } else {
+            Text(app.label.take(1).uppercase(), color = letterInk, fontSize = with(androidx.compose.ui.platform.LocalDensity.current) { (minOf(maxWidth, maxHeight) * 0.42f).toSp() }, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -780,7 +918,7 @@ private fun FolderOverlay(name: String, list: List<TvApp>, ui: Ui, onClose: () -
         Box(Modifier.fillMaxSize().background(scrim(0.9f)), contentAlignment = Alignment.Center) {
             Column(Modifier.background(PANEL, RoundedCornerShape(16.dp)).padding(horizontal = 20.dp, vertical = 18.dp)) {
                 Text(name, color = TEXT, fontSize = 24.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = BLEED, bottom = 6.dp))
-                val inner = Ui(ui.cfg, ui.accent, focus, list.firstOrNull()?.let { "folder:${it.pkg}" }, ui.onFolder)
+                val inner = Ui(ui.cfg, ui.accent, focus, list.firstOrNull()?.let { "folder:${it.pkg}" }, ui.onFolder, motion = ui.motion)
                 list.chunked(5).forEach { row ->
                     Row(Modifier.padding(horizontal = BLEED, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(GAP)) {
                         for (app in row) Tile("folder", app, inner, Modifier.width(148.dp), big = false)
