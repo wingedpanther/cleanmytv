@@ -82,6 +82,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -193,6 +194,14 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         val fresh = wallSeen != null && wallSeen != wallVersion
         wallSeen = wallVersion
         if (fresh && wallpaper != null && cfg.intro && motion) { intro.snapTo(0f); intro.animateTo(1f, tween(1800, easing = FastOutSlowInEasing)) }
+    }
+    // Slideshow: a new wallpaper every few minutes while Home is open, from the owner's pictures or the theme's.
+    LaunchedEffect(cfg.slideMinutes, cfg.slideFrom) {
+        if (cfg.slideMinutes <= 0) return@LaunchedEffect
+        while (true) {
+            delay(cfg.slideMinutes * 60_000L)
+            withContext(Dispatchers.IO) { runCatching { if (cfg.slideFrom == "theme") ThemePack.next(ctx) else Slides.next(ctx) } }
+        }
     }
     val fireVersion by Fire.version.collectAsState()
     val fireWall = cfg.fireWall && remember(fireVersion) { Fire.ready(ctx) }
@@ -481,7 +490,8 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
             for (s in cfg.sections) when (s) {
                 "nowplaying" -> ui.track?.let { t -> item("nowplaying") { NowPlayingCard(t, ui) } }
                 "dock" -> if (home.dock.isNotEmpty()) item("dock") {
-                    TileRow("dock", home.dock, ui, dockW, big = true)
+                    if (cfg.glassDock) GlassPanel { TileRow("dock", home.dock, ui, dockW, big = true) }
+                    else TileRow("dock", home.dock, ui, dockW, big = true)
                 }
                 "rows" -> home.rows.forEachIndexed { i, (name, list) ->
                     item("row$i-title") { SectionTitle(name) }
@@ -499,6 +509,24 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
             }
         }
     }
+}
+
+/**
+ * The glass dock: a frosted panel with a thin light edge, lighter at the top like glass catching the room.
+ * A tint, not a blur: a real blur costs too much on a 2 GB box.
+ */
+@Composable
+private fun GlassPanel(content: @Composable () -> Unit) {
+    // Drawn behind the row rather than around it, so the dock's tiles line up with the rows below.
+    Box(Modifier.fillMaxWidth().drawBehind {
+        val inset = 8.dp.toPx()
+        val r = androidx.compose.ui.geometry.CornerRadius(26.dp.toPx())
+        val at = Offset(inset, 0f)
+        val box = androidx.compose.ui.geometry.Size(size.width - inset * 2, size.height)
+        drawRoundRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.06f))), at, box, r)
+        drawRoundRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.32f), Color.White.copy(alpha = 0.06f))), at, box, r,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+    }) { content() }
 }
 
 /** Rows scrolling up fade out over the top 28 dp instead of being sliced by a hard edge. */

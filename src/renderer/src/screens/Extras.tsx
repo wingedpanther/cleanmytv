@@ -71,6 +71,17 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
       </div>
 
       <div className="card">
+        <h2>Google screensaver</h2>
+        <p className="muted small">
+          Shows Google Photos, art and the weather while the TV rests. If it stopped after a clean-up, this turns its two apps
+          back on and sets it as the screensaver again. Clean up leaves them alone after that.
+        </p>
+        <button className="btn" disabled={!!busy} onClick={() => run('Bringing back the screensaver', () => window.cytv.fixScreensaver())}>
+          Bring it back
+        </button>
+      </div>
+
+      <div className="card">
         <div className="card-head">
           <h2>Block ads inside apps</h2>
           <span className={`chip ${dnsOn ? 'ok' : 'optional'}`}>{dnsOn ? `On · ${sys.privateDnsHost}` : 'Off'}</span>

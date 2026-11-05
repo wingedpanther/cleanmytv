@@ -49,6 +49,44 @@ export async function privateDns(host: string | null): Promise<ApplyResult> {
   }
 }
 
+/** Google TV's Ambient screensaver (Google Photos, art, the weather), and the backdrop app it draws with. */
+export const AMBIENT = ['com.google.android.apps.tv.dreamx', 'com.google.android.backdrop'] as const
+
+/**
+ * Brings back Google's screensaver (#57): switches its two apps back on, and makes it the screensaver again.
+ * Clean up's check then leaves them alone, because the screensaver in use is never "came back on".
+ */
+export async function fixScreensaver(): Promise<ApplyResult> {
+  const { installed, disabled } = await T.packageSets()
+  const have = AMBIENT.filter((p) => installed.has(p))
+  if (!have.length) return { ok: false, summary: "This TV doesn't have Google's screensaver apps, so there's nothing to bring back.", warnings: [] }
+  const warnings: string[] = []
+  let on = 0
+  let failed = 0
+  for (const p of have.filter((p) => disabled.has(p))) {
+    const out = await T.sh(TASK, `pm enable ${p}`)
+    if (/enabled/.test(out)) on++
+    else { failed++; warnings.push(`${p}: ${out.trim() || 'no answer'}`) }
+  }
+  // The real component from the TV, not a guess: dreamx's first, then the older backdrop app's.
+  const dreams = (await T.sh(TASK, 'cmd package query-services --brief -a android.service.dreams.DreamService'))
+    .split('\n').map((l) => l.trim()).filter((l) => /^[\w.]+\/[\w.$]+$/.test(l))
+  const pick = have.map((p) => dreams.find((d) => d.startsWith(p + '/'))).find(Boolean)
+  if (!pick) {
+    warnings.push("Couldn't find Google's screensaver among the TV's screensavers. Pick it in the TV's Settings → System → Ambient mode.")
+  } else {
+    T.q(pick)
+    await T.sh(TASK, `settings put secure screensaver_components ${pick}`)
+    await T.sh(TASK, 'settings put secure screensaver_enabled 1')
+  }
+  warnings.push('Choose your albums in the TV\'s Settings → System → Ambient mode, or in the Google Home app → your TV → Ambient mode. On a Chromecast with Google TV the Photos choice can reset after a restart while CleanMyTV Home is Home; pick the albums again if it does.')
+  return {
+    ok: !!pick && failed === 0,
+    summary: `Google's screensaver is back${on ? `: ${on === 1 ? '1 app' : `${on} apps`} switched on again` : ''}${pick ? ', and it is the screensaver now.' : '.'}`,
+    warnings
+  }
+}
+
 export async function animationScale(scale: number): Promise<ApplyResult> {
   if (![0, 0.5, 1].includes(scale)) throw new Error('scale must be 0, 0.5 or 1')
   for (const k of ['window_animation_scale', 'transition_animation_scale', 'animator_duration_scale']) {

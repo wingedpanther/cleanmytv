@@ -634,3 +634,8 @@ table.pkgs tr.dim td { opacity: 0.6; }
 }
 .pin-row { display: flex; align-items: center; gap: 14px; }
 .pin-row > span { width: 48px; font-size: 12.5px; font-weight: 600; color: var(--navy-70); }
+
+/* Theme editor: a small canvas preview beside the colour fields. */
+.theme-editor { margin-top: 16px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--white); }
+.theme-editor-preview { width: 384px; max-width: 100%; aspect-ratio: 16 / 9; height: auto; border-radius: 10px; border: 2px solid; display: block; }
+.theme-editor select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--white); color: inherit; }

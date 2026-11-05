@@ -353,9 +353,9 @@ export function Setup({ status, go, tvs, refreshTvs }: ScreenProps): ReactNode {
               </div>
             </form>
             {connectError && (
-              <div className="notice error" style={{ marginTop: 14, marginBottom: 0 }}>
+              <div className="notice error" style={{ marginTop: 14, marginBottom: 0, whiteSpace: 'pre-line' }}>
                 {connectError}
-                {/network debugging is off/.test(connectError) && !wantPair && (
+                {/network debugging is off|only works for pairing/.test(connectError) && !wantPair && (
                   <div style={{ marginTop: 10 }}>
                     <button className="btn small" onClick={() => { setHostChosen(true); setWantPair(true) }}>
                       Pair with a code

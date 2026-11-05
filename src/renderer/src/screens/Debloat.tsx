@@ -17,6 +17,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
   const [confirm, setConfirm] = useState<'apply' | 'restore' | null>(null)
   const [applyPhase, setApplyPhase] = usePhase()
   const [restorePhase, setRestorePhase] = usePhase()
+  const [backPhase, setBackPhase] = usePhase()
   const busy = applyPhase === 'busy' || restorePhase === 'busy'
   /** What the last Apply changed, so the toast can put it back. */
   const [undo, setUndo] = useState<{ text: string; disable: string[]; enable: string[] } | null>(null)
@@ -132,6 +133,22 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
       setResult({ ok: false, summary: errorText(e), warnings: [] })
     } finally {
       await loadPlan(plan.listId, true)
+    }
+  }
+
+  /** Packages a firmware update switched back on: off again, as they were. */
+  async function switchBackOff(): Promise<void> {
+    if (!plan?.cameBack?.length) return
+    setBackPhase('busy')
+    try {
+      const r = await window.cytv.applyDebloat({ listId: plan.listId, disable: plan.cameBack, enable: [], forceHome, forceSetupwraith: forceSetup })
+      setBackPhase(r.ok ? 'done' : 'failed')
+      if (!r.ok || r.warnings.length) setResult(r)
+    } catch (e) {
+      setBackPhase('failed')
+      setResult({ ok: false, summary: errorText(e), warnings: [] })
+    } finally {
+      loadPlan(plan.listId, true)
     }
   }
 
@@ -252,6 +269,16 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
             </div>
           ) : (
             <div className="notice">No restore point yet. The app saves one before the first package is switched off.</div>
+          )}
+
+          {!!plan.cameBack?.length && (
+            <div className="notice warn">
+              {plan.cameBack.length === 1 ? '1 package' : `${plan.cameBack.length} packages`} you switched off {plan.cameBack.length === 1 ? 'is' : 'are'} on
+              again, often after a firmware update: <code>{plan.cameBack.join(', ')}</code>.
+              <div style={{ marginTop: 10 }}>
+                <ActionButton phase={backPhase} label="Switch them off again" busyLabel="Switching off" doneLabel="Off again" onClick={() => void switchBackOff()} />
+              </div>
+            </div>
           )}
 
           {stockHome && (

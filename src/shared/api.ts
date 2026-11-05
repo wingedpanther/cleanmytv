@@ -103,6 +103,8 @@ export interface DebloatPlan {
   record?: { path: string; created: string }
   /** Package that owns Home right now. */
   homePackage: string | null
+  /** Packages this app switched off on this TV that are on again, like after a firmware update. */
+  cameBack?: string[]
 }
 
 export interface DebloatApplyRequest {
@@ -257,6 +259,14 @@ export interface HomeConfig {
   /** Crackle behind Home too; off so browsing stays quiet. */
   fire_wall_sound: boolean
   fire_volume: number
+  /** Full screen: minutes until the fire goes out and the TV sleeps; 0 burns on. */
+  fire_timer: number
+  /** Slideshow (launcher 1.7.0): a new wallpaper every this many minutes; 0 is off. */
+  slide_minutes: number
+  /** The slideshow's pictures: the owner's own, or the current theme's. */
+  slide_from: 'mine' | 'theme'
+  /** The dock sits on a frosted glass panel. */
+  glass_dock: boolean
   clock: 'time_date' | 'time' | 'off'
   /** A name for "Good evening, …"; empty for none. */
   greeting: string
@@ -290,6 +300,8 @@ export interface HomeConfig {
   themes_on_tv?: number
   /** Read only: the fireplace video is on the TV. */
   fire_on_tv?: boolean
+  /** Read only: how many slideshow pictures are on the TV. */
+  slides_on_tv?: number
   /** Read only: the launcher may change TV settings (Quick settings panel). */
   can_change_settings?: boolean
 }
@@ -460,6 +472,8 @@ export interface CytvApi {
   themePackEnd(order: string[]): Promise<HomeConfig>
   /** Puts the fireplace on the TV, shows it now, makes it the screensaver, or takes it off. */
   fireplace(action: 'put' | 'show' | 'saver' | 'remove'): Promise<ApplyResult>
+  /** Replaces the slideshow's pictures (prepared JPEGs in base64); an empty list clears them. */
+  setSlides(jpegs: string[]): Promise<HomeConfig>
   /** The last buttons the TV received, newest last. */
   homeKeys(): Promise<KeyPress[]>
   /** A prepared JPEG (base64) for the home screen, or null to remove it. */
@@ -494,6 +508,8 @@ export interface CytvApi {
   systemState(): Promise<SystemState>
   setPrivateDns(host: string | null): Promise<ApplyResult>
   setAnimationScale(scale: number): Promise<ApplyResult>
+  /** Switches Google's Ambient screensaver apps back on and makes it the screensaver (#57). */
+  fixScreensaver(): Promise<ApplyResult>
   /** Clears every app's cache on the TV. */
   clearCaches(): Promise<ApplyResult>
   key(keycode: number): Promise<void>

@@ -22,7 +22,8 @@ export const DEFAULTS: HomeConfig = {
   order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
   icon_style: 'banner', tile_shape: 'wide', intro: true, wallpaper_from: '',
   lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge',
-  fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40,
+  fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0,
+  slide_minutes: 0, slide_from: 'mine', glass_dock: false,
   clock: 'time_date', greeting: '', idle_minutes: 0,
   weather_place: '', weather_lat: 0, weather_lon: 0, weather_unit: 'c',
   visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
@@ -38,7 +39,8 @@ const CHOICES = {
   icon_style: ['banner', 'colour', 'mono', 'duo'],
   tile_shape: ['wide', 'square', 'squircle', 'round'],
   lock_for: ['sleep', '15', 'always'],
-  lock_show: ['badge', 'hide']
+  lock_show: ['badge', 'hide'],
+  slide_from: ['mine', 'theme']
 } as const
 
 const LISTS = {
@@ -59,10 +61,10 @@ const RANGES = {
   top_space: [0, 40], dock_scale: [60, 150], tile_scale: [60, 150],
   wallpaper_dim: [0, 80], dock_size: [0, 8], columns: [3, 8], idle_minutes: [0, 60],
   viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300],
-  fire_volume: [0, 100]
+  fire_volume: [0, 100], fire_timer: [0, 240], slide_minutes: [0, 240]
 } as const
 
-const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'visualiser', 'viz_peaks', 'buttons_on'] as const
+const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'glass_dock', 'visualiser', 'viz_peaks', 'buttons_on'] as const
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 /** Lets the launcher see other apps' media sessions; on only while the Now playing section is. */
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
@@ -443,6 +445,25 @@ export async function themePackPut(item: ThemePackItem): Promise<void> {
   for (const piece of pieces(data)) await call('pack_file_chunk', piece)
   await call('pack_file_end', createHash('md5').update(data).digest('hex'))
 }
+
+/** Replaces the slideshow's pictures on the TV (#56). Each is a prepared JPEG in base64; an empty list clears them. */
+export async function setSlides(jpegs: string[]): Promise<HomeConfig> {
+  const list = Array.isArray(jpegs) ? jpegs : []
+  if (list.length > MAX_SLIDES) throw new Error(`the slideshow takes up to ${MAX_SLIDES} pictures`)
+  if (list.length === 0) return parse(await call('slides_clear'))
+  const datas = list.map(jpeg)
+  log('theme', 'cmd', `put ${datas.length} slideshow pictures on the TV`)
+  await call('slides_begin')
+  for (const [n, data] of datas.entries()) {
+    await call('slide_file_begin', String(n))
+    for (const piece of pieces(data)) await call('slide_file_chunk', piece)
+    await call('slide_file_end', createHash('md5').update(data).digest('hex'))
+  }
+  return parse(await call('slides_end'))
+}
+
+/** As the launcher's Slides.MAX. */
+export const MAX_SLIDES = 12
 
 export async function themePackEnd(order: string[]): Promise<HomeConfig> {
   const ids = (Array.isArray(order) ? order : []).filter((id) => typeof id === 'string' && THEME_ID.test(id))

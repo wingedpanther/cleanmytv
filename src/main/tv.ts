@@ -1,8 +1,10 @@
 // The connected TV: one AdbClient, plus the helpers the upstream scripts built on top of tools/tv.py
 // (probe, --batch, b64push.py for large files, base64 pulls).
 import { createHash } from 'node:crypto'
+import { networkInterfaces } from 'node:os'
 import { AdbClient, AdbError } from './adb/client'
 import { loadKeys } from './adb/keys'
+import { diagnose, errnoOf } from './doctor'
 import { log } from './log'
 import type { ConnStatus, Probe } from '@shared/api'
 
@@ -58,7 +60,10 @@ export async function connect(host: string): Promise<ConnStatus> {
     return setStatus({ state: 'connected', host, probe })
   } catch (e) {
     const err = e as AdbError
-    return setStatus({ state: 'error', host, error: friendly(err), needsPairing: err.code === 'tls' })
+    const m = /^([A-Za-z0-9.-]+)(?::(\d{1,5}))?$/.exec(host)
+    const hints = m ? diagnose({ code: err.code, errno: errnoOf(err.message ?? ''), host: m[1], port: m[2] ? Number(m[2]) : 5555 }, networkInterfaces(), process.platform) : []
+    if (hints.length) log('connect', 'info', `setup doctor: ${hints.join(' | ')}`)
+    return setStatus({ state: 'error', host, error: [friendly(err), ...hints].join('\n\n'), needsPairing: err.code === 'tls' })
   }
 }
 

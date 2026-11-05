@@ -152,6 +152,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   themePackBegin: () => home.themePackBegin(),
   themePackPut: (item) => home.themePackPut(item),
   themePackEnd: (order) => home.themePackEnd(order),
+  setSlides: (jpegs) => home.setSlides(jpegs),
   fireplace: (action) => home.fireplace(action === 'put' || action === 'saver' || action === 'remove' ? action : 'show'),
   homeKeys: () => home.keys(),
   setHomeConfig: (change) => home.setConfig(change ?? {}),
@@ -176,6 +177,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   systemState: () => system.state(),
   setPrivateDns: (host) => system.privateDns(host),
   setAnimationScale: (s) => system.animationScale(s),
+  fixScreensaver: () => system.fixScreensaver(),
   clearCaches: () => system.clearCaches(),
   key: (code) => system.key(code),
   reboot: () => system.reboot()

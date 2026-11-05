@@ -28,6 +28,8 @@ import java.security.MessageDigest
  *   pack_begin, pack_meta <base64 JSON>, pack_file_begin <base64 "id:n">, pack_file_chunk <base64>,
  *   pack_file_end <md5>, pack_end <base64 JSON order>, pack_clear
  *                              the built-in themes and their pictures, for switching themes on the TV
+ *   slides_begin, slide_file_begin <n>, slide_file_chunk <base64>, slide_file_end <md5>, slides_end, slides_clear
+ *                              the slideshow's pictures (#56)
  *   fire_dir                   where CleanMyTV puts the fireplace files (Home's folder on shared storage)
  *   fire_ready, fire_clear     the files have arrived, or are gone; Home looks again
  * Only the shell user (ADB) and root may call it, so other apps on the TV can't restyle Home.
@@ -119,6 +121,28 @@ class ConfigProvider : ContentProvider() {
             "pack_end" -> ThemePack.end(ctx, runCatching { org.json.JSONArray(String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8)) }
                 .getOrElse { throw IllegalArgumentException("arg must be a JSON list of theme ids") })
             "pack_clear" -> ThemePack.clear(ctx)
+            "slides_begin" -> Slides.begin(ctx)
+            "slide_file_begin" -> {
+                packFile = Slides.target(ctx, arg?.toIntOrNull() ?: -1)
+                packFile!!.writeBytes(ByteArray(0))
+            }
+            "slide_file_chunk" -> {
+                val f = packFile ?: throw IllegalStateException("slide_file_begin first")
+                val bytes = Base64.decode(arg ?: "", Base64.DEFAULT)
+                if (f.length() + bytes.size > MAX_WALLPAPER) throw IllegalArgumentException("picture is over 4 MB")
+                f.appendBytes(bytes)
+            }
+            "slide_file_end" -> {
+                val f = packFile ?: throw IllegalStateException("slide_file_begin first")
+                val got = MessageDigest.getInstance("MD5").digest(f.readBytes()).joinToString("") { "%02x".format(it) }
+                if (got != arg?.lowercase()) { f.delete(); throw IllegalArgumentException("picture upload is damaged (md5 $got)") }
+                packFile = null
+            }
+            "slides_end" -> Slides.end(ctx)
+            "slides_clear" -> {
+                Slides.clear(ctx)
+                ConfigStore.update(ctx, JSONObject().put("slide_minutes", 0))
+            }
             "fire_ready" -> Fire.changed()
             "fire_clear" -> {
                 Fire.video(ctx)?.delete(); Fire.sound(ctx)?.delete()
@@ -134,6 +158,7 @@ class ConfigProvider : ContentProvider() {
             .put("lock_pin_set", Lock.hasPin(ctx))
             .put("themes_on_tv", ThemePack.list(ctx).size)
             .put("fire_on_tv", Fire.ready(ctx))
+            .put("slides_on_tv", Slides.count(ctx))
             .put("can_change_settings", TvSettings.canWriteSecure(ctx))
         out.putString("config", config.toString())
         return out

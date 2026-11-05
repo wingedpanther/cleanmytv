@@ -524,14 +524,33 @@ export async function plan(listId: string): Promise<DebloatPlan> {
   // Lists name core packages as lines their authors kept, so don't offer them. One already off stays visible.
   entries = entries.filter((e) => !isCore(e.pkg) || e.state === 'disabled')
   const home = await T.homeComponent()
+  const homePackage = home ? home.split('/')[0] : null
   return {
     listId,
     title,
     header: parsed.header,
     entries,
     record: record ? { path: rpath, created: record.created } : undefined,
-    homePackage: home ? home.split('/')[0] : null
+    homePackage,
+    cameBack: record ? cameBack(savedActive(file), installed, disabled, homePackage, await screensaverApps()) : []
   }
+}
+
+/**
+ * Packages this app switched off on this TV that are on again, usually after a firmware update. The
+ * stock launcher and setupwraith only count once CleanMyTV Home owns Home: until then apply keeps them on.
+ */
+export function cameBack(active: string[], installed: Set<string>, disabled: Set<string>, homePackage: string | null, keep: string[] = []): string[] {
+  const held = homePackage === OUR_HOME ? [] : [...stockLaunchers(), SETUPWRAITH]
+  return active.filter((p) => installed.has(p) && !disabled.has(p) && !isCore(p) && !held.includes(p) && !keep.includes(p))
+}
+
+/** The screensaver in use, and the backdrop app Google's needs with it: on by choice, not by an update (#57). */
+async function screensaverApps(): Promise<string[]> {
+  const comp = (await T.sh(TASK, 'settings get secure screensaver_components', { quiet: true })).trim().split(',')[0] ?? ''
+  const pkg = comp.split('/')[0]
+  if (!pkg || pkg === 'null') return []
+  return pkg === 'com.google.android.apps.tv.dreamx' ? [pkg, 'com.google.android.backdrop'] : [pkg]
 }
 
 function addedEntry(pkg: string, state: PackageState, common: Map<string, { count: number; note: string }>, recorded?: PackageState): DebloatEntry {

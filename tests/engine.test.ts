@@ -257,3 +257,14 @@ describe('who owns the Wi-Fi (discussion #13, #55)', () => {
     expect(D.wraithNetworks('')).toBe(0)
   })
 })
+
+describe('packages that came back on', () => {
+  it('lists what the app switched off and is on again, leaving fallback Homes alone until Home is ours', async () => {
+    const { cameBack, SETUPWRAITH } = await import('../src/main/debloat')
+    const installed = new Set(['com.a.bloat', 'com.b.bloat', 'com.google.android.tvlauncher', SETUPWRAITH])
+    const disabled = new Set(['com.b.bloat'])
+    const active = ['com.a.bloat', 'com.b.bloat', 'com.gone.app', 'com.google.android.tvlauncher', SETUPWRAITH]
+    expect(cameBack(active, installed, disabled, 'com.google.android.tvlauncher')).toEqual(['com.a.bloat'])
+    expect(cameBack(active, installed, disabled, 'io.github.wingedpanther.cleanmytv.home')).toEqual(['com.a.bloat', 'com.google.android.tvlauncher', SETUPWRAITH])
+  })
+})

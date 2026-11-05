@@ -60,6 +60,11 @@ data class HomeConfig(
     val fireSound: Boolean = true, // full screen and as the screensaver
     val fireWallSound: Boolean = false, // behind Home: quiet unless asked
     val fireVolume: Int = 40,
+    val fireTimer: Int = 0, // full screen: minutes until the fire goes out and the TV sleeps; 0 burns on
+    // Slideshow: a new wallpaper every few minutes, from the owner's pictures or the current theme's; 0 is off
+    val slideMinutes: Int = 0,
+    val slideFrom: String = "mine", // mine, theme
+    val glassDock: Boolean = false, // the dock sits on a frosted panel
     val clock: String = "time_date", // time_date, time, off
     val greeting: String = "",
     // Idle screen: after this many minutes without a button press, only the wallpaper and the clock show; 0 is off
@@ -116,6 +121,10 @@ data class HomeConfig(
         .put("fire_sound", fireSound)
         .put("fire_wall_sound", fireWallSound)
         .put("fire_volume", fireVolume)
+        .put("fire_timer", fireTimer)
+        .put("slide_minutes", slideMinutes)
+        .put("slide_from", slideFrom)
+        .put("glass_dock", glassDock)
         .put("clock", clock)
         .put("greeting", greeting)
         .put("idle_minutes", idleMinutes)
@@ -222,6 +231,10 @@ data class HomeConfig(
                 fireSound = bool("fire_sound", base.fireSound),
                 fireWallSound = bool("fire_wall_sound", base.fireWallSound),
                 fireVolume = int("fire_volume", base.fireVolume, 0, 100),
+                fireTimer = int("fire_timer", base.fireTimer, 0, 240),
+                slideMinutes = int("slide_minutes", base.slideMinutes, 0, 240),
+                slideFrom = choice("slide_from", base.slideFrom, setOf("mine", "theme")),
+                glassDock = bool("glass_dock", base.glassDock),
                 clock = choice("clock", base.clock, setOf("time_date", "time", "off")),
                 idleMinutes = int("idle_minutes", base.idleMinutes, 0, 60),
                 greeting = if (o.has("greeting")) o.optString("greeting").take(40) else base.greeting,

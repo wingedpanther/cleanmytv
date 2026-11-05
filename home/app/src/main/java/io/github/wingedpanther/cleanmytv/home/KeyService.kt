@@ -41,6 +41,7 @@ class KeyService : AccessibilityService() {
     }
 
     override fun onServiceConnected() {
+        running = this
         ConfigStore.load(this)
         registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF))
         // Some builds ignore the flag in the XML; asking again here turns key filtering on.
@@ -85,9 +86,18 @@ class KeyService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        if (running === this) running = null
         runCatching { unregisterReceiver(screenOff) }
         super.onDestroy()
     }
 
     override fun onInterrupt() {}
+
+    companion object {
+        /** The service while it's on, so the fireplace timer can put the TV to sleep. */
+        @Volatile var running: KeyService? = null
+
+        /** Screen off, as the power button would. Needs the key service on; false when it isn't. */
+        fun sleep(): Boolean = running?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) ?: false
+    }
 }

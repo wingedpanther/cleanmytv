@@ -8,7 +8,7 @@ import { prepareWallpaper, thumbnail } from '../lib/image'
 import { fetchBingDaily } from '../lib/backgrounds'
 import { findPlaces, type Place } from '../lib/places'
 import { drawWallpaper, paintWallpaper } from '../lib/themes'
-import { BUILT_IN_THEMES, THEME_EXT, THEME_PICTURES, parseTheme, withPicture, type BuiltInTheme } from '@shared/themes'
+import { BUILT_IN_THEMES, THEME_EXT, THEME_PICTURES, parseTheme, withPicture, type BuiltInTheme, type ThemeArt, type ThemePaint } from '@shared/themes'
 
 type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'widgets' | 'music' | 'buttons' | 'lock'
 
@@ -205,6 +205,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
     },
     onTv: cfg?.themes_on_tv ?? 0,
     toTv: () => themesToTv(),
+    custom: (t) => guarded(() => themeStep(`Putting ${t.name} on the TV`, () => window.cytv.applyHomeTheme(t), t.name)),
     file: (text) => {
       let t: HomeTheme
       try {
@@ -290,6 +291,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
           {ready && tab === 'look' && (
             <>
               <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} themes={themes} />
+              <SlideshowCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
               <FireplaceCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
             </>
           )}
@@ -818,6 +820,8 @@ interface ThemeActions {
   /** Themes already on the TV for its carousel. */
   onTv: number
   toTv: () => void
+  /** A theme made in the editor. */
+  custom: (t: HomeTheme) => void
   file: (text: string) => void
   backup: ThemeBackup | null
   restore: () => void
@@ -847,6 +851,7 @@ function ThemeGrid({ themes, actions, busy }: { themes: BuiltInTheme[]; actions:
 function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): ReactNode {
   const file = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('My theme')
+  const [editing, setEditing] = useState(false)
   return (
     <div className="card">
       <h2>Themes</h2>
@@ -872,6 +877,7 @@ function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): 
         <p className="small muted">Your current look is saved before the first theme, so you can always put it back.</p>
       )}
       <ThemeGrid themes={BUILT_IN_THEMES} actions={themes} busy={busy} />
+      {editing ? <ThemeEditor themes={themes} busy={busy} onClose={() => setEditing(false)} /> : null}
       <div className="row" style={{ marginTop: 12 }}>
         <button className="btn ghost" disabled={busy || !BUILT_IN_THEMES.some((t) => themes.current.startsWith(`${t.id}:`))} onClick={themes.another}>
           Another picture
@@ -879,6 +885,11 @@ function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): 
         <button className="btn ghost" disabled={busy} onClick={themes.toTv}>
           {themes.onTv ? 'Put the themes on the TV again' : 'Put the themes on the TV'}
         </button>
+        {!editing && (
+          <button className="btn ghost" disabled={busy} onClick={() => setEditing(true)}>
+            Make your own…
+          </button>
+        )}
       </div>
       <p className="small muted" style={{ marginTop: 8 }}>
         Each theme has {THEME_PICTURES} pictures. With the themes on the TV, you can switch them with the remote: add the Themes icon to the top bar
@@ -1013,6 +1024,7 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
         </div>
         <Slider label="Darken the wallpaper" hint="Keeps names and the clock readable on bright pictures." value={cfg.wallpaper_dim} min={0} max={80} unit="%" onChange={(v) => set({ wallpaper_dim: v }, 300)} />
         <Toggle label="Sunrise when it changes" hint="A new wallpaper starts dim and the light comes in from the top. Off when the TV's animations are off." checked={cfg.intro} onChange={(v) => set({ intro: v })} />
+        <Toggle label="Glass dock" hint="The dock sits on a frosted panel over the wallpaper." checked={cfg.glass_dock} onChange={(v) => set({ glass_dock: v })} />
         <Colour label="Background colour" hint="Behind everything when there's no wallpaper. Keep it dark: text is white." value={cfg.background} onChange={(c, w) => set({ background: c }, w)} />
       </div>
     </>
@@ -1575,15 +1587,168 @@ function FireplaceCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: S
       </div>
       {on && (
         <>
-          <Toggle label="Behind Home" hint="In place of the picture. It holds still while an app is open, or when the TV's animations are off." checked={cfg.fire_wall} onChange={(v) => set({ fire_wall: v })} />
+          <Toggle label="Behind Home" hint="Shows instead of the picture. It holds still while an app is open or the TV's animations are off." checked={cfg.fire_wall} onChange={(v) => set({ fire_wall: v })} />
           <Toggle label="Crackle full screen and as the screensaver" checked={cfg.fire_sound} onChange={(v) => set({ fire_sound: v })} />
           <Toggle label="Crackle behind Home too" hint="Off by default, so browsing stays quiet." checked={cfg.fire_wall_sound} onChange={(v) => set({ fire_wall_sound: v })} />
+          <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Turn off after</p>
+          <div className="seg" style={{ marginBottom: 6 }}>
+            {([[0, 'Never'], [30, '30 min'], [60, '1 hour'], [120, '2 hours']] as const).map(([m, label]) => (
+              <button key={m} className={cfg.fire_timer === m ? 'on' : ''} onClick={() => set({ fire_timer: m })}>{label}</button>
+            ))}
+          </div>
+          <p className="small muted" style={{ marginTop: 0 }}>
+            Full screen only: the fire fades out, then the TV sleeps. Press OK on the remote to change it while the fire is on.
+          </p>
           {(cfg.fire_sound || cfg.fire_wall_sound) && <Slider label="Volume" value={cfg.fire_volume} min={0} max={100} step={5} unit="%" onChange={(v) => set({ fire_volume: v }, 250)} />}
           <p style={{ marginTop: 10 }}>
             <button className="btn ghost" onClick={() => void go('remove')}>Take it off the TV</button>
           </p>
         </>
       )}
+    </div>
+  )
+}
+
+const SLIDE_MAX = 12
+const SLIDE_TIMES: [number, string][] = [[0, 'Off'], [5, '5 min'], [15, '15 min'], [30, '30 min'], [60, '1 hour']]
+
+/** Slideshow (#56): a new wallpaper every few minutes, from pictures picked here or the current theme's own. */
+function SlideshowCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: SetFn; setCfg: (c: HomeConfig) => void; onResult: (r: ApplyResult) => void }): ReactNode {
+  const [phase, setPhase] = usePhase()
+  const file = useRef<HTMLInputElement>(null)
+  const mine = cfg.slides_on_tv ?? 0
+  const send = async (files: File[]): Promise<void> => {
+    setPhase('busy')
+    try {
+      const jpegs: string[] = []
+      for (const f of files.slice(0, SLIDE_MAX)) jpegs.push((await prepareWallpaper(f, f.name)).base64)
+      setCfg(await window.cytv.setSlides(jpegs))
+      setPhase('done')
+      if (files.length > SLIDE_MAX) onResult({ ok: true, summary: `The slideshow takes ${SLIDE_MAX} pictures, so the first ${SLIDE_MAX} went to the TV.`, warnings: [] })
+    } catch (e) {
+      setPhase('failed')
+      onResult({ ok: false, summary: errorText(e), warnings: [] })
+    }
+  }
+  return (
+    <div className="card">
+      <h2>Slideshow</h2>
+      <p className="muted">A new wallpaper every few minutes while Home is on screen, each with the Sunrise.</p>
+      <p style={{ margin: '6px 0 8px', fontWeight: 600 }}>Pictures</p>
+      <div className="seg" style={{ marginBottom: 12 }}>
+        <button className={cfg.slide_from === 'mine' ? 'on' : ''} onClick={() => set({ slide_from: 'mine' })}>My pictures{mine ? ` (${mine})` : ''}</button>
+        <button className={cfg.slide_from === 'theme' ? 'on' : ''} onClick={() => set({ slide_from: 'theme' })}>The theme's pictures</button>
+      </div>
+      {cfg.slide_from === 'mine' && (
+        <div className="row" style={{ marginBottom: 12 }}>
+          <input
+            ref={file}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => {
+              const fs = [...(e.target.files ?? [])]
+              e.target.value = ''
+              if (fs.length) void send(fs)
+            }}
+          />
+          <ActionButton phase={phase} label={mine ? 'Choose new pictures…' : 'Choose pictures…'} busyLabel="Sending" doneLabel="On the TV" onClick={() => file.current?.click()} />
+          {mine > 0 && <button className="btn ghost" onClick={() => void send([])}>Remove them</button>}
+          <span className="small muted">Up to {SLIDE_MAX}. They replace the ones on the TV.</span>
+        </div>
+      )}
+      {cfg.slide_from === 'theme' && (
+        <p className="small muted">Steps through the three pictures of the theme you picked on the TV. Put the themes on the TV first (Themes, above).</p>
+      )}
+      <p style={{ margin: '6px 0 8px', fontWeight: 600 }}>Change every</p>
+      <div className="seg">
+        {SLIDE_TIMES.map(([m, label]) => (
+          <button key={m} className={cfg.slide_minutes === m ? 'on' : ''} disabled={m > 0 && cfg.slide_from === 'mine' && mine === 0} onClick={() => set({ slide_minutes: m })}>{label}</button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const ART_KINDS: [ThemeArt['kind'], string][] = [
+  ['aurora', 'Aurora'], ['ridges', 'Ridges'], ['dunes', 'Dunes'], ['flow', 'Flow'], ['stars', 'Stars'],
+  ['contours', 'Contours'], ['bokeh', 'Bokeh'], ['horizon', 'Horizon'], ['rings', 'Rings']
+]
+
+/** A colour mixed toward black by [k] (0 to 1), as #RRGGBB. */
+function darken(hex: string, k: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const c = [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.round(v * (1 - k)))
+  return '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase()
+}
+
+/** Theme editor: start from a built-in theme, change its colours and art, see it, and put it on the TV. */
+function ThemeEditor({ themes, busy, onClose }: { themes: ThemeActions; busy: boolean; onClose: () => void }): ReactNode {
+  const startFrom = (id: string): { accent: string; second: string; background: string; kind: ThemeArt['kind']; seed: number; base: BuiltInTheme } => {
+    const t = BUILT_IN_THEMES.find((b) => b.id === id) ?? BUILT_IN_THEMES[0]
+    return {
+      base: t,
+      accent: (t.look.accent as string) ?? '#4CAF50',
+      second: t.paint.art?.colours[1] ?? t.paint.glows[1]?.colour ?? t.paint.glows[0]?.colour ?? '#888888',
+      background: t.paint.base[0],
+      kind: t.paint.art?.kind ?? 'aurora',
+      seed: t.paint.art?.seed ?? 1
+    }
+  }
+  const [s, setS] = useState(() => startFrom(BUILT_IN_THEMES.find((t) => themes.current.startsWith(`${t.id}:`))?.id ?? BUILT_IN_THEMES[0].id))
+  const [name, setName] = useState('My theme')
+  const canvas = useRef<HTMLCanvasElement>(null)
+  const paint: ThemePaint = useMemo(() => ({
+    base: [s.background, darken(s.background, 0.45)],
+    glows: [
+      { colour: s.accent, x: 0.12, y: 0.12, r: 0.45, a: 0.16 },
+      { colour: s.second, x: 0.9, y: 0.92, r: 0.4, a: 0.11 }
+    ],
+    art: { kind: s.kind, colours: [s.accent, s.second], seed: s.seed }
+  }), [s])
+  useEffect(() => {
+    const c = canvas.current
+    if (!c) return
+    const drawn = drawWallpaper(paint, 384, 216)
+    c.getContext('2d')?.drawImage(drawn, 0, 0)
+  }, [paint])
+  const use = (): void => themes.custom({
+    name: name.trim() || 'My theme',
+    look: { ...s.base.look, accent: s.accent, background: darken(s.background, 0.45) },
+    wallpaper: paintWallpaper(paint, 'theme.jpg').base64
+  })
+  return (
+    <div className="theme-editor">
+      <div className="row" style={{ alignItems: 'flex-start', gap: 20 }}>
+        <canvas ref={canvas} width={384} height={216} className="theme-editor-preview" style={{ borderColor: s.accent }} aria-label="Preview" />
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <label className="field">
+            <span>Start from</span>
+            <select value={s.base.id} onChange={(e) => setS(startFrom(e.target.value))}>
+              {BUILT_IN_THEMES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </label>
+          <Colour label="Accent" value={s.accent} onChange={(c) => setS({ ...s, accent: c })} />
+          <Colour label="Second colour" hint="The other light in the picture." value={s.second} onChange={(c) => setS({ ...s, second: c })} />
+          <Colour label="Background" hint="Keep it dark: Home's text is white." value={s.background} onChange={(c) => setS({ ...s, background: c })} />
+        </div>
+      </div>
+      <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Picture</p>
+      <div className="seg" style={{ flexWrap: 'wrap' }}>
+        {ART_KINDS.map(([k, label]) => (
+          <button key={k} className={s.kind === k ? 'on' : ''} onClick={() => setS({ ...s, kind: k })}>{label}</button>
+        ))}
+      </div>
+      <div className="row" style={{ marginTop: 14 }}>
+        <button className="btn ghost" onClick={() => setS({ ...s, seed: s.seed + 1 })}>New pattern</button>
+        <input type="text" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} aria-label="Theme name" style={{ width: 180 }} />
+        <button className="btn primary" disabled={busy} onClick={use}>Use on the TV</button>
+        <button className="btn ghost" onClick={onClose}>Close</button>
+      </div>
+      <p className="small muted" style={{ marginTop: 8, marginBottom: 0 }}>
+        Then Save this look… below keeps it as a .{THEME_EXT} file to share.
+      </p>
     </div>
   )
 }

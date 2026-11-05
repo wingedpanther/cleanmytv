@@ -61,7 +61,7 @@ export function installMock(): void {
     accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
     order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
     icon_style: 'banner', tile_shape: 'wide', intro: true, wallpaper_from: '',
-    lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge', fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_on_tv: false, lock_pin_set: false, themes_on_tv: 0, can_change_settings: true,
+    lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge', fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0, slide_minutes: 0, slide_from: 'mine', glass_dock: false, slides_on_tv: 0, fire_on_tv: false, lock_pin_set: false, themes_on_tv: 0, can_change_settings: true,
     clock: 'time_date', greeting: '', idle_minutes: 0,
     weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'c',
     visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100,
@@ -325,6 +325,12 @@ export function installMock(): void {
     },
     async themePackBegin() { await wait(200) },
     async themePackPut() { await wait(60) },
+    async setSlides(jpegs) {
+      await wait(300 * jpegs.length + 200)
+      homeConfig.slides_on_tv = jpegs.length
+      if (!jpegs.length) homeConfig.slide_minutes = 0
+      return { ...homeConfig }
+    },
     async fireplace(action) {
       await wait(action === 'put' ? 2500 : 400)
       if (action === 'put') homeConfig.fire_on_tv = true
@@ -413,6 +419,10 @@ export function installMock(): void {
     async clearCaches() {
       if (sys.storage) sys.storage = { ...sys.storage, freeKb: sys.storage.freeKb + 412000 }
       return ok("Cleared every app's cache: 402 MB back, 1210 MB free now.")
+    },
+    async fixScreensaver() {
+      await wait(900)
+      return { ok: true, summary: "Google's screensaver is back: 2 apps switched on again, and it is the screensaver now.", warnings: ["Choose your albums in the TV's Settings → System → Ambient mode."] }
     },
     async setAnimationScale(scale) {
       sys.animationScale = String(scale)
