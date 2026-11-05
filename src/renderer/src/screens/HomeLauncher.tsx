@@ -3,7 +3,7 @@ import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, Home
 import type { ScreenProps } from '../App'
 import { AppOrder } from '../components/AppOrder'
 import { HomePreview, QuickMark, quickApp, quickLabel } from '../components/HomePreview'
-import { ActionButton, Busy, Confirm, PinBoxes, ResultNotice, Slider, StatusChip, Toggle, errorText } from '../components/ui'
+import { ActionButton, Busy, Confirm, PinBoxes, ResultNotice, Slider, StatusChip, Toggle, errorText, usePhase } from '../components/ui'
 import { prepareWallpaper, thumbnail } from '../lib/image'
 import { fetchBingDaily } from '../lib/backgrounds'
 import { findPlaces, type Place } from '../lib/places'
@@ -287,7 +287,12 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
           )}
           {ready && tab === 'apps' && apps && <AppsTab apps={apps} cfg={cfg} set={set} />}
           {ready && tab === 'layout' && apps && <LayoutTab apps={apps} cfg={cfg} set={set} />}
-          {ready && tab === 'look' && <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} themes={themes} />}
+          {ready && tab === 'look' && (
+            <>
+              <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} themes={themes} />
+              <FireplaceCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
+            </>
+          )}
           {ready && tab === 'widgets' && <WidgetsTab cfg={cfg} set={set} />}
           {ready && tab === 'music' && <MusicTab cfg={cfg} set={set} />}
           {ready && tab === 'lock' && apps && <LockTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
@@ -610,7 +615,7 @@ const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, num
 
 const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: 'Now playing', dock: 'Dock', rows: 'Rows', folders: 'Folders', grid: 'All apps' }
 const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'dock', 'rows', 'folders', 'grid']
-const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'settings']
+const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'settings']
 /** As the launcher's HomeConfig.MAX_QUICK_APPS. */
 const MAX_QUICK_APPS = 6
 const IDLE_CHOICES: [number, string][] = [[0, 'Off'], [1, '1 min'], [2, '2 min'], [5, '5 min'], [10, '10 min'], [15, '15 min'], [30, '30 min']]
@@ -1166,6 +1171,7 @@ const ACTIONS: [ButtonAction, string][] = [
   ['music', 'Music bars on or off'],
   ['panel', 'Open Quick settings'],
   ['themes', 'Open Themes'],
+  ['fireplace', 'Show the fireplace'],
   ['next_wallpaper', "Next picture of the theme"],
   ['none', 'Do nothing']
 ]
@@ -1529,5 +1535,55 @@ function LockTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c
         </Confirm>
       )}
     </>
+  )
+}
+
+/** The fireplace: a looping video with its crackle, sent to the TV once, then used as a screensaver, full screen or behind Home. */
+function FireplaceCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: SetFn; setCfg: (c: HomeConfig) => void; onResult: (r: ApplyResult) => void }): ReactNode {
+  const [phase, setPhase] = usePhase()
+  const on = !!cfg.fire_on_tv
+  const go = async (action: 'put' | 'show' | 'saver' | 'remove'): Promise<void> => {
+    if (action === 'put') setPhase('busy')
+    try {
+      const r = await window.cytv.fireplace(action)
+      if (action === 'put' || action === 'remove') setCfg(await window.cytv.readHomeConfig())
+      if (action === 'put') setPhase('done')
+      onResult(r)
+    } catch (e) {
+      if (action === 'put') setPhase('failed')
+      onResult({ ok: false, summary: errorText(e), warnings: [] })
+    }
+  }
+  return (
+    <div className="card">
+      <h2>Fireplace</h2>
+      <p className="muted">
+        A real log fire with its crackle, looping without a seam. It's about 11 MB, downloaded once and sent to the TV. Video and
+        sound from Pixabay.
+      </p>
+      <div className="row" style={{ marginBottom: 12 }}>
+        <ActionButton
+          phase={phase}
+          primary={!on}
+          label={on ? 'Send it again' : 'Put the fireplace on the TV'}
+          busyLabel="Sending"
+          doneLabel="On the TV"
+          onClick={() => void go('put')}
+        />
+        {on && <button className="btn" onClick={() => void go('show')}>Show it now</button>}
+        {on && <button className="btn ghost" onClick={() => void go('saver')}>Make it the screensaver</button>}
+      </div>
+      {on && (
+        <>
+          <Toggle label="Behind Home" hint="In place of the picture. It holds still while an app is open, or when the TV's animations are off." checked={cfg.fire_wall} onChange={(v) => set({ fire_wall: v })} />
+          <Toggle label="Crackle full screen and as the screensaver" checked={cfg.fire_sound} onChange={(v) => set({ fire_sound: v })} />
+          <Toggle label="Crackle behind Home too" hint="Off by default, so browsing stays quiet." checked={cfg.fire_wall_sound} onChange={(v) => set({ fire_wall_sound: v })} />
+          {(cfg.fire_sound || cfg.fire_wall_sound) && <Slider label="Volume" value={cfg.fire_volume} min={0} max={100} step={5} unit="%" onChange={(v) => set({ fire_volume: v }, 250)} />}
+          <p style={{ marginTop: 10 }}>
+            <button className="btn ghost" onClick={() => void go('remove')}>Take it off the TV</button>
+          </p>
+        </>
+      )}
+    </div>
   )
 }

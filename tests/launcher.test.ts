@@ -615,6 +615,12 @@ describe('launcher 1.4.0 settings', () => {
     expect(JSON.stringify(cfg)).not.toContain('1234')
   })
 
+  it('takes the fireplace settings and keeps the volume in range', () => {
+    expect(H.clean({ fire_wall: true, fire_sound: false, fire_wall_sound: true, fire_volume: 400 }))
+      .toEqual({ fire_wall: true, fire_sound: false, fire_wall_sound: true, fire_volume: 100 })
+    expect(H.clean({ quick: ['fireplace'], buttons: [{ code: 186, action: 'fireplace' }] })).toEqual({ quick: ['fireplace'], buttons: [{ code: 186, action: 'fireplace' }] })
+  })
+
   it('only sends a PIN of 4 to 6 digits', async () => {
     for (const bad of ['123', '1234567', '12a4', '']) await expect(H.setLockPin(bad)).rejects.toThrow(/4 to 6 digits/)
   })

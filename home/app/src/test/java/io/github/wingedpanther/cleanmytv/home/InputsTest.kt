@@ -31,6 +31,12 @@ class InputsTest {
         assertEquals(listOf("HDMI 2"), pickInputs(rows).map { it.second })
     }
 
+    @Test fun `the TV's tuner comes first, named by the TV or as Live TV`() {
+        val tuner = InputRow("com.mediatek.tvinput/.tuner.TunerInputService/HW0", null, hdmi = false, hidden = false, custom = null, label = null, tuner = true)
+        assertEquals(listOf("Live TV", "HDMI 1", "AV"), pickInputs(listOf(av, port(1), tuner)).map { it.second })
+        assertEquals(listOf("Antenna", "HDMI 1"), pickInputs(listOf(port(1), tuner.copy(custom = "Antenna"))).map { it.second })
+    }
+
     @Test fun `a device whose port isn't listed stands in for it, and blank names fall through`() {
         val rows = listOf(device(4, "Xbox"), port(1, custom = "  "))
         assertEquals(listOf("HDMI 1", "Xbox"), pickInputs(rows).map { it.second })

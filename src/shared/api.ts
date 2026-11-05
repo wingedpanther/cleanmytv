@@ -159,7 +159,7 @@ export interface HomeStatus {
 
 export type HomeLayout = 'shelf' | 'split' | 'rail'
 export type HomeSection = 'nowplaying' | 'dock' | 'rows' | 'folders' | 'grid'
-export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes'
+export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes' | 'fireplace'
 /** A top-bar icon: a quick-settings action, or `app:<package>` for an app shortcut (CleanMyTV Home 1.2.0 and later). */
 export type QuickEntry = QuickId | `app:${string}`
 
@@ -249,6 +249,14 @@ export interface HomeConfig {
   lock_for: 'sleep' | '15' | 'always'
   /** Locked apps on Home: with a small lock, or left out. */
   lock_show: 'badge' | 'hide'
+  // Fireplace (launcher 1.6.0): a looping video CleanMyTV puts on the TV
+  /** Behind Home instead of the picture. */
+  fire_wall: boolean
+  /** Crackle full screen and as the screensaver. */
+  fire_sound: boolean
+  /** Crackle behind Home too; off so browsing stays quiet. */
+  fire_wall_sound: boolean
+  fire_volume: number
   clock: 'time_date' | 'time' | 'off'
   /** A name for "Good evening, …"; empty for none. */
   greeting: string
@@ -280,6 +288,8 @@ export interface HomeConfig {
   lock_pin_set?: boolean
   /** Read only: how many built-in themes are on the TV for its carousel. */
   themes_on_tv?: number
+  /** Read only: the fireplace video is on the TV. */
+  fire_on_tv?: boolean
   /** Read only: the launcher may change TV settings (Quick settings panel). */
   can_change_settings?: boolean
 }
@@ -448,6 +458,8 @@ export interface CytvApi {
   themePackBegin(): Promise<void>
   themePackPut(item: ThemePackItem): Promise<void>
   themePackEnd(order: string[]): Promise<HomeConfig>
+  /** Puts the fireplace on the TV, shows it now, makes it the screensaver, or takes it off. */
+  fireplace(action: 'put' | 'show' | 'saver' | 'remove'): Promise<ApplyResult>
   /** The last buttons the TV received, newest last. */
   homeKeys(): Promise<KeyPress[]>
   /** A prepared JPEG (base64) for the home screen, or null to remove it. */

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Input
+import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.MusicOff
 import androidx.compose.material.icons.outlined.Palette
@@ -56,6 +57,7 @@ fun quickActions(): Map<String, QuickAction> = listOf(
     // Handled by Home itself: its own settings panel, and the theme carousel.
     QuickAction("panel", "Quick settings", Icons.Outlined.Tune, emptyList()),
     QuickAction("themes", "Themes", Icons.Outlined.Palette, emptyList()),
+    QuickAction("fireplace", "Fireplace", Icons.Outlined.LocalFireDepartment, emptyList()),
 ).associateBy { it.id }
 
 /** The first of the action's intents this TV can open, or null when none can (the icon is then left out). */
@@ -65,7 +67,7 @@ fun resolve(ctx: Context, a: QuickAction): Intent? =
 /** Inputs needs inputs, Music bars always works, the rest need a screen on this TV that opens them. */
 fun canOpen(ctx: Context, a: QuickAction, hasInputs: Boolean): Boolean = when (a.id) {
     "inputs" -> hasInputs
-    "music", "panel", "themes" -> true
+    "music", "panel", "themes", "fireplace" -> true
     else -> resolve(ctx, a) != null
 }
 
@@ -78,16 +80,32 @@ fun availableQuick(ctx: Context): List<String> {
     return quickActions().values.filter { canOpen(ctx, it, hasInputs) }.map { it.id }
 }
 
-/** HDMI and other inputs, on TVs that have them, one per port. A box without inputs returns an empty list. */
+/**
+ * HDMI and other inputs, on TVs that have them, one per port, plus the TV's own tuner (#63). A tuner counts
+ * only from a system app: streaming apps register channel inputs too, and those belong in their own app.
+ * A box without inputs returns an empty list.
+ */
 fun tvInputs(ctx: Context): List<Pair<String, String>> = runCatching {
     val tim = ctx.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager ?: return emptyList()
-    pickInputs(tim.tvInputList.filter { it.isPassthroughInput }.map {
-        InputRow(it.id, it.parentId, it.type == TvInputInfo.TYPE_HDMI, it.isHidden(ctx), it.loadCustomLabel(ctx)?.toString(), it.loadLabel(ctx)?.toString())
+    pickInputs(tim.tvInputList.filter { it.isPassthroughInput || builtInTuner(it) }.map {
+        InputRow(it.id, it.parentId, it.type == TvInputInfo.TYPE_HDMI, it.isHidden(ctx), it.loadCustomLabel(ctx)?.toString(), it.loadLabel(ctx)?.toString(), tuner = !it.isPassthroughInput)
     })
 }.getOrElse { emptyList() }
 
+private fun builtInTuner(i: TvInputInfo): Boolean =
+    i.type == TvInputInfo.TYPE_TUNER && (i.serviceInfo.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+
+/**
+ * A port opens its own picture. The tuner opens its channels in the TV's Live TV app, which otherwise
+ * comes back on whichever source was used last.
+ */
 fun openInput(ctx: Context, id: String) {
-    runCatching {
-        ctx.startActivity(Intent(Intent.ACTION_VIEW, TvContract.buildChannelUriForPassthroughInput(id)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }.onFailure { Log.w(TAG, "input $id: $it") }
+    val tim = ctx.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
+    val passthrough = runCatching { tim?.getTvInputInfo(id)?.isPassthroughInput }.getOrNull() ?: true
+    val tries = if (passthrough) listOf(TvContract.buildChannelUriForPassthroughInput(id))
+        else listOf(TvContract.buildChannelsUriForInput(id), TvContract.Channels.CONTENT_URI)
+    val intent = tries.map { Intent(Intent.ACTION_VIEW, it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        .firstOrNull { it.resolveActivity(ctx.packageManager) != null }
+    runCatching { ctx.startActivity(intent ?: Intent(Intent.ACTION_VIEW, tries.first()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        .onFailure { Log.w(TAG, "input $id: $it") }
 }

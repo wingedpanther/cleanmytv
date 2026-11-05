@@ -28,6 +28,8 @@ import java.security.MessageDigest
  *   pack_begin, pack_meta <base64 JSON>, pack_file_begin <base64 "id:n">, pack_file_chunk <base64>,
  *   pack_file_end <md5>, pack_end <base64 JSON order>, pack_clear
  *                              the built-in themes and their pictures, for switching themes on the TV
+ *   fire_dir                   where CleanMyTV puts the fireplace files (Home's folder on shared storage)
+ *   fire_ready, fire_clear     the files have arrived, or are gone; Home looks again
  * Only the shell user (ADB) and root may call it, so other apps on the TV can't restyle Home.
  */
 class ConfigProvider : ContentProvider() {
@@ -42,6 +44,10 @@ class ConfigProvider : ContentProvider() {
         val out = Bundle()
         if (method == "keys") {
             out.putString("keys", KeyLog.json().toString())
+            return out
+        }
+        if (method == "fire_dir") {
+            out.putString("dir", Fire.dir(ctx)?.path ?: "")
             return out
         }
         if (method == "apps") {
@@ -113,6 +119,12 @@ class ConfigProvider : ContentProvider() {
             "pack_end" -> ThemePack.end(ctx, runCatching { org.json.JSONArray(String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8)) }
                 .getOrElse { throw IllegalArgumentException("arg must be a JSON list of theme ids") })
             "pack_clear" -> ThemePack.clear(ctx)
+            "fire_ready" -> Fire.changed()
+            "fire_clear" -> {
+                Fire.video(ctx)?.delete(); Fire.sound(ctx)?.delete()
+                ConfigStore.update(ctx, JSONObject().put("fire_wall", false))
+                Fire.changed()
+            }
             else -> throw IllegalArgumentException("unknown method: $method")
         }
         val config = ConfigStore.config.value.toJson()
@@ -121,6 +133,7 @@ class ConfigProvider : ContentProvider() {
             .put("quick_available", org.json.JSONArray(availableQuick(ctx)))
             .put("lock_pin_set", Lock.hasPin(ctx))
             .put("themes_on_tv", ThemePack.list(ctx).size)
+            .put("fire_on_tv", Fire.ready(ctx))
             .put("can_change_settings", TvSettings.canWriteSecure(ctx))
         out.putString("config", config.toString())
         return out

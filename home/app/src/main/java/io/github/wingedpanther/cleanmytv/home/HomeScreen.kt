@@ -55,6 +55,7 @@ import androidx.compose.material.icons.outlined.WbCloudy
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -86,7 +87,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -190,6 +194,8 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         wallSeen = wallVersion
         if (fresh && wallpaper != null && cfg.intro && motion) { intro.snapTo(0f); intro.animateTo(1f, tween(1800, easing = FastOutSlowInEasing)) }
     }
+    val fireVersion by Fire.version.collectAsState()
+    val fireWall = cfg.fireWall && remember(fireVersion) { Fire.ready(ctx) }
     // Idle screen: no button pressed for cfg.idleMinutes, and nothing open over Home. Any button wakes it,
     // and that press only wakes it, so it can't open the app that happens to have focus.
     var idle by remember { mutableStateOf(false) }
@@ -250,6 +256,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             "inputs" -> showInputs = true
             "panel" -> openPanel()
             "themes" -> showThemes = true
+            "fireplace" -> runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
         }
         open.value = null
     }
@@ -257,6 +264,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         if (a.id == "inputs") showInputs = true
         else if (a.id == "panel") openPanel()
         else if (a.id == "themes") showThemes = true
+        else if (a.id == "fireplace") runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
         else if (a.id == "music") ConfigStore.update(ctx, org.json.JSONObject().put("visualiser", !cfg.visualiser))
         else resolve(ctx, a)?.let { i -> runCatching { ctx.startActivity(i) }.onFailure { Log.w(TAG, "${a.id}: $it") } }
     }
@@ -278,7 +286,10 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             }
         }
     ) {
-        wallpaper?.let {
+        if (fireWall) {
+            FireWallpaper(cfg, motion)
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = cfg.wallpaperDim / 100f)))
+        } else wallpaper?.let {
             Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = cfg.wallpaperDim / 100f)))
         }
@@ -305,6 +316,32 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     if (panelPin) Dialog(onDismissRequest = { panelPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         PinPad("Enter the PIN for Quick settings", Lock.PANEL, accent) { panelPin = false; showPanel = true }
     }
+}
+
+/**
+ * The fireplace behind Home, in place of the picture. It plays while Home is on screen and holds still while
+ * an app is open, or when the TV's animations are off. Silent unless the owner turned its sound on.
+ */
+@Composable
+private fun FireWallpaper(cfg: HomeConfig, motion: Boolean) {
+    val ctx = LocalContext.current
+    val owner = ctx as? androidx.activity.ComponentActivity
+    var resumed by remember { mutableStateOf(owner?.lifecycle?.currentState?.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) ?: true) }
+    DisposableEffect(owner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) resumed = true
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) resumed = false
+        }
+        owner?.lifecycle?.addObserver(obs)
+        onDispose { owner?.lifecycle?.removeObserver(obs) }
+    }
+    val volume = if (cfg.fireWallSound) cfg.fireVolume / 100f else 0f
+    androidx.compose.ui.viewinterop.AndroidView(
+        factory = { FireView(it) { if (ConfigStore.config.value.fireWallSound) ConfigStore.config.value.fireVolume / 100f else 0f } },
+        modifier = Modifier.fillMaxSize(),
+        update = { v -> v.setVolume(volume); v.play(resumed && motion) },
+        onRelease = { it.release() },
+    )
 }
 
 /**
@@ -738,12 +775,14 @@ private fun FolderTile(folder: Pair<String, List<TvApp>>, ui: Ui, size: Modifier
     val shape = RoundedCornerShape(10.dp)
     val (scale, glow, border) = focusStyle(ui, shape, lifted = true)
     var focused by remember { mutableStateOf(false) }
+    // The accent mixed into the background, a quarter and then two fifths, so folders read as the theme's own.
+    val ground = Color(ui.cfg.background)
     Column(size) {
         Surface(
             onClick = { ui.onFolder(folder) },
             modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).onFocusChanged { focused = it.isFocused }.lift(ui, shape, focused),
             shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
-            colors = ClickableSurfaceDefaults.colors(containerColor = TILE, focusedContainerColor = TILE_FOCUSED)
+            colors = ClickableSurfaceDefaults.colors(containerColor = lerp(ground, ui.accent, 0.25f).copy(alpha = 0.9f), focusedContainerColor = lerp(ground, ui.accent, 0.4f))
         ) {
             Column(Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 folder.second.take(4).chunked(2).forEach { pair ->
@@ -885,7 +924,9 @@ private fun Greeting(cfg: HomeConfig, size: androidx.compose.ui.unit.TextUnit) {
     if (cfg.greeting.isBlank()) return
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val part = when (hour) { in 5..11 -> "Good morning"; in 12..17 -> "Good afternoon"; else -> "Good evening" }
-    Text("$part, ${cfg.greeting}", color = TEXT, fontSize = size, fontWeight = FontWeight.Medium, maxLines = 2)
+    // The name in a light shade of the accent, light enough to read on any wallpaper.
+    val name = lerp(Color(cfg.accent), Color.White, 0.45f)
+    Text(buildAnnotatedString { append("$part, "); withStyle(SpanStyle(color = name)) { append(cfg.greeting) } }, color = TEXT, fontSize = size, fontWeight = FontWeight.Medium, maxLines = 2)
 }
 
 @Composable

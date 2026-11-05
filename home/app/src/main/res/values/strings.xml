@@ -3,4 +3,5 @@
     <string name="key_service_label">CleanMyTV Home remote buttons and app lock</string>
     <string name="key_service_description">Gives remote buttons the actions you chose in CleanMyTV, and asks for the PIN when a locked app opens. Buttons you didn\'t map work as before. It sees which app is on screen, and nothing inside it.</string>
     <string name="now_playing_label">CleanMyTV Home now playing</string>
+    <string name="fireplace_label">CleanMyTV Fireplace</string>
 </resources>

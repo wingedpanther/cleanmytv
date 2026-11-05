@@ -55,6 +55,11 @@ data class HomeConfig(
     val lockSystem: Boolean = false, // Settings, the Play Store, the uninstaller and Quick settings too; off until ticked
     val lockFor: String = "sleep", // sleep, 15, always: how long an unlock lasts
     val lockShow: String = "badge", // badge, hide: locked apps on Home
+    // Fireplace: a looping video CleanMyTV puts on the TV, as the screensaver, full screen, or the wallpaper
+    val fireWall: Boolean = false, // behind Home instead of the picture
+    val fireSound: Boolean = true, // full screen and as the screensaver
+    val fireWallSound: Boolean = false, // behind Home: quiet unless asked
+    val fireVolume: Int = 40,
     val clock: String = "time_date", // time_date, time, off
     val greeting: String = "",
     // Idle screen: after this many minutes without a button press, only the wallpaper and the clock show; 0 is off
@@ -107,6 +112,10 @@ data class HomeConfig(
         .put("lock_system", lockSystem)
         .put("lock_for", lockFor)
         .put("lock_show", lockShow)
+        .put("fire_wall", fireWall)
+        .put("fire_sound", fireSound)
+        .put("fire_wall_sound", fireWallSound)
+        .put("fire_volume", fireVolume)
         .put("clock", clock)
         .put("greeting", greeting)
         .put("idle_minutes", idleMinutes)
@@ -128,7 +137,7 @@ data class HomeConfig(
         private val PKG = Regex("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")
 
         private fun hex(c: Long) = "#%06X".format(c and 0xFFFFFF)
-        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes")
+        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace")
         private val THEME_PICTURE = Regex("^[a-z0-9-]{1,40}:[0-9]$")
         private val SECTIONS = setOf("nowplaying", "dock", "rows", "folders", "grid")
         val BUTTON_ACTIONS = QUICK - "inputs" + setOf("inputs", "home", "back", "none", "app", "next_wallpaper")
@@ -209,6 +218,10 @@ data class HomeConfig(
                 lockSystem = bool("lock_system", base.lockSystem),
                 lockFor = choice("lock_for", base.lockFor, setOf("sleep", "15", "always")),
                 lockShow = choice("lock_show", base.lockShow, setOf("badge", "hide")),
+                fireWall = bool("fire_wall", base.fireWall),
+                fireSound = bool("fire_sound", base.fireSound),
+                fireWallSound = bool("fire_wall_sound", base.fireWallSound),
+                fireVolume = int("fire_volume", base.fireVolume, 0, 100),
                 clock = choice("clock", base.clock, setOf("time_date", "time", "off")),
                 idleMinutes = int("idle_minutes", base.idleMinutes, 0, 60),
                 greeting = if (o.has("greeting")) o.optString("greeting").take(40) else base.greeting,

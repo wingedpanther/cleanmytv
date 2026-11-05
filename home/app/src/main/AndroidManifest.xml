@@ -67,6 +67,24 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen"
             android:screenOrientation="landscape" />
 
+        <!-- The fireplace, full screen on demand, and as a screensaver the TV lists by name. -->
+        <activity
+            android:name=".FireplaceActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:screenOrientation="landscape" />
+        <service
+            android:name=".FireplaceDream"
+            android:exported="true"
+            android:label="@string/fireplace_label"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+
         <!-- Remote buttons mapped in CleanMyTV, and the app lock's guard. Off until the desktop app turns it on over ADB. -->
         <service
             android:name=".KeyService"
