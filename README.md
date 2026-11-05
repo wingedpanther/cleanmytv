@@ -223,6 +223,10 @@ The undo toast, the Apply button that changes as it works, the PIN boxes, the st
 the ⌘K search follow components from [EasyUI](https://github.com/Surajmaurya1/easyui) by Suraj Maurya (MIT),
 rewritten in plain CSS. Its licence ships in `resources/licenses/`.
 
+The fireplace video and its crackle come from [Pixabay](https://pixabay.com) under the Pixabay Content
+License, looped and re-encoded for the TV. They're downloaded from the `fireplace-1` release when you
+put the fireplace on a TV, and aren't part of this repository.
+
 ### The launcher APK
 
 CleanMyTV Home lives in `home/`: Kotlin and Jetpack Compose for TV, package
