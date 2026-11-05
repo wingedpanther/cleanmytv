@@ -265,8 +265,6 @@ export interface HomeConfig {
   slide_minutes: number
   /** The slideshow's pictures: the owner's own, or the current theme's. */
   slide_from: 'mine' | 'theme'
-  /** The dock sits on a frosted glass panel. */
-  glass_dock: boolean
   clock: 'time_date' | 'time' | 'off'
   /** A name for "Good evening, …"; empty for none. */
   greeting: string
