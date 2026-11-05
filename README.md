@@ -14,23 +14,24 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
-### New in 0.6.0
+### New in 0.7.0
 
-- **App icons.** Colour, Mono and Duotone redraw every app's logo the same way, so a row matches.
-  Tiles can be wide, square, squircle or round. Common TV apps use a drawn set; the rest are redrawn
-  from their own icon, or get their first letter.
-- **App lock.** Set a PIN from the app and pick the apps to lock. A locked app asks for the PIN however
-  it opens: from Home, by voice, or from Settings. Settings, the Play Store and Quick settings are
-  locked only if you tick them.
-- **Quick settings on the TV.** A panel for volume, screensaver, sleep timer, ad-blocking DNS,
-  animations and the clock, changed with left and right on the remote.
-- **Themes on the TV.** Put the 28 themes on the TV once, then switch them with the remote: left and
-  right for the theme, up and down for its three pictures. A remote button can step to the next
-  picture.
-- **Sunrise.** A new wallpaper starts dim and the light comes in from the top. Home stops moving when
-  the TV's animations are off.
-- **Boxes on Ethernet** can install Home: the app no longer asks for a Wi-Fi network to forget.
-- **Clean up** has a search box.
+- **Fireplace.** A real log fire with its crackle, looping without a seam. Show it full screen from an
+  icon or a remote button, make it the screensaver, or put it behind Home. The app downloads it once
+  (about 11 MB) and sends it to the TV. Set it to turn off after 30 minutes, 1 or 2 hours, and the fire
+  fades before the TV sleeps.
+- **Live TV in Inputs.** The TV's own tuner is first in the Inputs menu and opens your channels (#63).
+- **Slideshow.** Up to 12 of your pictures, or the current theme's three, change every 5 to 60 minutes
+  (#56).
+- **Make your own theme.** Start from a built-in theme, pick the accent, a second colour, the background
+  and the picture style, and see it before it goes on the TV.
+- **Google screensaver.** TV extras switches Google's Ambient screensaver apps back on and makes it the
+  screensaver again (#57).
+- **Clean up after a firmware update.** It lists packages you switched off that came back on, with one
+  button to switch them off again.
+- **Help when Connect fails.** The app names the likely cause: macOS blocking local network access,
+  another network, a VPN, or the pairing port typed into Connect.
+- Folders and your name in the greeting take the theme's accent.
 
 
 
@@ -68,7 +69,9 @@ time:
   xattr -cr /Applications/CleanMyTV.app
   codesign --force --deep --sign - /Applications/CleanMyTV.app
   ```
-- **Windows:** when SmartScreen says it protected your PC, choose **More info**, then **Run anyway**.
+- **Windows:** your browser may call the download uncommon, or even dangerous, because the installer is
+  new and not signed. Keep it: in Chrome, open the downloads list and choose **Keep**. When SmartScreen
+  says it protected your PC, choose **More info**, then **Run anyway**.
 
 ## Before you start: on the TV
 
@@ -119,12 +122,12 @@ tabs have a live preview of the TV screen at the top.
 | Tab | What you set |
 |---|---|
 | **Overview** | Install or update Home, and how to use it. Give Home back to the stock launcher. Remove the old CleanYourTV launcher in one click if it's still on the TV. Take a snapshot of the TV screen. |
-| **Layout** | Three layouts: Shelf (the default), Split and Rail. Space above the apps. The now playing, dock, rows, folders and all apps sections, in any order, each one can be hidden. Quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars, Quick settings, Themes and Settings. Icons the TV can't open are marked "not on this TV". Up to 6 apps as round icons in the same row, like a VPN. Dock and row tile sizes, apps per row, app names (always, focused app only, or off), clock and greeting. An idle screen: after a set time with no button pressed, only the wallpaper and a large clock show. |
+| **Layout** | Three layouts: Shelf (the default), Split and Rail. Space above the apps. The now playing, dock, rows, folders and all apps sections, in any order, each one can be hidden. Quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars, Quick settings, Themes, Fireplace and Settings. Icons the TV can't open are marked "not on this TV". Up to 6 apps as round icons in the same row, like a VPN. Dock and row tile sizes, apps per row, app names (always, focused app only, or off), clock and greeting. An idle screen: after a set time with no button pressed, only the wallpaper and a large clock show. |
 | **Apps, rows & folders** | Dock size, drag to reorder, hide apps, named rows and folders. |
-| **Look & wallpaper** | Themes: 28 looks with their own wallpaper art, three pictures each, saved to and loaded from `.cmtvtheme` files, and Put it back to undo them. Put the themes on the TV to switch them with the remote. App icons: banners, or every logo redrawn in Colour, Mono or Duotone, on wide, square, squircle or round tiles. Accent colour. Focus style (lift, glow, outline or none), with options to lean the tile toward the move, keep it in place while the row slides, and tint the background in the focused app's colour. Your own picture or Bing's picture of the day, darken, background colour, and the sunrise when it changes. |
+| **Look & wallpaper** | Themes: 28 looks with their own wallpaper art, three pictures each, saved to and loaded from `.cmtvtheme` files, and Put it back to undo them. Put the themes on the TV to switch them with the remote. App icons: banners, or every logo redrawn in Colour, Mono or Duotone, on wide, square, squircle or round tiles. Accent colour. Focus style (lift, glow, outline or none), with options to lean the tile toward the move, keep it in place while the row slides, and tint the background in the focused app's colour. Your own picture or Bing's picture of the day, darken, background colour, and the sunrise when it changes. A slideshow of up to 12 pictures. Make your own theme from a built-in one. The fireplace: put it on the TV, show it, make it the screensaver or put it behind Home, with its crackle and a turn-off timer. |
 | **Widgets** | Now playing: what any music or video app plays, with play, pause and next. Weather next to the clock for a town you pick, in °C or °F. |
 | **Music bars** | On or off; bars, mirrored or wave; accent, rainbow or white; peak dots, number of bars, height, opacity and sensitivity. |
-| **Remote buttons** | Find what a remote button sends, then give it a job in every app: open Settings, Inputs, an app, Home, Back, Quick settings, Themes, the theme's next picture, and more. Off until you turn it on. Only the buttons you map are touched. Power, volume and the mic button are usually handled before Android sees them. On Xiaomi TVs, one click makes the Mi button go Home. |
+| **Remote buttons** | Find what a remote button sends, then give it a job in every app: open Settings, Inputs, an app, Home, Back, Quick settings, Themes, the fireplace, the theme's next picture, and more. Off until you turn it on. Only the buttons you map are touched. Power, volume and the mic button are usually handled before Android sees them. On Xiaomi TVs, one click makes the Mi button go Home. |
 | **App lock** | A 4 to 6 digit PIN, kept hashed on the TV, and the apps it locks. Optionally Settings, the Play Store and Quick settings too. An unlock lasts until the TV sleeps, 15 minutes, or until another app opens. Locked apps show a small lock on Home, or stay hidden. One switch turns it all off; the PIN and the list stay. |
 
 Your settings and wallpaper stay through updates and reboots. The app also keeps a copy on your
@@ -155,6 +158,8 @@ itself.
   - dl.google.com for Google's platform-tools, only when you click it (Wireless debugging pairing).
   - www.bing.com, only when you choose Bing's picture of the day as the wallpaper.
   - geocoding-api.open-meteo.com, only when you search for a town for the weather.
+  - github.com, once, when you press Put the fireplace on the TV. It downloads the video and sound from
+    this project's `fireplace-1` release and checks them against a fixed SHA-256.
 
   No analytics, no accounts, no server of its own.
 - **What CleanMyTV Home can access.**
@@ -175,6 +180,9 @@ itself.
   - The Quick settings panel changes screensaver, sleep, Private DNS, animation and clock settings. The
     app grants `WRITE_SECURE_SETTINGS` and `WRITE_SETTINGS` over ADB at install for that. A TV that
     refuses them still works: those rows open the TV's own settings instead.
+  - The fireplace video and sound sit in Home's folder on the TV's shared storage
+    (`Android/data/io.github.wingedpanther.cleanmytv.home/files/fireplace`). ADB can write there, and
+    Home reads them without a storage permission.
   - The only thing it fetches from the internet is the weather, from api.open-meteo.com, every 30
     minutes while the place is set.
 - **Your keys.** The app makes its own ADB key in its data folder and signs only with that. It never
