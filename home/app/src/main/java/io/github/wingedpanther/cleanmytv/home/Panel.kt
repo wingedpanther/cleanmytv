@@ -79,6 +79,7 @@ fun SettingsPanel(accent: Color, onClose: () -> Unit) {
                 }
                 val network = remember(tick) { TvSettings.network(ctx) }
                 val adb = remember(tick) { TvSettings.debuggingOn(ctx) }
+                val fire = remember(tick) { Fire.ready(ctx) }
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     choices.forEachIndexed { n, c ->
                         item(c.label) {
@@ -101,6 +102,29 @@ fun SettingsPanel(accent: Color, onClose: () -> Unit) {
                                 if (c.set != null) { c.set.invoke((c.current + 1) % c.options.size); tick++ } else open(c.fallback)
                             }
                         }
+                    }
+                    // The fireplace, once CleanMyTV has put it on the TV: left and right set it behind Home, OK shows it full screen.
+                    if (fire) item("fireplace") {
+                        val cfg = ConfigStore.config.value
+                        val modes = listOf("Off", "Behind Home", "With crackle")
+                        val cur = if (!cfg.fireWall) 0 else if (cfg.fireWallSound) 2 else 1
+                        fun step(d: Int) {
+                            val i = (cur + d).coerceIn(0, modes.size - 1)
+                            if (i == cur) return
+                            ConfigStore.update(ctx, org.json.JSONObject().put("fire_wall", i > 0).put("fire_wall_sound", i == 2))
+                            tick++
+                        }
+                        PanelRow("Fireplace", modes[cur], "OK shows it full screen", accent,
+                            Modifier.onPreviewKeyEvent { e ->
+                                if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                                when (e.key) {
+                                    Key.DirectionLeft -> { step(-1); true }
+                                    Key.DirectionRight -> { step(1); true }
+                                    else -> false
+                                }
+                            },
+                            arrows = true,
+                        ) { onClose(); open(Intent(ctx, FireplaceActivity::class.java)) }
                     }
                     item("network") { PanelRow("Network", network, null, accent) { open(Intent(Settings.ACTION_WIFI_SETTINGS)) } }
                     item("bluetooth") {
