@@ -376,8 +376,19 @@ export interface SystemState {
   storage: { freeKb: number; totalKb: number } | null
 }
 
+/** An .apk the owner picked, read before it goes to the TV. */
+export interface SideloadInfo {
+  file: string
+  size: number
+  package: string
+  versionName: string | null
+  /** The version on the TV now, or null when it isn't installed. */
+  installed: string | null
+}
+
 export interface DownloadProgress {
-  tool: ToolId
+  /** A tool download, or 'sideload' while an app goes up to the TV. */
+  tool: ToolId | 'sideload'
   received: number
   total: number
   phase: 'download' | 'extract' | 'install' | 'done' | 'error'
@@ -508,6 +519,12 @@ export interface CytvApi {
   setAnimationScale(scale: number): Promise<ApplyResult>
   /** Switches Google's Ambient screensaver apps back on and makes it the screensaver (#57). */
   fixScreensaver(): Promise<ApplyResult>
+  /** What an .apk on this computer is, and the version the TV has. */
+  sideloadInfo(path: string): Promise<SideloadInfo>
+  /** Installs an .apk on this computer on the TV. */
+  sideload(path: string): Promise<ApplyResult>
+  /** The path of a file dropped on or picked in the window. */
+  pathForFile(file: File): string
   /** Clears every app's cache on the TV. */
   clearCaches(): Promise<ApplyResult>
   key(keycode: number): Promise<void>

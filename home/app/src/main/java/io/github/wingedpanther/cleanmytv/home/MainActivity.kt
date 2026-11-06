@@ -43,6 +43,9 @@ class MainActivity : ComponentActivity() {
         ConfigStore.load(this)
         open.value = intent.getStringExtra(OPEN)
         setContent { HomeScreen(visualiser, appsVersion.intValue, open) }
+        // Home is the bottom of the stack: Back here stays here instead of closing Home (#69). Folders,
+        // Inputs and the panels are dialogs, so Back still closes those first.
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) { override fun handleOnBackPressed() {} })
         window.decorView.post { Log.i(TAG, "first frame ${SystemClock.uptimeMillis() - created} ms after onCreate") }
         registerReceiver(packages, IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)

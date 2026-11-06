@@ -67,10 +67,10 @@ object NowPlaying {
         manager = null
     }
 
-    /** Follow the session that is playing, or the first one that has something loaded. */
+    /** Follow the session that is playing, or the first one that has something loaded and isn't over. */
     private fun pick(list: List<MediaController>) {
         val next = list.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-            ?: list.firstOrNull { it.metadata?.getString(MediaMetadata.METADATA_KEY_TITLE) != null }
+            ?: list.firstOrNull { it.metadata?.getString(MediaMetadata.METADATA_KEY_TITLE) != null && !over(it.playbackState) }
         if (next?.sessionToken != controller?.sessionToken) {
             controller?.unregisterCallback(callback)
             controller = next
@@ -79,11 +79,26 @@ object NowPlaying {
         publish()
     }
 
+    /** Stopped, failed or never started: an app that closed often leaves its session like this (#66). */
+    private fun over(s: PlaybackState?): Boolean =
+        s == null || s.state == PlaybackState.STATE_NONE || s.state == PlaybackState.STATE_STOPPED || s.state == PlaybackState.STATE_ERROR
+
+    /** A pause this long counts as finished; some apps keep a paused session after they close. */
+    private const val PAUSED_MS = 10 * 60_000L
+    private val expire = Runnable { publish() }
+
     private fun publish() {
+        main.removeCallbacks(expire)
         val c = controller
         val md = c?.metadata
         val title = md?.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE) ?: md?.getString(MediaMetadata.METADATA_KEY_TITLE)
-        if (c == null || md == null || title.isNullOrBlank()) { _track.value = null; return }
+        val state = c?.playbackState
+        if (c == null || md == null || title.isNullOrBlank() || over(state)) { _track.value = null; return }
+        if (state?.state == PlaybackState.STATE_PAUSED) {
+            val idle = android.os.SystemClock.elapsedRealtime() - state.lastPositionUpdateTime
+            if (idle >= PAUSED_MS) { _track.value = null; return }
+            main.postDelayed(expire, PAUSED_MS - idle + 1000)
+        }
         val artist = md.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE) ?: ""
         val pm = appContext?.packageManager
         val app = runCatching { pm!!.getApplicationLabel(pm.getApplicationInfo(c.packageName, 0)).toString() }.getOrDefault(c.packageName)

@@ -420,6 +420,16 @@ export function installMock(): void {
       if (sys.storage) sys.storage = { ...sys.storage, freeKb: sys.storage.freeKb + 412000 }
       return ok("Cleared every app's cache: 402 MB back, 1210 MB free now.")
     },
+    async sideloadInfo(path) {
+      await wait(400)
+      return { file: path.split('/').pop() ?? 'app.apk', size: 24_500_000, package: 'org.videolan.vlc', versionName: '3.6.4', installed: null }
+    },
+    async sideload() {
+      for (let i = 1; i <= 20; i++) { await wait(80); progress.forEach((cb) => cb({ tool: 'sideload', received: i, total: 20, phase: 'install' })) }
+      progress.forEach((cb) => cb({ tool: 'sideload', received: 1, total: 1, phase: 'done' }))
+      return { ok: true, summary: "Installed org.videolan.vlc 3.6.4. It's in Home's app list now.", warnings: [] }
+    },
+    pathForFile(file) { return '/Users/you/Downloads/' + file.name },
     async fixScreensaver() {
       await wait(900)
       return { ok: true, summary: "Google's screensaver is back: 2 apps switched on again, and it is the screensaver now.", warnings: ["Choose your albums in the TV's Settings → System → Ambient mode."] }

@@ -63,8 +63,9 @@ private val thumbs = object : LruCache<String, ImageBitmap>(6 * 1024 * 1024) {
 @Composable
 private fun picture(ctx: Context, id: String, v: Int, sample: Int): ImageBitmap? {
     val key = "$id:$v:$sample"
+    // The state outlives a change of key, so set it on every key: the old theme's picture never stays (#68).
     val img by produceState(thumbs.get(key), key) {
-        if (value == null) value = withContext(Dispatchers.IO) {
+        value = thumbs.get(key) ?: withContext(Dispatchers.IO) {
             runCatching {
                 BitmapFactory.decodeFile(ThemePack.picture(ctx, id, v).path, BitmapFactory.Options().apply { inSampleSize = sample })?.asImageBitmap()
             }.getOrNull()?.also { thumbs.put(key, it) }

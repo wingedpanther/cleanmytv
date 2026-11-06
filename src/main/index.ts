@@ -8,6 +8,7 @@ import * as T from './tv'
 import * as debloat from './debloat'
 import * as launcher from './launcher'
 import * as system from './system'
+import * as sideload from './sideload'
 import * as tools from './toolchain'
 import { discover, stopDiscovery } from './discover'
 import { localSubnets, scan } from './scan'
@@ -178,6 +179,8 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   setPrivateDns: (host) => system.privateDns(host),
   setAnimationScale: (s) => system.animationScale(s),
   fixScreensaver: () => system.fixScreensaver(),
+  sideloadInfo: (path) => sideload.inspect(String(path)),
+  sideload: (path) => sideload.install(String(path)),
   clearCaches: () => system.clearCaches(),
   key: (code) => system.key(code),
   reboot: () => system.reboot()

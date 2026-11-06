@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { CytvApi, ConnStatus, DownloadProgress, LogLine } from '@shared/api'
 
 // Every method of CytvApi except the event hooks is a plain invoke on a channel of the same name.
@@ -9,7 +9,7 @@ const methods = [
   'useStockLauncher', 'removeOldLauncher', 'homeStatus', 'installHome', 'useHome', 'homeApps', 'readHomeConfig', 'setRemoteButtons', 'setLockPin', 'setAppLock', 'clearAppLock', 'themePackBegin', 'themePackPut', 'themePackEnd', 'setSlides', 'fireplace', 'homeKeys', 'setHomeConfig', 'setHomeWallpaper', 'applyHomeTheme', 'themeBackup', 'restoreThemeBackup', 'forgetThemeBackup', 'saveHomeTheme',
   'knownTvs', 'connectKnown', 'forgetTv', 'saveTvThumb',
   'screenshot', 'thumbShot', 'webGet',
-  'systemState', 'setPrivateDns', 'setAnimationScale', 'fixScreensaver', 'clearCaches', 'key', 'reboot'
+  'systemState', 'setPrivateDns', 'setAnimationScale', 'fixScreensaver', 'sideloadInfo', 'sideload', 'clearCaches', 'key', 'reboot'
 ] as const
 
 function listen<T>(channel: string, cb: (value: T) => void): () => void {
@@ -23,6 +23,7 @@ const api = Object.fromEntries(
 ) as unknown as CytvApi
 
 api.platform = process.platform as CytvApi['platform']
+api.pathForFile = (file) => webUtils.getPathForFile(file)
 api.onLog = (cb) => listen<LogLine>('log', cb)
 api.onProgress = (cb) => listen<DownloadProgress>('progress', cb)
 api.onStatus = (cb) => listen<ConnStatus>('status', cb)

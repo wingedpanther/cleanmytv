@@ -639,3 +639,8 @@ table.pkgs tr.dim td { opacity: 0.6; }
 .theme-editor { margin-top: 16px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--white); }
 .theme-editor-preview { width: 384px; max-width: 100%; aspect-ratio: 16 / 9; height: auto; border-radius: 10px; border: 2px solid; display: block; }
 .theme-editor select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--white); color: inherit; }
+
+/* Install an app: drop an .apk anywhere in the dashed box. */
+.drop-zone { margin: 16px 0; padding: 32px 20px; border: 2px dashed var(--border); border-radius: 14px; text-align: center; background: var(--white); transition: border-color 0.15s, background 0.15s; }
+.drop-zone.over { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--white)); }
+.drop-title { font-weight: 700; font-size: 16px; margin: 0 0 12px; }

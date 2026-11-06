@@ -10,12 +10,13 @@ import { Setup } from './screens/Setup'
 import { Debloat } from './screens/Debloat'
 import { HomeLauncher } from './screens/HomeLauncher'
 import { Extras } from './screens/Extras'
+import { Sideload } from './screens/Sideload'
 import { Finish } from './screens/Finish'
 import { version } from '../../../package.json'
 
 const REPO_URL = 'https://github.com/wingedpanther/cleanmytv'
 
-export type StepId = 'guided' | 'setup' | 'debloat' | 'home' | 'extras' | 'finish'
+export type StepId = 'guided' | 'setup' | 'debloat' | 'home' | 'extras' | 'sideload' | 'finish'
 
 const STEPS: { id: StepId; label: string; sub: string; needsTv: boolean }[] = [
   // The guided one-button run (#9): composes the same IPC the step screens
@@ -25,6 +26,7 @@ const STEPS: { id: StepId; label: string; sub: string; needsTv: boolean }[] = [
   { id: 'debloat', label: 'Clean up', sub: 'Turn off the bloat', needsTv: true },
   { id: 'home', label: 'Home screen', sub: 'Install and customise', needsTv: true },
   { id: 'extras', label: 'TV extras', sub: 'DNS, animations, remote', needsTv: true },
+  { id: 'sideload', label: 'Install an app', sub: 'From an .apk file', needsTv: true },
   { id: 'finish', label: 'Finish', sub: 'Close the debug port', needsTv: false }
 ]
 
@@ -170,6 +172,7 @@ export default function App(): ReactNode {
   else if (current.id === 'debloat') screen = <Debloat {...props} />
   else if (current.id === 'home') screen = <HomeLauncher {...props} openTab={homeTab} />
   else if (current.id === 'extras') screen = <Extras {...props} />
+  else if (current.id === 'sideload') screen = <Sideload {...props} />
   else screen = <Finish {...props} />
 
   return (
