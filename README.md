@@ -14,6 +14,21 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
+### New in 0.7.1
+
+- **Install an app.** A new step in the sidebar. Drop an .apk on it, see the app's name, version and
+  whether the TV has it already, then install it. A warning about apps from outside the Play Store
+  stays on top, and if Android refuses the app, the app says why in plain words.
+- **Back on the home screen** stays on Home instead of closing it (#69).
+- **The theme picker on the TV** shows the picture of the theme you're on (#68).
+- **Now playing** goes away when the music or video stops, or after 10 minutes paused (#66).
+- **Clean & launch** leaves the Google screensaver, phone remote, casting and voice on, like Clean up
+  does. Thanks nasd223.
+- **Copy for a bug report** shows your home folder as ~, so it doesn't paste your computer's user
+  name. Thanks nasd223.
+- The restart check no longer mistakes Settings' fallback screen for a working home screen. Thanks
+  nasd223.
+
 ### New in 0.7.0
 
 - **Fireplace.** A real log fire with its crackle, looping without a seam. Show it full screen from an
