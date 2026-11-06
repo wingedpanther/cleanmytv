@@ -24,18 +24,28 @@ import kotlinx.coroutines.flow.StateFlow
 import java.io.File
 
 /**
- * The fireplace: a looping video and a separate, longer crackle, which CleanMyTV puts in Home's own folder
- * on the TV's shared storage (Android/data/<package>/files/fireplace). ADB can write there and Home can
- * read it without any storage permission. Neither file ships inside the app.
+ * The fireplace: a looping video and a separate, longer crackle. CleanMyTV sends them through
+ * ConfigProvider into Home's private storage, which works on every TV; Fire OS, for one, won't let ADB
+ * write to Android/data (#70). Home 1.6 to 1.7.2 took them in Android/data/<package>/files/fireplace, so
+ * files already there still count. Neither file ships inside the app.
  */
 object Fire {
     private val _version = MutableStateFlow(0)
     /** Bumped when CleanMyTV has put new files on the TV, so Home looks again. */
     val version: StateFlow<Int> = _version
+    val NAMES = setOf("fireplace.mp4", "crackle.m4a")
 
-    fun dir(ctx: Context): File? = ctx.getExternalFilesDir("fireplace")
-    fun video(ctx: Context): File? = dir(ctx)?.let { File(it, "fireplace.mp4") }
-    fun sound(ctx: Context): File? = dir(ctx)?.let { File(it, "crackle.m4a") }
+    /** Where uploads go now. */
+    fun dir(ctx: Context): File = File(ctx.filesDir, "fireplace").apply { mkdirs() }
+    private fun file(ctx: Context, name: String): File? =
+        File(dir(ctx), name).takeIf { it.length() > 0 }
+            ?: ctx.getExternalFilesDir("fireplace")?.let { File(it, name) }?.takeIf { it.length() > 0 }
+    fun video(ctx: Context): File? = file(ctx, "fireplace.mp4")
+    fun sound(ctx: Context): File? = file(ctx, "crackle.m4a")
+    /** Deletes both copies, new place and old. */
+    fun clear(ctx: Context) {
+        for (n in NAMES) { File(dir(ctx), n).delete(); ctx.getExternalFilesDir("fireplace")?.let { File(it, n).delete() } }
+    }
     fun ready(ctx: Context): Boolean = video(ctx)?.let { it.length() > 0 } == true
     fun changed() { _version.value++ }
 }

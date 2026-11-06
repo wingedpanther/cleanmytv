@@ -386,6 +386,19 @@ async function fireFile(f: (typeof FIRE_FILES)[number], fetchImpl: typeof fetch 
   throw new Error('too many redirects')
 }
 
+/** Home 1.6.0 to 1.7.2: the files go into its folder on shared storage, which ADB can write on most TVs. */
+async function fireToSharedFolder(files: { f: (typeof FIRE_FILES)[number]; data: Buffer }[]): Promise<void> {
+  const out = await T.tv().shell(`content call --uri ${URI} --method fire_dir`)
+  const dir = /dir=([^,}\s]+)/.exec(out)?.[1]
+  if (!dir) throw new Error('this TV has no shared storage for Home to read the fireplace from. Update Home on the Overview tab and try again.')
+  T.q(dir)
+  await T.sh('fireplace', `mkdir -p ${dir}`)
+  for (const { f, data } of files) {
+    await T.pushB64('fireplace', data, `${dir}/${f.name}.new`)
+    await T.sh('fireplace', `mv -f ${dir}/${f.name}.new ${dir}/${f.name}`)
+  }
+}
+
 export async function fireplace(action: 'put' | 'show' | 'saver' | 'remove'): Promise<{ ok: boolean; summary: string; warnings: string[] }> {
   if (action === 'remove') {
     await call('fire_clear')
@@ -402,22 +415,27 @@ export async function fireplace(action: 'put' | 'show' | 'saver' | 'remove'): Pr
   }
   const files = []
   for (const f of FIRE_FILES) files.push({ f, data: await fireFile(f) })
-  const out = await T.tv().shell(`content call --uri ${URI} --method fire_dir`)
-  const dir = /dir=([^,}\s]+)/.exec(out)?.[1]
-  if (!dir) throw new Error('this TV has no shared storage for Home to read the fireplace from')
-  T.q(dir)
   const need = Math.ceil(files.reduce((n, x) => n + x.data.length, 0) * 2.4 / 1024)
   const free = await T.freeKb('fireplace')
   if (free < need) throw new Error(`the TV needs about ${Math.round(need / 1024)} MB free for the fireplace and has ${Math.round(free / 1024)} MB`)
-  await T.sh('fireplace', `mkdir -p ${dir}`)
   for (const { f, data } of files) {
-    // Uploaded beside the old one and swapped in, so a broken upload never leaves half a video.
+    // Through Home's settings channel into its own storage, as the wallpaper goes: Fire OS won't let ADB
+    // write to Android/data (#70). Home before 1.7.3 doesn't know these calls; it gets the old folder.
+    try {
+      parse(await call('fire_file_begin', Buffer.from(f.name).toString('base64'), 'fireplace'))
+    } catch (e) {
+      if (!/unknown method/.test(String(e))) throw e
+      await fireToSharedFolder(files)
+      break
+    }
+    const parts = pieces(data)
     let shown = 0
-    await T.pushB64('fireplace', data, `${dir}/${f.name}.new`, (i, n) => {
-      const pct = Math.floor((i / n) * 10) * 10
+    for (const [i, piece] of parts.entries()) {
+      parse(await call('fire_file_chunk', piece, 'fireplace'))
+      const pct = Math.floor(((i + 1) / parts.length) * 10) * 10
       if (pct > shown) { shown = pct; log('fireplace', 'info', `${f.name}: ${pct}%`) }
-    })
-    await T.sh('fireplace', `mv -f ${dir}/${f.name}.new ${dir}/${f.name}`)
+    }
+    parse(await call('fire_file_end', createHash('md5').update(data).digest('hex'), 'fireplace'))
   }
   await call('fire_ready')
   return { ok: true, summary: 'The fireplace is on the TV. Show it, make it the screensaver, or put it behind Home.', warnings: [] }

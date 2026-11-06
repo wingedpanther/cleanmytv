@@ -30,7 +30,9 @@ import java.security.MessageDigest
  *                              the built-in themes and their pictures, for switching themes on the TV
  *   slides_begin, slide_file_begin <n>, slide_file_chunk <base64>, slide_file_end <md5>, slides_end, slides_clear
  *                              the slideshow's pictures (#56)
- *   fire_dir                   where CleanMyTV puts the fireplace files (Home's folder on shared storage)
+ *   fire_file_begin <base64 name>, fire_file_chunk <base64>, fire_file_end <md5>
+ *                              one fireplace file (fireplace.mp4 or crackle.m4a), into Home's own storage
+ *   fire_dir                   the old upload folder on shared storage, for CleanMyTV 0.7.0 and 0.7.1
  *   fire_ready, fire_clear     the files have arrived, or are gone; Home looks again
  * Only the shell user (ADB) and root may call it, so other apps on the TV can't restyle Home.
  */
@@ -49,7 +51,7 @@ class ConfigProvider : ContentProvider() {
             return out
         }
         if (method == "fire_dir") {
-            out.putString("dir", Fire.dir(ctx)?.path ?: "")
+            out.putString("dir", ctx.getExternalFilesDir("fireplace")?.path ?: "")
             return out
         }
         if (method == "apps") {
@@ -143,9 +145,30 @@ class ConfigProvider : ContentProvider() {
                 Slides.clear(ctx)
                 ConfigStore.update(ctx, JSONObject().put("slide_minutes", 0))
             }
+            "fire_file_begin" -> {
+                val name = String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8)
+                require(name in Fire.NAMES) { "bad fireplace file $name" }
+                fireFile = java.io.File(Fire.dir(ctx), "$name.upload").also { it.writeBytes(ByteArray(0)) }
+            }
+            "fire_file_chunk" -> {
+                val f = fireFile ?: throw IllegalStateException("fire_file_begin first")
+                val bytes = Base64.decode(arg ?: "", Base64.DEFAULT)
+                if (f.length() + bytes.size > MAX_FIRE) throw IllegalArgumentException("fireplace file is over 64 MB")
+                f.appendBytes(bytes)
+            }
+            "fire_file_end" -> {
+                val f = fireFile ?: throw IllegalStateException("fire_file_begin first")
+                fireFile = null
+                val got = java.security.DigestInputStream(f.inputStream(), MessageDigest.getInstance("MD5")).use { s ->
+                    s.readBytes(); s.messageDigest.digest().joinToString("") { "%02x".format(it) }
+                }
+                if (got != arg?.lowercase()) { f.delete(); throw IllegalArgumentException("fireplace upload is damaged (md5 $got)") }
+                // Swapped in whole, so a broken upload never leaves half a video.
+                f.renameTo(java.io.File(f.parentFile, f.name.removeSuffix(".upload")))
+            }
             "fire_ready" -> Fire.changed()
             "fire_clear" -> {
-                Fire.video(ctx)?.delete(); Fire.sound(ctx)?.delete()
+                Fire.clear(ctx)
                 ConfigStore.update(ctx, JSONObject().put("fire_wall", false))
                 Fire.changed()
             }
@@ -178,6 +201,9 @@ class ConfigProvider : ContentProvider() {
         const val ROOT_UID = 0
         const val MAX_WALLPAPER = 4 * 1024 * 1024
         const val READ_PIECE = 192 * 1024
+        const val MAX_FIRE = 64 * 1024 * 1024
+        /** The fireplace file being uploaded, between fire_file_begin and fire_file_end. */
+        @Volatile var fireFile: java.io.File? = null
         /** The picture being uploaded for the theme pack, between pack_file_begin and pack_file_end. */
         @Volatile var packFile: java.io.File? = null
     }
