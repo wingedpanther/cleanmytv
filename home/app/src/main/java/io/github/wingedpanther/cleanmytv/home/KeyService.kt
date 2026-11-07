@@ -80,12 +80,24 @@ class KeyService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString() ?: return
+        // Fire OS won't let the Amazon launcher be disabled or replaced as Home, so it opens at boot and
+        // on every Home press. With remote buttons on, bring CleanMyTV Home back in front of it. Android
+        // blocks app starts for about 5 s after a Home press, hence the retry after that window.
+        if (pkg == FIRE_LAUNCHER && ConfigStore.config.value.buttonsOn) {
+            redirect.removeCallbacksAndMessages(null)
+            for (d in longArrayOf(300, 1200, 5300)) redirect.postDelayed({ runCatching { startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }.onFailure { Log.w(TAG, "fire home: $it") } }, d)
+            return
+        }
+        if (pkg != FIRE_LAUNCHER) redirect.removeCallbacksAndMessages(null)
         Lock.seen(pkg, lockScreen = event.className?.toString()?.endsWith("LockActivity") == true)
         if (pkg == packageName || pkg == LockActivity.showing || Lock.justBackedOut(pkg)) return
         if (Lock.needsPin(this, pkg)) runCatching { startActivity(LockActivity.intent(this, pkg)) }.onFailure { Log.w(TAG, "lock $pkg: $it") }
     }
 
+    private val redirect = android.os.Handler(android.os.Looper.getMainLooper())
+
     override fun onDestroy() {
+        redirect.removeCallbacksAndMessages(null)
         if (running === this) running = null
         runCatching { unregisterReceiver(screenOff) }
         super.onDestroy()
@@ -94,6 +106,8 @@ class KeyService : AccessibilityService() {
     override fun onInterrupt() {}
 
     companion object {
+        private const val FIRE_LAUNCHER = "com.amazon.tv.launcher"
+
         /** The service while it's on, so the fireplace timer can put the TV to sleep. */
         @Volatile var running: KeyService? = null
 
