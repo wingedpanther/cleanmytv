@@ -14,6 +14,19 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
+### New in 0.7.2
+
+- **Fireplace on every TV.** The fireplace now goes onto the TV through CleanMyTV Home itself, instead
+  of the folder that Fire TV, Xiaomi boxes and some TCL TVs refused (#70).
+- **Fire TV:** CleanMyTV Home comes back in front when Fire OS opens its own launcher, as long as remote
+  buttons are on. Thanks Sean Warren.
+- **USB drives and YouTube ads:** Clean up no longer ticks Media Player, its gallery and video player,
+  Android's storage apps, or the TV's web viewers by default (#71, #55).
+- **Mac:** when macOS never shows the Local Network switch, the Connect screen gives a Terminal command
+  that starts the app with Terminal's network access (#65).
+- **Phone apps in an Other apps folder:** apps with no TV picture can move out of the dock and grid into
+  one folder (#3).
+
 ### New in 0.7.1
 
 - **Install an app.** A new step in the sidebar. Drop an .apk on it, see the app's name, version and
