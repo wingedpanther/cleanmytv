@@ -189,7 +189,17 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     LaunchedEffect(wallVersion) {
         wallpaper = withContext(Dispatchers.IO) {
             val f = ConfigStore.wallpaper(ctx)
-            if (f.exists()) runCatching { BitmapFactory.decodeFile(f.path)?.asImageBitmap() }.getOrNull() else null
+            if (f.exists()) runCatching {
+                val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(f.path, opts)
+                var sample = 1
+                while (opts.outWidth / sample > 1920 || opts.outHeight / sample > 1080) sample *= 2
+                val decodeOpts = BitmapFactory.Options().apply {
+                    inSampleSize = sample
+                    inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+                }
+                BitmapFactory.decodeFile(f.path, decodeOpts)?.asImageBitmap()
+            }.getOrNull() else null
         }
         // A new wallpaper, not the one Home opened with, comes in like a sunrise.
         val fresh = wallSeen != null && wallSeen != wallVersion
@@ -253,10 +263,11 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var showInputs by remember { mutableStateOf(false) }
     var showPanel by remember { mutableStateOf(false) }
     var showThemes by remember { mutableStateOf(false) }
+    var showCustomize by remember { mutableStateOf(false) }
     var panelPin by remember { mutableStateOf(false) }
     val openPanel = { if (Lock.needsPin(ctx, Lock.PANEL)) panelPin = true else showPanel = true }
-    LaunchedEffect(lastPress, cfg.idleMinutes, openFolder, showInputs, showPanel, showThemes) {
-        if (cfg.idleMinutes == 0 || openFolder != null || showInputs || showPanel || showThemes) return@LaunchedEffect
+    LaunchedEffect(lastPress, cfg.idleMinutes, openFolder, showInputs, showPanel, showThemes, showCustomize) {
+        if (cfg.idleMinutes == 0 || openFolder != null || showInputs || showPanel || showThemes || showCustomize) return@LaunchedEffect
         delay(cfg.idleMinutes * 60_000L)
         idle = true
     }
@@ -266,6 +277,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             "inputs" -> showInputs = true
             "panel" -> openPanel()
             "themes" -> showThemes = true
+            "customize" -> showCustomize = true
             "fireplace" -> runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
         }
         open.value = null
@@ -274,6 +286,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         if (a.id == "inputs") showInputs = true
         else if (a.id == "panel") openPanel()
         else if (a.id == "themes") showThemes = true
+        else if (a.id == "customize") showCustomize = true
         else if (a.id == "fireplace") runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
         else if (a.id == "music") ConfigStore.update(ctx, org.json.JSONObject().put("visualiser", !cfg.visualiser))
         else resolve(ctx, a)?.let { i -> runCatching { ctx.startActivity(i) }.onFailure { Log.w(TAG, "${a.id}: $it") } }
@@ -323,6 +336,12 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     if (showInputs) InputsOverlay(inputs, ui) { showInputs = false }
     if (showPanel) SettingsPanel(accent) { showPanel = false }
     if (showThemes) ThemeCarousel(accent) { showThemes = false }
+    if (showCustomize) Dialog(
+        onDismissRequest = { showCustomize = false },
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        LauncherSettingsScreen(cfg, apps) { showCustomize = false }
+    }
     if (panelPin) Dialog(onDismissRequest = { panelPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         PinPad("Enter the PIN for Quick settings", Lock.PANEL, accent) { panelPin = false; showPanel = true }
     }
@@ -672,8 +691,8 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
             if (Lock.isLocked(ui.cfg, app.pkg)) LockBadge(Modifier.align(if (ui.shape == "round") Alignment.BottomCenter else Alignment.TopEnd))
         }
         if (ui.cfg.showNames) {
-            Text(app.label, color = TEXT, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = if (wide) TextAlign.Start else TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 7.dp, start = 2.dp).graphicsLayer { alpha = nameAlpha })
+            Text(app.label, color = TEXT, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = if (wide) TextAlign.Start else TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 5.dp, start = 2.dp).graphicsLayer { alpha = nameAlpha })
         }
     }
 }

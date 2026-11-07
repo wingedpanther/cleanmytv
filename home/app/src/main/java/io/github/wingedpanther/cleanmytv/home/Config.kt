@@ -19,7 +19,7 @@ data class HomeConfig(
     val layout: String = "shelf", // shelf, split, rail
     val sections: List<String> = listOf("nowplaying", "dock", "rows", "folders", "grid"), // top to bottom; absent = hidden
     val topSpace: Int = 25, // percent of the screen left open above the apps (shelf)
-    val quick: List<String> = listOf("inputs", "wifi", "settings"), // quick-settings icons and "app:<package>" shortcuts, in order
+    val quick: List<String> = listOf("inputs", "wifi", "customize", "settings"), // quick-settings icons and "app:<package>" shortcuts, in order
     val rows: List<Group> = emptyList(),
     val folders: List<Group> = emptyList(),
     val dockScale: Int = 100, // percent
@@ -199,7 +199,12 @@ data class HomeConfig(
                 quick = o.optJSONArray("quick")?.let { a ->
                     val all = (0 until minOf(a.length(), 30)).map { a.optString(it) }.filter { it in QUICK || quickApp(it) != null }.distinct()
                     val apps = all.filter { quickApp(it) != null }.take(MAX_QUICK_APPS).toSet()
-                    all.filter { it in QUICK || it in apps }
+                    val result = all.filter { it in QUICK || it in apps }.toMutableList()
+                    if ("customize" !in result) {
+                        val settingsIdx = result.indexOf("settings")
+                        if (settingsIdx >= 0) result.add(settingsIdx, "customize") else result.add("customize")
+                    }
+                    result
                 } ?: base.quick,
                 rows = groups("rows", 8) ?: base.rows,
                 folders = groups("folders", 12) ?: base.folders,

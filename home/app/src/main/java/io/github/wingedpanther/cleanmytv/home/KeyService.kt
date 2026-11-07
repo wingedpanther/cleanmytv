@@ -35,6 +35,8 @@ object KeyLog {
  * That is the line upstream's key helper crossed in #26.
  */
 class KeyService : AccessibilityService() {
+    private var currentPkg: String? = null
+
     // An unlock lasts until the TV sleeps, unless the owner picked 15 minutes or every time.
     private val screenOff = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) { Lock.lockAll() }
@@ -51,6 +53,22 @@ class KeyService : AccessibilityService() {
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) KeyLog.add(event.keyCode)
+
+        // Intercept HOME button press to bring CleanMyTV Home to front when another app is open
+        if (event.keyCode == KeyEvent.KEYCODE_HOME) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                if (currentPkg != packageName) {
+                    runCatching {
+                        val intent = Intent(this, MainActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        }
+                        startActivity(intent)
+                    }.onFailure { Log.w(TAG, "home key intercept: $it") }
+                }
+            }
+            return true
+        }
+
         val cfg = ConfigStore.config.value
         if (!cfg.buttonsOn) return false
         val map = cfg.buttons.firstOrNull { it.code == event.keyCode } ?: return false
@@ -60,7 +78,9 @@ class KeyService : AccessibilityService() {
 
     private fun perform(b: ButtonMap) {
         when (b.action) {
-            "home" -> performGlobalAction(GLOBAL_ACTION_HOME)
+            "home" -> if (currentPkg != packageName) {
+                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+            }
             "back" -> performGlobalAction(GLOBAL_ACTION_BACK)
             "none" -> Unit
             "inputs" -> startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN, "inputs").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -80,6 +100,7 @@ class KeyService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString() ?: return
+        currentPkg = pkg
         // Fire OS won't let the Amazon launcher be disabled or replaced as Home, so it opens at boot and
         // on every Home press. With remote buttons on, bring CleanMyTV Home back in front of it. Android
         // blocks app starts for about 5 s after a Home press, hence the retry after that window.
@@ -113,5 +134,14 @@ class KeyService : AccessibilityService() {
 
         /** Screen off, as the power button would. Needs the key service on; false when it isn't. */
         fun sleep(): Boolean = running?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) ?: false
+
+        /** Checks if the KeyService accessibility service is active. */
+        fun isEnabled(ctx: Context): Boolean {
+            if (running != null) return true
+            val service = android.content.ComponentName(ctx, KeyService::class.java).flattenToString()
+            val enabled = android.provider.Settings.Secure.getString(ctx.contentResolver, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
+            val on = android.provider.Settings.Secure.getInt(ctx.contentResolver, android.provider.Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1
+            return on && enabled.contains(service)
+        }
     }
 }
