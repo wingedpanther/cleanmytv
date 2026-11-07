@@ -11,6 +11,7 @@ describe('setup doctor', () => {
   it('points a Mac at Local Network access when the TV is on its own network but unreachable', () => {
     const h = diagnose({ code: 'unreachable', errno: 'EHOSTUNREACH', host: '192.168.68.64', port: 44777 }, wifi('192.168.68.20'), 'darwin')
     expect(h[0]).toMatch(/Local Network/)
+    expect(h[1]).toMatch(/Terminal.*\/Applications\/CleanMyTV\.app\/Contents\/MacOS\/CleanMyTV/)
   })
 
   it('says when the computer and the TV are on different networks', () => {

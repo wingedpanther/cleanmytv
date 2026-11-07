@@ -464,7 +464,21 @@ const FEATURES: Record<string, string> = {
   'com.google.android.speech.pumpkin': 'voice search and the remote\'s mic button',
   // Both are needed: with backdrop off, dreamx still runs but shows Google's gallery, not the owner's albums (#57).
   'com.google.android.apps.tv.dreamx': 'the Ambient screensaver and its Google Photos albums',
-  'com.google.android.backdrop': 'the Ambient screensaver and its Google Photos albums'
+  'com.google.android.backdrop': 'the Ambient screensaver and its Google Photos albums',
+  // USB drives (#71): the media browser and the apps it opens photos and videos with, and Android's own
+  // storage providers, which every file browser reads through.
+  'com.xiaomi.mitv.mediaexplorer': 'USB drives in Media Player',
+  'com.mitv.gallery': 'photos from USB drives in Media Player',
+  'com.mitv.videoplayer': 'videos from USB drives in Media Player',
+  'com.android.providers.media': 'USB drives and photos in every app',
+  'com.android.providers.media.module': 'USB drives and photos in every app',
+  'com.android.externalstorage': 'USB drives in file browsers',
+  'com.android.documentsui': 'picking files from USB drives',
+  // Web viewers (#55): YouTube's ads and many sign-in pages load in them; without them the picture can go black.
+  'com.google.android.webview': 'web pages inside apps, including YouTube ads',
+  'com.android.webview': 'web pages inside apps, including YouTube ads',
+  'com.tcl.android.webview': 'web pages inside apps, including YouTube ads',
+  'com.mediatek.support.webview': 'web pages inside apps, including YouTube ads'
 }
 
 /** Why a package is the owner's decision rather than a default, or undefined when it is plain bloat. */

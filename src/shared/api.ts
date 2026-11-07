@@ -261,6 +261,8 @@ export interface HomeConfig {
   fire_volume: number
   /** Full screen: minutes until the fire goes out and the TV sleeps; 0 burns on. */
   fire_timer: number
+  /** Phone apps with no TV banner go in an Other apps folder (launcher 1.7.4). */
+  other_apps: boolean
   /** Slideshow (launcher 1.7.0): a new wallpaper every this many minutes; 0 is off. */
   slide_minutes: number
   /** The slideshow's pictures: the owner's own, or the current theme's. */

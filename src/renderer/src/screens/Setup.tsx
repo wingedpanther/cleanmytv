@@ -355,6 +355,13 @@ export function Setup({ status, go, tvs, refreshTvs }: ScreenProps): ReactNode {
             {connectError && (
               <div className="notice error" style={{ marginTop: 14, marginBottom: 0, whiteSpace: 'pre-line' }}>
                 {connectError}
+                {connectError.includes('/Applications/CleanMyTV.app/') && (
+                  <div style={{ marginTop: 10 }}>
+                    <button className="btn small" onClick={() => void navigator.clipboard.writeText('/Applications/CleanMyTV.app/Contents/MacOS/CleanMyTV')}>
+                      Copy the Terminal command
+                    </button>
+                  </div>
+                )}
                 {/network debugging is off|only works for pairing/.test(connectError) && !wantPair && (
                   <div style={{ marginTop: 10 }}>
                     <button className="btn small" onClick={() => { setHostChosen(true); setWantPair(true) }}>

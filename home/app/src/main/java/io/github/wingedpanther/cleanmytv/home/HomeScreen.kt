@@ -149,10 +149,12 @@ private class Home(all: List<TvApp>, val cfg: HomeConfig) {
     private val byPkg = apps.associateBy { it.pkg }
     val shown = arrange(apps, cfg)
     private val inFolders = cfg.folders.flatMap { it.apps }.toSet()
-    val dock = shown.filter { it.pkg !in inFolders }.take(cfg.dockSize)
-    val grid = shown.filter { it.pkg !in inFolders && it !in dock }
+    /** Phone apps with no TV banner, in their own folder when the owner asks (#3). Apps they placed stay put. */
+    private val other = if (cfg.otherApps) shown.filter { !it.banner && it.pkg !in inFolders } else emptyList()
+    val dock = shown.filter { it.pkg !in inFolders && it !in other }.take(cfg.dockSize)
+    val grid = shown.filter { it.pkg !in inFolders && it !in dock && it !in other }
     val rows = cfg.rows.map { g -> g.name to g.apps.mapNotNull { byPkg[it] }.filter { it.pkg !in cfg.hidden } }.filter { it.second.isNotEmpty() }
-    val folders = cfg.folders.map { g -> g.name to g.apps.mapNotNull { byPkg[it] } }.filter { it.second.isNotEmpty() }
+    val folders = (cfg.folders.map { g -> g.name to g.apps.mapNotNull { byPkg[it] } } + listOf("Other apps" to other)).filter { it.second.isNotEmpty() }
     /** The tile that takes focus when Home opens, as "<section>:<package>" (an app can sit in two sections). */
     val first: String? = cfg.sections.firstNotNullOfOrNull { s ->
         when (s) {

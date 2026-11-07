@@ -499,6 +499,7 @@ function AppsTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetF
       <div className="card">
         <h2>Dock and order</h2>
         <Slider label="Apps in the dock" hint="The first apps sit in a row of large tiles. 0 for no dock." value={cfg.dock_size} min={0} max={8} onChange={(v) => set({ dock_size: v }, 300)} />
+        <Toggle label="Phone apps in an Other apps folder" hint="Apps made for phones, with no TV picture, move out of the dock and the grid into one folder. Apps you put in rows or folders stay where they are." checked={cfg.other_apps} onChange={(v) => set({ other_apps: v })} />
         <div className="row" style={{ margin: '6px 0 10px' }}>
           <span className="muted small">Drag to reorder, or use the arrows. Highlighted tiles are the dock. Apps in a folder show only in the folder.</span>
           <span className="spacer" />
