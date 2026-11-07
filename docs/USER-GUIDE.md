@@ -87,6 +87,7 @@ If you used CleanMyTV 0.1, your TV may still have the old CleanYourTV launcher. 
 > - *Google TV: "your saved Wi-Fi network belongs to" setupwraith.* On some Google TVs the setup wizard (setupwraith) grabs Home once the stock launcher is off, so the install switches it off too. If your Wi-Fi was saved during the TV's first setup, it belongs to the wizard and would be deleted with it. On the TV, forget the network and join it again in Settings > Network & Internet, then install again. Giving Home back to the stock launcher turns the wizard back on. With it off, phone casting may stop working after a restart on some TVs.
 > - *"The TV is out of storage".* The install clears every app's cache first, and says how much space is still missing if that isn't enough. Uninstall an app you don't use, then install again. **TV extras** → **Storage** shows the free space.
 > - *Xiaomi: the Mi button does nothing.* It opened PatchWall, which the cleanup switched off. Open **Remote buttons** and press **Make the Mi button go Home**.
+> - *Fire TV: Home button opens the Amazon launcher, or remote buttons stopped working after a force-stop.* On Fire TV firmwares, Fire OS has been observed to turn off accessibility services when an app is force-stopped in Settings > Applications > Manage Installed Applications. When you reopen CleanMyTV Home, the screen offers a one-click prompt to restore remote buttons and the Home redirect. If permissions were revoked, open CleanMyTV on your computer, open **Remote buttons**, and switch them off and on again.
 
 ---
 
@@ -156,6 +157,7 @@ The app remembers where you were — close it any time and come back; a TV that 
 | Install says the Wi-Fi belongs to setupwraith | Forget and re-join the Wi-Fi on the TV, install again | 5 |
 | A package refused to disable | Leave it on; everything else still worked | 4 |
 | Something I use got disabled | Re-enable it one-by-one, or Restore | 7 |
+| Fire TV remote buttons or Home redirect stopped | Reopen CleanMyTV Home and choose Restore, or toggle Remote buttons in desktop app | 5 |
 | TV got a new IP | Just reconnect; the app knows the TV by identity | 6 |
 | Port check says still open | Wait a few seconds, or toggle Developer options off | 6 |
 | Want everything back | Restore — one click | 7 |

@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
@@ -32,6 +33,8 @@ class MainActivity : ComponentActivity() {
     private val appsVersion = mutableIntStateOf(0)
     /** Something a remote button asked Home to open; HomeScreen clears it. */
     private val open = androidx.compose.runtime.mutableStateOf<String?>(null)
+    private var recoveryPromptOffered = false
+    private var recoveryDialog: android.app.Dialog? = null
 
     private val packages = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) { appsVersion.intValue++ }
@@ -56,6 +59,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        recoveryDialog?.dismiss()
+        recoveryDialog = null
         unregisterReceiver(packages)
         super.onDestroy()
     }
@@ -69,6 +74,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         appsVersion.intValue++
+        checkKeyServiceRecovery()
     }
 
     override fun onStop() {
@@ -87,6 +93,123 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.getStringExtra(OPEN)?.let { open.value = it }
+    }
+
+    private fun checkKeyServiceRecovery() {
+        if (recoveryPromptOffered) return
+        val isFireTv = KeyServiceRecovery.isFireTvDevice(
+            hasSystemFeature = { runCatching { packageManager.hasSystemFeature(it) }.getOrDefault(false) },
+            model = android.os.Build.MODEL
+        )
+        if (!isFireTv) return
+        val buttonsOn = ConfigStore.config.value.buttonsOn
+        if (!buttonsOn) return
+        val isRunning = KeyService.running != null
+        if (isRunning) return
+
+        val servicesResult = runCatching {
+            Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+        }
+        if (servicesResult.isFailure) return
+        val enabledServices = servicesResult.getOrNull()
+
+        val globalResult = runCatching {
+            Settings.Secure.getInt(contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED)
+        }
+        if (globalResult.isFailure) return
+        val accessibilityEnabled = globalResult.getOrDefault(0)
+
+        if (KeyServiceRecovery.shouldPrompt(
+            isFireTv = true,
+            buttonsOn = true,
+            isServiceRunning = false,
+            enabledServices = enabledServices,
+            accessibilityEnabled = accessibilityEnabled
+        )) {
+            recoveryPromptOffered = true
+            showRecoveryPrompt()
+        }
+    }
+
+    private fun showRecoveryPrompt() {
+        if (isFinishing || isDestroyed) return
+        recoveryDialog?.dismiss()
+        var dialog: android.app.Dialog? = null
+        dialog = android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle("Restore remote buttons")
+            .setMessage("Remote buttons and Home redirect were stopped by the TV. Restore them now?")
+            .setPositiveButton("Restore") { _, _ ->
+                onRestoreConfirmed()
+            }
+            .setNegativeButton("Not now", null)
+            .setOnDismissListener {
+                if (recoveryDialog === dialog) {
+                    recoveryDialog = null
+                }
+            }
+            .create()
+        recoveryDialog = dialog
+        dialog.show()
+    }
+
+    private fun showDesktopInstructions() {
+        if (isFinishing || isDestroyed) return
+        recoveryDialog?.dismiss()
+        var dialog: android.app.Dialog? = null
+        dialog = android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle("Remote buttons setup")
+            .setMessage("CleanMyTV cannot update settings directly on this TV. Open CleanMyTV on your computer, go to Remote buttons, and switch them off and on.")
+            .setPositiveButton("OK", null)
+            .setOnDismissListener {
+                if (recoveryDialog === dialog) {
+                    recoveryDialog = null
+                }
+            }
+            .create()
+        recoveryDialog = dialog
+        dialog.show()
+    }
+
+    private fun onRestoreConfirmed() {
+        val isFireTv = KeyServiceRecovery.isFireTvDevice(
+            hasSystemFeature = { runCatching { packageManager.hasSystemFeature(it) }.getOrDefault(false) },
+            model = android.os.Build.MODEL
+        )
+        val result = KeyServiceRecovery.performRecovery(
+            isFireTv = isFireTv,
+            buttonsOn = ConfigStore.config.value.buttonsOn,
+            isServiceRunning = KeyService.running != null,
+            getCurrentServices = {
+                Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+            },
+            getCurrentAccessibilityEnabled = {
+                Settings.Secure.getInt(contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED)
+            },
+            canWriteSecure = {
+                TvSettings.canWriteSecure(this)
+            },
+            putServices = { newServices ->
+                runCatching {
+                    Settings.Secure.putString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, newServices)
+                }.getOrDefault(false)
+            },
+            putAccessibilityEnabled = { enabled ->
+                runCatching {
+                    Settings.Secure.putInt(contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, enabled)
+                }.getOrDefault(false)
+            }
+        )
+
+        when (result) {
+            KeyServiceRecovery.RecoveryResult.PERMISSION_DENIED,
+            KeyServiceRecovery.RecoveryResult.WRITE_FAILED -> {
+                showDesktopInstructions()
+            }
+            KeyServiceRecovery.RecoveryResult.SUCCESS,
+            KeyServiceRecovery.RecoveryResult.NO_OP -> {
+                // Settings restored or already healthy. Do not claim binding from setting alone.
+            }
+        }
     }
 
     companion object { const val OPEN = "open" }
