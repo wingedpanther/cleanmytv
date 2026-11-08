@@ -138,7 +138,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
     const total = BUILT_IN_THEMES.length * THEME_PICTURES
     setResult(null)
     try {
-      setBusy('Putting the themes on the TV')
+      setBusy('Загрузка тем на телевизор')
       await window.cytv.themePackBegin()
       let i = 0
       for (const t of BUILT_IN_THEMES) {
@@ -239,14 +239,14 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
   }, [ready])
   // Why the other tabs are greyed out (#38).
   const locked = !home?.installed
-    ? 'Install CleanMyTV Home on the Overview tab first.'
+    ? 'Сначала установите CleanMyTV Home на вкладке «Обзор».'
     : outdated(home)
-      ? 'Press Update and use on the Overview tab first.'
+      ? 'Сначала нажмите «Обновить и применить» на вкладке «Обзор».'
       : "Waiting for CleanMyTV Home's settings. If this stays, reconnect from Setup."
 
   return (
     <>
-      <h1>Home screen</h1>
+      <h1>Главный экран</h1>
       <p className="lede">
         CleanMyTV Home is the TV's new home screen: no ads, your apps, your layout. Install it once, then change anything here;
         the TV shows it straight away and keeps it after a reboot. The stock launcher is one click away on the Overview tab.
@@ -299,7 +299,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
           {ready && tab === 'music' && <MusicTab cfg={cfg} set={set} />}
           {ready && tab === 'lock' && apps && <LockTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
           {ready && tab === 'buttons' && apps && <ButtonsTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} brand={status.probe?.manufacturer} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
-          {ready && tab !== 'overview' && <p className="small muted">{saving ? 'Sending to the TV…' : 'Saved on the TV.'}</p>}
+          {ready && tab !== 'overview' && <p className="small muted">{saving ? 'Отправка на телевизор…' : 'Сохранено на телевизоре.'}</p>}
         </>
       )}
 
@@ -621,7 +621,7 @@ const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'dock', 'rows', 'folders', 'g
 const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'settings']
 /** As the launcher's HomeConfig.MAX_QUICK_APPS. */
 const MAX_QUICK_APPS = 6
-const IDLE_CHOICES: [number, string][] = [[0, 'Off'], [1, '1 min'], [2, '2 min'], [5, '5 min'], [10, '10 min'], [15, '15 min'], [30, '30 min']]
+const IDLE_CHOICES: [number, string][] = [[0, 'Выкл.'], [1, '1 мин.'], [2, '2 мин.'], [5, '5 мин.'], [10, '10 мин.'], [15, '15 мин.'], [30, '30 мин.']]
 
 /** Turn items on and off and put the ones that are on in order. */
 function OrderList<T extends string>(props: { all: T[]; on: T[]; label: (t: T) => ReactNode; onChange: (on: T[]) => void }): ReactNode {
@@ -694,7 +694,7 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
         <div className="card">
           <h2>Быстрые настройки</h2>
           <p className="muted small">
-            {cfg.layout === 'rail' ? 'Icons in the rail.' : cfg.layout === 'split' ? 'At the bottom of the left side.' : 'Under the clock and date.'} The TV hides any it can't open, such as Inputs on a box
+            {cfg.layout === 'rail' ? 'Значки на боковой панели.' : cfg.layout === 'split' ? 'Внизу левой части экрана.' : 'Под часами и датой.'} The TV hides any it can't open, such as Inputs on a box
             without HDMI inputs, or Search when the search app is switched off.
           </p>
           <OrderList<QuickEntry>
@@ -1180,7 +1180,7 @@ const ACTIONS: [ButtonAction, string][] = [
   ['apps', 'Открыть список приложений'],
   ['sleep', 'Запустить заставку'],
   ['search', 'Открыть поиск'],
-  ['music', 'Music bars on or off'],
+  ['music', 'Включить или выключить музыкальные полосы'],
   ['panel', 'Открыть быстрые настройки'],
   ['themes', 'Открыть темы'],
   ['fireplace', 'Показать камин'],
@@ -1188,7 +1188,7 @@ const ACTIONS: [ButtonAction, string][] = [
   ['none', 'Ничего не делать']
 ]
 
-/** KEYCODE_PROG_RED -> "Prog red". */
+/** KEYCODE_PROG_RED -> "Красная кнопка". */
 const keyName = (name: string): string => {
   const s = name.replace(/^KEYCODE_/, '').toLowerCase().replace(/_/g, ' ')
   return s.charAt(0).toUpperCase() + s.slice(1)
@@ -1653,7 +1653,7 @@ function SlideshowCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: S
               if (fs.length) void send(fs)
             }}
           />
-          <ActionButton phase={phase} label={mine ? 'Choose new pictures…' : 'Choose pictures…'} busyLabel="Sending" doneLabel="On the TV" onClick={() => file.current?.click()} />
+          <ActionButton phase={phase} label={mine ? 'Выбрать новые изображения…' : 'Выбрать изображения…'} busyLabel="Sending" doneLabel="On the TV" onClick={() => file.current?.click()} />
           {mine > 0 && <button className="btn ghost" onClick={() => void send([])}>Удалить изображения</button>}
           <span className="small muted">Up to {SLIDE_MAX}. They replace the ones on the TV.</span>
         </div>
@@ -1672,8 +1672,8 @@ function SlideshowCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: S
 }
 
 const ART_KINDS: [ThemeArt['kind'], string][] = [
-  ['aurora', 'Aurora'], ['ridges', 'Ridges'], ['dunes', 'Dunes'], ['flow', 'Flow'], ['stars', 'Stars'],
-  ['contours', 'Contours'], ['bokeh', 'Bokeh'], ['horizon', 'Horizon'], ['rings', 'Rings']
+  ['aurora', 'Северное сияние'], ['ridges', 'Хребты'], ['dunes', 'Дюны'], ['flow', 'Поток'], ['stars', 'Звёзды'],
+  ['contours', 'Контуры'], ['bokeh', 'Боке'], ['horizon', 'Горизонт'], ['rings', 'Кольца']
 ]
 
 /** A colour mixed toward black by [k] (0 to 1), as #RRGGBB. */
@@ -1697,7 +1697,7 @@ function ThemeEditor({ themes, busy, onClose }: { themes: ThemeActions; busy: bo
     }
   }
   const [s, setS] = useState(() => startFrom(BUILT_IN_THEMES.find((t) => themes.current.startsWith(`${t.id}:`))?.id ?? BUILT_IN_THEMES[0].id))
-  const [name, setName] = useState('My theme')
+  const [name, setName] = useState('Моя тема')
   const canvas = useRef<HTMLCanvasElement>(null)
   const paint: ThemePaint = useMemo(() => ({
     base: [s.background, darken(s.background, 0.45)],
@@ -1714,7 +1714,7 @@ function ThemeEditor({ themes, busy, onClose }: { themes: ThemeActions; busy: bo
     c.getContext('2d')?.drawImage(drawn, 0, 0)
   }, [paint])
   const use = (): void => themes.custom({
-    name: name.trim() || 'My theme',
+    name: name.trim() || 'Моя тема',
     look: { ...s.base.look, accent: s.accent, background: darken(s.background, 0.45) },
     wallpaper: paintWallpaper(paint, 'theme.jpg').base64
   })
