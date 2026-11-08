@@ -4,22 +4,22 @@ import type { BootCheckResult } from '@shared/api'
 import { Busy, errorText } from '../components/ui'
 
 const STEPS = [
-  'On the TV, open Developer options and turn off USB debugging.',
-  'Turn off Network debugging, ADB debugging or Wireless debugging if your TV has it.',
-  'Optional: choose Revoke USB debugging authorisations, so no computer is trusted any more. Skip this to avoid the Allow prompt next time.',
-  'Restart the TV.'
+  'На телевизоре откройте «Для разработчиков» и отключите отладку по USB.',
+  'Если на телевизоре есть отладка по сети, ADB или беспроводная отладка — отключите её.',
+  'Дополнительно можно выбрать «Отозвать разрешения на отладку по USB», чтобы компьютер больше не считался доверенным. Не делайте этого, если не хотите снова подтверждать подключение в следующий раз.',
+  'Перезапустите телевизор.'
 ]
 
-export function Finish({ status, markDone }: ScreenProps): ReactNode {
+export function Завершение({ status, markГотово }: ScreenProps): ReactNode {
   const [host, setHost] = useState(status.host ?? '')
   const [ticks, setTicks] = useState<boolean[]>(STEPS.map(() => false))
   const [checking, setChecking] = useState(false)
   const [res, setRes] = useState<{ closed: boolean; message: string } | null>(null)
-  const [restarting, setRestarting] = useState(false)
+  const [restarting, setПерезапуститьing] = useState(false)
   const [boot, setBoot] = useState<BootCheckResult | null>(null)
-  const [sawHome, setSawHome] = useState(false)
+  const [sawДомой, setSawДомой] = useState(false)
   // Debugging is the only way back into a TV that boots to a black screen (#33): it stays on until a restart has worked.
-  const safe = boot?.ok === true || sawHome
+  const safe = boot?.ok === true || sawДомой
 
   useEffect(() => {
     if (!host) window.cytv.lastHost().then((h) => h && setHost(h))
@@ -31,7 +31,7 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
     try {
       const r = await window.cytv.checkAdbClosed(host.trim())
       setRes(r)
-      if (r.closed) markDone('finish')
+      if (r.closed) markГотово('finish')
     } catch (e) {
       setRes({ closed: false, message: e instanceof Error ? e.message : String(e) })
     } finally {
@@ -40,20 +40,20 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
   }
 
   async function restartCheck(): Promise<void> {
-    setRestarting(true)
+    setПерезапуститьing(true)
     setBoot(null)
     try {
       setBoot(await window.cytv.bootCheck())
     } catch (e) {
       setBoot({ ok: false, reconnected: false, summary: errorText(e) })
     } finally {
-      setRestarting(false)
+      setПерезапуститьing(false)
     }
   }
 
   return (
     <>
-      <h1>Finish and lock</h1>
+      <h1>Завершение and lock</h1>
       <p className="lede">
         Network debugging is a plain-text shell on port 5555. On some TVs any device on your Wi-Fi can use it without the Allow
         prompt. Close it when you're done. The home screen and the clean-up keep working without it. Turn it on again
@@ -61,17 +61,17 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
       </p>
 
       <div className="card white">
-        <h2>1. Restart check</h2>
+        <h2>1. Проверка перезапуска</h2>
         <p className="muted">
-          Restart the TV once while debugging is still on. If it comes back to a black screen, the app can still put the stock
+          Перезапустить телевизор once while debugging is still on. If it comes back to a black screen, the app can still put the stock
           launcher back. With debugging off, only a factory reset could.
         </p>
         <div className="row">
           <button className="btn primary" onClick={restartCheck} disabled={restarting || status.state !== 'connected'}>
-            Restart the TV and check
+            Перезапустить и проверить
           </button>
-          {restarting && <Busy text="Restarting the TV and waiting for its home screen. This can take 3 minutes" />}
-          {!restarting && status.state !== 'connected' && !boot && <span className="small muted">Connect to the TV first.</span>}
+          {restarting && <Busy text="Перезапуск телевизора и ожидание главного экрана. Это может занять до 3 минут." />}
+          {!restarting && status.state !== 'connected' && !boot && <span className="small muted">Подключить to the TV first.</span>}
         </div>
         {boot && (
           <div className={`notice ${boot.ok ? 'ok' : 'error'}`} style={{ marginTop: 16, marginBottom: 0 }}>
@@ -80,15 +80,15 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
         )}
         {!boot?.ok && (
           <label className="row small" style={{ marginTop: 12, cursor: 'pointer' }}>
-            <input type="checkbox" checked={sawHome} onChange={(e) => setSawHome(e.target.checked)} />
-            <span>I restarted the TV myself and its home screen came up</span>
+            <input type="checkbox" checked={sawДомой} onChange={(e) => setSawДомой(e.target.checked)} />
+            <span>Я самостоятельно перезапустил телевизор, и главный экран появился</span>
           </label>
         )}
       </div>
 
       <div className="card" style={safe ? undefined : { opacity: 0.5, pointerEvents: 'none' }} aria-disabled={!safe}>
-        <h2>2. On the TV</h2>
-        {!safe && <p className="small muted">Do the restart check first.</p>}
+        <h2>2. На телевизоре</h2>
+        {!safe && <p className="small muted">Сначала выполните проверку перезапуска.</p>}
         <ul className="checklist">
           {STEPS.map((s, i) => (
             <li key={i} className="check" style={{ gridTemplateColumns: 'auto 1fr' }}>
@@ -107,15 +107,15 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
       </div>
 
       <div className="card white">
-        <h2>Coming back later</h2>
+        <h2>Если понадобится вернуться позже</h2>
         <p className="muted" style={{ marginBottom: 8 }}>
-          To change the wallpaper, the app order or anything else on the home screen:
+          Чтобы изменить обои, порядок приложений или другие параметры главного экрана:
         </p>
-        <ol className="small" style={{ margin: '0 0 8px', paddingLeft: 20 }}>
-          <li>On the TV, turn USB debugging on again (and Network or ADB debugging if your TV has it).</li>
-          <li>Open this app. It reconnects to the TV by itself, finds it again if its address changed, and opens the Home screen step.</li>
-          <li>If you revoked the authorisations, choose Allow on the TV once more.</li>
-          <li>Apply your changes, then turn debugging off again.</li>
+        <ol className="small" style={{ margin: '0 0 8px', paddingВлево: 20 }}>
+          <li>На телевизоре, turn USB debugging on again (and Network or ADB debugging if your TV has it).</li>
+          <li>Open this app. It reconnects to the TV by itself, finds it again if its address changed, and opens the Главный экран step.</li>
+          <li>Если вы отозвали разрешения, снова подтвердите подключение на телевизоре.</li>
+          <li>Внесите изменения и снова отключите отладку.</li>
         </ol>
         <p className="small muted" style={{ margin: 0 }}>
           The app reads what is on the TV before you edit, so you always start from the current wallpaper and order. Some Google TVs
@@ -124,18 +124,18 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
       </div>
 
       <div className="card white">
-        <h2>3. Check from this computer</h2>
-        <p className="muted">Once the TV has restarted, check that port 5555 no longer answers.</p>
+        <h2>3. Проверка с этого компьютера</h2>
+        <p className="muted">После перезапуска телевизора проверьте, что порт 5555 больше не отвечает.</p>
         <div className="row">
           <input type="text" value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.50" style={{ width: 200 }} />
           <button className="btn primary" onClick={check} disabled={!safe || checking || !/^\d{1,3}(\.\d{1,3}){3}$/.test(host.trim())}>
-            Check port 5555 is closed
+            Проверить, что порт 5555 закрыт
           </button>
-          {checking && <Busy text="Knocking on port 5555" />}
+          {checking && <Busy text="Проверка порта 5555" />}
         </div>
         {res && (
           <div className={`notice ${res.closed ? 'ok' : 'warn'}`} style={{ marginTop: 16, marginBottom: 0 }}>
-            <b>{res.closed ? 'Closed.' : 'Still open.'}</b> {res.message}
+            <b>{res.closed ? 'Закрыт.' : 'Всё ещё открыт.'}</b> {res.message}
           </div>
         )}
       </div>
