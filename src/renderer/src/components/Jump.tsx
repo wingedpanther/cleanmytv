@@ -42,10 +42,10 @@ export function Jump({ items, onPick, onClose }: { items: JumpItem[]; onPick: (i
   }, [hi])
 
   function key(e: KeyboardEvent): void {
-    if (e.key === 'ArrowВниз') {
+    if (e.key === 'ArrowDown') {
       e.preventDefault()
       setHi((h) => Math.min(h + 1, shown.length - 1))
-    } else if (e.key === 'ArrowВверх') {
+    } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setHi((h) => Math.max(h - 1, 0))
     } else if (e.key === 'Enter' && shown[hi]) {
@@ -56,14 +56,14 @@ export function Jump({ items, onPick, onClose }: { items: JumpItem[]; onPick: (i
   }
 
   return (
-    <div className="jump-back" onMouseВниз={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="jump-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="jump" role="dialog" aria-modal="true" aria-label="Jump to">
         <input
           autoFocus
           placeholder="Jump to a step or setting"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          onKeyВниз={key}
+          onKeyDown={key}
           role="combobox"
           aria-expanded="true"
           aria-controls="jump-list"
