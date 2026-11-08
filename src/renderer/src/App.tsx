@@ -21,13 +21,13 @@ export type StepId = 'guided' | 'setup' | 'debloat' | 'home' | 'extras' | 'sidel
 const STEPS: { id: StepId; label: string; sub: string; needsTv: boolean }[] = [
   // The guided one-button run (#9): composes the same IPC the step screens
   // use, so first-time owners get one path while every step stays reachable.
-  { id: 'guided', label: 'Clean & launch', sub: 'One button, every step', needsTv: true },
-  { id: 'setup', label: 'Setup', sub: 'Check and connect', needsTv: false },
-  { id: 'debloat', label: 'Clean up', sub: 'Turn off the bloat', needsTv: true },
-  { id: 'home', label: 'Home screen', sub: 'Install and customise', needsTv: true },
-  { id: 'extras', label: 'TV extras', sub: 'DNS, animations, remote', needsTv: true },
-  { id: 'sideload', label: 'Install an app', sub: 'From an .apk file', needsTv: true },
-  { id: 'finish', label: 'Finish', sub: 'Close the debug port', needsTv: false }
+  { id: 'guided', label: 'Очистка и запуск', sub: 'Одна кнопка — весь процесс', needsTv: true },
+  { id: 'setup', label: 'Подключение', sub: 'Проверка и подключение', needsTv: false },
+  { id: 'debloat', label: 'Очистка', sub: 'Отключение лишнего', needsTv: true },
+  { id: 'home', label: 'Главный экран', sub: 'Установка и настройка', needsTv: true },
+  { id: 'extras', label: 'Дополнительно', sub: 'DNS, анимация, пульт', needsTv: true },
+  { id: 'sideload', label: 'Установка приложения', sub: 'Из файла .apk', needsTv: true },
+  { id: 'finish', label: 'Завершение', sub: 'Закрытие порта отладки', needsTv: false }
 ]
 
 export interface ScreenProps {
@@ -189,7 +189,7 @@ export default function App(): ReactNode {
         )}
         <ConnPill status={status} />
         <button className="jump-btn" onClick={() => setJumping(true)}>
-          <span>Find a setting</span>
+          <span>Найти настройку</span>
           <kbd>{MOD_KEY}K</kbd>
         </button>
         <nav>
