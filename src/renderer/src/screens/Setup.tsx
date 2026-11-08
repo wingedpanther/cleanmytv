@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import type { ApplyResult, CheckItem, ВнизloadProgress, FoundTv, ScanHit, ToolId } from '@shared/api'
+import type { ApplyResult, CheckItem, DownloadProgress, FoundTv, ScanHit, ToolId } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { TvPicker, TvThumb } from '../components/TvPicker'
 import { Busy, ResultNotice, StatusChip, errorText } from '../components/ui'
@@ -10,17 +10,17 @@ const DISCOVER_EVERY_MS = 2000
 const DISCOVER_FIRST_MS = 500
 
 function foundStatus(tv: FoundTv): { text: string; dot: string } {
-  if (tv.ready) return { text: 'готов к подключению', dot: 'ok' }
-  if (tv.pairPort) return { text: 'готов к сопряжению', dot: 'ok' }
-  if (tv.connectPort) return { text: 'откройте экран сопряжения', dot: 'busy' }
-  return { text: 'отладка выключена', dot: 'idle' }
+  if (tv.ready) return { text: 'ready to connect', dot: 'ok' }
+  if (tv.pairPort) return { text: 'ready to pair', dot: 'ok' }
+  if (tv.connectPort) return { text: 'open the pairing screen', dot: 'busy' }
+  return { text: 'debugging is off', dot: 'idle' }
 }
 
-export function Подключение({ status, go, tvs, refreshTvs }: ScreenProps): ReactNode {
+export function Setup({ status, go, tvs, refreshTvs }: ScreenProps): ReactNode {
   const [checks, setChecks] = useState<CheckItem[] | null>(null)
-  const [progress, setProgress] = useState<Partial<Record<ToolId, ВнизloadProgress>>>({})
-  const [downloading, setВнизloading] = useState<Set<ToolId>>(new Set())
-  const [downloadResult, setВнизloadResult] = useState<ApplyResult | null>(null)
+  const [progress, setProgress] = useState<Partial<Record<ToolId, DownloadProgress>>>({})
+  const [downloading, setDownloading] = useState<Set<ToolId>>(new Set())
+  const [downloadResult, setDownloadResult] = useState<ApplyResult | null>(null)
 
   const [hits, setHits] = useState<ScanHit[] | null>(null)
   const [scanning, setScanning] = useState(false)
@@ -28,7 +28,7 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
   const [host, setHost] = useState('')
   // Once the user has typed or picked an address, a TV showing up doesn't change it.
   const [hostChosen, setHostChosen] = useState(false)
-  const [connectError, setПодключитьError] = useState<string | null>(null)
+  const [connectError, setConnectError] = useState<string | null>(null)
   const [wantPair, setWantPair] = useState(false)
   const [pairing, setPairing] = useState(false)
 
@@ -48,13 +48,13 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
   }, [status.state, refreshChecks])
 
   async function download(tool: ToolId): Promise<void> {
-    setВнизloading((s) => new Set(s).add(tool))
+    setDownloading((s) => new Set(s).add(tool))
     try {
-      setВнизloadResult(await window.cytv.download(tool))
+      setDownloadResult(await window.cytv.download(tool))
     } catch (e) {
-      setВнизloadResult({ ok: false, summary: errorText(e), warnings: [] })
+      setDownloadResult({ ok: false, summary: errorText(e), warnings: [] })
     } finally {
-      setВнизloading((s) => {
+      setDownloading((s) => {
         const n = new Set(s)
         n.delete(tool)
         return n
@@ -70,7 +70,7 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
       setHits(found)
       if (found.length === 1 && !host) setHost(found[0].host)
     } catch (e) {
-      setПодключитьError(errorText(e))
+      setConnectError(errorText(e))
     } finally {
       setScanning(false)
     }
@@ -83,13 +83,13 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
   }, [status.moved])
 
   async function connect(h = host): Promise<void> {
-    setПодключитьError(null)
+    setConnectError(null)
     setHostChosen(true)
     try {
       const s = await window.cytv.connect(h.trim())
-      if (s.state === 'error' && !s.needsPairing) setПодключитьError(s.error ?? 'Не удалось подключиться.')
+      if (s.state === 'error' && !s.needsPairing) setConnectError(s.error ?? 'Could not connect.')
     } catch (e) {
-      setПодключитьError(errorText(e))
+      setConnectError(errorText(e))
     }
   }
 
@@ -153,7 +153,7 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
 
   return (
     <>
-      <h1>Настройка</h1>
+      <h1>Set up</h1>
       <p className="lede">
         This app talks to the TV over your Wi-Fi. You don't need Python, Java or Android tools to clean the TV and install
         the home screen. The one optional download is only for pairing some Google TVs.
@@ -166,8 +166,8 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
           tvs={tvs}
           status={status}
           onChange={refreshTvs}
-          title={tvs.length > 1 ? 'Какой телевизор?' : 'Ваш телевизор'}
-          hint={tvs.length > 1 ? "Вы уже подключали несколько телевизоров. Выберите нужный." : undefined}
+          title={tvs.length > 1 ? 'Which TV?' : 'Your TV'}
+          hint={tvs.length > 1 ? "You've used this app with more than one TV, so it waits for you to pick." : undefined}
         />
       )}
 
@@ -181,7 +181,7 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
                   {status.probe.manufacturer} {status.probe.model}
                 </h2>
                 <div className="row">
-                  <StatusChip status="ok" text="Подключено" />
+                  <StatusChip status="ok" text="Connected" />
                   <button className="btn small ghost" onClick={() => window.cytv.disconnect()}>
                     Disconnect
                   </button>
@@ -212,13 +212,13 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
           {status.probe.adbSecure === '0' && (
             <div className="notice warn" style={{ marginTop: 16, marginBottom: 0 }}>
               This TV reports <code>ro.adb.secure=0</code>. Any device on your network can reach its debug port without the
-              Allow prompt. Close it when you're done: the Завершение step walks you through it.
+              Allow prompt. Close it when you're done: the Finish step walks you through it.
             </div>
           )}
           {status.probe.sdk > 0 && status.probe.sdk < 28 && (
             <div className="notice warn" style={{ marginTop: 16, marginBottom: 0 }}>
-              This TV reports Android {status.probe.release} (API {status.probe.sdk}). CleanMyTV Домой needs Android 9
-              (API 28) or newer, so the Главный экран step will refuse to install here. Cleanup stays available and
+              This TV reports Android {status.probe.release} (API {status.probe.sdk}). CleanMyTV Home needs Android 9
+              (API 28) or newer, so the Home screen step will refuse to install here. Cleanup stays available and
               reversible (nothing is uninstalled).
             </div>
           )}
@@ -231,11 +231,11 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
       ) : null}
 
       {connected && status.probe ? (
-        <TvPicker tvs={tvs} status={status} onChange={refreshTvs} title="Your other TVs" hint="Подключитьing to one disconnects this TV." />
+        <TvPicker tvs={tvs} status={status} onChange={refreshTvs} title="Your other TVs" hint="Connecting to one disconnects this TV." />
       ) : (
         <div className="grid-2">
           <div className="card">
-            <h2>1. На телевизоре</h2>
+            <h2>1. On the TV</h2>
             <ol className="guide">
               <li>
                 <span>
@@ -245,7 +245,7 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
               </li>
               <li>
                 <span>
-                  Scroll to <b>Build</b> (or <b>Android TV OS build</b>) and press ОК on it seven times. The TV says you are now a
+                  Scroll to <b>Build</b> (or <b>Android TV OS build</b>) and press OK on it seven times. The TV says you are now a
                   developer.
                 </span>
               </li>
@@ -303,7 +303,7 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
             </p>
             <div className="row" style={{ marginBottom: 12 }}>
               <button className="btn" onClick={scan} disabled={scanning || busy}>
-                {scanning ? 'Поиск…' : hits ? 'Повторить поиск' : 'Найти в сети'}
+                {scanning ? 'Scanning…' : hits ? 'Scan again' : 'Scan the network'}
               </button>
               {scanning && <span className="spinner" />}
             </div>
@@ -347,9 +347,9 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
               </label>
               <div className="row">
                 <button className="btn primary" type="submit" disabled={busy || !IP_RE.test(host.trim())}>
-                  {status.state === 'connecting' ? 'Подключение…' : 'Подключить'}
+                  {status.state === 'connecting' ? 'Connecting…' : 'Connect'}
                 </button>
-                {status.state === 'connecting' && <Busy text="Установка соединения" />}
+                {status.state === 'connecting' && <Busy text="Opening the connection" />}
               </div>
             </form>
             {connectError && (
@@ -362,7 +362,7 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
                     </button>
                   </div>
                 )}
-                {/network отладка выключена|only works for pairing/.test(connectError) && !wantPair && (
+                {/network debugging is off|only works for pairing/.test(connectError) && !wantPair && (
                   <div style={{ marginTop: 10 }}>
                     <button className="btn small" onClick={() => { setHostChosen(true); setWantPair(true) }}>
                       Pair with a code
@@ -393,12 +393,12 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
             Check again
           </button>
         </div>
-        <ResultNotice result={downloadResult} onDismiss={() => setВнизloadResult(null)} />
+        <ResultNotice result={downloadResult} onDismiss={() => setDownloadResult(null)} />
         {!checks ? (
           <Busy text="Checking this computer" />
         ) : (
           <>
-            <Checklist items={required} progress={progress} downloading={downloading} onВнизload={download} />
+            <Checklist items={required} progress={progress} downloading={downloading} onDownload={download} />
             {optional.length > 0 && (
               <>
                 <h3 style={{ marginTop: 22 }}>Optional</h3>
@@ -406,7 +406,7 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
                   Only needed to pair a TV that asks for a code.
                   Each one downloads into this app's own folder.
                 </p>
-                <Checklist items={optional} progress={progress} downloading={downloading} onВнизload={download} />
+                <Checklist items={optional} progress={progress} downloading={downloading} onDownload={download} />
               </>
             )}
           </>
@@ -418,9 +418,9 @@ export function Подключение({ status, go, tvs, refreshTvs }: ScreenPr
 
 function Checklist(props: {
   items: CheckItem[]
-  progress: Partial<Record<ToolId, ВнизloadProgress>>
+  progress: Partial<Record<ToolId, DownloadProgress>>
   downloading: Set<ToolId>
-  onВнизload: (t: ToolId) => void
+  onDownload: (t: ToolId) => void
 }): ReactNode {
   return (
     <ul className="checklist">
@@ -435,13 +435,13 @@ function Checklist(props: {
             </div>
             <div className="check-detail">
               {c.detail}
-              {active && p && <ВнизloadBar p={p} />}
+              {active && p && <DownloadBar p={p} />}
               {active && !p && <div className="progress indeterminate"><div /></div>}
             </div>
             <div className="check-actions">
               {c.download && (
-                <button className="btn small" onClick={() => props.onВнизload(c.download!)} disabled={active}>
-                  {active ? 'Внизloading…' : 'Внизload'}
+                <button className="btn small" onClick={() => props.onDownload(c.download!)} disabled={active}>
+                  {active ? 'Downloading…' : 'Download'}
                 </button>
               )}
             </div>
@@ -452,7 +452,7 @@ function Checklist(props: {
   )
 }
 
-function ВнизloadBar({ p }: { p: ВнизloadProgress }): ReactNode {
+function DownloadBar({ p }: { p: DownloadProgress }): ReactNode {
   const pct = p.total > 0 ? Math.min(100, (p.received / p.total) * 100) : 0
   const label =
     p.phase === 'download'
@@ -460,10 +460,10 @@ function ВнизloadBar({ p }: { p: ВнизloadProgress }): ReactNode {
       : p.phase === 'extract'
         ? 'Unpacking'
         : p.phase === 'install'
-          ? p.message ?? 'Установка'
+          ? p.message ?? 'Installing'
           : p.phase === 'error'
             ? p.message ?? 'Failed'
-            : 'Готово'
+            : 'Done'
   return (
     <div>
       <div className={`progress${p.phase === 'download' && p.total ? '' : ' indeterminate'}`}>
@@ -483,13 +483,13 @@ function WaitingForAllow(): ReactNode {
         <b>Allow USB debugging?</b>
         <div className="small">RSA key fingerprint…</div>
         <div className="small">☑ Always allow from this computer</div>
-        <div className="am-btn">Отмена</div>
+        <div className="am-btn">Cancel</div>
         <div className="am-btn focus">Allow</div>
       </div>
       <div>
         <div className="big">Look at the TV and choose Allow.</div>
         <p className="muted" style={{ marginTop: 6 }}>
-          Tick <b>Always allow from this computer</b> first, so it doesn't ask again. If nothing shows, press Домой on the remote:
+          Tick <b>Always allow from this computer</b> first, so it doesn't ask again. If nothing shows, press Home on the remote:
           the prompt can hide behind a running app.
         </p>
         <Busy text="Waiting for the TV" />
@@ -501,12 +501,12 @@ function WaitingForAllow(): ReactNode {
 function PairForm({ host, tv, onBusy, onPaired }: { host: string; tv?: FoundTv; onBusy: (busy: boolean) => void; onPaired: () => Promise<void> }): ReactNode {
   // Null until typed in: the ports follow what the TV advertises, unless the user has overridden them.
   const [pairTyped, setPairTyped] = useState<string | null>(null)
-  const [connectTyped, setПодключитьTyped] = useState<string | null>(null)
+  const [connectTyped, setConnectTyped] = useState<string | null>(null)
   // The last connect port seen: one slow check shouldn't empty the field while the user types the code.
-  const lastПодключить = useRef<number | undefined>(undefined)
-  if (tv?.connectPort) lastПодключить.current = tv.connectPort
+  const lastConnect = useRef<number | undefined>(undefined)
+  if (tv?.connectPort) lastConnect.current = tv.connectPort
   const pairPort = pairTyped ?? (tv?.pairPort ? String(tv.pairPort) : '')
-  const connectPort = connectTyped ?? (lastПодключить.current ? String(lastПодключить.current) : '')
+  const connectPort = connectTyped ?? (lastConnect.current ? String(lastConnect.current) : '')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const codeInput = useRef<HTMLInputElement>(null)
@@ -550,7 +550,7 @@ function PairForm({ host, tv, onBusy, onPaired }: { host: string; tv?: FoundTv; 
       <ol className="guide" style={{ marginBottom: 14 }}>
         <li>
           <span>
-            На телевизоре: <span className="path">Developer options<i>→</i>Wireless debugging</span>, turn it on, and note the{' '}
+            On the TV: <span className="path">Developer options<i>→</i>Wireless debugging</span>, turn it on, and note the{' '}
             <b>IP address &amp; port</b> on that screen. That is the connect port.
           </span>
         </li>
@@ -577,8 +577,8 @@ function PairForm({ host, tv, onBusy, onPaired }: { host: string; tv?: FoundTv; 
           <input ref={codeInput} type="text" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} placeholder="482913" />
         </label>
         <label className="field" style={{ width: 130 }}>
-          Подключить port
-          <input type="text" inputMode="numeric" value={connectPort} onChange={(e) => setПодключитьTyped(e.target.value)} placeholder="41827" />
+          Connect port
+          <input type="text" inputMode="numeric" value={connectPort} onChange={(e) => setConnectTyped(e.target.value)} placeholder="41827" />
         </label>
         <button className="btn primary" onClick={pair} disabled={!valid || busy}>
           {busy ? 'Pairing…' : 'Pair and connect'}
