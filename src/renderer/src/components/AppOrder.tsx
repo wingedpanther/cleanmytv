@@ -11,7 +11,7 @@ import {
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { TvApp } from '@shared/api'
-import { appColour, monogram } from '../lib/apps'
+import { appЦвет, monogram } from '../lib/apps'
 
 /**
  * Drag tiles to set the Home order. The first `columns` visible tiles are the dock.
@@ -90,7 +90,7 @@ function SortableTile(props: {
   const cls = `app-tile${props.dock ? ' dock' : ''}${props.hidden ? ' hidden-app' : ''}${isDragging ? ' dragging' : ''}`
   return (
     <div ref={setNodeRef} style={style} className={cls} {...attributes} {...listeners} aria-label={`${props.app.label}${props.dock ? ', in the dock' : ''}${props.hidden ? ', hidden' : ''}`}>
-      <div className="app-art" style={{ background: appColour(props.app.pkg) }}>
+      <div className="app-art" style={{ background: appЦвет(props.app.pkg) }}>
         {monogram(props.app.label)}
       </div>
       <div className="app-label" title={props.app.pkg}>
