@@ -5,7 +5,7 @@ import { ActionButton, ResultNotice, errorText, usePhase } from '../components/u
 
 const mb = (bytes: number): string => (bytes >= 10 * 1024 * 1024 ? `${Math.round(bytes / 1024 / 1024)} MB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`)
 
-/** Установка приложения the owner downloaded: drop the .apk here, check what it is, then send it to the TV. */
+/** Install an app the owner downloaded: drop the .apk here, check what it is, then send it to the TV. */
 export function Sideload(_props: ScreenProps): ReactNode {
   const [path, setPath] = useState<string | null>(null)
   const [info, setInfo] = useState<SideloadInfo | null>(null)
@@ -63,11 +63,11 @@ export function Sideload(_props: ScreenProps): ReactNode {
   const busy = phase === 'busy'
   return (
     <>
-      <h1>Установка приложения</h1>
-      <p className="lede">Put an app on the TV that isn't in its store. Внизload the app's .apk file on this computer, then drop it here.</p>
+      <h1>Install an app</h1>
+      <p className="lede">Put an app on the TV that isn't in its store. Download the app's .apk file on this computer, then drop it here.</p>
 
       <div className="notice warn">
-        <b>Устанавливайте только приложения, которым доверяете.</b> An app from outside the Play Store hasn't been checked by Google. It can show ads, collect what
+        <b>Only install apps you trust.</b> An app from outside the Play Store hasn't been checked by Google. It can show ads, collect what
         you watch, or harm the TV. Get apps from their maker's own website, and skip anything that asks for more than it needs.
       </div>
 
@@ -90,9 +90,9 @@ export function Sideload(_props: ScreenProps): ReactNode {
             void pick(f)
           }}
         />
-        <p className="drop-title">{reading ? 'Чтение данных приложения…' : 'Перетащите файл .apk сюда'}</p>
-        <button className="btn" disabled={busy || reading} onClick={() => file.current?.click()}>Выбрать файл…</button>
-        <p className="small muted" style={{ marginBottom: 0 }}>Поддерживаются только отдельные файлы .apk. Пакеты (.apks, .xapk) не поддерживаются.</p>
+        <p className="drop-title">{reading ? 'Reading the app…' : 'Drop an .apk file here'}</p>
+        <button className="btn" disabled={busy || reading} onClick={() => file.current?.click()}>Choose a file…</button>
+        <p className="small muted" style={{ marginBottom: 0 }}>Single .apk files only. Bundles (.apks, .xapk) aren't supported.</p>
       </div>
 
       {info && (
@@ -101,23 +101,23 @@ export function Sideload(_props: ScreenProps): ReactNode {
             <div>
               <h2 style={{ marginBottom: 4 }}>{info.file}</h2>
               <p className="small muted" style={{ margin: 0 }}>
-                <code>{info.package}</code>{info.versionName ? ` · версия ${info.versionName}` : ''} · {mb(info.size)}
+                <code>{info.package}</code>{info.versionName ? ` · version ${info.versionName}` : ''} · {mb(info.size)}
               </p>
             </div>
           </div>
           <p>
             {info.installed
-              ? `На телевизоре установлена версия ${info.installed}. Новая версия заменит её, данные приложения сохранятся.`
-              : "Это приложение ещё не установлено на телевизоре."}
+              ? `The TV has version ${info.installed}. Installing replaces it and keeps the app's data.`
+              : "The TV doesn't have this app yet."}
           </p>
           <div className="row">
-            <ActionButton phase={phase} primary label={info.installed ? 'Вверхdate on the TV' : 'Установить на телевизор'} busyLabel="Установка" doneLabel="Установлено" disabled={busy} onClick={() => void install()} />
-            {!busy && <button className="btn ghost" onClick={() => { setInfo(null); setPath(null) }}>Отмена</button>}
+            <ActionButton phase={phase} primary label={info.installed ? 'Update on the TV' : 'Install on the TV'} busyLabel="Installing" doneLabel="Installed" disabled={busy} onClick={() => void install()} />
+            {!busy && <button className="btn ghost" onClick={() => { setInfo(null); setPath(null) }}>Cancel</button>}
           </div>
           {sent && (
             <>
               <div className="progress"><div style={{ width: `${Math.round((sent.received / Math.max(1, sent.total)) * 100)}%` }} /></div>
-              <p className="small muted">Передача на телевизор: {Math.round((sent.received / Math.max(1, sent.total)) * 100)}%</p>
+              <p className="small muted">Sending to the TV: {Math.round((sent.received / Math.max(1, sent.total)) * 100)}%</p>
             </>
           )}
         </div>
