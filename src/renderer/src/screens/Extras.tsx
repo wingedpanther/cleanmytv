@@ -6,9 +6,9 @@ import { Busy, Confirm, ResultNotice, errorText } from '../components/ui'
 const ADGUARD = 'dns.adguard-dns.com'
 
 const SPEEDS: [number, string][] = [
-  [0, 'Off'],
-  [0.5, 'Fast (0.5×)'],
-  [1, 'Normal (1×)']
+  [0, 'Выкл.'],
+  [0.5, 'Быстро (0,5×)'],
+  [1, 'Обычно (1×)']
 ]
 
 export function Extras({ markDone }: ScreenProps): ReactNode {
@@ -47,8 +47,8 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
 
   return (
     <>
-      <h1>TV extras</h1>
-      <p className="lede">Settings outside the launcher that the TV's own menus hide or don't offer.</p>
+      <h1>Дополнительно</h1>
+      <p className="lede">Настройки телевизора, которые скрыты или недоступны в стандартном меню.</p>
       <ResultNotice result={result} onDismiss={() => setResult(null)} />
       {busy && (
         <div className="notice">
@@ -59,8 +59,8 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
       {sys.storage && <Storage storage={sys.storage} busy={!!busy} onClear={() => run('Clearing app caches', () => window.cytv.clearCaches())} />}
 
       <div className="card">
-          <h2>Animation speed</h2>
-          <p className="muted small">How fast menus and apps open, across the whole TV. Off feels snappiest on slow TVs.</p>
+          <h2>Скорость анимации</h2>
+          <p className="muted small">Скорость открытия меню и приложений во всей системе. На медленных телевизорах отключение анимации делает интерфейс отзывчивее.</p>
           <div className="seg">
             {SPEEDS.map(([v, label]) => (
               <button key={v} className={scale === v ? 'on' : ''} disabled={!!busy} onClick={() => run('Setting animation speed', () => window.cytv.setAnimationScale(v))}>
@@ -71,7 +71,7 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
       </div>
 
       <div className="card">
-        <h2>Google screensaver</h2>
+        <h2>Заставка Google</h2>
         <p className="muted small">
           Shows Google Photos, art and the weather while the TV rests. If it stopped after a clean-up, this turns its two apps
           back on and sets it as the screensaver again. Clean up leaves them alone after that.
@@ -83,7 +83,7 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
 
       <div className="card">
         <div className="card-head">
-          <h2>Block ads inside apps</h2>
+          <h2>Блокировка рекламы в приложениях</h2>
           <span className={`chip ${dnsOn ? 'ok' : 'optional'}`}>{dnsOn ? `On · ${sys.privateDnsHost}` : 'Off'}</span>
         </div>
         <p className="muted">
@@ -121,7 +121,7 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
 
       <div>
         <div className="card">
-          <h2>Remote</h2>
+          <h2>Пульт</h2>
           <p className="muted small">Press buttons on the TV from here, handy when the remote is in the other room.</p>
           <div className="row" style={{ gap: 24, alignItems: 'flex-start' }}>
             <div className="remote" role="group" aria-label="Remote control">
@@ -184,7 +184,7 @@ function Storage({ storage, busy, onClear }: { storage: NonNullable<SystemState[
   return (
     <div className="card">
       <div className="card-head">
-        <h2>Storage</h2>
+        <h2>Память</h2>
         <span className={`chip ${low ? 'warn' : 'ok'}`}>{gb(free)} free</span>
       </div>
       <div className={`progress${low ? ' low' : ''}`} role="meter" aria-valuenow={Math.round(used)} aria-valuemin={0} aria-valuemax={100} aria-label="Storage used">
