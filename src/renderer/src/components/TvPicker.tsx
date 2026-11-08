@@ -12,13 +12,13 @@ export function TvThumb({ tv, className }: { tv?: KnownTv; className?: string })
 }
 
 function ago(t: number): string {
-  if (!t) return 'давно'
+  if (!t) return 'a while ago'
   const m = Math.round((Date.now() - t) / 60000)
-  if (m < 2) return 'только что'
-  if (m < 60) return `${m} мин. назад`
+  if (m < 2) return 'just now'
+  if (m < 60) return `${m} min ago`
   const h = Math.round(m / 60)
-  if (h < 24) return `${h} ч. назад`
-  return `${Math.round(h / 24)} дн. назад`
+  if (h < 24) return `${h} h ago`
+  return `${Math.round(h / 24)} d ago`
 }
 
 /** TVs used before. Picking one connects to it (checking the same model answers there). */
@@ -34,7 +34,7 @@ export function TvPicker(props: { tvs: KnownTv[]; status: ConnStatus; onChange: 
     setError(null)
     try {
       const s = await window.cytv.connectKnown(host)
-      if (s.state === 'error') setError(s.error ?? 'Не удалось подключиться.')
+      if (s.state === 'error') setError(s.error ?? 'Could not connect.')
     } catch (e) {
       setError(errorText(e))
     } finally {
@@ -65,10 +65,10 @@ export function TvPicker(props: { tvs: KnownTv[]; status: ConnStatus; onChange: 
             </div>
             <div className="row">
               <button className="btn primary small" disabled={!!busy} onClick={() => connect(tv.host)}>
-                {busy === tv.host ? 'Подключение…' : 'Подключить'}
+                {busy === tv.host ? 'Connecting…' : 'Connect'}
               </button>
-              <button className="btn ghost small" disabled={!!busy} onClick={() => forget(tv.host)} title="Удалить из списка">
-                Забыть
+              <button className="btn ghost small" disabled={!!busy} onClick={() => forget(tv.host)} title="Remove from this list">
+                Forget
               </button>
             </div>
           </div>
