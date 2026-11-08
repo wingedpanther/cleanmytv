@@ -1,26 +1,26 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, HomeTheme, ThemeBackup, HomeLayout, HomeSection, HomeStatus, KeyPress, QuickEntry, QuickId, TvApp } from '@shared/api'
+import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, HomeTheme, ThemeНазадup, HomeМакет, HomeSection, HomeStatus, KeyPress, QuickEntry, QuickId, TvApp } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { AppOrder } from '../components/AppOrder'
-import { HomePreview, QuickMark, quickApp, quickLabel } from '../components/HomePreview'
+import { HomeПредпросмотр, QuickMark, quickApp, quickLabel } from '../components/HomeПредпросмотр'
 import { ActionButton, Busy, Confirm, PinBoxes, ResultNotice, Slider, StatusChip, Toggle, errorText, usePhase } from '../components/ui'
-import { prepareWallpaper, thumbnail } from '../lib/image'
+import { prepareОбои, thumbnail } from '../lib/image'
 import { fetchBingDaily } from '../lib/backgrounds'
 import { findPlaces, type Place } from '../lib/places'
-import { drawWallpaper, paintWallpaper } from '../lib/themes'
-import { BUILT_IN_THEMES, THEME_EXT, THEME_PICTURES, parseTheme, withPicture, type BuiltInTheme, type ThemeArt, type ThemePaint } from '@shared/themes'
+import { drawОбои, paintОбои } from '../lib/themes'
+import { BUILT_IN_THEMES, THEME_EXT, THEME_PICTURES, parseTheme, withИзображение, type BuiltInTheme, type ThemeArt, type ThemePaint } from '@shared/themes'
 
 type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'widgets' | 'music' | 'buttons' | 'lock'
 
 const TABS: [Tab, string][] = [
-  ['overview', 'Overview'],
-  ['layout', 'Layout'],
-  ['apps', 'Apps, rows & folders'],
-  ['look', 'Look & wallpaper'],
-  ['widgets', 'Widgets'],
-  ['music', 'Music bars'],
-  ['buttons', 'Remote buttons'],
-  ['lock', 'App lock']
+  ['overview', 'Обзор'],
+  ['layout', 'Макет'],
+  ['apps', 'Приложения, ряды и папки'],
+  ['look', 'Оформление и обои'],
+  ['widgets', 'Виджеты'],
+  ['music', 'Музыкальные полосы'],
+  ['buttons', 'Кнопки пульта'],
+  ['lock', 'Блокировка приложений']
 ]
 
 const ACCENTS = ['#FF3000', '#2EC4B6', '#FFB23C', '#7C5CFF', '#3DDC84', '#FFFFFF']
@@ -37,7 +37,7 @@ type SetFn = (change: Partial<HomeConfig>, wait?: number) => void
 export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }: ScreenProps & { openTab?: { tab: string; n: number } | null }): ReactNode {
   const [home, setHome] = useState<HomeStatus | null>(null)
   const [cfg, setCfg] = useState<HomeConfig | null>(null)
-  const [apps, setApps] = useState<TvApp[] | null>(null)
+  const [apps, setПриложения] = useState<TvApp[] | null>(null)
   const [tab, setTab] = useState<Tab>('overview')
   const [busy, setBusy] = useState<string | null>(null)
   const [result, setResult] = useState<ApplyResult | null>(null)
@@ -45,7 +45,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
   const [askStock, setAskStock] = useState(false)
   const [stockPick, setStockPick] = useState<StockPick | null>(null)
   const [themeUsed, setThemeUsed] = useState<string | null>(null)
-  const [themeBackup, setThemeBackup] = useState<ThemeBackup | null>(null)
+  const [themeНазадup, setThemeНазадup] = useState<ThemeНазадup | null>(null)
   /** A theme waiting for the owner to accept that their wallpaper can't be saved first. */
   const [riskyTheme, setRiskyTheme] = useState<(() => void) | null>(null)
   const pending = useRef<Partial<HomeConfig>>({})
@@ -60,9 +60,9 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
       // An older launcher on the TV doesn't know the newer settings; the page waits for Update.
       if (h.installed && !outdated(h)) {
         // The launcher's own list: the apps it shows, with the names the TV uses.
-        const [c, a] = await Promise.all([window.cytv.readHomeConfig(), window.cytv.homeApps()])
+        const [c, a] = await Promise.all([window.cytv.readHomeConfig(), window.cytv.homeПриложения()])
         setCfg(c)
-        setApps(a)
+        setПриложения(a)
       }
     } catch (e) {
       setResult({ ok: false, summary: errorText(e), warnings: [] })
@@ -123,7 +123,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
     setResult(null)
     try {
       const jpeg = await get()
-      setCfg(await window.cytv.setHomeWallpaper(jpeg))
+      setCfg(await window.cytv.setHomeОбои(jpeg))
       setThemeUsed(null)
       markDone('home')
     } catch (e) {
@@ -138,18 +138,18 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
     const total = BUILT_IN_THEMES.length * THEME_PICTURES
     setResult(null)
     try {
-      setBusy('Putting the themes on the TV')
+      setBusy('Загрузка тем на телевизор')
       await window.cytv.themePackBegin()
       let i = 0
       for (const t of BUILT_IN_THEMES) {
         for (let n = 0; n < THEME_PICTURES; n++) {
-          setBusy(`Putting the themes on the TV: picture ${++i} of ${total}`)
-          const jpeg = paintWallpaper(withPicture(t.paint, n), `${t.id}-${n}.jpg`).base64
+          setBusy(`Загрузка тем на телевизор: picture ${++i} of ${total}`)
+          const jpeg = paintОбои(withИзображение(t.paint, n), `${t.id}-${n}.jpg`).base64
           await window.cytv.themePackPut({ id: t.id, name: t.name, look: t.look, picture: n, jpeg })
         }
       }
       setCfg(await window.cytv.themePackEnd(BUILT_IN_THEMES.map((t) => t.id)))
-      setResult({ ok: true, summary: `${BUILT_IN_THEMES.length} themes are on the TV, ${THEME_PICTURES} pictures each. Open them with the Themes icon (Layout → top bar icons) or a remote button.`, warnings: [] })
+      setResult({ ok: true, summary: `${BUILT_IN_THEMES.length} themes are on the TV, ${THEME_PICTURES} pictures each. Open them with the Темы icon (Макет → top bar icons) or a remote button.`, warnings: [] })
     } catch (e) {
       setResult({ ok: false, summary: errorText(e), warnings: [] })
     } finally {
@@ -157,8 +157,8 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
     }
   }
 
-  const readThemeBackup = (): void => {
-    window.cytv.themeBackup().then(setThemeBackup, () => setThemeBackup(null))
+  const readThemeНазадup = (): void => {
+    window.cytv.themeНазадup().then(setThemeНазадup, () => setThemeНазадup(null))
   }
 
   /** `used`: the theme now on the TV; null once the old look is back. */
@@ -176,13 +176,13 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
       setResult({ ok: false, summary: errorText(e), warnings: [] })
     } finally {
       setBusy(null)
-      readThemeBackup()
+      readThemeНазадup()
     }
   }
 
   // Before the first theme, the look gets saved; say so first if the wallpaper can't be part of it.
   const guarded = (go: () => void): void => {
-    if (themeBackup?.savedAt === null && themeBackup.wallpaperAtRisk) setRiskyTheme(() => go)
+    if (themeНазадup?.savedAt === null && themeНазадup.wallpaperAtRisk) setRiskyTheme(() => go)
     else go()
   }
 
@@ -191,7 +191,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
     builtIn: (id, picture = 0) => {
       const t = BUILT_IN_THEMES.find((b) => b.id === id)
       if (t) guarded(() => themeStep(`Putting ${t.name} on the TV`, async () =>
-        window.cytv.applyHomeTheme({ name: t.name, look: t.look, wallpaper: paintWallpaper(withPicture(t.paint, picture), `${t.id}.jpg`).base64, from: `${t.id}:${picture}` }), t.name))
+        window.cytv.applyHomeTheme({ name: t.name, look: t.look, wallpaper: paintОбои(withИзображение(t.paint, picture), `${t.id}.jpg`).base64, from: `${t.id}:${picture}` }), t.name))
     },
     current: cfg?.wallpaper_from ?? '',
     another: () => {
@@ -200,7 +200,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
       if (!t) return
       const next = ((Number(n) || 0) + 1) % THEME_PICTURES
       themeStep(`Drawing another picture for ${t.name}`, async () =>
-        window.cytv.setHomeWallpaper(paintWallpaper(withPicture(t.paint, next), `${t.id}.jpg`).base64).then(() =>
+        window.cytv.setHomeОбои(paintОбои(withИзображение(t.paint, next), `${t.id}.jpg`).base64).then(() =>
           window.cytv.setHomeConfig({ wallpaper_from: `${t.id}:${next}` })), t.name)
     },
     onTv: cfg?.themes_on_tv ?? 0,
@@ -216,9 +216,9 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
       }
       guarded(() => themeStep(`Putting ${t.name} on the TV`, () => window.cytv.applyHomeTheme(t), t.name))
     },
-    backup: themeBackup,
-    restore: () => themeStep('Putting your saved look back', () => window.cytv.restoreThemeBackup(), null),
-    forget: () => window.cytv.forgetThemeBackup().then(readThemeBackup),
+    backup: themeНазадup,
+    restore: () => themeStep('Восстановление сохранённого оформления', () => window.cytv.restoreThemeНазадup(), null),
+    forget: () => window.cytv.forgetThemeНазадup().then(readThemeНазадup),
     save: async (name) => {
       try {
         const r = await window.cytv.saveHomeTheme(name)
@@ -235,21 +235,21 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
     if (openTab && (ready || openTab.tab === 'overview') && TABS.some(([id]) => id === openTab.tab)) setTab(openTab.tab as Tab)
   }, [openTab, ready])
   useEffect(() => {
-    if (ready) readThemeBackup()
+    if (ready) readThemeНазадup()
   }, [ready])
   // Why the other tabs are greyed out (#38).
   const locked = !home?.installed
-    ? 'Install CleanMyTV Home on the Overview tab first.'
+    ? 'Install CleanMyTV Home on the Обзор tab first.'
     : outdated(home)
-      ? 'Press Update and use on the Overview tab first.'
+      ? 'Press Обновить и применить on the Обзор tab first.'
       : "Waiting for CleanMyTV Home's settings. If this stays, reconnect from Setup."
 
   return (
     <>
-      <h1>Home screen</h1>
+      <h1>Главный экран</h1>
       <p className="lede">
         CleanMyTV Home is the TV's new home screen: no ads, your apps, your layout. Install it once, then change anything here;
-        the TV shows it straight away and keeps it after a reboot. The stock launcher is one click away on the Overview tab.
+        the TV shows it straight away and keeps it after a reboot. The stock launcher is one click away on the Обзор tab.
       </p>
       <ResultNotice result={result} onDismiss={() => setResult(null)} />
       {stockPick && !busy && (
@@ -266,7 +266,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
       )}
 
       {!home ? (
-        <Busy text="Asking the TV about CleanMyTV Home" />
+        <Busy text="Запрос состояния CleanMyTV Home у телевизора" />
       ) : (
         <>
           <div className="tabs" role="tablist">
@@ -279,34 +279,34 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
 
           {outdated(home) && (
             <div className="notice warn">
-              The TV has CleanMyTV Home {home.versionName}; this app carries {home.bundledVersion}. Press Update and use below to change
+              The TV has CleanMyTV Home {home.versionName}; this app carries {home.bundledVersion}. Press Обновить и применить below to change
               its layout, apps, look and remote buttons from here. The other tabs open after that.
             </div>
           )}
           {tab === 'overview' && (
-            <Overview home={home} busy={!!busy} busyText={busy} run={run} askStock={() => setAskStock(true)} host={status.host} onShot={refreshTvs} />
+            <Обзор home={home} busy={!!busy} busyText={busy} run={run} askStock={() => setAskStock(true)} host={status.host} onShot={refreshTvs} />
           )}
-          {ready && tab === 'apps' && apps && <AppsTab apps={apps} cfg={cfg} set={set} />}
-          {ready && tab === 'layout' && apps && <LayoutTab apps={apps} cfg={cfg} set={set} />}
+          {ready && tab === 'apps' && apps && <ПриложенияTab apps={apps} cfg={cfg} set={set} />}
+          {ready && tab === 'layout' && apps && <МакетTab apps={apps} cfg={cfg} set={set} />}
           {ready && tab === 'look' && (
             <>
               <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} themes={themes} />
-              <SlideshowCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
-              <FireplaceCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
+              <Слайд-шоуCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
+              <КаминCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
             </>
           )}
-          {ready && tab === 'widgets' && <WidgetsTab cfg={cfg} set={set} />}
+          {ready && tab === 'widgets' && <ВиджетыTab cfg={cfg} set={set} />}
           {ready && tab === 'music' && <MusicTab cfg={cfg} set={set} />}
           {ready && tab === 'lock' && apps && <LockTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
           {ready && tab === 'buttons' && apps && <ButtonsTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} brand={status.probe?.manufacturer} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
-          {ready && tab !== 'overview' && <p className="small muted">{saving ? 'Sending to the TV…' : 'Saved on the TV.'}</p>}
+          {ready && tab !== 'overview' && <p className="small muted">{saving ? 'Отправка to the TV…' : 'Сохранено на телевизоре.'}</p>}
         </>
       )}
 
       {riskyTheme && (
         <Confirm
-          title="Your wallpaper can't be saved"
-          confirmLabel="Use the theme anyway"
+          title="Ваши обои могут't be saved"
+          confirmLabel="Всё равно использовать тему"
           onCancel={() => setRiskyTheme(null)}
           onConfirm={() => {
             const go = riskyTheme
@@ -318,21 +318,21 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
             Before the first theme, the app saves your look so you can put it back. Your wallpaper was set by an older CleanMyTV,
             which kept no copy of it, so it can't be part of that: putting your look back keeps the theme's wallpaper.
           </p>
-          <p>To keep it, set the same picture again first, under Wallpaper below.</p>
+          <p>Чтобы сохранить изображение, сначала снова установите его ниже, в разделе «Обои».</p>
         </Confirm>
       )}
 
       {askStock && (
         <Confirm
-          title="Use the stock launcher again?"
-          confirmLabel="Switch back"
+          title="Вернуть штатный интерфейс?"
+          confirmLabel="Переключиться"
           onConfirm={() => {
             setAskStock(false)
-            run('Giving Home back to the stock launcher', () => window.cytv.useStockLauncher())
+            run('Возврат штатного главного экрана', () => window.cytv.useStockLauncher())
           }}
           onCancel={() => setAskStock(false)}
         >
-          <p>The app switches the TV's own launcher back on and makes it Home. CleanMyTV Home stays installed, so you can switch again.</p>
+          <p>Приложение снова включает штатный интерфейс телевизора и назначает его главным экраном. CleanMyTV Home остаётся установленным — при желании можно переключиться обратно.</p>
         </Confirm>
       )}
     </>
@@ -349,7 +349,7 @@ function StockPicker({ pick, onPick, onCancel }: { pick: StockPick; onPick: (sto
   const [chosen, setChosen] = useState(pick.choices.length === 1 ? pick.choices[0] : '')
   return (
     <div className="card white">
-      <h2>Which one is the TV's own launcher?</h2>
+      <h2>Какой интерфейс установлен на телевизоре по умолчанию?</h2>
       {pick.choices.length === 0 ? (
         <p className="muted">
           Nothing on the TV can be Home apart from CleanMyTV Home, so there is no launcher to fall back on. Leave it as it is and
@@ -383,7 +383,7 @@ function StockPicker({ pick, onPick, onCancel }: { pick: StockPick; onPick: (sto
   )
 }
 
-function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string, fn: () => Promise<ApplyResult>, retry?: (stock: string) => Promise<ApplyResult>) => Promise<void>; askStock: () => void; host?: string; onShot: () => void; busyText?: string | null }): ReactNode {
+function Обзор(props: { home: HomeStatus; busy: boolean; run: (label: string, fn: () => Promise<ApplyResult>, retry?: (stock: string) => Promise<ApplyResult>) => Promise<void>; askStock: () => void; host?: string; onShot: () => void; busyText?: string | null }): ReactNode {
   const { home, busy, run } = props
   const [shot, setShot] = useState<string | null>(null)
   const [shooting, setShooting] = useState(false)
@@ -411,16 +411,16 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
     <>
       <div className="card white">
         <div className="card-head">
-          <h2>On this TV</h2>
-          <StatusChip status={home.isHome ? 'ok' : home.installed ? 'warn' : 'optional'} text={home.isHome ? 'Is Home' : home.installed ? 'Installed, not Home' : 'Not installed'} />
+          <h2>На этом телевизоре</h2>
+          <StatusChip status={home.isHome ? 'ok' : home.installed ? 'warn' : 'optional'} text={home.isHome ? 'Главный экран' : home.installed ? 'Установлено, но не назначено главным экраном' : 'Не установлено'} />
         </div>
         <div className="facts">
           <div>
-            <span>On the TV</span>
+            <span>На телевизоре</span>
             <b>{home.installed ? `version ${home.versionName ?? '?'}` : 'not installed'}</b>
           </div>
           <div>
-            <span>In this app</span>
+            <span>В приложении</span>
             <b>{home.bundled ? `version ${home.bundledVersion ?? '?'}` : 'no bundled copy'}</b>
           </div>
         </div>
@@ -433,15 +433,15 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
           {(!home.installed || outdated(home)) && (
             <ActionButton
               primary
-              phase={props.busyText?.startsWith('Installing') ? 'busy' : 'idle'}
-              label={home.installed ? 'Update and use' : 'Install and use'}
-              busyLabel={home.installed ? 'Updating' : 'Installing'}
+              phase={props.busyText?.startsWith('Установка') ? 'busy' : 'idle'}
+              label={home.installed ? 'Обновить и применить' : 'Установить и применить'}
+              busyLabel={home.installed ? 'Обновление' : 'Установка'}
               disabled={busy || !home.bundled || !!home.unsupported}
-              onClick={() => run('Installing CleanMyTV Home. Keep the TV on.', () => window.cytv.installHome(), (s) => window.cytv.installHome(s))}
+              onClick={() => run('Установка CleanMyTV Home. Keep the TV on.', () => window.cytv.installHome(), (s) => window.cytv.installHome(s))}
             />
           )}
           {home.installed && !home.isHome && (
-            <button className="btn primary" disabled={busy} onClick={() => run('Switching Home to CleanMyTV Home', () => window.cytv.useHome(), (s) => window.cytv.useHome(s))}>
+            <button className="btn primary" disabled={busy} onClick={() => run('Назначение CleanMyTV Home главным экраном', () => window.cytv.useHome(), (s) => window.cytv.useHome(s))}>
               Use CleanMyTV Home
             </button>
           )}
@@ -455,10 +455,10 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
           <div className="notice" style={{ marginTop: 16, marginBottom: 0 }}>
             <p style={{ margin: '0 0 10px' }}>
               The CleanYourTV launcher from earlier versions of this app is still on the TV. CleanMyTV Home replaces it.
-              {!home.isHome && ' Install or switch to CleanMyTV Home first.'}
+              {!home.isHome && ' Сначала установите CleanMyTV Home или переключитесь на него.'}
             </p>
-            <button className="btn small" disabled={busy || !home.isHome} onClick={() => run('Removing the CleanYourTV launcher', () => window.cytv.removeOldLauncher())}>
-              Remove the CleanYourTV launcher
+            <button className="btn small" disabled={busy || !home.isHome} onClick={() => run('Удаление лаунчера CleanYourTV', () => window.cytv.removeOldLauncher())}>
+              Удалить the CleanYourTV launcher
             </button>
           </div>
         )}
@@ -466,23 +466,23 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
 
       <div className="card">
         <div className="card-head">
-          <h2>What the TV shows</h2>
+          <h2>Изображение на телевизоре</h2>
           <button className="btn small" onClick={snapshot} disabled={shooting}>
-            {shooting ? 'Taking a snapshot…' : 'Take a snapshot'}
+            {shooting ? 'Создание снимка…' : 'Сделать снимок'}
           </button>
         </div>
         {shotError && <div className="notice warn">{shotError}</div>}
         {shot ? (
-          <img src={shot} alt="The TV screen" style={{ width: '100%', borderRadius: 10, border: '1px solid var(--line)' }} />
+          <img src={shot} alt="Экран телевизора" style={{ width: '100%', borderRadius: 10, border: '1px solid var(--line)' }} />
         ) : (
-          <p className="muted small">A picture of the TV screen right now. It also becomes this TV's thumbnail in the sidebar.</p>
+          <p className="muted small">Текущий снимок экрана телевизора. Он также станет миниатюрой этого ТВ на боковой панели.</p>
         )}
       </div>
     </>
   )
 }
 
-function AppsTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetFn }): ReactNode {
+function ПриложенияTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetFn }): ReactNode {
   // Same order as the TV: the saved order first, then the rest alphabetically.
   const ordered = useMemo(() => {
     const by = new Map(apps.map((a) => [a.pkg, a]))
@@ -494,14 +494,14 @@ function AppsTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetF
   return (
     <>
       <div className="home-preview-sticky">
-        <HomePreview apps={apps} cfg={cfg} />
+        <HomeПредпросмотр apps={apps} cfg={cfg} />
       </div>
       <div className="card">
-        <h2>Dock and order</h2>
-        <Slider label="Apps in the dock" hint="The first apps sit in a row of large tiles. 0 for no dock." value={cfg.dock_size} min={0} max={8} onChange={(v) => set({ dock_size: v }, 300)} />
-        <Toggle label="Phone apps in an Other apps folder" hint="Apps made for phones, with no TV picture, move out of the dock and the grid into one folder. Apps you put in rows or folders stay where they are." checked={cfg.other_apps} onChange={(v) => set({ other_apps: v })} />
+        <h2>Панель избранного и порядок</h2>
+        <Slider label="Приложения на панели избранного" hint="Первые приложения отображаются в виде ряда крупных плиток. 0 — отключить панель." value={cfg.dock_size} min={0} max={8} onChange={(v) => set({ dock_size: v }, 300)} />
+        <Toggle label="Мобильные приложения в папке «Другие приложения»" hint="Приложения made for phones, with no TV picture, move out of the dock and the grid into one folder. Приложения you put in rows or folders stay where they are." checked={cfg.other_apps} onChange={(v) => set({ other_apps: v })} />
         <div className="row" style={{ margin: '6px 0 10px' }}>
-          <span className="muted small">Drag to reorder, or use the arrows. Highlighted tiles are the dock. Apps in a folder show only in the folder.</span>
+          <span className="muted small">Перетаскивайте элементы или используйте стрелки. Выделенные плитки находятся на панели избранного. Приложения в папке отображаются только внутри неё.</span>
           <span className="spacer" />
           <button className="btn small ghost" onClick={() => set({ order: [] })}>
             Reset order
@@ -526,8 +526,8 @@ function AppsTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetF
       </div>
       <Groups
         kind="rows"
-        title="Rows"
-        hint="Named rows of apps, like Watch or Music. An app can be in a row and the grid at the same time."
+        title="Ряды"
+        hint="Именованные ряды приложений, например «Просмотр» или «Музыка». Приложение может одновременно находиться в ряду и общей сетке."
         groups={cfg.rows}
         apps={ordered}
         max={8}
@@ -535,8 +535,8 @@ function AppsTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetF
       />
       <Groups
         kind="folders"
-        title="Folders"
-        hint="A folder shows as one tile; OK on the remote opens it. Apps in a folder leave the dock and grid."
+        title="Папки"
+        hint="Папка отображается одной плиткой; кнопка OK на пульте открывает её. Приложения из папки не показываются на панели избранного и в сетке."
         groups={cfg.folders}
         apps={ordered}
         max={12}
@@ -557,32 +557,32 @@ function Groups(props: { kind: 'rows' | 'folders'; title: string; hint: string; 
     next.splice(i + by, 0, g)
     onChange(next)
   }
-  const fresh = props.kind === 'rows' ? 'New row' : 'New folder'
+  const fresh = props.kind === 'rows' ? 'Новый ряд' : 'Новая папка'
   return (
     <div className="card">
       <div className="card-head">
         <h2>{props.title}</h2>
         <button className="btn small" disabled={groups.length >= props.max} onClick={() => onChange([...groups, { name: `${fresh} ${groups.length + 1}`, apps: [] }])}>
-          {props.kind === 'rows' ? 'Add a row' : 'Add a folder'}
+          {props.kind === 'rows' ? 'Добавить ряд' : 'Добавить папку'}
         </button>
       </div>
       <p className="muted small">{props.hint}</p>
       {groups.map((g, i) => (
         <div key={i} className="group-card">
           <div className="row">
-            <input type="text" maxLength={30} value={g.name} aria-label={`${props.kind === 'rows' ? 'Row' : 'Folder'} name`} onChange={(e) => update(i, { ...g, name: e.target.value })} style={{ flex: 1 }} />
-            <button className="btn small ghost" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Move up">
+            <input type="text" maxLength={30} value={g.name} aria-label={`${props.kind === 'rows' ? 'Ряд' : 'Папка'} name`} onChange={(e) => update(i, { ...g, name: e.target.value })} style={{ flex: 1 }} />
+            <button className="btn small ghost" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Переместить вверх">
               ↑
             </button>
-            <button className="btn small ghost" disabled={i === groups.length - 1} onClick={() => move(i, 1)} aria-label="Move down">
+            <button className="btn small ghost" disabled={i === groups.length - 1} onClick={() => move(i, 1)} aria-label="Переместить вниз">
               ↓
             </button>
             <button className="btn small ghost" onClick={() => onChange(groups.filter((_, j) => j !== i))}>
-              Remove
+              Удалить
             </button>
           </div>
           <div className="chips">
-            {g.apps.length === 0 && <span className="muted small">No apps yet: it stays hidden on the TV until you add some.</span>}
+            {g.apps.length === 0 && <span className="muted small">Пока приложений нет. Раздел будет скрыт на телевизоре, пока вы не добавите приложения.</span>}
             {g.apps.map((p) => (
               <span key={p} className="chip-app">
                 {label(p)}
@@ -594,10 +594,10 @@ function Groups(props: { kind: 'rows' | 'folders'; title: string; hint: string; 
           </div>
           <select
             value=""
-            aria-label="Add an app"
+            aria-label="Добавить приложение"
             onChange={(e) => e.target.value && update(i, { ...g, apps: [...g.apps, e.target.value] })}
           >
-            <option value="">Add an app…</option>
+            <option value="">Добавить приложение…</option>
             {apps.filter((a) => !g.apps.includes(a.pkg)).map((a) => (
               <option key={a.pkg} value={a.pkg}>
                 {a.label}
@@ -610,13 +610,13 @@ function Groups(props: { kind: 'rows' | 'folders'; title: string; hint: string; 
   )
 }
 
-const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, number, number, number, boolean][] }[] = [
-  { id: 'shelf', label: 'Shelf', hint: 'Top bar, open space, apps lower down.', mini: [[6, 6, 30, 6, true], [64, 6, 30, 6, true], [6, 40, 88, 24, false], [6, 72, 88, 18, true]] },
-  { id: 'split', label: 'Split', hint: 'Clock and quick settings on the left, apps on the right.', mini: [[6, 10, 26, 18, true], [6, 62, 20, 24, true], [38, 8, 56, 26, false], [38, 42, 56, 18, true]] },
-  { id: 'rail', label: 'Rail', hint: 'Icons down the left edge that open with labels.', mini: [[3, 6, 6, 84, true], [70, 6, 24, 8, true], [16, 24, 78, 28, false], [16, 60, 78, 18, true]] }
+const LAYOUTS: { id: HomeМакет; label: string; hint: string; mini: [number, number, number, number, boolean][] }[] = [
+  { id: 'shelf', label: 'Полка', hint: 'Верхняя панель, свободное пространство, приложения ниже.', mini: [[6, 6, 30, 6, true], [64, 6, 30, 6, true], [6, 40, 88, 24, false], [6, 72, 88, 18, true]] },
+  { id: 'split', label: 'Разделённый', hint: 'Часы and quick settings on the left, apps on the right.', mini: [[6, 10, 26, 18, true], [6, 62, 20, 24, true], [38, 8, 56, 26, false], [38, 42, 56, 18, true]] },
+  { id: 'rail', label: 'Боковая панель', hint: 'Значки слева, которые раскрываются вместе с названиями.', mini: [[3, 6, 6, 84, true], [70, 6, 24, 8, true], [16, 24, 78, 28, false], [16, 60, 78, 18, true]] }
 ]
 
-const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: 'Now playing', dock: 'Dock', rows: 'Rows', folders: 'Folders', grid: 'All apps' }
+const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: 'Сейчас играет', dock: 'Dock', rows: 'Ряды', folders: 'Папки', grid: 'Все приложения' }
 const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'dock', 'rows', 'folders', 'grid']
 const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'settings']
 /** As the launcher's HomeConfig.MAX_QUICK_APPS. */
@@ -644,10 +644,10 @@ function OrderList<T extends string>(props: { all: T[]; on: T[]; label: (t: T) =
               <input type="checkbox" checked={i >= 0} onChange={(e) => onChange(e.target.checked ? [...on, t] : on.filter((x) => x !== t))} />
               {props.label(t)}
             </label>
-            <button className="btn small ghost" disabled={i <= 0} onClick={() => move(t, -1)} aria-label="Earlier">
+            <button className="btn small ghost" disabled={i <= 0} onClick={() => move(t, -1)} aria-label="Раньше">
               ↑
             </button>
-            <button className="btn small ghost" disabled={i < 0 || i === on.length - 1} onClick={() => move(t, 1)} aria-label="Later">
+            <button className="btn small ghost" disabled={i < 0 || i === on.length - 1} onClick={() => move(t, 1)} aria-label="Позже">
               ↓
             </button>
           </li>
@@ -657,14 +657,14 @@ function OrderList<T extends string>(props: { all: T[]; on: T[]; label: (t: T) =
   )
 }
 
-function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetFn }): ReactNode {
+function МакетTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetFn }): ReactNode {
   return (
     <>
       <div className="home-preview-sticky">
-        <HomePreview apps={apps} cfg={cfg} />
+        <HomeПредпросмотр apps={apps} cfg={cfg} />
       </div>
       <div className="card">
-        <h2>Layout</h2>
+        <h2>Макет</h2>
         <div className="layout-pick">
           {LAYOUTS.map((l) => (
             <button key={l.id} className={cfg.layout === l.id ? 'on' : ''} onClick={() => set({ layout: l.id })} aria-pressed={cfg.layout === l.id}>
@@ -680,19 +680,19 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
         </div>
         {cfg.layout === 'shelf' && (
           <div style={{ marginTop: 14 }}>
-            <Slider label="Space above the apps" hint="Open wallpaper between the top bar and the first row." value={cfg.top_space} min={0} max={40} unit="%" onChange={(v) => set({ top_space: v }, 250)} />
+            <Slider label="Свободное место над приложениями" hint="Область обоев между верхней панелью и первым рядом." value={cfg.top_space} min={0} max={40} unit="%" onChange={(v) => set({ top_space: v }, 250)} />
           </div>
         )}
       </div>
 
       <div className="grid-2">
         <div className="card">
-          <h2>Sections</h2>
-          <p className="muted small">Top to bottom. Untick one to hide it.</p>
+          <h2>Разделы</h2>
+          <p className="muted small">Сверху вниз. Снимите отметку, чтобы скрыть раздел.</p>
           <OrderList all={ALL_SECTIONS} on={cfg.sections} label={(s) => SECTION_LABEL[s]} onChange={(sections) => set({ sections })} />
         </div>
         <div className="card">
-          <h2>Quick settings</h2>
+          <h2>Быстрые настройки</h2>
           <p className="muted small">
             {cfg.layout === 'rail' ? 'Icons in the rail.' : cfg.layout === 'split' ? 'At the bottom of the left side.' : 'Under the clock and date.'} The TV hides any it can't open, such as Inputs on a box
             without HDMI inputs, or Search when the search app is switched off.
@@ -706,7 +706,7 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
               return (
                 <>
                   <span className="quick-mark"><QuickMark q={q} apps={apps} /></span> {quickLabel(q, apps)}
-                  {missing && <span className="muted small">not on this TV</span>}
+                  {missing && <span className="muted small">не установлено на этом ТВ</span>}
                 </>
               )
             }}
@@ -717,29 +717,29 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
       </div>
 
       <div className="card">
-        <h2>Sizes</h2>
-        <Slider label="Dock tiles" value={cfg.dock_scale} min={60} max={150} step={5} unit="%" onChange={(v) => set({ dock_scale: v }, 250)} />
-        <Slider label="Row and folder tiles" value={cfg.tile_scale} min={60} max={150} step={5} unit="%" onChange={(v) => set({ tile_scale: v }, 250)} />
-        <Slider label="Apps per row in All apps" value={cfg.columns} min={3} max={8} onChange={(v) => set({ columns: v }, 250)} />
-        <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>App names</p>
+        <h2>Размеры</h2>
+        <Slider label="Плитки панели избранного" value={cfg.dock_scale} min={60} max={150} step={5} unit="%" onChange={(v) => set({ dock_scale: v }, 250)} />
+        <Slider label="Плитки рядов и папок" value={cfg.tile_scale} min={60} max={150} step={5} unit="%" onChange={(v) => set({ tile_scale: v }, 250)} />
+        <Slider label="Приложений в одном ряду общего списка" value={cfg.columns} min={3} max={8} onChange={(v) => set({ columns: v }, 250)} />
+        <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Названия приложений</p>
         <div className="seg">
-          {([['always', 'Always', { show_names: true, name_focus: false }], ['focus', 'Focused app only', { show_names: true, name_focus: true }], ['off', 'Off', { show_names: false, name_focus: false }]] as const).map(([id, label, v]) => (
+          {([['always', 'Всегда', { show_names: true, name_focus: false }], ['focus', 'Выделениеed app only', { show_names: true, name_focus: true }], ['off', 'Off', { show_names: false, name_focus: false }]] as const).map(([id, label, v]) => (
             <button key={id} className={(!cfg.show_names ? 'off' : cfg.name_focus ? 'focus' : 'always') === id ? 'on' : ''} onClick={() => set(v)}>
               {label}
             </button>
           ))}
         </div>
         <p className="small muted">
-          {!cfg.show_names ? 'No names under tiles. Apps without a TV banner still show their name on the tile.'
-            : cfg.name_focus ? 'Only the app you move onto shows its name. The others stay hidden.' : 'Every tile shows its name underneath.'}
+          {!cfg.show_names ? 'Не показывать подписи под плитками. У приложений без ТВ-баннера название всё равно отображается на плитке.'
+            : cfg.name_focus ? 'Название отображается только у выбранного приложения. Остальные скрыты.' : 'Под каждой плиткой отображается название.'}
         </p>
       </div>
 
       <div className="grid-2">
         <div className="card">
-          <h2>Clock</h2>
+          <h2>Часы</h2>
           <div className="seg">
-            {([['time_date', 'Time and date'], ['time', 'Time only'], ['off', 'Off']] as const).map(([id, label]) => (
+            {([['time_date', 'Время и дата'], ['time', 'Только время'], ['off', 'Off']] as const).map(([id, label]) => (
               <button key={id} className={cfg.clock === id ? 'on' : ''} onClick={() => set({ clock: id })}>
                 {label}
               </button>
@@ -747,17 +747,17 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
           </div>
         </div>
         <div className="card">
-          <h2>Greeting</h2>
+          <h2>Приветствие</h2>
           <label className="field">
-            <span>Your name</span>
-            <span className="hint">Shows "Good evening, name". Leave it empty for no greeting.</span>
-            <input type="text" maxLength={40} value={cfg.greeting} placeholder="e.g. Sam" onChange={(e) => set({ greeting: e.target.value }, 700)} />
+            <span>Ваше имя</span>
+            <span className="hint">Показывает приветствие «Добрый вечер, имя». Оставьте поле пустым, чтобы отключить его.</span>
+            <input type="text" maxLength={40} value={cfg.greeting} placeholder="например, Саша" onChange={(e) => set({ greeting: e.target.value }, 700)} />
           </label>
         </div>
       </div>
 
       <div className="card">
-        <h2>Idle screen</h2>
+        <h2>Экран ожидания</h2>
         <p className="muted small">
           When nobody has pressed a button for this long, Home fades out the apps and shows just the wallpaper{cfg.clock === 'off' ? '' : ' and a large clock'}. Any button brings everything back.
         </p>
@@ -779,20 +779,20 @@ function QuickAppAdd({ apps, quick, onAdd }: { apps: TvApp[]; quick: QuickEntry[
   const free = apps.filter((a) => !quick.includes(`app:${a.pkg}`)).sort((a, b) => a.label.localeCompare(b.label))
   return (
     <div className="row" style={{ marginTop: 10 }}>
-      <select value="" aria-label="Add an app icon" disabled={used >= MAX_QUICK_APPS || !free.length} onChange={(e) => e.target.value && onAdd(e.target.value)}>
-        <option value="">{used >= MAX_QUICK_APPS ? `${MAX_QUICK_APPS} apps is the most` : 'Add an app as an icon…'}</option>
+      <select value="" aria-label="Добавить приложение icon" disabled={used >= MAX_QUICK_APPS || !free.length} onChange={(e) => e.target.value && onAdd(e.target.value)}>
+        <option value="">{used >= MAX_QUICK_APPS ? `${MAX_QUICK_APPS} приложение the most` : 'Добавить приложение as an icon…'}</option>
         {free.map((a) => (
           <option key={a.pkg} value={a.pkg}>
             {a.label}
           </option>
         ))}
       </select>
-      <span className="muted small">For apps you open a lot, like a VPN. Untick one to remove it.</span>
+      <span className="muted small">Для приложений, которые вы часто открываете, например VPN. Снимите отметку, чтобы убрать приложение.</span>
     </div>
   )
 }
 
-function Colour({ label, hint, value, onChange }: { label: string; hint?: string; value: string; onChange: (c: string, wait?: number) => void }): ReactNode {
+function Цвет({ label, hint, value, onChange }: { label: string; hint?: string; value: string; onChange: (c: string, wait?: number) => void }): ReactNode {
   return (
     <label className="field">
       <span>{label}</span>
@@ -818,13 +818,13 @@ interface ThemeActions {
   /** The theme picture on the TV now ("<id>:<n>"), or "". */
   current: string
   another: () => void
-  /** Themes already on the TV for its carousel. */
+  /** Темы already on the TV for its carousel. */
   onTv: number
   toTv: () => void
   /** A theme made in the editor. */
   custom: (t: HomeTheme) => void
   file: (text: string) => void
-  backup: ThemeBackup | null
+  backup: ThemeНазадup | null
   restore: () => void
   forget: () => void
   save: (name: string) => Promise<void>
@@ -832,7 +832,7 @@ interface ThemeActions {
 
 function ThemeGrid({ themes, actions, busy }: { themes: BuiltInTheme[]; actions: ThemeActions; busy: boolean }): ReactNode {
   // Each card shows a small copy of the wallpaper the theme draws.
-  const art = useMemo(() => new Map(themes.map((t) => [t.id, `url(${drawWallpaper(t.paint, 320, 180).toDataURL('image/jpeg', 0.85)})`])), [themes])
+  const art = useMemo(() => new Map(themes.map((t) => [t.id, `url(${drawОбои(t.paint, 320, 180).toDataURL('image/jpeg', 0.85)})`])), [themes])
   return (
     <div className="themes">
       {themes.map((t) => (
@@ -849,13 +849,13 @@ function ThemeGrid({ themes, actions, busy }: { themes: BuiltInTheme[]; actions:
   )
 }
 
-function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): ReactNode {
+function ТемыCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): ReactNode {
   const file = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('My theme')
   const [editing, setEditing] = useState(false)
   return (
     <div className="card">
-      <h2>Themes</h2>
+      <h2>Темы</h2>
       <p className="muted">
         A theme sets the wallpaper, colours, tile sizes and music bars in one go. Your apps, rows and layout stay as they are.
       </p>
@@ -863,28 +863,28 @@ function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): 
         <div className="notice row" style={{ justifyContent: 'space-between' }}>
           <span>
             Your look from {new Date(themes.backup.savedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} is saved
-            {themes.backup.withWallpaper ? '' : ', without its wallpaper'}.
+            {themes.backup.withОбои ? '' : ', without its wallpaper'}.
           </span>
           <span className="row" style={{ gap: 8 }}>
             <button className="btn small" disabled={busy} onClick={themes.restore}>
               Put it back
             </button>
             <button className="btn small ghost" disabled={busy} onClick={themes.forget}>
-              Forget it
+              Сбросить
             </button>
           </span>
         </div>
       ) : (
-        <p className="small muted">Your current look is saved before the first theme, so you can always put it back.</p>
+        <p className="small muted">Перед применением первой темы текущие настройки оформления сохраняются — их всегда можно восстановить.</p>
       )}
       <ThemeGrid themes={BUILT_IN_THEMES} actions={themes} busy={busy} />
-      {editing ? <ThemeEditor themes={themes} busy={busy} onClose={() => setEditing(false)} /> : null}
+      {editing ? <ThemeEditor themes={themes} busy={busy} onЗакрыть={() => setEditing(false)} /> : null}
       <div className="row" style={{ marginTop: 12 }}>
         <button className="btn ghost" disabled={busy || !BUILT_IN_THEMES.some((t) => themes.current.startsWith(`${t.id}:`))} onClick={themes.another}>
           Another picture
         </button>
         <button className="btn ghost" disabled={busy} onClick={themes.toTv}>
-          {themes.onTv ? 'Put the themes on the TV again' : 'Put the themes on the TV'}
+          {themes.onTv ? 'Повторно загрузить темы на телевизор' : 'Загрузить темы на телевизор'}
         </button>
         {!editing && (
           <button className="btn ghost" disabled={busy} onClick={() => setEditing(true)}>
@@ -893,8 +893,8 @@ function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): 
         )}
       </div>
       <p className="small muted" style={{ marginTop: 8 }}>
-        Each theme has {THEME_PICTURES} pictures. With the themes on the TV, you can switch them with the remote: add the Themes icon to the top bar
-        on the Layout tab, or give a remote button the Themes job. {themes.onTv ? `${themes.onTv} themes are on the TV now.` : 'It takes a minute or two.'}
+        Each theme has {THEME_PICTURES} pictures. With the themes on the TV, you can switch them with the remote: add the Темы icon to the top bar
+        on the Макет tab, or give a remote button the Темы job. {themes.onTv ? `${themes.onTv} themes are on the TV now.` : 'Это займёт одну-две минуты.'}
       </p>
       <input
         ref={file}
@@ -908,7 +908,7 @@ function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): 
         }}
       />
       <div className="row" style={{ marginTop: 16 }}>
-        <input type="text" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} aria-label="Theme name" style={{ width: 180 }} />
+        <input type="text" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} aria-label="Название темы" style={{ width: 180 }} />
         <button className="btn" disabled={busy || !name.trim()} onClick={() => themes.save(name)}>
           Save this look…
         </button>
@@ -928,10 +928,10 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
   const file = useRef<HTMLInputElement>(null)
   return (
     <>
-      <ThemesCard themes={themes} busy={busy} />
+      <ТемыCard themes={themes} busy={busy} />
       <div className="card">
-        <h2>Accent colour</h2>
-        <p className="muted">For the focus glow or outline and the music bars.</p>
+        <h2>Акцентный цвет</h2>
+        <p className="muted">Используется для подсветки выбранной плитки и музыкальных полос.</p>
         <div className="row">
           {ACCENTS.map((c) => (
             <button
@@ -942,51 +942,51 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
               style={{ background: c, width: 32, height: 32, borderRadius: 8, cursor: 'pointer', border: cfg.accent.toUpperCase() === c ? '3px solid var(--navy)' : '1px solid var(--line)' }}
             />
           ))}
-          <input type="color" value={cfg.accent} onChange={(e) => set({ accent: e.target.value.toUpperCase() }, 400)} aria-label="Pick any colour" />
+          <input type="color" value={cfg.accent} onChange={(e) => set({ accent: e.target.value.toUpperCase() }, 400)} aria-label="Выберите цвет" />
         </div>
       </div>
 
       <div className="card">
-        <h2>Focus</h2>
-        <p className="muted">How the tile under the remote's cursor stands out.</p>
+        <h2>Выделение</h2>
+        <p className="muted">Как выделяется плитка, на которую наведён курсор пульта.</p>
         <div className="seg">
-          {([['lift', 'Lift'], ['glow', 'Glow'], ['outline', 'Outline'], ['none', 'None']] as const).map(([id, label]) => (
+          {([['lift', 'Подъём'], ['glow', 'Свечение'], ['outline', 'Контур'], ['none', 'Нет']] as const).map(([id, label]) => (
             <button key={id} className={cfg.focus === id ? 'on' : ''} onClick={() => set({ focus: id })}>
               {label}
             </button>
           ))}
         </div>
         <p className="small muted">
-          {cfg.focus === 'lift' ? 'The tile floats on a soft shadow with a faint halo in your accent, and a light sweeps across it once.'
-            : cfg.focus === 'glow' ? 'A glow in your accent and a white ring.' : cfg.focus === 'outline' ? 'A line in your accent.' : 'Only the tile colour changes.'}
+          {cfg.focus === 'lift' ? 'Плитка приподнимается с мягкой тенью и лёгким свечением акцентного цвета; по ней проходит блик.'
+            : cfg.focus === 'glow' ? 'Свечение акцентным цветом и белая рамка.' : cfg.focus === 'outline' ? 'Контур акцентного цвета.' : 'Меняется только цвет плитки.'}
         </p>
-        {cfg.focus === 'lift' && <Toggle label="Lean toward the move" hint="The tile tilts a little the way you pressed, then settles." checked={cfg.tilt} onChange={(v) => set({ tilt: v })} />}
-        <Toggle label="Keep the focused tile in place" hint="The row slides under it, one step in from the left." checked={cfg.pin_focus} onChange={(v) => set({ pin_focus: v })} />
-        <Toggle label="Background takes the app's colour" hint="A tint of the focused app's colour washes in from the top." checked={cfg.follow_colour} onChange={(v) => set({ follow_colour: v })} />
+        {cfg.focus === 'lift' && <Toggle label="Наклон в сторону движения" hint="Плитка слегка наклоняется в сторону нажатия, а затем возвращается." checked={cfg.tilt} onChange={(v) => set({ tilt: v })} />}
+        <Toggle label="Закрепить выбранную плитку" hint="Ряд перемещается под ней, начиная на одну позицию левее." checked={cfg.pin_focus} onChange={(v) => set({ pin_focus: v })} />
+        <Toggle label="Цвет фона от приложения's colour" hint="Оттенок выбранного приложения's colour washes in from the top." checked={cfg.follow_colour} onChange={(v) => set({ follow_colour: v })} />
       </div>
 
       <div className="card">
-        <h2>App icons</h2>
-        <p className="muted">Banners are each app's own TV picture. The other styles redraw every app's logo the same way, so the rows match.</p>
+        <h2>Значки приложений</h2>
+        <p className="muted">Баннеры — собственные изображения приложений для ТВ. Другие стили оформляют все логотипы одинаково, чтобы плитки в рядах сочетались.</p>
         <div className="seg">
-          {([['banner', 'Banners'], ['colour', 'Colour'], ['mono', 'Mono'], ['duo', 'Duotone']] as const).map(([id, label]) => (
+          {([['banner', 'Баннеры'], ['colour', 'Цвет'], ['mono', 'Монохромный'], ['duo', 'Два цвета']] as const).map(([id, label]) => (
             <button key={id} className={cfg.icon_style === id ? 'on' : ''} onClick={() => set({ icon_style: id })}>
               {label}
             </button>
           ))}
         </div>
         <p className="small muted">
-          {cfg.icon_style === 'banner' ? 'What every TV app ships with.'
-            : cfg.icon_style === 'colour' ? 'The logo in white on its brand colour.'
-            : cfg.icon_style === 'mono' ? 'Every logo in one colour from your accent, on the same glass tile.'
+          {cfg.icon_style === 'banner' ? 'Стандартное изображение приложения для ТВ.'
+            : cfg.icon_style === 'colour' ? 'Белый логотип на фирменном фоне.'
+            : cfg.icon_style === 'mono' ? 'Все логотипы одного акцентного цвета на одинаковых полупрозрачных плитках.'
             : "Every logo in two shades of your accent, on your theme's colours."}
-          {cfg.icon_style !== 'banner' && ' An app without a usable logo shows its first letter.'}
+          {cfg.icon_style !== 'banner' && ' Если логотип приложения недоступен, отображается первая буква его названия.'}
         </p>
         {cfg.icon_style !== 'banner' && (
           <>
-            <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Tile shape</p>
+            <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Форма плиток</p>
             <div className="seg">
-              {([['wide', 'Wide'], ['square', 'Square'], ['squircle', 'Squircle'], ['round', 'Round']] as const).map(([id, label]) => (
+              {([['wide', 'Широкая'], ['square', 'Квадратная'], ['squircle', 'Скруглённый квадрат'], ['round', 'Круглая']] as const).map(([id, label]) => (
                 <button key={id} className={cfg.tile_shape === id ? 'on' : ''} onClick={() => set({ tile_shape: id })}>
                   {label}
                 </button>
@@ -997,8 +997,8 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
       </div>
 
       <div className="card">
-        <h2>Wallpaper</h2>
-        <p className="muted">{cfg.has_wallpaper ? 'A wallpaper is set.' : 'No wallpaper: the background colour shows.'}</p>
+        <h2>Обои</h2>
+        <p className="muted">{cfg.has_wallpaper ? 'Обои установлены.' : 'Обои не заданы: отображается цвет фона.'}</p>
         <input
           ref={file}
           type="file"
@@ -1007,7 +1007,7 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
           onChange={(e) => {
             const f = e.target.files?.[0]
             e.target.value = ''
-            if (f) wallpaper('Preparing and sending the picture', async () => (await prepareWallpaper(f, 'wallpaper.jpg')).base64)
+            if (f) wallpaper('Подготовка и отправка изображения', async () => (await prepareОбои(f, 'wallpaper.jpg')).base64)
           }}
         />
         <div className="row" style={{ marginBottom: 12 }}>
@@ -1018,35 +1018,35 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
             Bing picture of the day
           </button>
           {cfg.has_wallpaper && (
-            <button className="btn ghost" disabled={busy} onClick={() => wallpaper('Removing the wallpaper', async () => null)}>
-              Remove
+            <button className="btn ghost" disabled={busy} onClick={() => wallpaper('Удаление обоев', async () => null)}>
+              Удалить
             </button>
           )}
         </div>
-        <Slider label="Darken the wallpaper" hint="Keeps names and the clock readable on bright pictures." value={cfg.wallpaper_dim} min={0} max={80} unit="%" onChange={(v) => set({ wallpaper_dim: v }, 300)} />
-        <Toggle label="Sunrise when it changes" hint="A new wallpaper starts dim and the light comes in from the top. Off when the TV's animations are off." checked={cfg.intro} onChange={(v) => set({ intro: v })} />
-        <Colour label="Background colour" hint="Behind everything when there's no wallpaper. Keep it dark: text is white." value={cfg.background} onChange={(c, w) => set({ background: c }, w)} />
+        <Slider label="Затемнять обои" hint="Названия и часы остаются читаемыми на светлых изображениях." value={cfg.wallpaper_dim} min={0} max={80} unit="%" onChange={(v) => set({ wallpaper_dim: v }, 300)} />
+        <Toggle label="Эффект рассвета при смене" hint="Новые обои сначала затемнены, затем сверху появляется свет. Отключите, если телевизор's animations are off." checked={cfg.intro} onChange={(v) => set({ intro: v })} />
+        <Цвет label="Цвет фона" hint="Фон под всеми элементами, когда's no wallpaper. Keep it dark: text is white." value={cfg.background} onChange={(c, w) => set({ background: c }, w)} />
       </div>
     </>
   )
 }
 
-function WidgetsTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
+function ВиджетыTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
   const playing = cfg.sections.includes('nowplaying')
   const [query, setQuery] = useState('')
   const [places, setPlaces] = useState<Place[] | null>(null)
-  const [searching, setSearching] = useState(false)
+  const [searching, setПоиск] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function search(): Promise<void> {
-    setSearching(true)
+    setПоиск(true)
     setError(null)
     try {
       setPlaces(await findPlaces(query))
     } catch (e) {
       setError(errorText(e))
     } finally {
-      setSearching(false)
+      setПоиск(false)
     }
   }
 
@@ -1060,16 +1060,16 @@ function WidgetsTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
     <>
       <div className="card">
         <Toggle
-          label="Now playing"
+          label="Сейчас играет"
           hint="A card with what any music or video app is playing, with play, pause and next. It shows only while something is loaded. The TV lets CleanMyTV Home see which app is playing; it reads no notifications."
           checked={playing}
           onChange={(v) => set({ sections: v ? ['nowplaying', ...cfg.sections.filter((s) => s !== 'nowplaying')] : cfg.sections.filter((s) => s !== 'nowplaying') })}
         />
-        {playing && <p className="small muted" style={{ margin: '8px 0 0' }}>Move it up or down in Layout → Sections.</p>}
+        {playing && <p className="small muted" style={{ margin: '8px 0 0' }}>Move it up or down in Макет → Разделы.</p>}
       </div>
 
       <div className="card">
-        <h2>Weather</h2>
+        <h2>Погода</h2>
         <p className="muted">
           The temperature, today's high and low, and the sky next to the clock. It comes from Open-Meteo: free, no account. The
           TV asks for it every 30 minutes.
@@ -1091,16 +1091,16 @@ function WidgetsTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
             void search()
           }}
         >
-          <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Town or city" style={{ width: 240 }} />
+          <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Город" style={{ width: 240 }} />
           <button className="btn" type="submit" disabled={searching || query.trim().length < 2}>
-            {cfg.weather_place ? 'Change place' : 'Find'}
+            {cfg.weather_place ? 'Изменить место' : 'Найти'}
           </button>
-          {searching && <Busy text="Searching" />}
+          {searching && <Busy text="Поиск" />}
         </form>
         {error && <div className="notice error" style={{ marginTop: 12, marginBottom: 0 }}>{error}</div>}
         {places && (
           <ul className="place-list">
-            {places.length === 0 && <li className="small muted">No place by that name. Try the nearest town.</li>}
+            {places.length === 0 && <li className="small muted">Место не найдено. Попробуйте указать ближайший город.</li>}
             {places.map((p) => (
               <li key={`${p.lat},${p.lon}`}>
                 <button className="btn small ghost" onClick={() => pick(p)}>
@@ -1128,39 +1128,39 @@ function MusicTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
     <>
       <div className="card">
         <Toggle
-          label="Music bars"
-          hint="Bars along the bottom of the home screen that move with music or video playing on the TV. The remote's clicks don't set them off. Add the Music bars icon in Layout → Quick settings to turn them on and off from the TV."
+          label="Музыкальные полосы"
+          hint="Полосы внизу главного экрана реагируют на музыку или видео, воспроизводимые на телевизоре. Пульт's clicks don't set them off. Add the Музыкальные полосы icon in Макет → Быстрые настройки to turn them on and off from the TV."
           checked={cfg.visualiser}
           onChange={(v) => set({ visualiser: v })}
         />
-        <BarsPreview cfg={cfg} />
+        <Количество полосПредпросмотр cfg={cfg} />
       </div>
       {cfg.visualiser && (
         <>
           <div className="card">
-            <h2>Style</h2>
+            <h2>Стиль</h2>
             <div className="seg" style={{ marginBottom: 12 }}>
-              {([['bars', 'Bars'], ['mirror', 'Mirrored'], ['wave', 'Wave']] as const).map(([id, label]) => (
+              {([['bars', 'Количество полос'], ['mirror', 'Зеркальный'], ['wave', 'Волна']] as const).map(([id, label]) => (
                 <button key={id} className={cfg.viz_style === id ? 'on' : ''} onClick={() => set({ viz_style: id })}>
                   {label}
                 </button>
               ))}
             </div>
             <div className="seg" style={{ marginBottom: 12 }}>
-              {([['accent', 'Accent colour'], ['rainbow', 'Rainbow'], ['white', 'White']] as const).map(([id, label]) => (
+              {([['accent', 'Акцентный цвет'], ['rainbow', 'Радуга'], ['white', 'Белый']] as const).map(([id, label]) => (
                 <button key={id} className={cfg.viz_colour === id ? 'on' : ''} onClick={() => set({ viz_colour: id })}>
                   {label}
                 </button>
               ))}
             </div>
-            {cfg.viz_style !== 'wave' && <Toggle label="Peak dots" hint="A small mark above each bar that falls slowly." checked={cfg.viz_peaks} onChange={(v) => set({ viz_peaks: v })} />}
+            {cfg.viz_style !== 'wave' && <Toggle label="Маркеры пиков" hint="Небольшая отметка над каждой полосой, которая медленно опускается." checked={cfg.viz_peaks} onChange={(v) => set({ viz_peaks: v })} />}
           </div>
           <div className="card">
-            <h2>Size and feel</h2>
-            <Slider label="Bars" value={cfg.viz_bars} min={8} max={64} step={4} onChange={(v) => set({ viz_bars: v }, 300)} />
-            <Slider label="Height" hint="How much of the screen they can reach." value={cfg.viz_height} min={4} max={40} unit="%" onChange={(v) => set({ viz_height: v }, 300)} />
-            <Slider label="Opacity" value={cfg.viz_opacity} min={20} max={100} unit="%" onChange={(v) => set({ viz_opacity: v }, 300)} />
-            <Slider label="Sensitivity" hint="Higher makes quiet music move more." value={cfg.viz_sensitivity} min={25} max={300} step={5} unit="%" onChange={(v) => set({ viz_sensitivity: v }, 300)} />
+            <h2>Размер и внешний вид</h2>
+            <Slider label="Количество полос" value={cfg.viz_bars} min={8} max={64} step={4} onChange={(v) => set({ viz_bars: v }, 300)} />
+            <Slider label="Высота" hint="Какую часть экрана они могут занимать." value={cfg.viz_height} min={4} max={40} unit="%" onChange={(v) => set({ viz_height: v }, 300)} />
+            <Slider label="Непрозрачность" value={cfg.viz_opacity} min={20} max={100} unit="%" onChange={(v) => set({ viz_opacity: v }, 300)} />
+            <Slider label="Чувствительность" hint="При высоком значении даже тихая музыка вызывает заметное движение." value={cfg.viz_sensitivity} min={25} max={300} step={5} unit="%" onChange={(v) => set({ viz_sensitivity: v }, 300)} />
           </div>
         </>
       )}
@@ -1169,26 +1169,26 @@ function MusicTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
 }
 
 const ACTIONS: [ButtonAction, string][] = [
-  ['settings', 'Open Settings'],
-  ['inputs', 'Open Inputs'],
-  ['home', 'Go Home'],
-  ['back', 'Back'],
-  ['app', 'Open an app…'],
-  ['wifi', 'Open Wi-Fi'],
-  ['bluetooth', 'Open Bluetooth & remotes'],
-  ['display', 'Open Picture & sound'],
-  ['apps', 'Open the app list'],
-  ['sleep', 'Start the screensaver'],
-  ['search', 'Open Search'],
-  ['music', 'Music bars on or off'],
-  ['panel', 'Open Quick settings'],
-  ['themes', 'Open Themes'],
-  ['fireplace', 'Show the fireplace'],
-  ['next_wallpaper', "Next picture of the theme"],
-  ['none', 'Do nothing']
+  ['settings', 'Открыть настройки'],
+  ['inputs', 'Открыть входы'],
+  ['home', 'На главный экран'],
+  ['back', 'Назад'],
+  ['app', 'Открыть приложение…'],
+  ['wifi', 'Открыть Wi‑Fi'],
+  ['bluetooth', 'Открыть Bluetooth и пульты'],
+  ['display', 'Open Изображение & sound'],
+  ['apps', 'Открыть список приложений'],
+  ['sleep', 'Запустить заставку'],
+  ['search', 'Открыть поиск'],
+  ['music', 'Музыкальные полосы on or off'],
+  ['panel', 'Open Быстрые настройки'],
+  ['themes', 'Open Темы'],
+  ['fireplace', 'Показать камин'],
+  ['next_wallpaper', "Следующее изображение темы"],
+  ['none', 'Ничего не делать']
 ]
 
-/** KEYCODE_PROG_RED -> "Prog red". */
+/** KEYCODE_PROG_RED -> "Красная кнопка". */
 const keyName = (name: string): string => {
   const s = name.replace(/^KEYCODE_/, '').toLowerCase().replace(/_/g, ' ')
   return s.charAt(0).toUpperCase() + s.slice(1)
@@ -1203,7 +1203,7 @@ const MI_BUTTON = 64
 function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c: HomeConfig) => void; brand?: string; onError: (e: unknown) => void }): ReactNode {
   const { cfg, set, apps } = props
   const [switching, setSwitching] = useState(false)
-  const [listening, setListening] = useState(false)
+  const [listening, setСлушатьing] = useState(false)
   const [heard, setHeard] = useState<KeyPress[]>([])
   const [names, setNames] = useState<Record<number, string>>({})
 
@@ -1218,7 +1218,7 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
     }
   }
 
-  // Listen for 30 seconds: show every button the TV receives from now on.
+  // Слушать for 30 seconds: show every button the TV receives from now on.
   useEffect(() => {
     if (!listening) return
     let stop = false
@@ -1238,7 +1238,7 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
           setNames((prev) => ({ ...prev, ...Object.fromEntries(fresh.map((k) => [k.code, k.name])) }))
         }
       }
-      if (!stop) setListening(false)
+      if (!stop) setСлушатьing(false)
     })()
     return () => { stop = true }
   }, [listening])
@@ -1268,7 +1268,7 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
         <div className="notice">
           <p style={{ margin: '0 0 10px' }}>
             The Mi button on Xiaomi remotes opens PatchWall, so it does nothing once PatchWall is off. CleanMyTV Home can make it go
-            Home instead. If it still does nothing after this, press Listen below and press the Mi button to see what it sends.
+            Home instead. If it still does nothing after this, press Слушать below and press the Mi button to see what it sends.
           </p>
           <button className="btn small" disabled={switching} onClick={miButtonHome}>
             Make the Mi button go Home
@@ -1277,7 +1277,7 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
       )}
       <div className="card">
         <Toggle
-          label="Remote buttons"
+          label="Кнопки пульта"
           hint="Lets CleanMyTV Home give buttons a new job, in every app. Only the buttons you add below are touched; every other button works as before. It uses an Android accessibility service, switched on and off from here."
           checked={cfg.buttons_on}
           disabled={switching}
@@ -1287,17 +1287,17 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
 
       <div className="card">
         <div className="card-head">
-          <h2>Find a button</h2>
-          <button className="btn small" onClick={() => setListening(!listening)}>
-            {listening ? 'Stop listening' : 'Listen'}
+          <h2>Найти кнопку</h2>
+          <button className="btn small" onClick={() => setСлушатьing(!listening)}>
+            {listening ? 'Остановить прослушивание' : 'Слушать'}
           </button>
         </div>
         <p className="muted small">
-          Press Listen, then press buttons on the remote. Each one the TV receives shows here with its code.
-          {!cfg.buttons_on && ' With Remote buttons off, only presses on the home screen show up.'} A button that never shows up
+          Press Слушать, then press buttons on the remote. Each one the TV receives shows here with its code.
+          {!cfg.buttons_on && ' With Кнопки пульта off, only presses on the home screen show up.'} A button that never shows up
           (often Power, volume or the mic) is handled before Android sees it, so it can't get a new job on this TV.
         </p>
-        {listening && heard.length === 0 && <Busy text="Listening. Press a button on the remote" />}
+        {listening && heard.length === 0 && <Busy text="Слушатьing. Press a button on the remote" />}
         {heard.length > 0 && (
           <ul className="order-list">
             {heard.map((k) => (
@@ -1307,7 +1307,7 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
                   <span className="muted small">code {k.code}</span>
                 </span>
                 <button className="btn small" disabled={mapped.has(k.code)} onClick={() => update([...cfg.buttons, { code: k.code, action: 'settings' }])}>
-                  {mapped.has(k.code) ? 'Added' : 'Give it a job'}
+                  {mapped.has(k.code) ? 'Добавлено' : 'Назначить действие'}
                 </button>
               </li>
             ))}
@@ -1316,9 +1316,9 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
       </div>
 
       <div className="card">
-        <h2>Button jobs</h2>
+        <h2>Действия кнопок</h2>
         {cfg.buttons.length === 0 ? (
-          <p className="muted small">None yet. Find a button above and give it a job.</p>
+          <p className="muted small">Нет yet. Найти кнопку above and give it a job.</p>
         ) : (
           <ul className="order-list">
             {cfg.buttons.map((b, i) => (
@@ -1341,7 +1341,7 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
                   ))}
                 </select>
                 {b.action === 'app' && (
-                  <select value={b.app ?? ''} aria-label="App to open" onChange={(e) => update(cfg.buttons.map((x, j) => (j === i ? { ...x, app: e.target.value } : x)))}>
+                  <select value={b.app ?? ''} aria-label="Открываемое приложение" onChange={(e) => update(cfg.buttons.map((x, j) => (j === i ? { ...x, app: e.target.value } : x)))}>
                     {apps.map((a) => (
                       <option key={a.pkg} value={a.pkg}>
                         {a.label}
@@ -1350,20 +1350,20 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
                   </select>
                 )}
                 <button className="btn small ghost" onClick={() => update(cfg.buttons.filter((_, j) => j !== i))}>
-                  Remove
+                  Удалить
                 </button>
               </li>
             ))}
           </ul>
         )}
-        {cfg.buttons.length > 0 && !cfg.buttons_on && <p className="small muted" style={{ marginTop: 8 }}>Turn on Remote buttons above for these to work.</p>}
+        {cfg.buttons.length > 0 && !cfg.buttons_on && <p className="small muted" style={{ marginTop: 8 }}>Turn on Кнопки пульта above for these to work.</p>}
       </div>
     </>
   )
 }
 
 /** A rough picture of the chosen bars, moving to a made-up beat. */
-function BarsPreview({ cfg }: { cfg: HomeConfig }): ReactNode {
+function Количество полосПредпросмотр({ cfg }: { cfg: HomeConfig }): ReactNode {
   const [t, setT] = useState(0)
   useEffect(() => {
     let id = 0
@@ -1390,21 +1390,21 @@ function BarsPreview({ cfg }: { cfg: HomeConfig }): ReactNode {
   let body: ReactNode
   if (cfg.viz_style === 'wave') {
     const pts = levels.map((v, i) => `${(i * W) / (n - 1)},${H - v * H * 0.9}`)
-    body = <polyline points={pts.join(' ')} fill="none" stroke={colour(0)} strokeOpacity={op} strokeWidth={3} strokeLinejoin="round" />
+    body = <polyline points={pts.join(' ')} fill="none" stroke={colour(0)} strokeНепрозрачность={op} strokeWidth={3} strokeLinejoin="round" />
   } else {
     const mirror = cfg.viz_style === 'mirror'
     const base = mirror ? H / 2 : H
     const span = mirror ? H / 2 : H
     body = levels.map((v, i) => (
       <g key={i}>
-        <rect x={gap + i * (w + gap)} y={base - v * span} width={w} height={v * span} rx={Math.min(w / 3, 4)} fill={colour(i)} fillOpacity={op} />
-        {mirror && <rect x={gap + i * (w + gap)} y={base} width={w} height={v * span} rx={Math.min(w / 3, 4)} fill={colour(i)} fillOpacity={op * 0.3} />}
-        {cfg.viz_peaks && <rect x={gap + i * (w + gap)} y={base - Math.min(1, v + 0.08) * span - 4} width={w} height={3} rx={1.5} fill={colour(i)} fillOpacity={op} />}
+        <rect x={gap + i * (w + gap)} y={base - v * span} width={w} height={v * span} rx={Math.min(w / 3, 4)} fill={colour(i)} fillНепрозрачность={op} />
+        {mirror && <rect x={gap + i * (w + gap)} y={base} width={w} height={v * span} rx={Math.min(w / 3, 4)} fill={colour(i)} fillНепрозрачность={op * 0.3} />}
+        {cfg.viz_peaks && <rect x={gap + i * (w + gap)} y={base - Math.min(1, v + 0.08) * span - 4} width={w} height={3} rx={1.5} fill={colour(i)} fillНепрозрачность={op} />}
       </g>
     ))
   }
   return (
-    <div style={{ background: cfg.background, borderRadius: 10, padding: '40px 0 0', marginTop: 12, overflow: 'hidden' }} aria-label="Preview of the music bars">
+    <div style={{ background: cfg.background, borderRadius: 10, padding: '40px 0 0', marginTop: 12, overflow: 'hidden' }} aria-label="Предпросмотр музыкальных полос">
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }}>
         {body}
       </svg>
@@ -1417,22 +1417,22 @@ function PinForm({ label, onSet }: { label: string; onSet: (pin: string) => Prom
   const [a, setA] = useState('')
   const [b, setB] = useState('')
   const [busy, setBusy] = useState(false)
-  const note = a.length > 0 && a.length < 4 ? 'At least 4 digits.' : b.length >= a.length && b && a !== b ? "The two PINs don't match." : ''
+  const note = a.length > 0 && a.length < 4 ? 'Не менее 4 цифр.' : b.length >= a.length && b && a !== b ? "The two PIN-кодs don't match." : ''
   return (
     <div className="stack" style={{ gap: 12 }}>
       <div className="pin-row">
-        <span>PIN</span>
-        <PinBoxes value={a} onChange={setA} label="PIN" />
+        <span>PIN-код</span>
+        <PinBoxes value={a} onChange={setA} label="PIN-код" />
       </div>
       <div className="pin-row">
-        <span>Again</span>
-        <PinBoxes value={b} onChange={setB} label="PIN again" />
+        <span>Повторите</span>
+        <PinBoxes value={b} onChange={setB} label="PIN-код again" />
       </div>
       <div className="row">
         <ActionButton
           phase={busy ? 'busy' : 'idle'}
           label={label}
-          busyLabel="Sending"
+          busyLabel="Отправка"
           disabled={a.length < 4 || a !== b}
           onClick={() => {
             setBusy(true)
@@ -1460,12 +1460,12 @@ function LockTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c
   if (!cfg.lock_pin_set) {
     return (
       <div className="card">
-        <h2>Set a PIN</h2>
+        <h2>Задать PIN-код-код</h2>
         <p className="muted">
-          Locked apps ask for this PIN on the TV before they open, however they're opened: from Home, by voice, or from Settings.
+          Заблокированные приложения ask for this PIN-код on the TV before they open, however they're opened: from Home, by voice, or from Settings.
           The TV keeps it scrambled, and this app can't read it back.
         </p>
-        <PinForm label="Set PIN" onSet={(pin) => call(window.cytv.setLockPin(pin))} />
+        <PinForm label="Задать PIN-код-код" onSet={(pin) => call(window.cytv.setLockPin(pin))} />
       </div>
     )
   }
@@ -1473,10 +1473,10 @@ function LockTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c
   return (
     <>
       <div className="card">
-        <h2>App lock</h2>
+        <h2>Блокировка приложений</h2>
         <Toggle
-          label="App lock on"
-          hint={cfg.lock_on ? `${cfg.lock_apps.length} ${cfg.lock_apps.length === 1 ? 'app is' : 'apps are'} locked${cfg.lock_system ? ', plus Settings, the Play Store and Quick settings' : ''}.` : 'Your PIN and the list stay while it\'s off.'}
+          label="Блокировка приложений on"
+          hint={cfg.lock_on ? `${cfg.lock_apps.length} ${cfg.lock_apps.length === 1 ? 'app is' : 'приложения'} locked${cfg.lock_system ? ', plus Settings, the Play Store and Быстрые настройки' : ''}.` : 'Your PIN-код and the list stay while it\'s off.'}
           checked={cfg.lock_on}
           onChange={(v) => call(window.cytv.setAppLock(v))}
         />
@@ -1487,19 +1487,19 @@ function LockTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c
 
       <div className="card">
         <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0 }}>Locked apps</h2>
+          <h2 style={{ margin: 0 }}>Заблокированные приложения</h2>
           <span className="row" style={{ gap: 8 }}>
-            <button className="btn small ghost" onClick={() => set({ lock_apps: [...new Set([...cfg.lock_apps, ...shown.map((a) => a.pkg)])] })}>Lock all shown</button>
-            <button className="btn small ghost" disabled={!cfg.lock_apps.length} onClick={() => set({ lock_apps: [] })}>Unlock all</button>
+            <button className="btn small ghost" onClick={() => set({ lock_apps: [...new Set([...cfg.lock_apps, ...shown.map((a) => a.pkg)])] })}>Заблокировать все показанные</button>
+            <button className="btn small ghost" disabled={!cfg.lock_apps.length} onClick={() => set({ lock_apps: [] })}>Разблокировать все</button>
           </span>
         </div>
-        <input type="search" placeholder="Find an app" value={q} onChange={(e) => setQ(e.target.value)} style={{ margin: '12px 0', width: '100%' }} aria-label="Find an app" />
-        <div className="list-picker" style={{ maxHeight: 360 }}>
+        <input type="search" placeholder="Найти приложение" value={q} onChange={(e) => setQ(e.target.value)} style={{ margin: '12px 0', width: '100%' }} aria-label="Найти приложение" />
+        <div className="list-picker" style={{ maxВысота: 360 }}>
           {!q && (
             <label className="row" style={{ gap: 10, cursor: 'pointer' }}>
               <input type="checkbox" checked={cfg.lock_system} onChange={(e) => set({ lock_system: e.target.checked })} />
-              <span>Settings, Play Store and Quick settings</span>
-              <span className="small muted">also the uninstaller, so the lock can't be switched off or uninstalled around</span>
+              <span>Settings, Play Store and Быстрые настройки</span>
+              <span className="small muted">а также удаление приложений — чтобы блокировку нельзя было обойти через настройки</span>
             </label>
           )}
           {shown.map((a) => (
@@ -1509,41 +1509,41 @@ function LockTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c
               <span className="small muted mono">{a.pkg}</span>
             </label>
           ))}
-          {!shown.length && <p className="small muted">No app matches.</p>}
+          {!shown.length && <p className="small muted">Приложения не найдены.</p>}
         </div>
       </div>
 
       <div className="card">
-        <h2>Options</h2>
-        <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>An unlock lasts</p>
+        <h2>Параметры</h2>
+        <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Разблокировка действует</p>
         <div className="seg">
-          {([['sleep', 'Until the TV sleeps'], ['15', '15 minutes'], ['always', 'Until another app opens']] as const).map(([id, label]) => (
+          {([['sleep', 'До перехода ТВ в спящий режим'], ['15', '15 минут'], ['always', 'До запуска другого приложения']] as const).map(([id, label]) => (
             <button key={id} className={cfg.lock_for === id ? 'on' : ''} onClick={() => set({ lock_for: id })}>{label}</button>
           ))}
         </div>
-        <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Locked apps on Home</p>
+        <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Заблокированные приложения on Home</p>
         <div className="seg">
-          {([['badge', 'Show them with a lock'], ['hide', 'Hide them']] as const).map(([id, label]) => (
+          {([['badge', 'Показывать их с замком'], ['hide', 'Скрыть их']] as const).map(([id, label]) => (
             <button key={id} className={cfg.lock_show === id ? 'on' : ''} onClick={() => set({ lock_show: id })}>{label}</button>
           ))}
         </div>
       </div>
 
       <div className="card">
-        <h2>PIN</h2>
+        <h2>PIN-код</h2>
         {changing ? (
-          <PinForm label="Change PIN" onSet={(pin) => call(window.cytv.setLockPin(pin)).then(() => setChanging(false))} />
+          <PinForm label="Изменить PIN-код-код" onSet={(pin) => call(window.cytv.setLockPin(pin)).then(() => setChanging(false))} />
         ) : (
           <div className="row">
-            <button className="btn ghost" onClick={() => setChanging(true)}>Change PIN</button>
-            <button className="btn ghost" onClick={() => setForgetting(true)}>Forget the PIN and turn the lock off</button>
+            <button className="btn ghost" onClick={() => setChanging(true)}>Изменить PIN-код-код</button>
+            <button className="btn ghost" onClick={() => setForgetting(true)}>Forget the PIN-код and turn the lock off</button>
           </div>
         )}
-        <p className="small muted" style={{ marginBottom: 0 }}>Forgot it? Change it here: this computer can always set a new one.</p>
+        <p className="small muted" style={{ marginBottom: 0 }}>Забыли PIN-код? Измените его здесь: этот компьютер всегда может задать новый.</p>
       </div>
       {forgetting && (
-        <Confirm title="Forget the PIN?" confirmLabel="Forget it" onConfirm={() => { setForgetting(false); call(window.cytv.clearAppLock()) }} onCancel={() => setForgetting(false)}>
-          <p>The lock turns off and every app opens freely. Your list of locked apps stays for next time.</p>
+        <Confirm title="Forget the PIN-код?" confirmLabel="Сбросить" onConfirm={() => { setForgetting(false); call(window.cytv.clearAppLock()) }} onCancel={() => setForgetting(false)}>
+          <p>Блокировка отключится, и все приложения будут доступны. Список заблокированных приложений сохранится.</p>
         </Confirm>
       )}
     </>
@@ -1551,7 +1551,7 @@ function LockTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c
 }
 
 /** The fireplace: a looping video with its crackle, sent to the TV once, then used as a screensaver, full screen or behind Home. */
-function FireplaceCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: SetFn; setCfg: (c: HomeConfig) => void; onResult: (r: ApplyResult) => void }): ReactNode {
+function КаминCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: SetFn; setCfg: (c: HomeConfig) => void; onResult: (r: ApplyResult) => void }): ReactNode {
   const [phase, setPhase] = usePhase()
   const on = !!cfg.fire_on_tv
   const go = async (action: 'put' | 'show' | 'saver' | 'remove'): Promise<void> => {
@@ -1568,7 +1568,7 @@ function FireplaceCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: S
   }
   return (
     <div className="card">
-      <h2>Fireplace</h2>
+      <h2>Камин</h2>
       <p className="muted">
         A real log fire with its crackle, looping without a seam. It's about 11 MB, downloaded once and sent to the TV. Video and
         sound from Pixabay.
@@ -1577,31 +1577,31 @@ function FireplaceCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: S
         <ActionButton
           phase={phase}
           primary={!on}
-          label={on ? 'Send it again' : 'Put the fireplace on the TV'}
-          busyLabel="Sending"
-          doneLabel="On the TV"
+          label={on ? 'Send it again' : 'Установить камин на телевизор'}
+          busyLabel="Отправка"
+          doneLabel="На телевизоре"
           onClick={() => void go('put')}
         />
-        {on && <button className="btn" onClick={() => void go('show')}>Show it now</button>}
-        {on && <button className="btn ghost" onClick={() => void go('saver')}>Make it the screensaver</button>}
+        {on && <button className="btn" onClick={() => void go('show')}>Показать сейчас</button>}
+        {on && <button className="btn ghost" onClick={() => void go('saver')}>Установить как заставку</button>}
       </div>
       {on && (
         <>
-          <Toggle label="Behind Home" hint="Shows instead of the picture. It holds still while an app is open or the TV's animations are off." checked={cfg.fire_wall} onChange={(v) => set({ fire_wall: v })} />
-          <Toggle label="Crackle full screen and as the screensaver" checked={cfg.fire_sound} onChange={(v) => set({ fire_sound: v })} />
-          <Toggle label="Crackle behind Home too" hint="Off by default, so browsing stays quiet." checked={cfg.fire_wall_sound} onChange={(v) => set({ fire_wall_sound: v })} />
-          <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Turn off after</p>
+          <Toggle label="На фоне главного экрана" hint="Отображается вместо обоев. Изображение останавливается, когда открыто приложение или телевизор's animations are off." checked={cfg.fire_wall} onChange={(v) => set({ fire_wall: v })} />
+          <Toggle label="Полноэкранный эффект потрескивания и заставка" checked={cfg.fire_sound} onChange={(v) => set({ fire_sound: v })} />
+          <Toggle label="Показывать эффект потрескивания и на главном экране" hint="По умолчанию выключено, чтобы не отвлекать при просмотре." checked={cfg.fire_wall_sound} onChange={(v) => set({ fire_wall_sound: v })} />
+          <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Выключить через</p>
           <div className="seg" style={{ marginBottom: 6 }}>
-            {([[0, 'Never'], [30, '30 min'], [60, '1 hour'], [120, '2 hours']] as const).map(([m, label]) => (
+            {([[0, 'Никогда'], [30, '30 min'], [60, '1 час'], [120, '2 часа']] as const).map(([m, label]) => (
               <button key={m} className={cfg.fire_timer === m ? 'on' : ''} onClick={() => set({ fire_timer: m })}>{label}</button>
             ))}
           </div>
           <p className="small muted" style={{ marginTop: 0 }}>
             Full screen only: the fire fades out, then the TV sleeps. Press OK on the remote to change it while the fire is on.
           </p>
-          {(cfg.fire_sound || cfg.fire_wall_sound) && <Slider label="Volume" value={cfg.fire_volume} min={0} max={100} step={5} unit="%" onChange={(v) => set({ fire_volume: v }, 250)} />}
+          {(cfg.fire_sound || cfg.fire_wall_sound) && <Slider label="Громкость" value={cfg.fire_volume} min={0} max={100} step={5} unit="%" onChange={(v) => set({ fire_volume: v }, 250)} />}
           <p style={{ marginTop: 10 }}>
-            <button className="btn ghost" onClick={() => void go('remove')}>Take it off the TV</button>
+            <button className="btn ghost" onClick={() => void go('remove')}>Удалить с телевизора</button>
           </p>
         </>
       )}
@@ -1610,10 +1610,10 @@ function FireplaceCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: S
 }
 
 const SLIDE_MAX = 12
-const SLIDE_TIMES: [number, string][] = [[0, 'Off'], [5, '5 min'], [15, '15 min'], [30, '30 min'], [60, '1 hour']]
+const SLIDE_TIMES: [number, string][] = [[0, 'Off'], [5, '5 min'], [15, '15 min'], [30, '30 min'], [60, '1 час']]
 
-/** Slideshow (#56): a new wallpaper every few minutes, from pictures picked here or the current theme's own. */
-function SlideshowCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: SetFn; setCfg: (c: HomeConfig) => void; onResult: (r: ApplyResult) => void }): ReactNode {
+/** Слайд-шоу (#56): a new wallpaper every few minutes, from pictures picked here or the current theme's own. */
+function Слайд-шоуCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: SetFn; setCfg: (c: HomeConfig) => void; onResult: (r: ApplyResult) => void }): ReactNode {
   const [phase, setPhase] = usePhase()
   const file = useRef<HTMLInputElement>(null)
   const mine = cfg.slides_on_tv ?? 0
@@ -1621,7 +1621,7 @@ function SlideshowCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: S
     setPhase('busy')
     try {
       const jpegs: string[] = []
-      for (const f of files.slice(0, SLIDE_MAX)) jpegs.push((await prepareWallpaper(f, f.name)).base64)
+      for (const f of files.slice(0, SLIDE_MAX)) jpegs.push((await prepareОбои(f, f.name)).base64)
       setCfg(await window.cytv.setSlides(jpegs))
       setPhase('done')
       if (files.length > SLIDE_MAX) onResult({ ok: true, summary: `The slideshow takes ${SLIDE_MAX} pictures, so the first ${SLIDE_MAX} went to the TV.`, warnings: [] })
@@ -1632,12 +1632,12 @@ function SlideshowCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: S
   }
   return (
     <div className="card">
-      <h2>Slideshow</h2>
-      <p className="muted">A new wallpaper every few minutes while Home is on screen, each with the Sunrise.</p>
-      <p style={{ margin: '6px 0 8px', fontWeight: 600 }}>Pictures</p>
+      <h2>Слайд-шоу</h2>
+      <p className="muted">Автоматически меняет обои каждые несколько минут, пока открыт главный экран. Для каждого изображения используется эффект «Рассвет».</p>
+      <p style={{ margin: '6px 0 8px', fontWeight: 600 }}>Изображения</p>
       <div className="seg" style={{ marginBottom: 12 }}>
         <button className={cfg.slide_from === 'mine' ? 'on' : ''} onClick={() => set({ slide_from: 'mine' })}>My pictures{mine ? ` (${mine})` : ''}</button>
-        <button className={cfg.slide_from === 'theme' ? 'on' : ''} onClick={() => set({ slide_from: 'theme' })}>The theme's pictures</button>
+        <button className={cfg.slide_from === 'theme' ? 'on' : ''} onClick={() => set({ slide_from: 'theme' })}>Изображения темы</button>
       </div>
       {cfg.slide_from === 'mine' && (
         <div className="row" style={{ marginBottom: 12 }}>
@@ -1653,15 +1653,15 @@ function SlideshowCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: S
               if (fs.length) void send(fs)
             }}
           />
-          <ActionButton phase={phase} label={mine ? 'Choose new pictures…' : 'Choose pictures…'} busyLabel="Sending" doneLabel="On the TV" onClick={() => file.current?.click()} />
-          {mine > 0 && <button className="btn ghost" onClick={() => void send([])}>Remove them</button>}
+          <ActionButton phase={phase} label={mine ? 'Choose new pictures…' : 'Choose pictures…'} busyLabel="Отправка" doneLabel="На телевизоре" onClick={() => file.current?.click()} />
+          {mine > 0 && <button className="btn ghost" onClick={() => void send([])}>Удалить изображения</button>}
           <span className="small muted">Up to {SLIDE_MAX}. They replace the ones on the TV.</span>
         </div>
       )}
       {cfg.slide_from === 'theme' && (
-        <p className="small muted">Steps through the three pictures of the theme you picked on the TV. Put the themes on the TV first (Themes, above).</p>
+        <p className="small muted">Steps through the three pictures of the theme you picked on the TV. Загрузить темы на телевизор first (Темы, above).</p>
       )}
-      <p style={{ margin: '6px 0 8px', fontWeight: 600 }}>Change every</p>
+      <p style={{ margin: '6px 0 8px', fontWeight: 600 }}>Интервал смены</p>
       <div className="seg">
         {SLIDE_TIMES.map(([m, label]) => (
           <button key={m} className={cfg.slide_minutes === m ? 'on' : ''} disabled={m > 0 && cfg.slide_from === 'mine' && mine === 0} onClick={() => set({ slide_minutes: m })}>{label}</button>
@@ -1684,7 +1684,7 @@ function darken(hex: string, k: number): string {
 }
 
 /** Theme editor: start from a built-in theme, change its colours and art, see it, and put it on the TV. */
-function ThemeEditor({ themes, busy, onClose }: { themes: ThemeActions; busy: boolean; onClose: () => void }): ReactNode {
+function ThemeEditor({ themes, busy, onЗакрыть }: { themes: ThemeActions; busy: boolean; onЗакрыть: () => void }): ReactNode {
   const startFrom = (id: string): { accent: string; second: string; background: string; kind: ThemeArt['kind']; seed: number; base: BuiltInTheme } => {
     const t = BUILT_IN_THEMES.find((b) => b.id === id) ?? BUILT_IN_THEMES[0]
     return {
@@ -1710,41 +1710,41 @@ function ThemeEditor({ themes, busy, onClose }: { themes: ThemeActions; busy: bo
   useEffect(() => {
     const c = canvas.current
     if (!c) return
-    const drawn = drawWallpaper(paint, 384, 216)
+    const drawn = drawОбои(paint, 384, 216)
     c.getContext('2d')?.drawImage(drawn, 0, 0)
   }, [paint])
   const use = (): void => themes.custom({
     name: name.trim() || 'My theme',
     look: { ...s.base.look, accent: s.accent, background: darken(s.background, 0.45) },
-    wallpaper: paintWallpaper(paint, 'theme.jpg').base64
+    wallpaper: paintОбои(paint, 'theme.jpg').base64
   })
   return (
     <div className="theme-editor">
       <div className="row" style={{ alignItems: 'flex-start', gap: 20 }}>
-        <canvas ref={canvas} width={384} height={216} className="theme-editor-preview" style={{ borderColor: s.accent }} aria-label="Preview" />
+        <canvas ref={canvas} width={384} height={216} className="theme-editor-preview" style={{ borderColor: s.accent }} aria-label="Предпросмотр" />
         <div style={{ flex: 1, minWidth: 240 }}>
           <label className="field">
-            <span>Start from</span>
+            <span>Начать с</span>
             <select value={s.base.id} onChange={(e) => setS(startFrom(e.target.value))}>
               {BUILT_IN_THEMES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </label>
-          <Colour label="Accent" value={s.accent} onChange={(c) => setS({ ...s, accent: c })} />
-          <Colour label="Second colour" hint="The other light in the picture." value={s.second} onChange={(c) => setS({ ...s, second: c })} />
-          <Colour label="Background" hint="Keep it dark: Home's text is white." value={s.background} onChange={(c) => setS({ ...s, background: c })} />
+          <Цвет label="Акцент" value={s.accent} onChange={(c) => setS({ ...s, accent: c })} />
+          <Цвет label="Второй цвет" hint="Дополнительный цвет изображения." value={s.second} onChange={(c) => setS({ ...s, second: c })} />
+          <Цвет label="Фон" hint="Оставить тёмным: главный экран's text is white." value={s.background} onChange={(c) => setS({ ...s, background: c })} />
         </div>
       </div>
-      <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Picture</p>
+      <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Изображение</p>
       <div className="seg" style={{ flexWrap: 'wrap' }}>
         {ART_KINDS.map(([k, label]) => (
           <button key={k} className={s.kind === k ? 'on' : ''} onClick={() => setS({ ...s, kind: k })}>{label}</button>
         ))}
       </div>
       <div className="row" style={{ marginTop: 14 }}>
-        <button className="btn ghost" onClick={() => setS({ ...s, seed: s.seed + 1 })}>New pattern</button>
-        <input type="text" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} aria-label="Theme name" style={{ width: 180 }} />
-        <button className="btn primary" disabled={busy} onClick={use}>Use on the TV</button>
-        <button className="btn ghost" onClick={onClose}>Close</button>
+        <button className="btn ghost" onClick={() => setS({ ...s, seed: s.seed + 1 })}>Новый узор</button>
+        <input type="text" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} aria-label="Название темы" style={{ width: 180 }} />
+        <button className="btn primary" disabled={busy} onClick={use}>Применить на телевизоре</button>
+        <button className="btn ghost" onClick={onЗакрыть}>Закрыть</button>
       </div>
       <p className="small muted" style={{ marginTop: 8, marginBottom: 0 }}>
         Then Save this look… below keeps it as a .{THEME_EXT} file to share.
