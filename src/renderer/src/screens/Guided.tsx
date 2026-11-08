@@ -1,4 +1,4 @@
-// The guided "Clean & launch" run (#9): one button that walks the happy path —
+// The guided "Очистка и запуск" run (#9): one button that walks the happy path —
 // pick the best-matching list, disable its suggested packages, install
 // CleanMyTV Home, and land on the Home screen step — while keeping every step
 // inspectable and skippable. It composes the same IPC calls the individual
@@ -16,7 +16,7 @@ type Phase =
   | { t: 'done'; result: ApplyResult; customised: boolean }
   | { t: 'failed'; message: string }
 
-const STAGES = ['Pick the list', 'Clean up', 'Install Home', 'Last pass']
+const STAGES = ['Выбор списка', 'Очистка', 'Install Home', 'Последний этап']
 
 export default function Guided({ go, markDone }: ScreenProps): React.ReactElement {
   const [phase, setPhase] = useState<Phase>({ t: 'plan' })
@@ -33,7 +33,7 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
       const lists = await window.cytv.lists()
       const best = lists.reduce((a, b) => (b.score > a.score ? b : a))
       if (best.score <= 0) {
-        setPhase({ t: 'failed', message: 'No list matches this TV closely. Use Clean up to pick one by hand — the guided run needs a matching list to be safe.' })
+        setPhase({ t: 'failed', message: 'Не найден подходящий список для этого ТВ. Выберите список вручную в разделе «Очистка»: автоматический режим требует точного совпадения.' })
         return
       }
       const plan = await window.cytv.plan(best.id)
@@ -49,7 +49,7 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
   async function run(skipDebloat: boolean): Promise<void> {
     const p = phase
     if (p.t !== 'ready') return
-    setPhase({ t: 'run', step: 'Preparing' })
+    setPhase({ t: 'run', step: 'Подготовка' })
     setSkipped(skipDebloat)
     const notes: string[] = []
     try {
@@ -59,10 +59,10 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
         // and the Wi-Fi check runs (#33).
         const r = await window.cytv.applyDebloat({ listId: p.plan.listId, disable: p.disable, enable: [] })
         if (!r.ok) throw new Error(r.summary)
-        notes.push(`Cleaned up: ${r.summary.replace(/\.$/, '')}`)
+        notes.push(`Очищено: ${r.summary.replace(/\.$/, '')}`)
         if (alive.current) markDone('debloat')
       } else {
-        notes.push(skipDebloat ? 'Clean up skipped' : 'Nothing left to clean up')
+        notes.push(skipDebloat ? 'Очистка пропущена' : 'Больше нечего отключать')
       }
 
       setAt(2)
@@ -75,13 +75,13 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
       }
       const outdated = before.installed && before.bundledVersion && before.versionName !== before.bundledVersion
       if (!before.isHome || outdated) {
-        setPhase({ t: 'run', step: 'Installing CleanMyTV Home' })
+        setPhase({ t: 'run', step: 'Установка CleanMyTV Home' })
         const r = await window.cytv.installHome()
-        if (!r.ok) throw new Error(r.summary + (r.stockChoices ? ' Open the Home screen step and pick it there.' : ''))
-        notes.push('CleanMyTV Home installed and set as Home')
+        if (!r.ok) throw new Error(r.summary + (r.stockChoices ? ' Выберите его в разделе «Главный экран».' : ''))
+        notes.push('CleanMyTV Home установлено и назначено главным экраном')
         if (alive.current) markDone('home')
       } else {
-        notes.push('CleanMyTV Home already Home — left as it was')
+        notes.push('CleanMyTV Home уже назначено главным экраном — без изменений')
       }
 
       setAt(3)
@@ -121,7 +121,7 @@ export default function Guided({ go, markDone }: ScreenProps): React.ReactElemen
       {phase.t === 'ready' && (
         <div className="stack" style={{ gap: 16 }}>
           <div className="card">
-            <h2 style={{ margin: 0 }}>Ready to run</h2>
+            <h2 style={{ margin: 0 }}>Готово к запуску</h2>
             <p style={{ margin: '8px 0' }}>
               List: <b>{phase.plan.title}</b> — the closest match for your TV.
             </p>
