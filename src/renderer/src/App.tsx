@@ -21,13 +21,13 @@ export type StepId = 'guided' | 'setup' | 'debloat' | 'home' | 'extras' | 'sidel
 const STEPS: { id: StepId; label: string; sub: string; needsTv: boolean }[] = [
   // The guided one-button run (#9): composes the same IPC the step screens
   // use, so first-time owners get one path while every step stays reachable.
-  { id: 'guided', label: 'Очистка и запуск', sub: 'Одна кнопка — весь процесс', needsTv: true },
-  { id: 'setup', label: 'Подключение', sub: 'Проверка и подключение', needsTv: false },
-  { id: 'debloat', label: 'Очистка', sub: 'Отключение лишнего', needsTv: true },
-  { id: 'home', label: 'Главный экран', sub: 'Установка и настройка', needsTv: true },
-  { id: 'extras', label: 'Дополнительно', sub: 'DNS, анимация, пульт', needsTv: true },
-  { id: 'sideload', label: 'Установка приложения', sub: 'Из файла .apk', needsTv: true },
-  { id: 'finish', label: 'Завершение', sub: 'Закрытие порта отладки', needsTv: false }
+  { id: 'guided', label: 'Clean & launch', sub: 'One button, every step', needsTv: true },
+  { id: 'setup', label: 'Setup', sub: 'Check and connect', needsTv: false },
+  { id: 'debloat', label: 'Clean up', sub: 'Turn off the bloat', needsTv: true },
+  { id: 'home', label: 'Home screen', sub: 'Install and customise', needsTv: true },
+  { id: 'extras', label: 'TV extras', sub: 'DNS, animations, remote', needsTv: true },
+  { id: 'sideload', label: 'Install an app', sub: 'From an .apk file', needsTv: true },
+  { id: 'finish', label: 'Finish', sub: 'Close the debug port', needsTv: false }
 ]
 
 export interface ScreenProps {
@@ -37,29 +37,29 @@ export interface ScreenProps {
   /** TVs used before, most recent first. */
   tvs: KnownTv[]
   refreshTvs: () => void
-  /** The Главный экран step passes on each status it reads, so the sidebar's update note goes after an update. */
+  /** The Home screen step passes on each status it reads, so the sidebar's update note goes after an update. */
   homeSeen: (hs: HomeStatus) => void
 }
 
 // What ⌘K finds. "home:<tab>" opens that tab of the Home screen step.
 const JUMP_ITEMS: JumpItem[] = [
   ...STEPS.map((s) => ({ id: `step:${s.id}`, title: s.label, where: 'Step', words: s.sub.toLowerCase() })),
-  { id: 'step:setup', title: 'Pair with a code', where: 'Подключение', words: 'connect wireless debugging adb ip' },
-  { id: 'step:debloat', title: 'Restore', where: 'Очистка', words: 'undo put back пакетов' },
-  { id: 'step:debloat', title: 'Add a package', where: 'Очистка', words: 'package app missing list' },
-  { id: 'step:extras', title: 'Скорость анимации', where: 'Дополнительно', words: 'animations faster' },
-  { id: 'step:extras', title: 'Блокировка рекламы в приложениях', where: 'Дополнительно', words: 'dns private ad blocking adguard' },
-  { id: 'step:extras', title: 'Пульт', where: 'Дополнительно', words: 'buttons keys' },
-  { id: 'step:extras', title: 'Память', where: 'Дополнительно', words: 'space disk free' },
-  { id: 'step:finish', title: 'Проверка перезапуска', where: 'Завершение', words: 'reboot' },
-  { id: 'home:overview', title: 'Install or update CleanMyTV Home', where: 'Главный экран', words: 'launcher stock give back' },
-  { id: 'home:layout', title: 'Layout', where: 'Главный экран', words: 'sections quick settings sizes clock greeting idle screensaver' },
-  { id: 'home:apps', title: 'Apps, rows & folders', where: 'Главный экран', words: 'dock order hide rename folder row' },
-  { id: 'home:look', title: 'Look & wallpaper', where: 'Главный экран', words: 'themes accent colour color focus app icons tile shape wallpaper sunrise picture' },
-  { id: 'home:widgets', title: 'Widgets', where: 'Главный экран', words: 'weather' },
-  { id: 'home:music', title: 'Music bars', where: 'Главный экран', words: 'visualiser style size' },
-  { id: 'home:buttons', title: 'Пульт buttons', where: 'Главный экран', words: 'button jobs shortcut key press' },
-  { id: 'home:lock', title: 'App lock', where: 'Главный экран', words: 'pin password lock apps' }
+  { id: 'step:setup', title: 'Pair with a code', where: 'Setup', words: 'connect wireless debugging adb ip' },
+  { id: 'step:debloat', title: 'Restore', where: 'Clean up', words: 'undo put back packages' },
+  { id: 'step:debloat', title: 'Add a package', where: 'Clean up', words: 'package app missing list' },
+  { id: 'step:extras', title: 'Animation speed', where: 'TV extras', words: 'animations faster' },
+  { id: 'step:extras', title: 'Block ads inside apps', where: 'TV extras', words: 'dns private ad blocking adguard' },
+  { id: 'step:extras', title: 'Remote', where: 'TV extras', words: 'buttons keys' },
+  { id: 'step:extras', title: 'Storage', where: 'TV extras', words: 'space disk free' },
+  { id: 'step:finish', title: 'Restart check', where: 'Finish', words: 'reboot' },
+  { id: 'home:overview', title: 'Install or update CleanMyTV Home', where: 'Home screen', words: 'launcher stock give back' },
+  { id: 'home:layout', title: 'Layout', where: 'Home screen', words: 'sections quick settings sizes clock greeting idle screensaver' },
+  { id: 'home:apps', title: 'Apps, rows & folders', where: 'Home screen', words: 'dock order hide rename folder row' },
+  { id: 'home:look', title: 'Look & wallpaper', where: 'Home screen', words: 'themes accent colour color focus app icons tile shape wallpaper sunrise picture' },
+  { id: 'home:widgets', title: 'Widgets', where: 'Home screen', words: 'weather' },
+  { id: 'home:music', title: 'Music bars', where: 'Home screen', words: 'visualiser style size' },
+  { id: 'home:buttons', title: 'Remote buttons', where: 'Home screen', words: 'button jobs shortcut key press' },
+  { id: 'home:lock', title: 'App lock', where: 'Home screen', words: 'pin password lock apps' }
 ].map((it, i) => ({ ...it, id: `${it.id}#${i}` }))
 
 // A fresh snapshot for the sidebar and the TV list when the last one is older than this.
@@ -77,7 +77,7 @@ export default function App(): ReactNode {
   // The TV runs an older CleanMyTV Home than this app carries.
   const [homeBehind, setHomeBehind] = useState(false)
   const [jumping, setJumping] = useState(false)
-  /** A Домой tab asked for from ⌘K; n changes each time, so the same tab can be asked for twice. */
+  /** A Home tab asked for from ⌘K; n changes each time, so the same tab can be asked for twice. */
   const [homeTab, setHomeTab] = useState<{ tab: string; n: number } | null>(null)
 
   useEffect(() => {
@@ -140,7 +140,7 @@ export default function App(): ReactNode {
   }, [status.state, status.host, step])
 
   useEffect(() => {
-    // Если понадобится вернуться позже to change the wallpaper or the order: reconnect to the last TV by itself.
+    // Coming back later to change the wallpaper or the order: reconnect to the last TV by itself.
     window.cytv.status().then((s) => {
       setStatus(s)
       if (s.state !== 'idle') return
@@ -189,7 +189,7 @@ export default function App(): ReactNode {
         )}
         <ConnPill status={status} />
         <button className="jump-btn" onClick={() => setJumping(true)}>
-          <span>Найти настройку</span>
+          <span>Find a setting</span>
           <kbd>{MOD_KEY}K</kbd>
         </button>
         <nav>
@@ -206,7 +206,7 @@ export default function App(): ReactNode {
                     <span className="step-num">{isDone ? '✓' : i + 1}</span>
                     <span className="step-label">
                       {s.label}
-                      <span className="step-sub">{s.id === 'home' && connected && homeBehind ? 'Доступно обновление для этого ТВ' : s.sub}</span>
+                      <span className="step-sub">{s.id === 'home' && connected && homeBehind ? 'Update ready for this TV' : s.sub}</span>
                     </span>
                   </button>
                 </li>
@@ -215,8 +215,8 @@ export default function App(): ReactNode {
           </ol>
         </nav>
         <div className="sidebar-foot">
-          Приложения не удаляются. Любое изменение можно отменить здесь или в настройках ТВ: Приложения.
-          <a className="gh-link" href={REPO_URL} target="_blank" rel="noreferrer" title="Исходный код, версии и сообщения об ошибках на GitHub">
+          Nothing is uninstalled. Every change can be undone from this app or the TV's Settings → Apps.
+          <a className="gh-link" href={REPO_URL} target="_blank" rel="noreferrer" title="Source, releases and issues on GitHub">
             <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
               <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
             </svg>
@@ -225,7 +225,7 @@ export default function App(): ReactNode {
           <div className="gh-ver">CleanMyTV v{version} · MIT</div>
           {update?.available && (
             <a className="update-link" href={update.url} target="_blank" rel="noreferrer">
-              Version {update.latest} is out. Скачать обновление
+              Version {update.latest} is out. Download it
             </a>
           )}
         </div>
@@ -243,14 +243,14 @@ function ConnPill({ status }: { status: ConnStatus }): ReactNode {
   const p = status.probe
   const [dot, text] =
     status.state === 'connected'
-      ? ['ok', p ? `${p.manufacturer} ${p.model}` : status.host ?? 'Подключено']
+      ? ['ok', p ? `${p.manufacturer} ${p.model}` : status.host ?? 'Connected']
       : status.state === 'connecting'
-        ? ['busy', `Подключение к ${status.host ?? 'ТВ'}`]
+        ? ['busy', `Connecting to ${status.host ?? 'TV'}`]
         : status.state === 'waiting-auth'
-          ? ['busy', 'Ожидание подтверждения на телевизоре']
+          ? ['busy', 'Waiting for Allow on the TV']
           : status.state === 'error'
-            ? ['err', 'Нет подключения']
-            : ['idle', 'Телевизор не подключён']
+            ? ['err', 'Not connected']
+            : ['idle', 'No TV connected']
   return (
     <div className="conn-pill" title={status.error ?? status.host}>
       <span className={`dot ${dot}`} />
