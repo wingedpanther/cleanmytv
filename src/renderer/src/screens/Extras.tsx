@@ -6,12 +6,12 @@ import { Busy, Confirm, ResultNotice, errorText } from '../components/ui'
 const ADGUARD = 'dns.adguard-dns.com'
 
 const SPEEDS: [number, string][] = [
-  [0, 'Выкл.'],
-  [0.5, 'Быстро (0,5×)'],
-  [1, 'Обычно (1×)']
+  [0, 'Off'],
+  [0.5, 'Fast (0.5×)'],
+  [1, 'Normal (1×)']
 ]
 
-export function Extras({ markГотово }: ScreenProps): ReactNode {
+export function Extras({ markDone }: ScreenProps): ReactNode {
   const [sys, setSys] = useState<SystemState | null>(null)
   const [result, setResult] = useState<ApplyResult | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -31,7 +31,7 @@ export function Extras({ markГотово }: ScreenProps): ReactNode {
     try {
       const r = await fn()
       setResult(r)
-      if (r.ok) markГотово('extras')
+      if (r.ok) markDone('extras')
     } catch (e) {
       setResult({ ok: false, summary: errorText(e), warnings: [] })
     } finally {
@@ -40,15 +40,15 @@ export function Extras({ markГотово }: ScreenProps): ReactNode {
     }
   }
 
-  if (!sys) return <Busy text="Чтение настроек телевизора" />
+  if (!sys) return <Busy text="Reading the TV's settings" />
 
   const dnsOn = sys.privateDnsMode === 'hostname' && !!sys.privateDnsHost
   const scale = Number(sys.animationScale === 'null' ? 1 : sys.animationScale)
 
   return (
     <>
-      <h1>Дополнительно</h1>
-      <p className="lede">Настройки телевизора, которые скрыты или недоступны в стандартном меню.</p>
+      <h1>TV extras</h1>
+      <p className="lede">Settings outside the launcher that the TV's own menus hide or don't offer.</p>
       <ResultNotice result={result} onDismiss={() => setResult(null)} />
       {busy && (
         <div className="notice">
@@ -56,14 +56,14 @@ export function Extras({ markГотово }: ScreenProps): ReactNode {
         </div>
       )}
 
-      {sys.storage && <Память storage={sys.storage} busy={!!busy} onОчистить={() => run('Очистка кэша приложений', () => window.cytv.clearCaches())} />}
+      {sys.storage && <Storage storage={sys.storage} busy={!!busy} onClear={() => run('Clearing app caches', () => window.cytv.clearCaches())} />}
 
       <div className="card">
-          <h2>Скорость анимации</h2>
-          <p className="muted small">Скорость открытия меню и приложений во всей системе. На медленных телевизорах отключение анимации делает интерфейс отзывчивее.</p>
+          <h2>Animation speed</h2>
+          <p className="muted small">How fast menus and apps open, across the whole TV. Off feels snappiest on slow TVs.</p>
           <div className="seg">
             {SPEEDS.map(([v, label]) => (
-              <button key={v} className={scale === v ? 'on' : ''} disabled={!!busy} onClick={() => run('Изменение скорости анимации', () => window.cytv.setAnimationScale(v))}>
+              <button key={v} className={scale === v ? 'on' : ''} disabled={!!busy} onClick={() => run('Setting animation speed', () => window.cytv.setAnimationScale(v))}>
                 {label}
               </button>
             ))}
@@ -71,20 +71,20 @@ export function Extras({ markГотово }: ScreenProps): ReactNode {
       </div>
 
       <div className="card">
-        <h2>Заставка Google</h2>
+        <h2>Google screensaver</h2>
         <p className="muted small">
           Shows Google Photos, art and the weather while the TV rests. If it stopped after a clean-up, this turns its two apps
-          back on and sets it as the screensaver again. Очистка leaves them alone after that.
+          back on and sets it as the screensaver again. Clean up leaves them alone after that.
         </p>
-        <button className="btn" disabled={!!busy} onClick={() => run('Восстановление заставки', () => window.cytv.fixScreensaver())}>
-          Восстановить
+        <button className="btn" disabled={!!busy} onClick={() => run('Bringing back the screensaver', () => window.cytv.fixScreensaver())}>
+          Bring it back
         </button>
       </div>
 
       <div className="card">
         <div className="card-head">
-          <h2>Блокировка рекламы в приложениях</h2>
-          <span className={`chip ${dnsOn ? 'ok' : 'optional'}`}>{dnsOn ? `Вкл. · ${sys.privateDnsHost}` : 'Выкл.'}</span>
+          <h2>Block ads inside apps</h2>
+          <span className={`chip ${dnsOn ? 'ok' : 'optional'}`}>{dnsOn ? `On · ${sys.privateDnsHost}` : 'Off'}</span>
         </div>
         <p className="muted">
           Points the TV's Private DNS at an ad-blocking resolver, so ad and tracker domains stop resolving in every app. It
@@ -95,25 +95,25 @@ export function Extras({ markГотово }: ScreenProps): ReactNode {
         ) : (
           <>
             <div className="row">
-              <button className="btn" disabled={!!busy} onClick={() => run('Включение AdGuard DNS', () => window.cytv.setPrivateDns(ADGUARD))}>
-                Использовать AdGuard DNS
+              <button className="btn" disabled={!!busy} onClick={() => run('Turning on AdGuard DNS', () => window.cytv.setPrivateDns(ADGUARD))}>
+                Use AdGuard DNS
               </button>
-              <input type="text" value={dnsHost} onChange={(e) => setDnsHost(e.target.value)} placeholder="или другой DNS-сервер, например dns.nextdns.io" style={{ width: 280 }} />
+              <input type="text" value={dnsHost} onChange={(e) => setDnsHost(e.target.value)} placeholder="or another resolver, e.g. dns.nextdns.io" style={{ width: 280 }} />
               <button
                 className="btn"
                 disabled={!!busy || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(dnsHost.trim())}
-                onClick={() => run('Настройка частного DNS', () => window.cytv.setPrivateDns(dnsHost.trim()))}
+                onClick={() => run('Setting Private DNS', () => window.cytv.setPrivateDns(dnsHost.trim()))}
               >
-                Использовать этот
+                Use this one
               </button>
               {dnsOn && (
-                <button className="btn ghost" disabled={!!busy} onClick={() => run('Отключение частного DNS', () => window.cytv.setPrivateDns(null))}>
+                <button className="btn ghost" disabled={!!busy} onClick={() => run('Turning Private DNS off', () => window.cytv.setPrivateDns(null))}>
                   Turn off
                 </button>
               )}
             </div>
             <p className="small muted" style={{ marginTop: 10 }}>
-              Если приложение перестало воспроизводить контент или телевизор сообщает «Нет интернета», возможно, DNS-сервер недоступен. Отключите эту настройку.
+              If an app stops playing or the TV says “No internet”, the resolver is down. Turn this off.
             </p>
           </>
         )}
@@ -121,23 +121,23 @@ export function Extras({ markГотово }: ScreenProps): ReactNode {
 
       <div>
         <div className="card">
-          <h2>Пульт</h2>
-          <p className="muted small">Нажимайте кнопки телевизора прямо здесь — удобно, если пульт в другой комнате.</p>
+          <h2>Remote</h2>
+          <p className="muted small">Press buttons on the TV from here, handy when the remote is in the other room.</p>
           <div className="row" style={{ gap: 24, alignItems: 'flex-start' }}>
-            <div className="remote" role="group" aria-label="Пульт control">
+            <div className="remote" role="group" aria-label="Remote control">
               <span />
-              <Key code={19} label="▲" name="Вверх" />
+              <Key code={19} label="▲" name="Up" />
               <span />
-              <Key code={21} label="◀" name="Влево" />
-              <Key code={23} label="ОК" name="ОК" round />
-              <Key code={22} label="▶" name="Вправо" />
+              <Key code={21} label="◀" name="Left" />
+              <Key code={23} label="OK" name="OK" round />
+              <Key code={22} label="▶" name="Right" />
               <span />
-              <Key code={20} label="▼" name="Вниз" />
+              <Key code={20} label="▼" name="Down" />
               <span />
             </div>
             <div className="stack" style={{ gap: 6 }}>
-              <Key code={3} label="Домой" wide />
-              <Key code={4} label="Назад" wide />
+              <Key code={3} label="Home" wide />
+              <Key code={4} label="Back" wide />
               <div className="row" style={{ gap: 6 }}>
                 <Key code={25} label="Vol −" wide />
                 <Key code={24} label="Vol +" wide />
@@ -146,7 +146,7 @@ export function Extras({ markГотово }: ScreenProps): ReactNode {
           </div>
           <div style={{ marginTop: 14 }}>
             <button className="btn small ghost" onClick={() => setAskReboot(true)}>
-              Перезапустить телевизор
+              Restart the TV
             </button>
           </div>
         </div>
@@ -154,18 +154,18 @@ export function Extras({ markГотово }: ScreenProps): ReactNode {
 
       {askReboot && (
         <Confirm
-          title="Перезапустить телевизор?"
-          confirmLabel="Перезапустить"
-          onОтмена={() => setAskReboot(false)}
+          title="Restart the TV?"
+          confirmLabel="Restart"
+          onCancel={() => setAskReboot(false)}
           onConfirm={() => {
             setAskReboot(false)
             window.cytv.reboot().then(
-              () => setResult({ ok: true, summary: 'The TV is restarting. Подключить again from Подключение once it is back.', warnings: [] }),
+              () => setResult({ ok: true, summary: 'The TV is restarting. Connect again from Setup once it is back.', warnings: [] }),
               (e) => setResult({ ok: false, summary: errorText(e), warnings: [] })
             )
           }}
         >
-          <p>Во время перезапуска соединение прервётся. На некоторых телевизорах порт 5555 останется закрытым до повторного сопряжения.</p>
+          <p>The connection drops while it restarts. On some TVs, port 5555 stays closed after a restart until you pair again.</p>
         </Confirm>
       )}
     </>
@@ -175,7 +175,7 @@ export function Extras({ markГотово }: ScreenProps): ReactNode {
 // Below this, installs and app updates start failing on most TVs (#48).
 const LOW_MB = 500
 
-function Память({ storage, busy, onОчистить }: { storage: NonNullable<SystemState['storage']>; busy: boolean; onОчистить: () => void }): ReactNode {
+function Storage({ storage, busy, onClear }: { storage: NonNullable<SystemState['storage']>; busy: boolean; onClear: () => void }): ReactNode {
   const free = Math.round(storage.freeKb / 1024)
   const total = Math.round(storage.totalKb / 1024)
   const used = Math.min(100, Math.max(0, 100 - (storage.freeKb / storage.totalKb) * 100))
@@ -184,21 +184,21 @@ function Память({ storage, busy, onОчистить }: { storage: NonNulla
   return (
     <div className="card">
       <div className="card-head">
-        <h2>Память</h2>
+        <h2>Storage</h2>
         <span className={`chip ${low ? 'warn' : 'ok'}`}>{gb(free)} free</span>
       </div>
-      <div className={`progress${low ? ' low' : ''}`} role="meter" aria-valuenow={Math.round(used)} aria-valuemin={0} aria-valuemax={100} aria-label="Память used">
+      <div className={`progress${low ? ' low' : ''}`} role="meter" aria-valuenow={Math.round(used)} aria-valuemin={0} aria-valuemax={100} aria-label="Storage used">
         <div style={{ width: `${used}%` }} />
       </div>
       <p className="muted small" style={{ marginTop: 8 }}>
         {gb(total - free)} of {gb(total)} used.{' '}
-        {low ? 'Свободного места мало: установка и обновление приложений могут завершаться с ошибкой.' : 'Здесь приложения хранят кэш, который при необходимости создают заново.'}
+        {low ? 'Low enough that installs and app updates can fail.' : 'Apps keep caches here that they rebuild when needed.'}
       </p>
       <div className="row" style={{ marginTop: 12 }}>
-        <button className="btn" disabled={busy} onClick={onОчистить}>
-          Очистить кэш приложений
+        <button className="btn" disabled={busy} onClick={onClear}>
+          Clear app caches
         </button>
-        <span className="muted small">Учётные записи и настройки сохранятся. При первом запуске приложения могут открываться немного медленнее.</span>
+        <span className="muted small">Logins and settings stay. Apps may open a little slower the first time.</span>
       </div>
     </div>
   )
