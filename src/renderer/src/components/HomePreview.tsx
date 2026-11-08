@@ -24,8 +24,8 @@ const QUICK_GLYPH: Record<QuickId, string> = {
 }
 
 export const QUICK_LABEL: Record<QuickId, string> = {
-  inputs: 'Inputs', wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: 'Picture & sound', apps: 'Apps', sleep: 'Screensaver', search: 'Search', music: 'Music bars', settings: 'Settings',
-  panel: 'Quick settings', themes: 'Themes', fireplace: 'Fireplace'
+  inputs: 'Inputs', wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: 'Picture & sound', apps: 'Apps', sleep: 'Screensaver', search: 'Search', music: 'Музыкальные полосы', settings: 'Settings',
+  panel: 'Быстрые настройки', themes: 'Темы', fireplace: 'Камин'
 }
 
 export function QuickIcon({ id, size = 16 }: { id: QuickId; size?: number }): ReactNode {
@@ -134,8 +134,8 @@ function Sections({ apps, cfg, width, dockW, showFolders = true }: { apps: TvApp
             <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 14, width: 520, padding: 12, margin: '8px 0', borderRadius: 14, background: 'rgba(45,58,46,0.88)' }}>
               <div style={{ width: 64, height: 64, borderRadius: 8, background: '#3A4A3B', flex: 'none' }} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 17, fontWeight: 500 }}>What's playing</div>
-                <div style={{ fontSize: 13, color: '#D7CFC4', marginTop: 3 }}>Artist · App, while something plays</div>
+                <div style={{ fontSize: 17, fontWeight: 500 }}>Что воспроизводится</div>
+                <div style={{ fontSize: 13, color: '#D7CFC4', marginTop: 3 }}>Исполнитель · приложение, когда что-то воспроизводится</div>
               </div>
               {['❚❚', '▸▸'].map((g) => (
                 <div key={g} style={{ width: 44, height: 44, borderRadius: 22, background: 'rgba(255,255,255,0.08)', display: 'grid', placeItems: 'center', fontSize: 13 }}>{g}</div>
@@ -160,7 +160,7 @@ function Sections({ apps, cfg, width, dockW, showFolders = true }: { apps: TvApp
         if (s === 'folders' && showFolders && m.folders.length)
           return (
             <div key={s}>
-              <Title>Folders</Title>
+              <Title>Папки</Title>
               <div style={{ display: 'flex', gap: GAP, padding: '6px 0' }}>
                 {m.folders.map((f) => <Folder key={f.name} name={f.name} apps={f.apps} w={rowW} />)}
               </div>
@@ -296,7 +296,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
   return (
     <div ref={box} className="home-preview" style={{ height: H * scale }} aria-label="Preview of the TV home screen">
       <div style={{ width: W, height: H, transform: `scale(${scale})`, transformOrigin: '0 0', color: '#F0EBE5', fontFamily: 'Roboto, system-ui, sans-serif', ...ground }}>{body}</div>
-      <span className="home-preview-note">Sample time and greeting · app art shows on the TV</span>
+      <span className="home-preview-note">Пример времени и приветствия · значки приложений отображаются на телевизоре</span>
     </div>
   )
 }

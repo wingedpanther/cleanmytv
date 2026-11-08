@@ -153,7 +153,7 @@ export function Setup({ status, go, tvs, refreshTvs }: ScreenProps): ReactNode {
 
   return (
     <>
-      <h1>Set up</h1>
+      <h1>Настройка</h1>
       <p className="lede">
         This app talks to the TV over your Wi-Fi. You don't need Python, Java or Android tools to clean the TV and install
         the home screen. The one optional download is only for pairing some Google TVs.
@@ -166,7 +166,7 @@ export function Setup({ status, go, tvs, refreshTvs }: ScreenProps): ReactNode {
           tvs={tvs}
           status={status}
           onChange={refreshTvs}
-          title={tvs.length > 1 ? 'Which TV?' : 'Your TV'}
+          title={tvs.length > 1 ? 'Какой телевизор?' : 'Ваш телевизор'}
           hint={tvs.length > 1 ? "You've used this app with more than one TV, so it waits for you to pick." : undefined}
         />
       )}
@@ -483,7 +483,7 @@ function WaitingForAllow(): ReactNode {
         <b>Allow USB debugging?</b>
         <div className="small">RSA key fingerprint…</div>
         <div className="small">☑ Always allow from this computer</div>
-        <div className="am-btn">Cancel</div>
+        <div className="am-btn">Отмена</div>
         <div className="am-btn focus">Allow</div>
       </div>
       <div>

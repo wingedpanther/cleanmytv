@@ -27,11 +27,11 @@ export function Toggle(props: {
 }
 
 const chipText: Record<CheckStatus, string> = {
-  ok: 'Ready',
-  missing: 'Needed',
-  warn: 'Check',
-  optional: 'Optional',
-  checking: 'Checking'
+  ok: 'Готово',
+  missing: 'Требуется',
+  warn: 'Проверить',
+  optional: 'Необязательно',
+  checking: 'Проверка'
 }
 
 export function StatusChip({ status, text }: { status: CheckStatus; text?: string }): ReactNode {
@@ -162,8 +162,8 @@ export function NotConnected({ onGo }: { onGo: () => void }): ReactNode {
   return (
     <div className="empty">
       <div className="tv-glyph" />
-      <h2>Connect to your TV first</h2>
-      <p className="muted">This step reads and changes things on the TV, so it needs the connection from Setup.</p>
+      <h2>Сначала подключитесь к телевизору</h2>
+      <p className="muted">Этот шаг считывает и изменяет настройки телевизора, поэтому сначала подключитесь к нему в разделе «Подключение».</p>
       <button className="btn primary" onClick={onGo}>
         Go to Setup
       </button>
@@ -246,12 +246,12 @@ export function UndoToast(props: {
   const total = (props.seconds ?? 10) * 1000
   const [left, setLeft] = useState(total)
   const [paused, setPaused] = useState(false)
-  const [state, setState] = useState<'open' | 'undoing' | 'undone' | 'leaving'>('open')
+  const [state, setState] = useState<'открыть' | 'undoing' | 'undone' | 'leaving'>('открыть')
   const close = useRef(props.onClose)
   close.current = props.onClose
 
   useEffect(() => {
-    if (paused || state !== 'open') return
+    if (paused || state !== 'открыть') return
     let last = performance.now()
     let frame = requestAnimationFrame(function tick(now) {
       setLeft((l) => Math.max(0, l - (now - last)))
@@ -262,7 +262,7 @@ export function UndoToast(props: {
   }, [paused, state])
 
   useEffect(() => {
-    if (left === 0 && state === 'open') setState('leaving')
+    if (left === 0 && state === 'открыть') setState('leaving')
   }, [left, state])
   useEffect(() => {
     if (state === 'undone') {
@@ -291,16 +291,16 @@ export function UndoToast(props: {
         onMouseLeave={() => setPaused(false)}
       >
         <span className="toast-icon">{state === 'undone' ? <Tick /> : state === 'undoing' ? <span className="spinner" /> : <Tick />}</span>
-        <span className="toast-text">{state === 'undone' ? props.undoneText : state === 'undoing' ? 'Putting it back' : props.text}</span>
-        {state === 'open' && (
+        <span className="toast-text">{state === 'undone' ? props.undoneText : state === 'undoing' ? 'Возврат изменений' : props.text}</span>
+        {state === 'открыть' && (
           <button className="btn small" onClick={undo}>
             ↶ Undo
           </button>
         )}
-        <button className="icon-btn" onClick={() => setState('leaving')} aria-label="Close">
+        <button className="icon-btn" onClick={() => setState('leaving')} aria-label="Закрыть">
           ✕
         </button>
-        {state === 'open' && <span className="toast-clock" style={{ transform: `scaleX(${left / total})` }} />}
+        {state === 'открыть' && <span className="toast-clock" style={{ transform: `scaleX(${left / total})` }} />}
       </div>
     </div>
   )
@@ -385,7 +385,7 @@ export function Stepper(props: { steps: string[]; at: number; failed?: boolean; 
     <ol className="stepper" aria-label="Progress">
       {props.steps.map((label, i) => {
         const skipped = props.skipped?.includes(i)
-        const state = i < props.at ? (skipped ? 'skipped' : 'complete') : i === props.at ? (props.failed ? 'failed' : 'current') : 'upcoming'
+        const state = i < props.at ? (skipped ? 'пропущено' : 'complete') : i === props.at ? (props.failed ? 'failed' : 'current') : 'upcoming'
         return (
           <li key={label} className={`stepper-step ${state}`} aria-current={state === 'current' ? 'step' : undefined}>
             {i > 0 && (
@@ -393,7 +393,7 @@ export function Stepper(props: { steps: string[]; at: number; failed?: boolean; 
                 <span style={{ transform: `scaleX(${i <= props.at ? 1 : 0})` }} />
               </span>
             )}
-            <span className="stepper-dot">{state === 'complete' ? <Tick /> : state === 'failed' ? '!' : state === 'skipped' ? '–' : i + 1}</span>
+            <span className="stepper-dot">{state === 'complete' ? <Tick /> : state === 'failed' ? '!' : state === 'пропущено' ? '–' : i + 1}</span>
             <span className="stepper-label">
               {label}
               {skipped && <span className="sr-only"> (skipped)</span>}

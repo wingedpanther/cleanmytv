@@ -4,10 +4,10 @@ import type { BootCheckResult } from '@shared/api'
 import { Busy, errorText } from '../components/ui'
 
 const STEPS = [
-  'On the TV, open Developer options and turn off USB debugging.',
-  'Turn off Network debugging, ADB debugging or Wireless debugging if your TV has it.',
+  'На телевизоре откройте «Для разработчиков» и отключите отладку по USB.',
+  'Если на телевизоре есть отладка по сети, ADB или беспроводная отладка — отключите её.',
   'Optional: choose Revoke USB debugging authorisations, so no computer is trusted any more. Skip this to avoid the Allow prompt next time.',
-  'Restart the TV.'
+  'Перезапустите телевизор.'
 ]
 
 export function Finish({ status, markDone }: ScreenProps): ReactNode {
@@ -53,7 +53,7 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
 
   return (
     <>
-      <h1>Finish and lock</h1>
+      <h1>Завершение и защита</h1>
       <p className="lede">
         Network debugging is a plain-text shell on port 5555. On some TVs any device on your Wi-Fi can use it without the Allow
         prompt. Close it when you're done. The home screen and the clean-up keep working without it. Turn it on again
@@ -71,7 +71,7 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
             Restart the TV and check
           </button>
           {restarting && <Busy text="Restarting the TV and waiting for its home screen. This can take 3 minutes" />}
-          {!restarting && status.state !== 'connected' && !boot && <span className="small muted">Connect to the TV first.</span>}
+          {!restarting && status.state !== 'connected' && !boot && <span className="small muted">Сначала подключитесь к телевизору.</span>}
         </div>
         {boot && (
           <div className={`notice ${boot.ok ? 'ok' : 'error'}`} style={{ marginTop: 16, marginBottom: 0 }}>
@@ -107,7 +107,7 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
       </div>
 
       <div className="card white">
-        <h2>Coming back later</h2>
+        <h2>Если понадобится вернуться позже</h2>
         <p className="muted" style={{ marginBottom: 8 }}>
           To change the wallpaper, the app order or anything else on the home screen:
         </p>

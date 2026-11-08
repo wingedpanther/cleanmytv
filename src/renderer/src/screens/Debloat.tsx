@@ -175,7 +175,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
 
   return (
     <>
-      <h1>Clean up</h1>
+      <h1>Очистка</h1>
       <p className="lede">
         Pick the list for your TV and untick anything you use. Packages are switched off for your user, never uninstalled.
         Before the first change, the app writes down how the TV was set up, so Restore puts every package back as it was.
@@ -184,7 +184,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
       <div className="card">
         <div className="card-head">
           <div>
-            <h2>Which list?</h2>
+            <h2>Какой список?</h2>
             <p className="muted small" style={{ margin: 0 }}>
               {selectedList
                 ? selectedList.score > 0
@@ -207,8 +207,8 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
                 className={`list-opt${l.id === listId ? ' selected' : ''}`}
                 onClick={() => setListId(l.id)}
               >
-                {l.score > 0 && <span className="chip ok">Match</span>}
-                {l.id === 'custom' && <span className="chip">Your TV</span>}
+                {l.score > 0 && <span className="chip ok">Совпадение</span>}
+                {l.id === 'custom' && <span className="chip">Ваш телевизор</span>}
                 <span className="title">{l.title}</span>
                 {l.id !== 'custom' && <span className="id">{l.id}</span>}
               </button>
@@ -247,19 +247,19 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
           <div className="stat-row">
             <div className="stat">
               <b>{counts.disable}</b>
-              <span>will be switched off</span>
+              <span>будут отключены</span>
             </div>
             <div className="stat">
               <b>{toEnable.length}</b>
-              <span>will be switched back on</span>
+              <span>будут включены обратно</span>
             </div>
             <div className="stat">
               <b>{counts.disabled}</b>
-              <span>already off</span>
+              <span>уже отключены</span>
             </div>
             <div className="stat">
               <b>{counts.absent}</b>
-              <span>not on this TV</span>
+              <span>не установлено на этом ТВ</span>
             </div>
           </div>
 
@@ -269,7 +269,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
               only copy.
             </div>
           ) : (
-            <div className="notice">No restore point yet. The app saves one before the first package is switched off.</div>
+            <div className="notice">Точка восстановления ещё не создана. Приложение сохранит её перед первым отключением пакета.</div>
           )}
 
           {!!plan.cameBack?.length && (
@@ -317,9 +317,9 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
               <thead>
                 <tr>
                   <th style={{ width: 36 }} />
-                  <th>Package</th>
-                  <th style={{ width: 120 }}>On the TV</th>
-                  <th>Why</th>
+                  <th>Пакет</th>
+                  <th style={{ width: 120 }}>На телевизоре</th>
+                  <th>Причина</th>
                 </tr>
               </thead>
               <tbody>
@@ -431,7 +431,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
         </div>
       )}
 
-      {undo && <UndoToast key={undo.text + undo.disable.length} text={undo.text} undoneText="Put back as it was" onUndo={undoApply} onClose={() => setUndo(null)} />}
+      {undo && <UndoToast key={undo.text + undo.disable.length} text={undo.text} undoneText="Вернуть как было" onUndo={undoApply} onClose={() => setUndo(null)} />}
 
       {confirm === 'apply' && plan && (
         <Confirm title="Apply these changes?" confirmLabel="Apply" onConfirm={apply} onCancel={() => setConfirm(null)}>
@@ -445,7 +445,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
             on {status.probe ? `${status.probe.manufacturer} ${status.probe.model}` : status.host}.
           </p>
           <p className="muted small">
-            {plan.record ? 'The restore point from the first run is kept.' : 'A restore point is saved first.'} Apps you keep
+            {plan.record ? 'Точка восстановления, созданная при первом запуске, сохранена.' : 'Сначала будет сохранена точка восстановления.'} Apps you keep
             update through the Play Store as before.
           </p>
         </Confirm>
@@ -456,7 +456,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
             Every package from this list goes back to how it was on {fmtDate(plan.record?.created)}. Packages that were already
             off then stay off. Home goes back to the launcher that owned it.
           </p>
-          <p className="muted small">CleanMyTV Home stays installed. Remove it from the TV's Settings → Apps if you want it gone.</p>
+          <p className="muted small">CleanMyTV Home останется установленным. Если хотите удалить его, сделайте это в настройках телевизора → Приложения.</p>
         </Confirm>
       )}
     </>
@@ -508,7 +508,7 @@ function AddPackage({ have, onAdd }: { have: DebloatEntry[]; onAdd: (e: DebloatE
   }
   return (
     <div className="card" style={{ marginTop: 16 }}>
-      <h3 style={{ marginTop: 0 }}>Add a package</h3>
+      <h3 style={{ marginTop: 0 }}>Добавить пакет</h3>
       <p className="small muted" style={{ marginTop: 0 }}>
         Type a package name, or pick one of the {options.length || ''} apps that are on. It joins the list ticked, the restore point
         covers it, and Restore switches it back on.
@@ -552,12 +552,12 @@ function AddPackage({ have, onAdd }: { have: DebloatEntry[]; onAdd: (e: DebloatE
 }
 
 function StateBadge({ state, recorded, ticked }: { state: PackageState; recorded?: PackageState; ticked: boolean }): ReactNode {
-  if (state === 'absent') return <span className="chip optional">Not installed</span>
+  if (state === 'absent') return <span className="chip optional">Не установлено</span>
   if (state === 'disabled') {
-    if (!ticked && recorded === 'enabled') return <span className="chip warn">Off · turns on</span>
-    return <span className="chip">Off</span>
+    if (!ticked && recorded === 'enabled') return <span className="chip warn">Выкл. · будет включено</span>
+    return <span className="chip">Выкл.</span>
   }
-  return ticked ? <span className="chip warn">On · turns off</span> : <span className="chip ok">On · kept</span>
+  return ticked ? <span className="chip warn">Вкл. · будет отключено</span> : <span className="chip ok">Вкл. · оставить</span>
 }
 
 function fmtDate(iso?: string): string {

@@ -4,7 +4,7 @@ name: Build
 # macOS and Windows installers; a v* tag then opens a draft release with them attached.
 on:
   push:
-    branches: [main]
+    branches: [main, feature/russian-localization]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -88,9 +88,16 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with: { name: launcher, path: resources }
-      - run: npm run dist:${{ matrix.os == 'windows-latest' && 'win' || 'mac' }}
+      # Cache helper binaries downloaded by electron-builder (DMG/NSIS tooling).
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .electron-builder-cache
+          key: ${{ runner.os }}-electron-builder-${{ hashFiles('package-lock.json') }}
+      - name: Build application with transient-network retries
+        run: npm run dist:${{ matrix.os == 'windows-latest' && 'win' || 'mac' }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.electron-builder-cache
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: CleanMyTV-${{ runner.os }}

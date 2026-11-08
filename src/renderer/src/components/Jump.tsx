@@ -89,9 +89,9 @@ export function Jump({ items, onPick, onClose }: { items: JumpItem[]; onPick: (i
           {shown.length === 0 && <div className="jump-empty">Nothing called “{q}”.</div>}
         </div>
         <div className="jump-foot">
-          <span><kbd>↑</kbd> <kbd>↓</kbd> move</span>
-          <span><kbd>Enter</kbd> open</span>
-          <span><kbd>Esc</kbd> close</span>
+          <span><kbd>↑</kbd> <kbd>↓</kbd> перемещение</span>
+          <span><kbd>Enter</kbd> открыть</span>
+          <span><kbd>Esc</kbd> закрыть</span>
         </div>
       </div>
     </div>

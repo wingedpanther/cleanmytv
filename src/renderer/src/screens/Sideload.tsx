@@ -63,11 +63,11 @@ export function Sideload(_props: ScreenProps): ReactNode {
   const busy = phase === 'busy'
   return (
     <>
-      <h1>Install an app</h1>
+      <h1>Установка приложения</h1>
       <p className="lede">Put an app on the TV that isn't in its store. Download the app's .apk file on this computer, then drop it here.</p>
 
       <div className="notice warn">
-        <b>Only install apps you trust.</b> An app from outside the Play Store hasn't been checked by Google. It can show ads, collect what
+        <b>Устанавливайте только приложения, которым доверяете.</b> An app from outside the Play Store hasn't been checked by Google. It can show ads, collect what
         you watch, or harm the TV. Get apps from their maker's own website, and skip anything that asks for more than it needs.
       </div>
 
@@ -90,8 +90,8 @@ export function Sideload(_props: ScreenProps): ReactNode {
             void pick(f)
           }}
         />
-        <p className="drop-title">{reading ? 'Reading the app…' : 'Drop an .apk file here'}</p>
-        <button className="btn" disabled={busy || reading} onClick={() => file.current?.click()}>Choose a file…</button>
+        <p className="drop-title">{reading ? 'Чтение данных приложения…' : 'Перетащите файл .apk сюда'}</p>
+        <button className="btn" disabled={busy || reading} onClick={() => file.current?.click()}>Выбрать файл…</button>
         <p className="small muted" style={{ marginBottom: 0 }}>Single .apk files only. Bundles (.apks, .xapk) aren't supported.</p>
       </div>
 
@@ -112,7 +112,7 @@ export function Sideload(_props: ScreenProps): ReactNode {
           </p>
           <div className="row">
             <ActionButton phase={phase} primary label={info.installed ? 'Update on the TV' : 'Install on the TV'} busyLabel="Installing" doneLabel="Installed" disabled={busy} onClick={() => void install()} />
-            {!busy && <button className="btn ghost" onClick={() => { setInfo(null); setPath(null) }}>Cancel</button>}
+            {!busy && <button className="btn ghost" onClick={() => { setInfo(null); setPath(null) }}>Отмена</button>}
           </div>
           {sent && (
             <>
