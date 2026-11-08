@@ -14,11 +14,11 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
   const [loadingPlan, setLoadingPlan] = useState(false)
   const [ticked, setTicked] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState<Filter>('all')
-  const [find, setFind] = useState('')
+  const [find, setНайти] = useState('')
   const [confirm, setConfirm] = useState<'apply' | 'restore' | null>(null)
   const [applyPhase, setApplyPhase] = usePhase()
   const [restorePhase, setRestorePhase] = usePhase()
-  const [backPhase, setBackPhase] = usePhase()
+  const [backPhase, setНазадPhase] = usePhase()
   const busy = applyPhase === 'busy' || restorePhase === 'busy'
   /** What the last Apply changed, so the toast can put it back. */
   const [undo, setUndo] = useState<{ text: string; disable: string[]; enable: string[] } | null>(null)
@@ -138,15 +138,15 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
   }
 
   /** Packages a firmware update switched back on: off again, as they were. */
-  async function switchBackOff(): Promise<void> {
-    if (!plan?.cameBack?.length) return
-    setBackPhase('busy')
+  async function switchНазадOff(): Promise<void> {
+    if (!plan?.cameНазад?.length) return
+    setНазадPhase('busy')
     try {
-      const r = await window.cytv.applyDebloat({ listId: plan.listId, disable: plan.cameBack, enable: [], forceHome, forceSetupwraith: forceSetup })
-      setBackPhase(r.ok ? 'done' : 'failed')
+      const r = await window.cytv.applyDebloat({ listId: plan.listId, disable: plan.cameНазад, enable: [], forceHome, forceSetupwraith: forceSetup })
+      setНазадPhase(r.ok ? 'done' : 'failed')
       if (!r.ok || r.warnings.length) setResult(r)
     } catch (e) {
-      setBackPhase('failed')
+      setНазадPhase('failed')
       setResult({ ok: false, summary: errorText(e), warnings: [] })
     } finally {
       loadPlan(plan.listId, true)
@@ -259,7 +259,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
             </div>
             <div className="stat">
               <b>{counts.absent}</b>
-              <span>not on this TV</span>
+              <span>не установлено на этом ТВ</span>
             </div>
           </div>
 
@@ -272,20 +272,20 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
             <div className="notice">No restore point yet. The app saves one before the first package is switched off.</div>
           )}
 
-          {!!plan.cameBack?.length && (
+          {!!plan.cameНазад?.length && (
             <div className="notice warn">
-              {plan.cameBack.length === 1 ? '1 package' : `${plan.cameBack.length} packages`} you switched off {plan.cameBack.length === 1 ? 'is' : 'are'} on
-              again, often after a firmware update: <code>{plan.cameBack.join(', ')}</code>.
+              {plan.cameНазад.length === 1 ? '1 package' : `${plan.cameНазад.length} packages`} you switched off {plan.cameНазад.length === 1 ? 'is' : 'are'} on
+              again, often after a firmware update: <code>{plan.cameНазад.join(', ')}</code>.
               <div style={{ marginTop: 10 }}>
-                <ActionButton phase={backPhase} label="Switch them off again" busyLabel="Switching off" doneLabel="Off again" onClick={() => void switchBackOff()} />
+                <ActionButton phase={backPhase} label="Switch them off again" busyLabel="Switching off" doneLabel="Off again" onClick={() => void switchНазадOff()} />
               </div>
             </div>
           )}
 
           {stockHome && (
             <div className="notice warn">
-              This list switches off <code>{plan.homePackage}</code>, which is your Home screen right now. The app skips it until
-              the new launcher is Home, so the TV always has something to start. Install CleanMyTV Home (Home screen step), then apply this list
+              This list switches off <code>{plan.homePackage}</code>, which is your Главный экран right now. The app skips it until
+              the new launcher is Home, so the TV always has something to start. Install CleanMyTV Home (Главный экран step), then apply this list
               again.
             </div>
           )}
@@ -297,7 +297,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
                   ['all', `All ${counts.all}`],
                   ['disable', `Will switch off ${counts.disable}`],
                   ['disabled', `Already off ${counts.disabled}`],
-                  ['absent', `Not installed ${counts.absent}`]
+                  ['absent', `Не установлено ${counts.absent}`]
                 ] as [Filter, string][]
               ).map(([f, label]) => (
                 <button key={f} className={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>
@@ -305,10 +305,10 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
                 </button>
               ))}
             </div>
-            <input type="search" placeholder="Find a package" value={find} onChange={(e) => setFind(e.target.value)} aria-label="Find a package" style={{ width: 200 }} />
+            <input type="search" placeholder="Найти a package" value={find} onChange={(e) => setНайти(e.target.value)} aria-label="Найти a package" style={{ width: 200 }} />
             <span className="spacer" />
             <button className="btn small ghost" onClick={() => setTicked(new Set(plan.entries.filter(defaultTick).map((e) => e.pkg)))}>
-              Back to the list's choices
+              Назад to the list's choices
             </button>
           </div>
 
@@ -318,7 +318,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
                 <tr>
                   <th style={{ width: 36 }} />
                   <th>Package</th>
-                  <th style={{ width: 120 }}>On the TV</th>
+                  <th style={{ width: 120 }}>На телевизоре</th>
                   <th>Why</th>
                 </tr>
               </thead>
@@ -338,7 +338,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
                       <div className="pkg-name">{e.pkg}</div>
                       {e.choice && <div className="choice-tag">Your choice · {e.choice}</div>}
                       <div className="small muted">
-                        {e.added && 'Added by you. '}
+                        {e.added && 'Добавлено by you. '}
                         {!e.suggested && 'Kept by the list author. '}
                         {e.common > 1 && `Switched off in ${e.common} lists.`}
                       </div>
@@ -431,7 +431,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
         </div>
       )}
 
-      {undo && <UndoToast key={undo.text + undo.disable.length} text={undo.text} undoneText="Put back as it was" onUndo={undoApply} onClose={() => setUndo(null)} />}
+      {undo && <UndoToast key={undo.text + undo.disable.length} text={undo.text} undoneText="Put back as it was" onUndo={undoApply} onЗакрыть={() => setUndo(null)} />}
 
       {confirm === 'apply' && plan && (
         <Confirm title="Apply these changes?" confirmLabel="Apply" onConfirm={apply} onCancel={() => setConfirm(null)}>
@@ -445,7 +445,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
             on {status.probe ? `${status.probe.manufacturer} ${status.probe.model}` : status.host}.
           </p>
           <p className="muted small">
-            {plan.record ? 'The restore point from the first run is kept.' : 'A restore point is saved first.'} Apps you keep
+            {plan.record ? 'The restore point from the first run is kept.' : 'A restore point is saved first.'} Приложения you keep
             update through the Play Store as before.
           </p>
         </Confirm>
@@ -456,7 +456,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
             Every package from this list goes back to how it was on {fmtDate(plan.record?.created)}. Packages that were already
             off then stay off. Home goes back to the launcher that owned it.
           </p>
-          <p className="muted small">CleanMyTV Home stays installed. Remove it from the TV's Settings → Apps if you want it gone.</p>
+          <p className="muted small">CleanMyTV Home stays installed. Удалить it from the TV's Settings → Приложения if you want it gone.</p>
         </Confirm>
       )}
     </>
@@ -552,7 +552,7 @@ function AddPackage({ have, onAdd }: { have: DebloatEntry[]; onAdd: (e: DebloatE
 }
 
 function StateBadge({ state, recorded, ticked }: { state: PackageState; recorded?: PackageState; ticked: boolean }): ReactNode {
-  if (state === 'absent') return <span className="chip optional">Not installed</span>
+  if (state === 'absent') return <span className="chip optional">Не установлено</span>
   if (state === 'disabled') {
     if (!ticked && recorded === 'enabled') return <span className="chip warn">Off · turns on</span>
     return <span className="chip">Off</span>
@@ -564,5 +564,5 @@ function fmtDate(iso?: string): string {
   if (!iso) return 'earlier'
   // recovery.py writes %Y-%m-%dT%H:%M:%S%z, e.g. 2026-10-20T14:03:00+0100.
   const d = new Date(iso.replace(/([+-]\d{2})(\d{2})$/, '$1:$2'))
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString([], { dateСтиль: 'medium', timeСтиль: 'short' })
 }
