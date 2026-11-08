@@ -47,7 +47,7 @@ export function Modal(props: { children: ReactNode; onClose: () => void; wide?: 
     return () => window.removeEventListener('keydown', onKey)
   }, [props.onClose])
   return (
-    <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && props.onClose()}>
+    <div className="modal-back" onMouseВниз={(e) => e.target === e.currentTarget && props.onClose()}>
       <div className={`modal${props.wide ? ' wide' : ''}`} role="dialog" aria-modal="true">
         {props.children}
       </div>
@@ -60,15 +60,15 @@ export function Confirm(props: {
   children: ReactNode
   confirmLabel: string
   onConfirm: () => void
-  onCancel: () => void
+  onОтмена: () => void
 }): ReactNode {
   return (
-    <Modal onClose={props.onCancel}>
+    <Modal onClose={props.onОтмена}>
       <h2>{props.title}</h2>
       <div>{props.children}</div>
       <div className="modal-actions">
-        <button className="btn ghost" onClick={props.onCancel}>
-          Cancel
+        <button className="btn ghost" onClick={props.onОтмена}>
+          Отмена
         </button>
         <button className="btn primary" onClick={props.onConfirm} autoFocus>
           {props.confirmLabel}
@@ -158,14 +158,14 @@ export function errorText(e: unknown): string {
   return msg.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 }
 
-export function NotConnected({ onGo }: { onGo: () => void }): ReactNode {
+export function NotПодключено({ onGo }: { onGo: () => void }): ReactNode {
   return (
     <div className="empty">
       <div className="tv-glyph" />
-      <h2>Connect to your TV first</h2>
-      <p className="muted">This step reads and changes things on the TV, so it needs the connection from Setup.</p>
+      <h2>Подключить to your TV first</h2>
+      <p className="muted">This step reads and changes things on the TV, so it needs the connection from Подключение.</p>
       <button className="btn primary" onClick={onGo}>
-        Go to Setup
+        Go to Подключение
       </button>
     </div>
   )
@@ -204,7 +204,7 @@ export function ActionButton(props: {
   const faces: [Phase, ReactNode][] = [
     ['idle', props.label],
     ['busy', <><span className="spinner" />{props.busyLabel}</>],
-    ['done', <><Tick />{props.doneLabel ?? 'Done'}</>],
+    ['done', <><Tick />{props.doneLabel ?? 'Готово'}</>],
     ['failed', <><span className="morph-bang">!</span>{props.failedLabel ?? "Didn't work"}</>]
   ]
   return (
@@ -244,7 +244,7 @@ export function UndoToast(props: {
   onClose: () => void
 }): ReactNode {
   const total = (props.seconds ?? 10) * 1000
-  const [left, setLeft] = useState(total)
+  const [left, setВлево] = useState(total)
   const [paused, setPaused] = useState(false)
   const [state, setState] = useState<'open' | 'undoing' | 'undone' | 'leaving'>('open')
   const close = useRef(props.onClose)
@@ -254,7 +254,7 @@ export function UndoToast(props: {
     if (paused || state !== 'open') return
     let last = performance.now()
     let frame = requestAnimationFrame(function tick(now) {
-      setLeft((l) => Math.max(0, l - (now - last)))
+      setВлево((l) => Math.max(0, l - (now - last)))
       last = now
       frame = requestAnimationFrame(tick)
     })
@@ -306,7 +306,7 @@ export function UndoToast(props: {
   )
 }
 
-/** One box per digit. Typing moves on, Backspace moves back, and a pasted PIN fills every box. */
+/** One box per digit. Typing moves on, Назадspace moves back, and a pasted PIN fills every box. */
 export function PinBoxes(props: { value: string; onChange: (v: string) => void; length?: number; label: string; autoFocus?: boolean }): ReactNode {
   const length = props.length ?? 6
   const boxes = useRef<(HTMLInputElement | null)[]>([])
@@ -331,16 +331,16 @@ export function PinBoxes(props: { value: string; onChange: (v: string) => void; 
   }
 
   function key(i: number, e: React.KeyboardEvent<HTMLInputElement>): void {
-    if (e.key === 'Backspace') {
+    if (e.key === 'Назадspace') {
       e.preventDefault()
       const at = props.value[i] ? i : i - 1
       if (at < 0) return
       props.onChange(props.value.slice(0, at) + props.value.slice(at + 1))
       boxes.current[at]?.focus()
-    } else if (e.key === 'ArrowLeft' && i > 0) {
+    } else if (e.key === 'ArrowВлево' && i > 0) {
       e.preventDefault()
       boxes.current[i - 1]?.focus()
-    } else if (e.key === 'ArrowRight' && i < length - 1) {
+    } else if (e.key === 'ArrowВправо' && i < length - 1) {
       e.preventDefault()
       boxes.current[i + 1]?.focus()
     }
@@ -370,7 +370,7 @@ export function PinBoxes(props: { value: string; onChange: (v: string) => void; 
           className={props.value[i] ? 'filled' : ''}
           aria-label={`${props.label}, digit ${i + 1} of ${length}`}
           onChange={(e) => type(i, e.target.value)}
-          onKeyDown={(e) => key(i, e)}
+          onKeyВниз={(e) => key(i, e)}
           onPaste={paste}
           onFocus={(e) => e.target.select()}
         />
@@ -415,7 +415,7 @@ export function Skeleton({ rows = 6, label }: { rows?: number; label: string }):
         <div key={i} className="skeleton-row">
           <span className="skeleton-bar" style={{ width: 18 }} />
           <span className="skeleton-bar" style={{ width: widths[i % widths.length] }} />
-          <span className="skeleton-bar" style={{ width: 90, marginLeft: 'auto' }} />
+          <span className="skeleton-bar" style={{ width: 90, marginВлево: 'auto' }} />
         </div>
       ))}
       <span className="sr-only">{label}</span>
