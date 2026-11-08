@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import type { ConnStatus, ДомойStatus, KnownTv, ВверхdateInfo } from '@shared/api'
+import type { ConnStatus, HomeStatus, KnownTv, UpdateInfo } from '@shared/api'
 import { Jump, MOD_KEY, type JumpItem } from './components/Jump'
 import { LogDrawer } from './components/LogDrawer'
-import { NotПодключено } from './components/ui'
+import { NotConnected } from './components/ui'
 import { TvThumb } from './components/TvPicker'
 import { thumbnail } from './lib/image'
 import Guided from './screens/Guided'
-import { Подключение } from './screens/Подключение'
+import { Setup } from './screens/Setup'
 import { Debloat } from './screens/Debloat'
-import { ДомойLauncher } from './screens/ДомойLauncher'
+import { HomeLauncher } from './screens/HomeLauncher'
 import { Extras } from './screens/Extras'
 import { Sideload } from './screens/Sideload'
-import { Завершение } from './screens/Завершение'
+import { Finish } from './screens/Finish'
 import { version } from '../../../package.json'
 
 const REPO_URL = 'https://github.com/wingedpanther/cleanmytv'
@@ -33,15 +33,15 @@ const STEPS: { id: StepId; label: string; sub: string; needsTv: boolean }[] = [
 export interface ScreenProps {
   status: ConnStatus
   go: (step: StepId) => void
-  markГотово: (step: StepId) => void
+  markDone: (step: StepId) => void
   /** TVs used before, most recent first. */
   tvs: KnownTv[]
   refreshTvs: () => void
   /** The Главный экран step passes on each status it reads, so the sidebar's update note goes after an update. */
-  homeSeen: (hs: ДомойStatus) => void
+  homeSeen: (hs: HomeStatus) => void
 }
 
-// What ⌘K finds. "home:<tab>" opens that tab of the Главный экран step.
+// What ⌘K finds. "home:<tab>" opens that tab of the Home screen step.
 const JUMP_ITEMS: JumpItem[] = [
   ...STEPS.map((s) => ({ id: `step:${s.id}`, title: s.label, where: 'Step', words: s.sub.toLowerCase() })),
   { id: 'step:setup', title: 'Pair with a code', where: 'Подключение', words: 'connect wireless debugging adb ip' },
@@ -52,7 +52,7 @@ const JUMP_ITEMS: JumpItem[] = [
   { id: 'step:extras', title: 'Пульт', where: 'Дополнительно', words: 'buttons keys' },
   { id: 'step:extras', title: 'Память', where: 'Дополнительно', words: 'space disk free' },
   { id: 'step:finish', title: 'Проверка перезапуска', where: 'Завершение', words: 'reboot' },
-  { id: 'home:overview', title: 'Install or update CleanMyTV Домой', where: 'Главный экран', words: 'launcher stock give back' },
+  { id: 'home:overview', title: 'Install or update CleanMyTV Home', where: 'Главный экран', words: 'launcher stock give back' },
   { id: 'home:layout', title: 'Layout', where: 'Главный экран', words: 'sections quick settings sizes clock greeting idle screensaver' },
   { id: 'home:apps', title: 'Apps, rows & folders', where: 'Главный экран', words: 'dock order hide rename folder row' },
   { id: 'home:look', title: 'Look & wallpaper', where: 'Главный экран', words: 'themes accent colour color focus app icons tile shape wallpaper sunrise picture' },
@@ -71,14 +71,14 @@ export default function App(): ReactNode {
     return STEPS.some((s) => s.id === h) ? (h as StepId) : 'setup'
   })
   const [status, setStatus] = useState<ConnStatus>({ state: 'idle' })
-  const [done, setГотово] = useState<Set<StepId>>(new Set())
+  const [done, setDone] = useState<Set<StepId>>(new Set())
   const [tvs, setTvs] = useState<KnownTv[]>([])
-  const [update, setВверхdate] = useState<ВверхdateInfo | null>(null)
-  // The TV runs an older CleanMyTV Домой than this app carries.
-  const [homeBehind, setДомойBehind] = useState(false)
+  const [update, setUpdate] = useState<UpdateInfo | null>(null)
+  // The TV runs an older CleanMyTV Home than this app carries.
+  const [homeBehind, setHomeBehind] = useState(false)
   const [jumping, setJumping] = useState(false)
   /** A Домой tab asked for from ⌘K; n changes each time, so the same tab can be asked for twice. */
-  const [homeTab, setДомойTab] = useState<{ tab: string; n: number } | null>(null)
+  const [homeTab, setHomeTab] = useState<{ tab: string; n: number } | null>(null)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -96,12 +96,12 @@ export default function App(): ReactNode {
     const [kind, rest] = id.split('#')[0].split(':')
     if (kind === 'home') {
       setStep('home')
-      setДомойTab((t) => ({ tab: rest, n: (t?.n ?? 0) + 1 }))
+      setHomeTab((t) => ({ tab: rest, n: (t?.n ?? 0) + 1 }))
     } else setStep(rest as StepId)
   }
 
   useEffect(() => {
-    window.cytv.checkВверхdate().then(setВверхdate, () => null)
+    window.cytv.checkUpdate().then(setUpdate, () => null)
   }, [])
 
   const refreshTvs = useCallback(() => {
@@ -127,13 +127,13 @@ export default function App(): ReactNode {
     return () => { stale = true }
   }, [status.state, status.host])
 
-  function homeSeen(hs: ДомойStatus): void {
-    setДомойBehind(hs.installed && !!hs.bundledVersion && hs.versionName !== hs.bundledVersion)
+  function homeSeen(hs: HomeStatus): void {
+    setHomeBehind(hs.installed && !!hs.bundledVersion && hs.versionName !== hs.bundledVersion)
   }
 
-  // Checked again on every step change, so the note goes once the Главный экран step has updated the TV.
+  // Checked again on every step change, so the note goes once the Home screen step has updated the TV.
   useEffect(() => {
-    if (status.state !== 'connected') return setДомойBehind(false)
+    if (status.state !== 'connected') return setHomeBehind(false)
     let stale = false
     window.cytv.homeStatus().then((hs) => { if (!stale) homeSeen(hs) }, () => null)
     return () => { stale = true }
@@ -147,10 +147,10 @@ export default function App(): ReactNode {
       window.cytv.reconnect().then(async (r) => {
         if (r?.state !== 'connected') return
         // A TV that already runs the clean launcher is here to be customised: open that step.
-        // A TV that already runs CleanMyTV Домой is here to be customised: open that step.
+        // A TV that already runs CleanMyTV Home is here to be customised: open that step.
         const hs = await window.cytv.homeStatus().catch(() => null)
-        if (hs?.isДомой) {
-          setГотово((prev) => new Set(prev).add('home'))
+        if (hs?.isHome) {
+          setDone((prev) => new Set(prev).add('home'))
           setStep((cur) => (cur === 'setup' ? 'home' : cur))
         }
       }).catch(() => null)
@@ -159,21 +159,21 @@ export default function App(): ReactNode {
   }, [])
 
   const connected = status.state === 'connected'
-  const markГотово = (s: StepId): void => setГотово((prev) => new Set(prev).add(s))
-  const props: ScreenProps = { status, go: setStep, markГотово, tvs, refreshTvs, homeSeen }
+  const markDone = (s: StepId): void => setDone((prev) => new Set(prev).add(s))
+  const props: ScreenProps = { status, go: setStep, markDone, tvs, refreshTvs, homeSeen }
   const steps = STEPS
   const current = steps.find((s) => s.id === step) ?? STEPS[1]
   const currentTv = connected ? tvs.find((t) => t.host === status.host) : undefined
 
   let screen: ReactNode
-  if (current.needsTv && !connected) screen = <NotПодключено onGo={() => setStep('setup')} />
+  if (current.needsTv && !connected) screen = <NotConnected onGo={() => setStep('setup')} />
   else if (current.id === 'guided') screen = <Guided {...props} />
-  else if (current.id === 'setup') screen = <Подключение {...props} />
+  else if (current.id === 'setup') screen = <Setup {...props} />
   else if (current.id === 'debloat') screen = <Debloat {...props} />
-  else if (current.id === 'home') screen = <ДомойLauncher {...props} openTab={homeTab} />
+  else if (current.id === 'home') screen = <HomeLauncher {...props} openTab={homeTab} />
   else if (current.id === 'extras') screen = <Extras {...props} />
   else if (current.id === 'sideload') screen = <Sideload {...props} />
-  else screen = <Завершение {...props} />
+  else screen = <Finish {...props} />
 
   return (
     <div className="app">
@@ -183,7 +183,7 @@ export default function App(): ReactNode {
           <span className="brand-name">CleanMyTV</span>
         </div>
         {currentTv?.thumb && (
-          <button className="sidebar-tv" onClick={() => setStep('setup')} title="This TV. Open Подключение to switch TVs." style={{ all: 'unset', cursor: 'pointer', display: 'block', marginBottom: 10 }}>
+          <button className="sidebar-tv" onClick={() => setStep('setup')} title="This TV. Open Setup to switch TVs." style={{ all: 'unset', cursor: 'pointer', display: 'block', marginBottom: 10 }}>
             <TvThumb tv={currentTv} />
           </button>
         )}
@@ -195,15 +195,15 @@ export default function App(): ReactNode {
         <nav>
           <ol className="steps">
             {steps.map((s, i) => {
-              const isГотово = s.id === 'setup' ? connected : s.id === 'guided' ? done.has('debloat') && done.has('home') : done.has(s.id)
+              const isDone = s.id === 'setup' ? connected : s.id === 'guided' ? done.has('debloat') && done.has('home') : done.has(s.id)
               return (
                 <li key={s.id}>
                   <button
-                    className={`step${s.id === step ? ' active' : ''}${isГотово ? ' done' : ''}`}
+                    className={`step${s.id === step ? ' active' : ''}${isDone ? ' done' : ''}`}
                     onClick={() => setStep(s.id)}
                     aria-current={s.id === step ? 'step' : undefined}
                   >
-                    <span className="step-num">{isГотово ? '✓' : i + 1}</span>
+                    <span className="step-num">{isDone ? '✓' : i + 1}</span>
                     <span className="step-label">
                       {s.label}
                       <span className="step-sub">{s.id === 'home' && connected && homeBehind ? 'Доступно обновление для этого ТВ' : s.sub}</span>
@@ -225,7 +225,7 @@ export default function App(): ReactNode {
           <div className="gh-ver">CleanMyTV v{version} · MIT</div>
           {update?.available && (
             <a className="update-link" href={update.url} target="_blank" rel="noreferrer">
-              Version {update.latest} is out. Внизload it
+              Version {update.latest} is out. Скачать обновление
             </a>
           )}
         </div>
