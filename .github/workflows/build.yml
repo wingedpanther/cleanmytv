@@ -4,7 +4,7 @@ name: Build
 # macOS and Windows installers; a v* tag then opens a draft release with them attached.
 on:
   push:
-    branches: [main]
+    branches: [main, feature/russian-localization]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
