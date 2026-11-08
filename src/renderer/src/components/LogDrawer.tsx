@@ -33,13 +33,13 @@ export function LogDrawer(): ReactNode {
   return (
     <div className="log">
       <button className="log-bar" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span>{open ? '▾' : '▸'} Активность</span>
-        <span className="last">{last ? (last.level === 'cmd' ? `$ ${last.text}` : last.text) : 'Пока ничего не выполнялось.'}</span>
+        <span>{open ? '▾' : '▸'} Activity</span>
+        <span className="last">{last ? (last.level === 'cmd' ? `$ ${last.text}` : last.text) : 'Nothing has run yet.'}</span>
         {lines.length > 0 && <span className="muted small">{lines.length} lines</span>}
       </button>
       {open && (
         <div className="log-body" ref={body}>
-          {lines.length === 0 && <p className="muted">Здесь отображаются команды, отправленные телевизору.</p>}
+          {lines.length === 0 && <p className="muted">Commands sent to the TV show up here.</p>}
           {lines.map((l, i) => (
             <div key={i} className={`log-line ${l.level}`}>
               <span className="t">{new Date(l.time).toLocaleTimeString([], { hour12: false })}</span>
@@ -51,22 +51,22 @@ export function LogDrawer(): ReactNode {
             {lines.length > 0 && (
               <>
                 <button className="btn small ghost" onClick={() => setLines([])}>
-                  Очистить
+                  Clear
                 </button>
                 <button className="btn small ghost" onClick={() => navigator.clipboard.writeText(lines.map(line).join('\n'))}>
-                  Копировать всё
+                  Copy all
                 </button>
               </>
             )}
             <button
               className="btn small ghost"
-              title="Ваш телевизор model, Android version and app versions, then this log, without IP addresses. Paste it into a GitHub issue."
+              title="Your TV model, Android version and app versions, then this log, without IP addresses. Paste it into a GitHub issue."
               onClick={async () => {
-                const details = await window.cytv.bugReport().catch((e) => `Не удалось прочитать сведения: ${(e as Error).message}`)
-                navigator.clipboard.writeText(noAddresses(`${details}\n\nАктивность:\n${lines.map(line).join('\n') || '(empty)'}`))
+                const details = await window.cytv.bugReport().catch((e) => `Could not read the details: ${(e as Error).message}`)
+                navigator.clipboard.writeText(noAddresses(`${details}\n\nActivity:\n${lines.map(line).join('\n') || '(empty)'}`))
               }}
             >
-              Скопировать для отчёта об ошибке
+              Copy for a bug report
             </button>
           </div>
         </div>
