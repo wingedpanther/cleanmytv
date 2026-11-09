@@ -1,6 +1,6 @@
 package io.github.wingedpanther.cleanmytv.home
 
-import io.github.wingedpanther.cleanmytv.home.customization.LauncherCustomizationDialog
+import io.github.wingedpanther.cleanmytv.home.customization.CustomizationDialog
 import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.compose.animation.animateColorAsState
@@ -338,7 +338,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     if (showPanel) SettingsPanel(accent) { showPanel = false }
     if (showThemes) ThemeCarousel(accent) { showThemes = false }
     if (showCustomize) {
-        LauncherCustomizationDialog(cfg, apps) { showCustomize = false }
+        CustomizationDialog(cfg, apps) { showCustomize = false }
     }
     if (panelPin) Dialog(onDismissRequest = { panelPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         PinPad("Enter the PIN for Quick settings", Lock.PANEL, accent) { panelPin = false; showPanel = true }

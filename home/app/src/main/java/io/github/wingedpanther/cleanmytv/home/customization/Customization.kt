@@ -45,7 +45,7 @@ import io.github.wingedpanther.cleanmytv.home.HomeConfig
 import io.github.wingedpanther.cleanmytv.home.TvApp
 
 @Composable
-fun LauncherCustomizationDialog(
+fun CustomizationDialog(
     config: HomeConfig,
     apps: List<TvApp>,
     onDismiss: () -> Unit
