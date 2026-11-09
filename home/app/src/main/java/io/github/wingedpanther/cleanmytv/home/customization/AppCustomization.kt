@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -32,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Surface
@@ -67,8 +70,15 @@ fun AppCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
         TvSlider(
             title = "Dock Size (First N Apps)",
             value = config.dockSize,
-            min = 1, max = 20, unit = " apps",
+            min = 0, max = 20, unit = if (config.dockSize == 0) " apps (Off)" else " apps",
             onChange = { ConfigStore.update(ctx, JSONObject().put("dock_size", it)) }
+        )
+
+        TvSlider(
+            title = "Apps Per Row in Grid",
+            value = config.columns.coerceIn(3, 8),
+            min = 3, max = 8, unit = " apps",
+            onChange = { ConfigStore.update(ctx, JSONObject().put("columns", it)) }
         )
 
         Row(
@@ -78,31 +88,23 @@ fun AppCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("App Order & Visibility (${apps.size} apps)", color = TEXT_COLOR, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Text("Use ← and → on card to reorder. Highlighted green tiles belong to the Dock.", color = MUTED_COLOR, fontSize = 12.sp)
+                Text("Use ← and → on card to reorder. Border outlines indicate Dock tiles.", color = MUTED_COLOR, fontSize = 12.sp)
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Surface(
-                    onClick = { ConfigStore.update(ctx, JSONObject().put("order", JSONArray())) },
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color(0x33FFFFFF)),
-                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(6.dp))
-                ) {
-                    Text("Reset Order", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
-                }
+                TvSecondaryButton(
+                    text = "Reset Order",
+                    onClick = { ConfigStore.update(ctx, JSONObject().put("order", JSONArray())) }
+                )
 
-                Surface(
-                    onClick = { ConfigStore.update(ctx, JSONObject().put("hidden", JSONArray())) },
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color(0x33FFFFFF)),
-                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(6.dp))
-                ) {
-                    Text("Show All", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
-                }
+                TvSecondaryButton(
+                    text = "Show All",
+                    onClick = { ConfigStore.update(ctx, JSONObject().put("hidden", JSONArray())) }
+                )
             }
         }
 
-        // --- App Grid Cards (5 Columns) ---
+        // --- App Grid Cards (Fixed 5 Columns for Settings Page) ---
         val appRows = remember(orderedApps) { orderedApps.chunked(5) }
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -193,7 +195,12 @@ private fun AppTileControlCard(
                         .background(Color(0xEE000000)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("HIDDEN", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Icon(
+                        imageVector = Icons.Outlined.VisibilityOff,
+                        contentDescription = "Hidden",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
@@ -216,20 +223,28 @@ private fun AppTileControlCard(
         ) {
             // Move Left Button
             Surface(
-                onClick = { onMove(-1) },
+                onClick = { if (canMoveLeft) onMove(-1) },
                 enabled = canMoveLeft,
                 colors = ClickableSurfaceDefaults.colors(
                     containerColor = Color(0x22FFFFFF),
-                    focusedContainerColor = Color.White
+                    focusedContainerColor = Color.White,
+                    disabledContainerColor = Color(0x11FFFFFF)
                 ),
                 scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                border = ClickableSurfaceDefaults.border(
+                    border = Border.None,
+                    focusedBorder = Border.None,
+                    disabledBorder = Border.None
+                ),
                 shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(4.dp)),
                 modifier = Modifier
                     .weight(1f)
+                    .height(24.dp)
                     .padding(end = 2.dp)
+                    .focusProperties { canFocus = canMoveLeft }
                     .onFocusChanged { leftFocused = it.isFocused }
             ) {
-                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     val iconTint = if (!canMoveLeft) {
                         MUTED_COLOR.copy(alpha = 0.3f)
                     } else if (leftFocused) {
@@ -254,13 +269,19 @@ private fun AppTileControlCard(
                     focusedContainerColor = Color.White
                 ),
                 scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                border = ClickableSurfaceDefaults.border(
+                    border = Border.None,
+                    focusedBorder = Border.None,
+                    disabledBorder = Border.None
+                ),
                 shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(4.dp)),
                 modifier = Modifier
                     .weight(1.8f)
+                    .height(24.dp)
                     .padding(horizontal = 2.dp)
                     .onFocusChanged { hideFocused = it.isFocused }
             ) {
-                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     val hideTextColor = if (hideFocused) CUSTOMIZATION_BG else Color.White
                     Text(
                         text = if (isHidden) "Show" else "Hide",
@@ -273,20 +294,28 @@ private fun AppTileControlCard(
 
             // Move Right Button
             Surface(
-                onClick = { onMove(1) },
+                onClick = { if (canMoveRight) onMove(1) },
                 enabled = canMoveRight,
                 colors = ClickableSurfaceDefaults.colors(
                     containerColor = Color(0x22FFFFFF),
-                    focusedContainerColor = Color.White
+                    focusedContainerColor = Color.White,
+                    disabledContainerColor = Color(0x11FFFFFF)
                 ),
                 scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                border = ClickableSurfaceDefaults.border(
+                    border = Border.None,
+                    focusedBorder = Border.None,
+                    disabledBorder = Border.None
+                ),
                 shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(4.dp)),
                 modifier = Modifier
                     .weight(1f)
+                    .height(24.dp)
                     .padding(start = 2.dp)
+                    .focusProperties { canFocus = canMoveRight }
                     .onFocusChanged { rightFocused = it.isFocused }
             ) {
-                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     val iconTint = if (!canMoveRight) {
                         MUTED_COLOR.copy(alpha = 0.3f)
                     } else if (rightFocused) {

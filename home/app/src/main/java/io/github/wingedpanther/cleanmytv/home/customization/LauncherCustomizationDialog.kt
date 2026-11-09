@@ -96,19 +96,12 @@ fun LauncherCustomizationDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = "Launcher Customization",
-                            color = Color.White,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "CleanMyTV On-Device Customization Panel",
-                            color = MUTED_COLOR,
-                            fontSize = 13.sp
-                        )
-                    }
+                    Text(
+                        text = "Launcher Customization",
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
+                    )
 
                     if (statusMessage.isNotEmpty()) {
                         Text(
@@ -182,13 +175,19 @@ fun LauncherCustomizationDialog(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             item {
-                                Text(
-                                    text = selectedCategory.title,
-                                    color = Color.White,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(bottom = 8.dp)
-                                )
+                                Column(modifier = Modifier.padding(bottom = 6.dp)) {
+                                    Text(
+                                        text = selectedCategory.title,
+                                        color = Color.White,
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = selectedCategory.subtitle,
+                                        color = MUTED_COLOR,
+                                        fontSize = 12.sp
+                                    )
+                                }
                             }
 
                             when (selectedCategory) {
@@ -197,9 +196,6 @@ fun LauncherCustomizationDialog(
                                 }
                                 CustomizationCategory.LOOK -> item {
                                     LookCustomization(config, ctx)
-                                }
-                                CustomizationCategory.ICONS -> item {
-                                    IconCustomization(config, ctx)
                                 }
                                 CustomizationCategory.WIDGETS -> item {
                                     WidgetCustomization(config, ctx)
@@ -214,7 +210,10 @@ fun LauncherCustomizationDialog(
                                     FireplaceCustomization(config, ctx)
                                 }
                                 CustomizationCategory.REMOTE -> item {
-                                    RemoteCustomization(config, ctx)
+                                    RemoteCustomization(config, ctx, apps)
+                                }
+                                CustomizationCategory.SETUP -> item {
+                                    SetupCustomization(config, ctx)
                                 }
                                 CustomizationCategory.SECURITY -> item {
                                     SecurityCustomization(config, ctx, apps)

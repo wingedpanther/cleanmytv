@@ -69,10 +69,11 @@ class KeyService : AccessibilityService() {
             return true
         }
 
+        ConfigStore.load(this)
         val cfg = ConfigStore.config.value
         if (!cfg.buttonsOn) return false
         val map = cfg.buttons.firstOrNull { it.code == event.keyCode } ?: return false
-        if (event.action == KeyEvent.ACTION_UP && event.repeatCount == 0) runCatching { perform(map) }.onFailure { Log.w(TAG, "button ${map.code}: $it") }
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) runCatching { perform(map) }.onFailure { Log.w(TAG, "button ${map.code}: $it") }
         return true
     }
 

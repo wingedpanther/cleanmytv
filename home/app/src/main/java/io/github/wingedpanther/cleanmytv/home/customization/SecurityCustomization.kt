@@ -55,8 +55,6 @@ fun SecurityCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // --- PIN Status Bar ---
-        Text("PIN Security & Master Lock", color = TEXT_COLOR, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -80,8 +78,9 @@ fun SecurityCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
                 Surface(
                     onClick = { showPinModal = true },
                     colors = ClickableSurfaceDefaults.colors(
-                        containerColor = Color(0x33FFFFFF),
+                        containerColor = PRIMARY_BUTTON_COLOR,
                         focusedContainerColor = Color.White,
+                        contentColor = CUSTOMIZATION_BG,
                         focusedContentColor = CUSTOMIZATION_BG
                     ),
                     scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
@@ -89,6 +88,7 @@ fun SecurityCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
                 ) {
                     Text(
                         text = if (hasPin) "Change PIN" else "Set App Lock PIN",
+                        color = CUSTOMIZATION_BG,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
@@ -155,28 +155,20 @@ fun SecurityCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Surface(
+                TvSecondaryButton(
+                    text = "Lock All",
                     onClick = {
                         val allPkgs = apps.map { it.pkg }
                         ConfigStore.update(ctx, JSONObject().put("lock_apps", JSONArray(allPkgs)))
-                    },
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color(0x33FFFFFF)),
-                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(6.dp))
-                ) {
-                    Text("Lock All", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
-                }
+                    }
+                )
 
-                Surface(
+                TvSecondaryButton(
+                    text = "Unlock All",
                     onClick = {
                         ConfigStore.update(ctx, JSONObject().put("lock_apps", JSONArray()))
-                    },
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color(0x33FFFFFF)),
-                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(6.dp))
-                ) {
-                    Text("Unlock All", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
-                }
+                    }
+                )
             }
         }
 
@@ -445,14 +437,10 @@ private fun PinSetupModal(
                     }
                 }
 
-                Surface(
-                    onClick = onDismiss,
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color(0x22FFFFFF)),
-                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp))
-                ) {
-                    Text("Cancel", color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                }
+                TvSecondaryButton(
+                    text = "Cancel",
+                    onClick = onDismiss
+                )
             }
         }
     }
