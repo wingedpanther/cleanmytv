@@ -689,8 +689,8 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
             if (Lock.isLocked(ui.cfg, app.pkg)) LockBadge(Modifier.align(if (ui.shape == "round") Alignment.BottomCenter else Alignment.TopEnd))
         }
         if (ui.cfg.showNames) {
-            Text(app.label, color = TEXT, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = if (wide) TextAlign.Start else TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 5.dp, start = 2.dp).graphicsLayer { alpha = nameAlpha })
+            Text(app.label, color = TEXT, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = if (wide) TextAlign.Start else TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 7.dp, start = 2.dp).graphicsLayer { alpha = nameAlpha })
         }
     }
 }
