@@ -1,6 +1,7 @@
 package io.github.wingedpanther.cleanmytv.home.customization
 
 import android.content.Context
+import io.github.wingedpanther.cleanmytv.home.customization.components.*
 import android.view.KeyEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement

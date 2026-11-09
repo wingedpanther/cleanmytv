@@ -1,6 +1,7 @@
 package io.github.wingedpanther.cleanmytv.home.customization
 
 import android.content.Context
+import io.github.wingedpanther.cleanmytv.home.customization.components.*
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.background

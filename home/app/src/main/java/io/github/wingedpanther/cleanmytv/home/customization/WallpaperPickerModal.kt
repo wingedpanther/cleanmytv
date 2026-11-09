@@ -2,6 +2,7 @@ package io.github.wingedpanther.cleanmytv.home.customization
 
 import android.content.Context
 import android.content.Intent
+import io.github.wingedpanther.cleanmytv.home.customization.components.*
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Environment
