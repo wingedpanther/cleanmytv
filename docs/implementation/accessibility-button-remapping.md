@@ -13,7 +13,7 @@ Android Accessibility Services run at the system level and receive low-level har
 ## 1. Core Logic (`KeyService.kt`)
 
 **Location in project:**  
-`home/app/src/main/java/io/github/wingedpanther/cleanmytv/home/KeyService.kt`
+`../../home/app/src/main/java/io/github/wingedpanther/cleanmytv/home/KeyService.kt`
 
 This class extends Android's `AccessibilityService`. Button presses are captured in the `onKeyEvent` function.
 
@@ -72,7 +72,7 @@ class KeyService : AccessibilityService() {
 For Android to route hardware button events to the `AccessibilityService`, key event filtering must be explicitly enabled in XML.
 
 **Location in project:**  
-`home/app/src/main/res/xml/key_service.xml`
+`../../home/app/src/main/res/xml/key_service.xml`
 
 ### Required Manifest XML Declaration:
 

@@ -85,7 +85,7 @@ This is the most common source of TV bugs.
 ## 11. PR and release standards
 
 - Small, single-purpose PRs (a few hundred lines is a healthy target). Split features from refactors from docs.
-- No IDE, build or cache files in commits (`.idea/`, `*.iml`, `build/`, local properties). Keep the `.gitignore` honest.
+- No IDE, build or cache files in commits (`../../.idea`, `*.iml`, `build/`, local properties). Keep the `.gitignore` honest.
 - CI runs lint, ktlint or detekt, unit tests and a release build. PRs include test evidence (device, API level, remote model) and screenshots or short recordings of focus behavior.
 - Keep docs accurate and avoid unmeasurable claims such as "0ms" or "0% CPU". State what you tested instead.
 - Sign releases consistently so updates install over earlier builds. Publish checksums, and bump the version and any version manifest in the same PR that changes the artifact.
