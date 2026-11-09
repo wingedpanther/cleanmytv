@@ -19,10 +19,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +59,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 fun loadWallpaperPreview(file: File): ImageBitmap? = runCatching {
@@ -64,61 +77,68 @@ fun WallpaperPickerModal(
 ) {
     val firstFocusRequester = remember { FocusRequester() }
 
-    val imageFiles = remember {
-        val found = mutableListOf<File>()
-        val validExts = setOf("jpg", "jpeg", "png", "webp", "bmp")
+    var imageFiles by remember { mutableStateOf<List<File>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
 
-        fun isIgnoredPath(f: File): Boolean {
-            val pathLower = f.absolutePath.lowercase()
-            if (pathLower.contains(".thumbnail") || pathLower.contains(".cache") || pathLower.contains(".trash") || pathLower.contains(".pending")) return true
-            return f.path.split(File.separatorChar).any { it.startsWith(".") && it.length > 1 }
-        }
+    LaunchedEffect(Unit) {
+        val files = withContext(Dispatchers.IO) {
+            val found = mutableListOf<File>()
+            val validExts = setOf("jpg", "jpeg", "png", "webp", "bmp")
 
-        // 1. Query Android MediaStore
-        runCatching {
-            val projection = arrayOf(MediaStore.Images.Media.DATA)
-            val cursor = ctx.contentResolver.query(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                projection, null, null, null
-            )
-            cursor?.use { c ->
-                val dataIdx = c.getColumnIndex(MediaStore.Images.Media.DATA)
-                if (dataIdx >= 0) {
-                    while (c.moveToNext()) {
-                        val path = c.getString(dataIdx)
-                        if (!path.isNullOrBlank()) {
-                            val f = File(path)
-                            if (f.exists() && f.isFile && f.length() > 0 && !isIgnoredPath(f)) found.add(f)
+            fun isIgnoredPath(f: File): Boolean {
+                val pathLower = f.absolutePath.lowercase()
+                if (pathLower.contains(".thumbnail") || pathLower.contains(".cache") || pathLower.contains(".trash") || pathLower.contains(".pending")) return true
+                return f.path.split(File.separatorChar).any { it.startsWith(".") && it.length > 1 }
+            }
+
+            // 1. Query Android MediaStore
+            runCatching {
+                val projection = arrayOf(MediaStore.Images.Media.DATA)
+                val cursor = ctx.contentResolver.query(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    projection, null, null, null
+                )
+                cursor?.use { c ->
+                    val dataIdx = c.getColumnIndex(MediaStore.Images.Media.DATA)
+                    if (dataIdx >= 0) {
+                        while (c.moveToNext()) {
+                            val path = c.getString(dataIdx)
+                            if (!path.isNullOrBlank()) {
+                                val f = File(path)
+                                if (f.exists() && f.isFile && f.length() > 0 && !isIgnoredPath(f)) found.add(f)
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // 2. Recursive filesystem scan across common storage directories
-        val scanRoots = listOf(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM),
-            Environment.getExternalStorageDirectory(),
-            File("/sdcard/Download"),
-            File("/sdcard/Pictures"),
-            File("/sdcard/DCIM")
-        )
+            // 2. Recursive filesystem scan across common storage directories
+            val scanRoots = listOf(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM),
+                Environment.getExternalStorageDirectory(),
+                File("/sdcard/Download"),
+                File("/sdcard/Pictures"),
+                File("/sdcard/DCIM")
+            )
 
-        scanRoots.forEach { root ->
-            if (root.exists() && root.isDirectory) {
-                runCatching {
-                    root.walkTopDown().maxDepth(4).filter { f ->
-                        f.isFile && f.extension.lowercase() in validExts && f.length() > 0 && !isIgnoredPath(f)
-                    }.forEach { found.add(it) }
+            scanRoots.forEach { root ->
+                if (root.exists() && root.isDirectory) {
+                    runCatching {
+                        root.walkTopDown().maxDepth(4).filter { f ->
+                            f.isFile && f.extension.lowercase() in validExts && f.length() > 0 && !isIgnoredPath(f)
+                        }.forEach { found.add(it) }
+                    }
                 }
             }
-        }
 
-        // Deduplicate using canonical path to collapse symlinks/duplicate mounts (/sdcard vs /storage/emulated/0)
-        found.distinctBy { runCatching { it.canonicalPath }.getOrDefault(it.absolutePath) }
-            .sortedByDescending { it.lastModified() }
+            // Deduplicate using canonical path to collapse symlinks/duplicate mounts (/sdcard vs /storage/emulated/0)
+            found.distinctBy { runCatching { it.canonicalPath }.getOrDefault(it.absolutePath) }
+                .sortedByDescending { it.lastModified() }
+        }
+        imageFiles = files
+        isLoading = false
     }
 
     var focusedFile by remember(imageFiles) { mutableStateOf(imageFiles.firstOrNull()) }
@@ -156,7 +176,13 @@ fun WallpaperPickerModal(
                     Column {
                         Text("Select Custom Wallpaper Image", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         Text(
-                            text = if (imageFiles.isNotEmpty()) "Found ${imageFiles.size} image(s) on TV storage" else "No images found",
+                            text = if (isLoading) {
+                                "Scanning storage for images..."
+                            } else if (imageFiles.isNotEmpty()) {
+                                "Found ${imageFiles.size} image(s) on TV storage"
+                            } else {
+                                "No images found"
+                            },
                             color = MUTED_COLOR,
                             fontSize = 13.sp
                         )
@@ -165,7 +191,20 @@ fun WallpaperPickerModal(
                     TvSecondaryButton(text = "Close", onClick = onDismiss)
                 }
 
-                if (imageFiles.isEmpty()) {
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Scanning TV storage and MediaStore...",
+                            color = MUTED_COLOR,
+                            fontSize = 14.sp
+                        )
+                    }
+                } else if (imageFiles.isEmpty()) {
                     Text(
                         text = "No image files (.jpg, .png, .webp) found on TV storage.\n\nPlace an image file in the Download or Pictures folder on your TV. If storage access was blocked, click below to allow Storage permission in TV Settings.",
                         color = MUTED_COLOR,
@@ -266,11 +305,28 @@ fun WallpaperPickerModal(
                         ) {
                             val activeFile = focusedFile
                             if (activeFile != null) {
-                                val previewBmp = remember(activeFile) { loadWallpaperPreview(activeFile) }
-                                if (previewBmp != null) {
+                                var previewBmp by remember(activeFile) { mutableStateOf<ImageBitmap?>(null) }
+                                var isLoadingPreview by remember(activeFile) { mutableStateOf(true) }
+
+                                LaunchedEffect(activeFile) {
+                                    isLoadingPreview = true
+                                    previewBmp = withContext(Dispatchers.IO) {
+                                        loadWallpaperPreview(activeFile)
+                                    }
+                                    isLoadingPreview = false
+                                }
+
+                                if (isLoadingPreview) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        LoadingSpinner()
+                                    }
+                                } else if (previewBmp != null) {
                                     Box(modifier = Modifier.fillMaxSize()) {
                                         Image(
-                                            bitmap = previewBmp,
+                                            bitmap = previewBmp!!,
                                             contentDescription = activeFile.name,
                                             modifier = Modifier.fillMaxSize(),
                                             contentScale = ContentScale.Crop
@@ -309,6 +365,37 @@ fun WallpaperPickerModal(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun LoadingSpinner() {
+    val infiniteTransition = rememberInfiniteTransition(label = "spinner")
+    val angle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "angle"
+    )
+
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .rotate(angle),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size(36.dp)) {
+            drawArc(
+                color = PRIMARY_BUTTON_COLOR,
+                startAngle = 0f,
+                sweepAngle = 270f,
+                useCenter = false,
+                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+            )
         }
     }
 }

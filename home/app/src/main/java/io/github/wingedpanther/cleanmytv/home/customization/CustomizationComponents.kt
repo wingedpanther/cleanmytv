@@ -38,6 +38,12 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,7 +82,12 @@ fun TvPrimaryButton(
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
-        modifier = modifier.onFocusChanged { isFocused = it.isFocused }
+        modifier = modifier
+            .onFocusChanged { isFocused = it.isFocused }
+            .semantics {
+                role = Role.Button
+                contentDescription = text
+            }
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
@@ -112,7 +123,12 @@ fun TvSecondaryButton(
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
-        modifier = modifier.onFocusChanged { isFocused = it.isFocused }
+        modifier = modifier
+            .onFocusChanged { isFocused = it.isFocused }
+            .semantics {
+                role = Role.Button
+                contentDescription = text
+            }
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
@@ -148,7 +164,12 @@ fun TvDestructiveButton(
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
-        modifier = modifier.onFocusChanged { isFocused = it.isFocused }
+        modifier = modifier
+            .onFocusChanged { isFocused = it.isFocused }
+            .semantics {
+                role = Role.Button
+                contentDescription = text
+            }
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
@@ -188,6 +209,11 @@ fun TvSwitch(
         modifier = modifier
             .fillMaxWidth()
             .onFocusChanged { isFocused = it.isFocused }
+            .semantics {
+                role = Role.Switch
+                stateDescription = if (checked) "On" else "Off"
+                contentDescription = "$title, ${if (checked) "On" else "Off"}"
+            }
     ) {
         Row(
             modifier = Modifier
@@ -273,6 +299,11 @@ fun TvRadioGroup(
                     modifier = Modifier
                         .weight(1f)
                         .onFocusChanged { isFocused = it.isFocused }
+                        .semantics {
+                            role = Role.RadioButton
+                            selected = isSelected
+                            contentDescription = "$label, ${if (isSelected) "selected" else "not selected"}"
+                        }
                 ) {
                     Box(
                         modifier = Modifier
@@ -334,6 +365,9 @@ fun TvSlider(
                         else -> false
                     }
                 } else false
+            }
+            .semantics {
+                contentDescription = "$title, value $value $unit"
             }
     ) {
         Column(
