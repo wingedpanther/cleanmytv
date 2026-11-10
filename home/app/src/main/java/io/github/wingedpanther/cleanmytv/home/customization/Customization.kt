@@ -1,5 +1,6 @@
 package io.github.wingedpanther.cleanmytv.home.customization
 
+import io.github.wingedpanther.cleanmytv.home.ConfigStore
 import io.github.wingedpanther.cleanmytv.home.customization.components.*
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -108,11 +109,11 @@ fun CustomizationDialog(
         }
     }
 
-    // Direct Full-Screen Overlay covering 100% of the TV screen with solid PANEL_BG
+    // Direct Full-Screen Overlay with 7% transparent PANEL_BG
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(PANEL_BG)
+            .background(PANEL_BG.copy(alpha = 0.93f))
             .onPreviewKeyEvent { e ->
                 if (e.type == KeyEventType.KeyDown && e.key == Key.Back) {
                     if (inContentPane) {
@@ -270,9 +271,15 @@ fun CustomizationDialog(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .focusRequester(categoryFocusRequesters[cat]!!)
-                                                .onFocusChanged { isFocused = it.isFocused }
+                                                .onFocusChanged { state ->
+                                                    isFocused = state.isFocused
+                                                    if (state.isFocused) {
+                                                        selectedCategory = cat // Instant live preview on focus!
+                                                    }
+                                                }
                                                 .onPreviewKeyEvent { e ->
-                                                    if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionRight) {
+                                                    if (e.type == KeyEventType.KeyDown && 
+                                                        (e.key == Key.DirectionRight || e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter)) {
                                                         selectedCategory = cat
                                                         inContentPane = true
                                                         true

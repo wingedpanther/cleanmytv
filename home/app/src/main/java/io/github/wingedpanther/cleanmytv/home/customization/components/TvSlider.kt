@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import kotlinx.coroutines.delay
 
 @Composable
 fun TvSlider(
@@ -43,6 +45,17 @@ fun TvSlider(
     onChange: (Int) -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    var localValue by remember(value) { mutableStateOf(value) }
+
+    // Option A: Slider-level debounce.
+    // Update local UI state instantly at 60fps without lag or disk I/O,
+    // then commit to ConfigStore/HomeScreen 350ms after user stops tapping.
+    LaunchedEffect(localValue) {
+        if (localValue != value) {
+            delay(350)
+            onChange(localValue)
+        }
+    }
 
     Surface(
         onClick = { },
@@ -60,23 +73,23 @@ fun TvSlider(
                 if (e.type == KeyEventType.KeyDown) {
                     when (e.key) {
                         Key.DirectionLeft -> {
-                            if (value > min) {
-                                onChange((value - 1).coerceAtLeast(min))
-                                true
-                            } else false
+                            if (localValue > min) {
+                                localValue = (localValue - 1).coerceAtLeast(min)
+                            }
+                            true // Always consume Left to prevent focus leaking
                         }
                         Key.DirectionRight -> {
-                            if (value < max) {
-                                onChange((value + 1).coerceAtMost(max))
-                                true
-                            } else false
+                            if (localValue < max) {
+                                localValue = (localValue + 1).coerceAtMost(max)
+                            }
+                            true // Always consume Right to prevent focus leaking
                         }
                         else -> false
                     }
                 } else false
             }
             .semantics {
-                contentDescription = "$title, value $value $unit"
+                contentDescription = "$title, value $localValue $unit"
             }
     ) {
         Column(
@@ -97,7 +110,7 @@ fun TvSlider(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "$value$unit",
+                    text = "$localValue$unit",
                     color = if (isFocused) CUSTOMIZATION_BG else PRIMARY_BUTTON_COLOR,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
@@ -112,7 +125,7 @@ fun TvSlider(
                     .background(if (isFocused) Color(0x330B1D33) else Color(0x33FFFFFF)),
                 contentAlignment = Alignment.CenterStart
             ) {
-                val pct = ((value - min).toFloat() / (max - min).toFloat()).coerceIn(0f, 1f)
+                val pct = ((localValue - min).toFloat() / (max - min).toFloat()).coerceIn(0f, 1f)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(pct)

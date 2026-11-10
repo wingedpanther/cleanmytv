@@ -267,6 +267,7 @@ data class HomeConfig(
 object ConfigStore {
     private val _config = MutableStateFlow(HomeConfig())
     val config: StateFlow<HomeConfig> = _config
+
     /** Bumped when a new wallpaper lands, so Home reloads it. */
     private val _wallpaperVersion = MutableStateFlow(0)
     val wallpaperVersion: StateFlow<Int> = _wallpaperVersion
@@ -286,17 +287,16 @@ object ConfigStore {
         if (f.exists()) runCatching { _config.value = HomeConfig.fromJson(JSONObject(f.readText())) }
     }
 
-    /** Merges a partial update, saves it atomically, and the UI follows through the flow. */
+    /** Merges a partial update, saves it atomically to disk, and live-syncs state immediately. */
     @Synchronized
     fun update(ctx: Context, json: JSONObject): HomeConfig {
         load(ctx)
         val next = HomeConfig.fromJson(json, _config.value)
         val text = next.toJson().toString(2)
+        val f = file(ctx)
         val tmp = File(ctx.filesDir, "config.json.tmp")
-        // On adopted storage a temp file left by an earlier install can refuse to be written (#59): then the
-        // settings go straight into config.json, without the swap.
-        val swapped = runCatching { tmp.writeText(text); tmp.renameTo(file(ctx)) }.getOrDefault(false)
-        if (!swapped) { tmp.delete(); file(ctx).writeText(text) }
+        val swapped = runCatching { tmp.writeText(text); tmp.renameTo(f) }.getOrDefault(false)
+        if (!swapped) { tmp.delete(); f.writeText(text) }
         _config.value = next
         return next
     }

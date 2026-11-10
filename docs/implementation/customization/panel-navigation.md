@@ -10,9 +10,10 @@ The design implements a **Google TV-inspired Settings Navigation Pattern**: a du
 
 ## 1. UI & Visual Architecture
 
-### Full-Screen Page Surface
-- **Solid Page Background:** The root container fills 100% of the screen (`fillMaxSize()`) with a solid `PANEL_BG` (`Color(0xFF1E2836)`), eliminating all system dialog window margins, translucent backdrops, and top/side padding bleed-through.
-- **Direct Full-Screen Overlay:** The customization overlay is rendered directly on top of the home screen as a full-screen Compose composable without wrapping inside an Android `DialogWindow` (which would introduce platform insets and dimming).
+### Dedicated Translucent Activity Window
+- **Isolated Android Window (`CustomizationActivity`)**: Rendered inside its own dedicated `ComponentActivity` registered with `@android:style/Theme.Translucent.NoTitleBar.Fullscreen` and zero activity transition delay (`overridePendingTransition(0, 0)`).
+- **100% Focus Isolation:** Operating in its own Android `Window` ensures that D-pad remote focus CANNOT physically leak or escape to background home screen elements under any circumstances.
+- **7% Translucent Backdrop (`PANEL_BG.copy(alpha = 0.93f)`)**: 7% transparent background overlay allowing the live home screen wallpaper and tiles to subtly show through the panel.
 
 ### Left Category Drawer Styling
 - **Grey Background Container:** The menu list sits inside a `Color.White.copy(alpha = 0.05f)` card with `RoundedCornerShape(12.dp)`.
@@ -38,9 +39,9 @@ The design implements a **Google TV-inspired Settings Navigation Pattern**: a du
 ### Mode 1: Category Overview (`inContentPane = false`)
 * **Layout:** 2-pane split view (Left category drawer 280dp, Right settings panel `totalWidth - 280.dp`).
 * **Sidebar Remote Controls:**
-  - `D-pad Up / Down`: Moves highlight between category items.
-  - `OK / Enter / D-pad Right`: Activates the selected category (`selectedCategory = cat`) and slides into Active Settings Mode (`inContentPane = true`).
-  - `Back`: Dismisses the customization screen (`onDismiss()`).
+  - `D-pad Up / Down`: Moves highlight between category items and **instantly updates `selectedCategory`** (`onFocusChanged { if (it.isFocused) selectedCategory = cat }`) for instant 1:1 Google TV style category previews on the right panel.
+  - `OK / Enter / D-pad Right`: Enters/focuses the selected category settings panel (`inContentPane = true`) and slides the left drawer off-screen.
+  - `Back`: Dismisses `CustomizationActivity` (`finish()`).
 
 ### Mode 2: Active Settings Mode (`inContentPane = true`)
 * **Layout:** The entire `Row` translates left by `-280.dp` (`slideOffset`). The Right Settings Panel maintains a **fixed width** (`totalWidth - 280.dp`) and slides flush to the left screen padding ($x = 0$), while the Left Drawer slides off-screen into clipped bounds (`clipToBounds()`).
@@ -92,4 +93,17 @@ LazyColumn(
 
 1. **Zero Accidental Menu Jumps:** `Left` and `Right` D-pad keys remain 100% available for complex setting controls (like color pickers or sliders) without accidentally jumping back to the sidebar.
 2. **Fixed-Width Slide Stability:** The right settings panel translates smoothly without width expansion, eliminating layout re-measurement stutter or text re-wrapping.
-3. **Seamless 100% Opaque Surface:** Unified dark background card ensures zero translucent borders or top padding gaps.
+3. **Seamless Translucent Surface:** `PANEL_BG.copy(alpha = 0.93f)` ensures 7% transparency while avoiding translucent border gaps.
+
+---
+
+## 5. Root Cause Analysis & Focus Behaviors
+
+### A. Window Focus Leaks & Activity Isolation
+- **Background Node Stealing:** When customization was rendered as a sub-Box in `HomeScreen.kt`, Android TV's spatial focus engine could escape through the overlay whenever background nodes in `HomeScreen.kt` recomposed.
+- **Resolution:** Moving the customization UI into a dedicated `CustomizationActivity` registered with `@android:style/Theme.Translucent.NoTitleBar.Fullscreen` creates a 100% native Android Window focus boundary, making background focus stealing physically impossible.
+
+### B. Double-UP Press to Back Button Root Cause
+- **Far-Right Button Geometry:** In *Fireplace*, *Security*, and *Default Launcher*, the top-most focusable element is a `TvSecondaryButton` nested inside a right-aligned `Row` (`Arrangement.SpaceBetween`), placing its focus target on the far right edge of the screen ($X > 600\text{dp}$).
+- **Spatial Focus Search Vector:** When pressing `UP` from a far-right button, Android TV's spatial navigation algorithm searches strictly upwards along the right margin ($X > 600\text{dp}$), completely missing the `← Categories` Back button anchored at the top-left ($X = 0\text{dp}$).
+- **Resolution:** Explicit D-pad focus routing on the settings `LazyColumn` (`focusProperties { up = headerBackFocusRequester }`) overrides spatial geometry, guaranteeing that pressing `UP` from any top item instantly jumps to the Back button on the first press.

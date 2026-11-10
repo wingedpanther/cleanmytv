@@ -113,17 +113,21 @@ fun LookCustomization(config: HomeConfig, ctx: Context) {
             ) {
                 hexAccents.forEach { (colorVal, name) ->
                     val isSelected = (config.accent and 0xFFFFFFFFL) == (colorVal.toLong() and 0xFFFFFFFFL)
+                    val focusedBorderColor = if (colorVal == 0xFFFFFFFF.toInt()) PRIMARY_BUTTON_COLOR else Color.White
                     Surface(
                         onClick = { ConfigStore.update(ctx, JSONObject().put("accent", String.format("#%06X", (0xFFFFFF and colorVal)))) },
                         colors = ClickableSurfaceDefaults.colors(
                             containerColor = Color(colorVal),
                             focusedContainerColor = Color(colorVal)
                         ),
-                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.25f),
+                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
                         border = ClickableSurfaceDefaults.border(
-                            border = Border.None,
+                            border = Border(
+                                border = BorderStroke(4.dp, Color(colorVal)),
+                                shape = CircleShape
+                            ),
                             focusedBorder = Border(
-                                border = BorderStroke(3.dp, Color.White),
+                                border = BorderStroke(4.dp, focusedBorderColor),
                                 shape = CircleShape
                             )
                         ),

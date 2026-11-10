@@ -1,6 +1,6 @@
 package io.github.wingedpanther.cleanmytv.home
 
-import io.github.wingedpanther.cleanmytv.home.customization.CustomizationDialog
+import io.github.wingedpanther.cleanmytv.home.customization.CustomizationActivity
 import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.compose.animation.animateColorAsState
@@ -264,11 +264,11 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var showInputs by remember { mutableStateOf(false) }
     var showPanel by remember { mutableStateOf(false) }
     var showThemes by remember { mutableStateOf(false) }
-    var showCustomize by remember { mutableStateOf(false) }
     var panelPin by remember { mutableStateOf(false) }
     val openPanel = { if (Lock.needsPin(ctx, Lock.PANEL)) panelPin = true else showPanel = true }
-    LaunchedEffect(lastPress, cfg.idleMinutes, openFolder, showInputs, showPanel, showThemes, showCustomize) {
-        if (cfg.idleMinutes == 0 || openFolder != null || showInputs || showPanel || showThemes || showCustomize) return@LaunchedEffect
+    val openCustomize = { ctx.startActivity(android.content.Intent(ctx, CustomizationActivity::class.java)) }
+    LaunchedEffect(lastPress, cfg.idleMinutes, openFolder, showInputs, showPanel, showThemes) {
+        if (cfg.idleMinutes == 0 || openFolder != null || showInputs || showPanel || showThemes) return@LaunchedEffect
         delay(cfg.idleMinutes * 60_000L)
         idle = true
     }
@@ -278,7 +278,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             "inputs" -> showInputs = true
             "panel" -> openPanel()
             "themes" -> showThemes = true
-            "customize" -> showCustomize = true
+            "customize" -> openCustomize()
             "fireplace" -> runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
         }
         open.value = null
@@ -287,7 +287,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         if (a.id == "inputs") showInputs = true
         else if (a.id == "panel") openPanel()
         else if (a.id == "themes") showThemes = true
-        else if (a.id == "customize") showCustomize = true
+        else if (a.id == "customize") openCustomize()
         else if (a.id == "fireplace") runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
         else if (a.id == "music") ConfigStore.update(ctx, org.json.JSONObject().put("visualiser", !cfg.visualiser))
         else resolve(ctx, a)?.let { i -> runCatching { ctx.startActivity(i) }.onFailure { Log.w(TAG, "${a.id}: $it") } }
@@ -337,9 +337,6 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     if (showInputs) InputsOverlay(inputs, ui) { showInputs = false }
     if (showPanel) SettingsPanel(accent) { showPanel = false }
     if (showThemes) ThemeCarousel(accent) { showThemes = false }
-    if (showCustomize) {
-        CustomizationDialog(cfg, apps) { showCustomize = false }
-    }
     if (panelPin) Dialog(onDismissRequest = { panelPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         PinPad("Enter the PIN for Quick settings", Lock.PANEL, accent) { panelPin = false; showPanel = true }
     }
