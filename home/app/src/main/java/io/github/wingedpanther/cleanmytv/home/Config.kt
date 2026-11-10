@@ -19,7 +19,7 @@ data class HomeConfig(
     val layout: String = "shelf", // shelf, split, rail
     val sections: List<String> = listOf("nowplaying", "dock", "rows", "folders", "grid"), // top to bottom; absent = hidden
     val topSpace: Int = 25, // percent of the screen left open above the apps (shelf)
-    val quick: List<String> = listOf("inputs", "wifi", "settings"), // quick-settings icons and "app:<package>" shortcuts, in order
+    val quick: List<String> = listOf("inputs", "wifi", "customize", "settings"), // quick-settings icons and "app:<package>" shortcuts, in order
     val rows: List<Group> = emptyList(),
     val folders: List<Group> = emptyList(),
     val dockScale: Int = 100, // percent
@@ -199,7 +199,12 @@ data class HomeConfig(
                 quick = o.optJSONArray("quick")?.let { a ->
                     val all = (0 until minOf(a.length(), 30)).map { a.optString(it) }.filter { it in QUICK || quickApp(it) != null }.distinct()
                     val apps = all.filter { quickApp(it) != null }.take(MAX_QUICK_APPS).toSet()
-                    all.filter { it in QUICK || it in apps }
+                    val result = all.filter { it in QUICK || it in apps }.toMutableList()
+                    if ("customize" !in result) {
+                        val settingsIdx = result.indexOf("settings")
+                        if (settingsIdx >= 0) result.add(settingsIdx, "customize") else result.add("customize")
+                    }
+                    result
                 } ?: base.quick,
                 rows = groups("rows", 8) ?: base.rows,
                 folders = groups("folders", 12) ?: base.folders,
@@ -262,6 +267,7 @@ data class HomeConfig(
 object ConfigStore {
     private val _config = MutableStateFlow(HomeConfig())
     val config: StateFlow<HomeConfig> = _config
+
     /** Bumped when a new wallpaper lands, so Home reloads it. */
     private val _wallpaperVersion = MutableStateFlow(0)
     val wallpaperVersion: StateFlow<Int> = _wallpaperVersion
@@ -281,17 +287,25 @@ object ConfigStore {
         if (f.exists()) runCatching { _config.value = HomeConfig.fromJson(JSONObject(f.readText())) }
     }
 
-    /** Merges a partial update, saves it atomically, and the UI follows through the flow. */
+    /** Merges a partial update, saves it atomically to disk, and live-syncs state immediately. */
     @Synchronized
     fun update(ctx: Context, json: JSONObject): HomeConfig {
         load(ctx)
         val next = HomeConfig.fromJson(json, _config.value)
         val text = next.toJson().toString(2)
+        val f = file(ctx)
         val tmp = File(ctx.filesDir, "config.json.tmp")
-        // On adopted storage a temp file left by an earlier install can refuse to be written (#59): then the
-        // settings go straight into config.json, without the swap.
-        val swapped = runCatching { tmp.writeText(text); tmp.renameTo(file(ctx)) }.getOrDefault(false)
-        if (!swapped) { tmp.delete(); file(ctx).writeText(text) }
+        val swapped = runCatching { tmp.writeText(text); tmp.renameTo(f) }.getOrDefault(false)
+        if (!swapped) { tmp.delete(); f.writeText(text) }
+        _config.value = next
+        return next
+    }
+
+    @Synchronized
+    fun reset(ctx: Context): HomeConfig {
+        val f = file(ctx)
+        runCatching { f.delete() }
+        val next = HomeConfig()
         _config.value = next
         return next
     }

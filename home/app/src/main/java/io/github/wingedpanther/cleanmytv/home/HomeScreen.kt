@@ -1,5 +1,6 @@
 package io.github.wingedpanther.cleanmytv.home
 
+import io.github.wingedpanther.cleanmytv.home.customization.CustomizationActivity
 import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.compose.animation.animateColorAsState
@@ -189,7 +190,17 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     LaunchedEffect(wallVersion) {
         wallpaper = withContext(Dispatchers.IO) {
             val f = ConfigStore.wallpaper(ctx)
-            if (f.exists()) runCatching { BitmapFactory.decodeFile(f.path)?.asImageBitmap() }.getOrNull() else null
+            if (f.exists()) runCatching {
+                val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(f.path, opts)
+                var sample = 1
+                while (opts.outWidth / sample > 1920 || opts.outHeight / sample > 1080) sample *= 2
+                val decodeOpts = BitmapFactory.Options().apply {
+                    inSampleSize = sample
+                    inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+                }
+                BitmapFactory.decodeFile(f.path, decodeOpts)?.asImageBitmap()
+            }.getOrNull() else null
         }
         // A new wallpaper, not the one Home opened with, comes in like a sunrise.
         val fresh = wallSeen != null && wallSeen != wallVersion
@@ -255,6 +266,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var showThemes by remember { mutableStateOf(false) }
     var panelPin by remember { mutableStateOf(false) }
     val openPanel = { if (Lock.needsPin(ctx, Lock.PANEL)) panelPin = true else showPanel = true }
+    val openCustomize = { ctx.startActivity(android.content.Intent(ctx, CustomizationActivity::class.java)) }
     LaunchedEffect(lastPress, cfg.idleMinutes, openFolder, showInputs, showPanel, showThemes) {
         if (cfg.idleMinutes == 0 || openFolder != null || showInputs || showPanel || showThemes) return@LaunchedEffect
         delay(cfg.idleMinutes * 60_000L)
@@ -266,6 +278,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             "inputs" -> showInputs = true
             "panel" -> openPanel()
             "themes" -> showThemes = true
+            "customize" -> openCustomize()
             "fireplace" -> runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
         }
         open.value = null
@@ -274,6 +287,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         if (a.id == "inputs") showInputs = true
         else if (a.id == "panel") openPanel()
         else if (a.id == "themes") showThemes = true
+        else if (a.id == "customize") openCustomize()
         else if (a.id == "fireplace") runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
         else if (a.id == "music") ConfigStore.update(ctx, org.json.JSONObject().put("visualiser", !cfg.visualiser))
         else resolve(ctx, a)?.let { i -> runCatching { ctx.startActivity(i) }.onFailure { Log.w(TAG, "${a.id}: $it") } }
