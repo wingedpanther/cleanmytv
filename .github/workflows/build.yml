@@ -1,5 +1,6 @@
 name: Build
 
+# CI trigger verification: this commit intentionally triggers the main-branch build.
 # Pull requests run the cheap Linux jobs only (APK and tests). Pushes to main and v* tags also build the
 # macOS and Windows installers; a v* tag then opens a draft release with them attached.
 on:
