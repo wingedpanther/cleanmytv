@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import type { ScreenProps } from '../App'
 import type { BootCheckResult } from '@shared/api'
 import { Busy, errorText } from '../components/ui'
+import { usbOffWhileDebugging } from '../lib/usb'
 
 const STEPS = [
   'On the TV, open Developer options and turn off USB debugging.',
@@ -59,6 +60,13 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
         prompt. Close it when you're done. The home screen and the clean-up keep working without it. Turn it on again
         any time you want to change something from this app.
       </p>
+
+      {usbOffWhileDebugging(status.probe) && (
+        <div className="notice warn">
+          On this TV, USB drives and USB Ethernet adapters don't work while debugging is on. Switch it off below and restart
+          the TV to get them back.
+        </div>
+      )}
 
       <div className="card white">
         <h2>1. Restart check</h2>

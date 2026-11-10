@@ -3,6 +3,7 @@ import type { ApplyResult, DebloatEntry, DebloatListSummary, DebloatPlan, Packag
 import type { ScreenProps } from '../App'
 import { ActionButton, Confirm, ResultNotice, Skeleton, Toggle, UndoToast, errorText, usePhase } from '../components/ui'
 import { defaultTick } from '../lib/ticks'
+import { usbOffWhileDebugging } from '../lib/usb'
 
 type Filter = 'all' | 'disable' | 'disabled' | 'absent'
 
@@ -172,6 +173,16 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
 
   const stockHome = plan?.homePackage && plan.homePackage !== 'com.gathin.tvhome' && plan.entries.some((e) => e.pkg === plan.homePackage && ticked.has(e.pkg))
   const selectedList = lists?.find((l) => l.id === listId)
+  // Shown once per TV model; the Finish step says it again.
+  const usbKey = `usb-note:${status.probe?.model ?? ''}`
+  const [usbHidden, setUsbHidden] = useState(() => {
+    try { return localStorage.getItem(usbKey) === '1' } catch { return false }
+  })
+  const usbNote = usbOffWhileDebugging(status.probe) && !usbHidden
+  const hideUsbNote = (): void => {
+    setUsbHidden(true)
+    try { localStorage.setItem(usbKey, '1') } catch { /* private window: it just shows again next time */ }
+  }
 
   return (
     <>
@@ -180,6 +191,16 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
         Pick the list for your TV and untick anything you use. Packages are switched off for your user, never uninstalled.
         Before the first change, the app writes down how the TV was set up, so Restore puts every package back as it was.
       </p>
+
+      {usbNote && (
+        <div className="notice warn row between" style={{ flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+          <span style={{ flex: 1 }}>
+            This TV turns its USB port off while debugging is on. Drives and USB adapters come back once you finish and switch
+            debugging off. Clean up didn't cause it.
+          </span>
+          <button className="btn ghost" aria-label="Hide this note" onClick={hideUsbNote}>✕</button>
+        </div>
+      )}
 
       <div className="card">
         <div className="card-head">
