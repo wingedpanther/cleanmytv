@@ -101,5 +101,35 @@ fun BackupCustomization(config: HomeConfig, ctx: Context, onMessage: (String) ->
                 }
             }
         }
+
+        // --- Reset Configuration Section ---
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Reset Configuration", color = TEXT_COLOR, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(
+                text = "Resets all customization settings back to factory default state.",
+                color = MUTED_COLOR,
+                fontSize = 12.sp
+            )
+
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                TvDestructiveButton(
+                    text = "Reset All Settings to Default",
+                    onClick = {
+                        runCatching {
+                            ConfigStore.reset(ctx)
+                            inlineMessage = "All settings reset to default successfully!"
+                            onMessage("All settings reset to default successfully!")
+                        }.onFailure { inlineMessage = "Reset failed: ${it.message}" }
+                    }
+                )
+
+                if (inlineMessage.startsWith("All settings reset") || inlineMessage.startsWith("Reset failed")) {
+                    Alert(
+                        text = inlineMessage,
+                        type = if (inlineMessage.startsWith("Reset failed")) AlertType.ERROR else AlertType.SUCCESS
+                    )
+                }
+            }
+        }
     }
 }

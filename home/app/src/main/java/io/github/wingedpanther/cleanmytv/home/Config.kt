@@ -301,5 +301,14 @@ object ConfigStore {
         return next
     }
 
+    @Synchronized
+    fun reset(ctx: Context): HomeConfig {
+        val f = file(ctx)
+        runCatching { f.delete() }
+        val next = HomeConfig()
+        _config.value = next
+        return next
+    }
+
     fun wallpaperChanged() { _wallpaperVersion.value++ }
 }
