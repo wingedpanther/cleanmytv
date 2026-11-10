@@ -28,9 +28,9 @@ data class HomeConfig(
     val buttonsOn: Boolean = false,
     val buttons: List<ButtonMap> = emptyList(),
     // Look: CleanMyTV's dark green-and-earth world by default
-    val accent: Long = 0xFF4CAF50,
+    val accent: Long = 0xFFD6B36A,
     val focus: String = "lift", // lift, glow, outline, none
-    val background: Long = 0xFF1C2A1F,
+    val background: Long = 0xFF090B10,
     val wallpaperDim: Int = 35, // percent of black over the wallpaper
     // Layout
     val order: List<String> = emptyList(), // apps first in this order, the rest alphabetically

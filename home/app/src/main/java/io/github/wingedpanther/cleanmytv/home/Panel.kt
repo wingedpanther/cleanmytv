@@ -47,9 +47,9 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 
-private val P_TEXT = Color(0xFFF0EBE5)
-private val P_MUTED = Color(0xFFD7CFC4)
-private val P_PANEL = Color(0xF51C2A1F)
+private val P_TEXT = Color(0xFFF2EEE7)
+private val P_MUTED = Color(0xFFC8C0B3)
+private val P_PANEL = Color(0xF517191F)
 
 /**
  * Quick settings, down the right edge: the settings people change most, set right here with left and right.

@@ -56,9 +56,9 @@ import androidx.tv.material3.Text
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val PAD_TEXT = Color(0xFFF0EBE5)
-private val PAD_MUTED = Color(0xFFD7CFC4)
-private val PAD_PANEL = Color(0xF22D3A2E)
+private val PAD_TEXT = Color(0xFFF2EEE7)
+private val PAD_MUTED = Color(0xFFC8C0B3)
+private val PAD_PANEL = Color(0xF21A1C22)
 
 private val DIGIT_KEYS = mapOf(
     Key.Zero to '0', Key.One to '1', Key.Two to '2', Key.Three to '3', Key.Four to '4',
