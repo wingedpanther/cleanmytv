@@ -119,12 +119,12 @@ import java.util.Calendar
 import java.util.Date
 
 // CleanMyTV's dark world: warm off-white and sand text on the green-black ground.
-private val TEXT = Color(0xFFF0EBE5)
-private val MUTED = Color(0xFFD7CFC4)
-private val TILE = Color(0xE62D3A2E)
-private val TILE_FOCUSED = Color(0xFF3A4A3B)
-private val GROUND = Color(0xFF1C2A1F)
-private val PANEL = Color(0xFF2D3A2E)
+private val TEXT = Color(0xFFF2EEE7)
+private val MUTED = Color(0xFFC8C0B3)
+private val TILE = Color(0xE61A1C22)
+private val TILE_FOCUSED = Color(0xFF29251C)
+private val GROUND = Color(0xFF090B10)
+private val PANEL = Color(0xFF17191F)
 
 // The desktop app's face, for the clock and date: tabular figures that don't jitter as the minutes turn.
 private val CLOCK = FontFamily(Font(R.font.jetbrains_mono_light, FontWeight.Light), Font(R.font.jetbrains_mono_regular, FontWeight.Normal))

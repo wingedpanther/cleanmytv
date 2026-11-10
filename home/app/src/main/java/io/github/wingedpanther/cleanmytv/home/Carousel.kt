@@ -52,8 +52,8 @@ import androidx.tv.material3.Text
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private val C_TEXT = Color(0xFFF0EBE5)
-private val C_MUTED = Color(0xFFD7CFC4)
+private val C_TEXT = Color(0xFFF2EEE7)
+private val C_MUTED = Color(0xFFC8C0B3)
 
 /** Decoded pictures, small: the centre card at half size, the neighbours at a quarter. About 6 MB at most. */
 private val thumbs = object : LruCache<String, ImageBitmap>(6 * 1024 * 1024) {
@@ -88,7 +88,7 @@ fun ThemeCarousel(accent: Color, onClose: () -> Unit) {
     val focus = remember { FocusRequester() }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
-            Modifier.fillMaxSize().background(Color(0xF20B0F0C)).focusRequester(focus).focusable().onKeyEvent { e ->
+            Modifier.fillMaxSize().background(Color(0xF20A0B10)).focusRequester(focus).focusable().onKeyEvent { e ->
                 if (e.type != KeyEventType.KeyDown || themes.isEmpty()) return@onKeyEvent false
                 val n = themes[t].pictures
                 when (e.key) {
@@ -135,7 +135,7 @@ fun ThemeCarousel(accent: Color, onClose: () -> Unit) {
 @Composable
 private fun Card(ctx: Context, theme: PackTheme, v: Int, w: Dp, sample: Int, modifier: Modifier) {
     val img = picture(ctx, theme.id, v, sample)
-    Box(modifier.size(w, w * 9 / 16).clip(RoundedCornerShape(14.dp)).background(Color(0xFF1C2A1F))) {
+    Box(modifier.size(w, w * 9 / 16).clip(RoundedCornerShape(14.dp)).background(Color(0xFF17191F))) {
         img?.let { Image(it, theme.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
     }
 }
