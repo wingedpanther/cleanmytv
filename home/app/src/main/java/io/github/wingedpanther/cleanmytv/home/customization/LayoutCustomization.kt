@@ -61,27 +61,10 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
         )
 
         // --- Unified Info Helper Bar ---
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0x18FFFFFF))
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Info,
-                contentDescription = "Info",
-                tint = PRIMARY_BUTTON_COLOR,
-                modifier = Modifier.size(16.dp)
-            )
-            Text(
-                text = "Check items to enable · Select handle with OK to pick · ↑↓ Move · OK Confirm · Back Cancel",
-                color = MUTED_COLOR,
-                fontSize = 12.sp
-            )
-        }
+        Alert(
+            text = "Check items to enable · Select handle with OK to pick · ↑↓ Move · OK Confirm · Back Cancel",
+            modifier = Modifier.fillMaxWidth()
+        )
 
         // --- Side-by-Side Collapsible Cards ---
         Row(

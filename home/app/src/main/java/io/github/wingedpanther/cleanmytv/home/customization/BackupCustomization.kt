@@ -7,17 +7,27 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import io.github.wingedpanther.cleanmytv.home.ConfigStore
 import io.github.wingedpanther.cleanmytv.home.HomeConfig
+import io.github.wingedpanther.cleanmytv.home.customization.components.Alert
+import io.github.wingedpanther.cleanmytv.home.customization.components.AlertType
 import org.json.JSONObject
 import java.io.File
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 @Composable
 fun BackupCustomization(config: HomeConfig, ctx: Context, onMessage: (String) -> Unit) {
+    var inlineMessage by remember { mutableStateOf("") }
+    
     fun getBackupFile(context: Context): File {
         val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir
         return File(dir, "cleanmytv-config.json")
@@ -33,18 +43,27 @@ fun BackupCustomization(config: HomeConfig, ctx: Context, onMessage: (String) ->
                 fontSize = 12.sp
             )
 
-            TvSecondaryButton(
-                text = "Export Config to File",
-                onClick = {
-                    runCatching {
-                        val jsonStr = config.toJson().toString(2)
-                        val targetFile = getBackupFile(ctx)
-                        targetFile.parentFile?.mkdirs()
-                        targetFile.writeText(jsonStr)
-                        onMessage("Exported successfully to app backup storage")
-                    }.onFailure { onMessage("Export failed: ${it.message}") }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                TvSecondaryButton(
+                    text = "Export Config to File",
+                    onClick = {
+                        runCatching {
+                            val jsonStr = config.toJson().toString(2)
+                            val targetFile = getBackupFile(ctx)
+                            targetFile.parentFile?.mkdirs()
+                            targetFile.writeText(jsonStr)
+                            inlineMessage = "Exported successfully to app backup storage"
+                        }.onFailure { inlineMessage = "Export failed: ${it.message}" }
+                    }
+                )
+                
+                if (inlineMessage.startsWith("Export")) {
+                    Alert(
+                        text = inlineMessage,
+                        type = if (inlineMessage.startsWith("Export failed")) AlertType.ERROR else AlertType.SUCCESS
+                    )
                 }
-            )
+            }
         }
 
         // --- Import Configuration Section ---
@@ -56,21 +75,31 @@ fun BackupCustomization(config: HomeConfig, ctx: Context, onMessage: (String) ->
                 fontSize = 12.sp
             )
 
-            TvSecondaryButton(
-                text = "Import Config from File",
-                onClick = {
-                    runCatching {
-                        val targetFile = getBackupFile(ctx)
-                        if (!targetFile.exists()) {
-                            onMessage("Backup configuration file not found")
-                            return@TvSecondaryButton
-                        }
-                        val jsonStr = targetFile.readText()
-                        ConfigStore.update(ctx, JSONObject(jsonStr))
-                        onMessage("Settings restored successfully!")
-                    }.onFailure { onMessage("Import failed: ${it.message}") }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                TvSecondaryButton(
+                    text = "Import Config from File",
+                    onClick = {
+                        runCatching {
+                            val targetFile = getBackupFile(ctx)
+                            if (!targetFile.exists()) {
+                                inlineMessage = "Import failed: Backup configuration file not found"
+                                return@TvSecondaryButton
+                            }
+                            val jsonStr = targetFile.readText()
+                            ConfigStore.update(ctx, JSONObject(jsonStr))
+                            inlineMessage = "Settings restored successfully!"
+                            onMessage("Settings restored successfully!") // also send to top header for toast fallback
+                        }.onFailure { inlineMessage = "Import failed: ${it.message}" }
+                    }
+                )
+                
+                if (inlineMessage.startsWith("Import") || inlineMessage.startsWith("Settings")) {
+                    Alert(
+                        text = inlineMessage,
+                        type = if (inlineMessage.startsWith("Import failed")) AlertType.ERROR else AlertType.SUCCESS
+                    )
                 }
-            )
+            }
         }
     }
 }
