@@ -14,6 +14,19 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
+### New in 0.7.3
+
+- **Remote buttons stay on.** Home turns its button service back on after a reboot, or when the TV
+  switched it off, so mapped buttons keep working (#78).
+- **Weather from MET Norway** when the network blocks Open-Meteo (#76, #80).
+- **Inputs:** Live TV shows once, even on TVs with a tuner per broadcast type, and a new switch hides
+  it (#50).
+- **Bluetooth button:** on TVs that block the pairing screen, it opens Settings instead (#97).
+- **Rename the Quick settings buttons** and the All apps title (#67).
+- **Mono icons** cut the shape out of single-colour icons (#91).
+- **Save a snapshot** of the TV screen to your computer (#92).
+- **Xiaomi:** Clean up and Finish say when USB drives stop working while debugging is on (#71).
+
 ### New in 0.7.2
 
 - **Fireplace on every TV.** The fireplace now goes onto the TV through CleanMyTV Home itself, instead
