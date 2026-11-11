@@ -41,6 +41,7 @@ class MainActivity : ComponentActivity() {
         val created = SystemClock.uptimeMillis()
         super.onCreate(savedInstanceState)
         ConfigStore.load(this)
+        KeyService.ensureOn(this)
         open.value = intent.getStringExtra(OPEN)
         setContent { HomeScreen(visualiser, appsVersion.intValue, open) }
         // Home is the bottom of the stack: Back here stays here instead of closing Home (#69). Folders,

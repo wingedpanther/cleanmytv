@@ -24,7 +24,7 @@ export const DEFAULTS: HomeConfig = {
   lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge',
   fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0,
   slide_minutes: 0, slide_from: 'mine', other_apps: false, live_tv: true,
-  clock: 'time_date', greeting: '', idle_minutes: 0,
+  clock: 'time_date', greeting: '', names: {}, idle_minutes: 0,
   weather_place: '', weather_lat: 0, weather_lon: 0, weather_unit: 'c',
   visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
 }
@@ -264,6 +264,13 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
   if (o.greeting !== undefined) {
     if (typeof o.greeting === 'string') out.greeting = plain(o.greeting, 40)
     else bad('greeting must be text')
+  }
+  if (o.names !== undefined) {
+    const v = o.names
+    const ok = v && typeof v === 'object' && !Array.isArray(v) &&
+      Object.entries(v).every(([k, s]) => ((QUICK as readonly string[]).includes(k) || k === 'all_apps') && typeof s === 'string')
+    if (ok) out.names = Object.fromEntries(Object.entries(v as Record<string, string>).map(([k, s]) => [k, plain(s, 24)]).filter(([, s]) => s !== ''))
+    else bad(`names must map ${QUICK.join(', ')} or all_apps to text`)
   }
   if (o.weather_place !== undefined) {
     if (typeof o.weather_place === 'string') out.weather_place = plain(o.weather_place, 40)

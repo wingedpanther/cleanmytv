@@ -211,8 +211,8 @@ itself.
   - The fireplace video and sound sit in Home's folder on the TV's shared storage
     (`Android/data/io.github.wingedpanther.cleanmytv.home/files/fireplace`). ADB can write there, and
     Home reads them without a storage permission.
-  - The only thing it fetches from the internet is the weather, from api.open-meteo.com, every 30
-    minutes while the place is set.
+  - The only thing it fetches from the internet is the weather, every 30 minutes while the place is
+    set. It asks api.open-meteo.com, and api.met.no when Open-Meteo doesn't answer.
 - **Your keys.** The app makes its own ADB key in its data folder and signs only with that. It never
   uses `~/.android/adbkey`, which your phones may also trust, and it only logs in to an address you
   picked. Network ADB is plaintext by design, so use it on a network you trust.

@@ -62,7 +62,7 @@ export function installMock(): void {
     order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
     icon_style: 'banner', tile_shape: 'wide', intro: true, wallpaper_from: '',
     lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge', fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0, slide_minutes: 0, slide_from: 'mine', other_apps: false, live_tv: true, slides_on_tv: 0, fire_on_tv: false, lock_pin_set: false, themes_on_tv: 0, can_change_settings: true,
-    clock: 'time_date', greeting: '', idle_minutes: 0,
+    clock: 'time_date', greeting: '', names: {}, idle_minutes: 0,
     weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'c',
     visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100,
     has_wallpaper: false
@@ -399,6 +399,10 @@ export function installMock(): void {
     async screenshot() {
       await wait(900)
       return gradientUrl('#101820', '#0b2a3a', '#000000')
+    },
+    async saveScreenshot() {
+      await wait(300)
+      return '/Users/me/Pictures/TV 2026-11-11 10.42.png'
     },
     async thumbShot() {
       return gradientUrl('#101820', '#0b2a3a', '#000000')

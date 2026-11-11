@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, HomeTheme, ThemeBackup, HomeLayout, HomeSection, HomeStatus, KeyPress, QuickEntry, QuickId, TvApp } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { AppOrder } from '../components/AppOrder'
-import { HomePreview, QuickMark, quickApp, quickLabel } from '../components/HomePreview'
+import { HomePreview, QUICK_LABEL, QuickMark, quickApp, quickLabel } from '../components/HomePreview'
 import { ActionButton, Busy, Confirm, PinBoxes, ResultNotice, Slider, StatusChip, Toggle, errorText, usePhase } from '../components/ui'
 import { prepareWallpaper, thumbnail } from '../lib/image'
 import { fetchBingDaily } from '../lib/backgrounds'
@@ -388,6 +388,7 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
   const [shot, setShot] = useState<string | null>(null)
   const [shooting, setShooting] = useState(false)
   const [shotError, setShotError] = useState<string | null>(null)
+  const [saved, setSaved] = useState<string | null>(null)
 
   async function snapshot(): Promise<void> {
     setShooting(true)
@@ -395,6 +396,7 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
     try {
       const s = await window.cytv.screenshot()
       setShot(s)
+      setSaved(null)
       if (props.host) {
         await window.cytv.saveTvThumb(props.host, await thumbnail(s))
         props.onShot()
@@ -473,7 +475,15 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
         </div>
         {shotError && <div className="notice warn">{shotError}</div>}
         {shot ? (
-          <img src={shot} alt="The TV screen" style={{ width: '100%', borderRadius: 10, border: '1px solid var(--line)' }} />
+          <>
+            <img src={shot} alt="The TV screen" style={{ width: '100%', borderRadius: 10, border: '1px solid var(--line)' }} />
+            <div className="row" style={{ marginTop: 10 }}>
+              <button className="btn small" onClick={() => void window.cytv.saveScreenshot().then((p) => p && setSaved(p)).catch((e) => setShotError(errorText(e)))}>
+                Save…
+              </button>
+              {saved && <span className="muted small">Saved as {saved.split(/[\\/]/).pop()}</span>}
+            </div>
+          </>
         ) : (
           <p className="muted small">A picture of the TV screen right now. It also becomes this TV's thumbnail in the sidebar.</p>
         )}
@@ -690,6 +700,11 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
           <h2>Sections</h2>
           <p className="muted small">Top to bottom. Untick one to hide it.</p>
           <OrderList all={ALL_SECTIONS} on={cfg.sections} label={(s) => SECTION_LABEL[s]} onChange={(sections) => set({ sections })} />
+          <label className="field" style={{ marginTop: 14 }}>
+            <span>All apps title</span>
+            <span className="hint">Your own words for the heading above the grid. Empty keeps "All apps".</span>
+            <input type="text" maxLength={24} value={cfg.names.all_apps ?? ''} placeholder="All apps" onChange={(e) => set({ names: { ...cfg.names, all_apps: e.target.value } }, 700)} />
+          </label>
         </div>
         <div className="card">
           <h2>Quick settings</h2>
@@ -713,6 +728,20 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
             onChange={(quick) => set({ quick })}
           />
           <QuickAppAdd apps={apps} quick={cfg.quick} onAdd={(pkg) => set({ quick: [...cfg.quick, `app:${pkg}`] })} />
+          {cfg.quick.some((q) => !quickApp(q)) && (
+            <details style={{ marginTop: 14 }}>
+              <summary className="small muted" style={{ cursor: 'pointer' }}>
+                Rename the buttons
+              </summary>
+              <p className="muted small">In your own language, for example. Leave a box empty to keep the English name.</p>
+              {cfg.quick.filter((q) => !quickApp(q)).map((q) => (
+                <label key={q} className="field">
+                  <span>{QUICK_LABEL[q as QuickId]}</span>
+                  <input type="text" maxLength={24} value={cfg.names[q as QuickId] ?? ''} placeholder={QUICK_LABEL[q as QuickId]} onChange={(e) => set({ names: { ...cfg.names, [q]: e.target.value } }, 700)} />
+                </label>
+              ))}
+            </details>
+          )}
           {cfg.quick.includes('inputs') && (
             <Toggle label="Live TV in Inputs" hint="The TV's tuner, at the top of the Inputs menu. Switch it off if you don't watch TV channels." checked={cfg.live_tv} onChange={(v) => set({ live_tv: v })} />
           )}
@@ -1074,8 +1103,8 @@ function WidgetsTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
       <div className="card">
         <h2>Weather</h2>
         <p className="muted">
-          The temperature, today's high and low, and the sky next to the clock. It comes from Open-Meteo: free, no account. The
-          TV asks for it every 30 minutes.
+          The temperature, today's high and low, and the sky next to the clock. It comes from Open-Meteo, or from MET Norway when the TV
+          can't reach Open-Meteo. Both are free, with no account. The TV asks every 30 minutes.
         </p>
         {cfg.weather_place ? (
           <div className="row" style={{ marginBottom: 14 }}>

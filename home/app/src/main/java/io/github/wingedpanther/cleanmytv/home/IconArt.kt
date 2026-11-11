@@ -19,9 +19,10 @@ import kotlin.math.abs
 /**
  * An app's logo on its own, for the icon styles. [plate] is the colour the logo sat on, when it was a
  * colourful one (YouTube's red, Spotify's green); [drawn] says it came from the drawn set. [picture]: the
- * icon is a full picture with no logo to lift off it, which only the Colour style can show.
+ * icon is a full picture with no logo to lift off it, which only the Colour style can show. [mono] is the
+ * logo with its inner shapes cut out, for Mono, when it has any.
  */
-class Glyph(val art: ImageBitmap, val plate: Int?, val drawn: Boolean, val picture: Boolean = false)
+class Glyph(val art: ImageBitmap, val plate: Int?, val drawn: Boolean, val picture: Boolean = false, val mono: ImageBitmap? = null)
 
 /**
  * Every app gets a logo, in this order: the drawn set (Simple Icons, CC0, matched by package name), the
@@ -68,7 +69,7 @@ object IconArt {
         // A foreground that covers nearly everything is a picture, not a logo: treat the icon as flat.
         if (px.count { alpha(it) > 200 } > SIZE * SIZE * 0.85) return fromFlat(a.toBitmap(SIZE, SIZE))
         val plate = a.background?.let { bg -> average(bg.toBitmap(16, 16)) }?.takeIf { saturation(it) > 0.25f }
-        return crop(inner)?.let { Glyph(it.asImageBitmap(), plate, drawn = false) }
+        return crop(inner)?.let { Glyph(it.asImageBitmap(), plate, drawn = false, mono = monoOf(it)) }
     }
 
     /** A flat icon: find the shape behind the logo (by its edge, or by its most common colour) and lift the logo off it. */
@@ -95,8 +96,40 @@ object IconArt {
         for (i in out.indices) if (alpha(out[i]) < 40 || (plate != null && near(out[i], plate))) out[i] = 0
         if (out.count { it != 0 } < w * h * 0.015) return null
         val logo = Bitmap.createBitmap(out, w, h, Bitmap.Config.ARGB_8888)
-        return crop(logo)?.let { Glyph(it.asImageBitmap(), plate?.takeIf { p -> saturation(p) > 0.25f }, drawn = false) }
+        return crop(logo)?.let { Glyph(it.asImageBitmap(), plate?.takeIf { p -> saturation(p) > 0.25f }, drawn = false, mono = monoOf(it)) }
     }
+
+    private fun monoOf(bmp: Bitmap): ImageBitmap? {
+        val w = bmp.width; val h = bmp.height
+        val px = IntArray(w * h).also { bmp.getPixels(it, 0, w, 0, 0, w, h) }
+        return cutOut(px)?.let { Bitmap.createBitmap(it, w, h, Bitmap.Config.ARGB_8888).asImageBitmap() }
+    }
+
+    /**
+     * Mono paints every pixel of a logo one colour, so a light shape inside a dark one vanished into a blob
+     * (#91: the S in SmartTube's logo). This cuts such shapes out: pixels much lighter or darker than the
+     * logo's main colour go see-through, fading across the soft edge. Null for a logo in one colour, or one
+     * in many with no main colour to cut against, like Google Play's.
+     */
+    fun cutOut(px: IntArray): IntArray? {
+        val solid = px.filter { alpha(it) > 200 }
+        if (solid.isEmpty()) return null
+        val (main, share) = common(solid)
+        if (share < 0.4f) return null
+        val l = luma(main)
+        var cut = 0
+        val out = IntArray(px.size)
+        for (i in px.indices) {
+            val c = px[i]
+            // Within 0.25 of the main colour's lightness stays; beyond 0.45 goes; in between fades.
+            val keep = ((0.45f - abs(luma(c) - l)) / 0.2f).coerceIn(0f, 1f)
+            if (keep < 0.5f && alpha(c) > 200) cut++
+            out[i] = (Math.round(alpha(c) * keep) shl 24) or (c and 0xFFFFFF)
+        }
+        return if (cut >= solid.size * 0.03f) out else null
+    }
+
+    private fun luma(c: Int) = (0.2126f * red(c) + 0.7152f * green(c) + 0.0722f * blue(c)) / 255f
 
     /** Trims the empty edges, so every logo sits the same size on its tile. */
     private fun crop(bmp: Bitmap): Bitmap? {

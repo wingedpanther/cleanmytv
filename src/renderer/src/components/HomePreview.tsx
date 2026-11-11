@@ -169,7 +169,7 @@ function Sections({ apps, cfg, width, dockW, showFolders = true }: { apps: TvApp
         if (s === 'grid' && m.grid.length)
           return (
             <div key={s}>
-              <Title>{m.dock.length || m.rows.length ? 'All apps' : 'Apps'}</Title>
+              <Title>{cfg.names.all_apps || (m.dock.length || m.rows.length ? 'All apps' : 'Apps')}</Title>
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cfg.columns}, ${gridW}px)`, gap: `14px ${GAP}px`, padding: '6px 0' }}>
                 {m.grid.map((a, i) => <Tile key={a.pkg} app={a} w={gridW} names={cfg.show_names} focused={i === 0 && focusOnce()} cfg={cfg} />)}
               </div>
@@ -236,7 +236,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
               <span style={{ width: 22, display: 'inline-grid', placeItems: 'center' }}>
                 <QuickMark q={q} apps={apps} size={18} />
               </span>{' '}
-              {quickLabel(q, apps)}
+              {(!quickApp(q) && cfg.names[q as QuickId]) || quickLabel(q, apps)}
             </div>
           ))}
         </div>

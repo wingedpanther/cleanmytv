@@ -169,6 +169,16 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
       return r.canceled || !r.filePath ? null : r.filePath
     }),
   screenshot: () => system.screenshot(),
+  saveScreenshot: async () => {
+    const png = system.lastScreenshot()
+    if (!png) return null
+    const opts = { title: 'Save the snapshot', defaultPath: join(app.getPath('pictures'), system.shotName()), filters: [{ name: 'PNG image', extensions: ['png'] }] }
+    const r = win && !win.isDestroyed() ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
+    if (r.canceled || !r.filePath) return null
+    writeFileSync(r.filePath, png)
+    shell.showItemInFolder(r.filePath)
+    return r.filePath
+  },
   // Nobody asked for this one, so a TV that can't take it (a Mi Box S, on first connect) gets a note, not an error.
   thumbShot: () => system.screenshot().catch((e: Error) => {
     log('screenshot', 'info', `no picture of the TV screen for the list this time: ${e.message}`)

@@ -247,7 +247,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     }
     val byPkg = apps.associateBy { it.pkg }
     val quick = cfg.quick.mapNotNull { id ->
-        HomeConfig.quickApp(id)?.let { p -> byPkg[p]?.let { appAction(it, quickIcons[p]) } } ?: all[id]
+        HomeConfig.quickApp(id)?.let { p -> byPkg[p]?.let { appAction(it, quickIcons[p]) } } ?: all[id]?.let { a -> cfg.names[id]?.let { a.copy(label = it) } ?: a }
     }.filter { canOpen(ctx, it, inputs.isNotEmpty()) }
     var openFolder by remember { mutableStateOf<Pair<String, List<TvApp>>?>(null) }
     var showInputs by remember { mutableStateOf(false) }
@@ -521,7 +521,7 @@ private fun PaddingValues.calcHorizontal(): Dp =
     calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr) + calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr)
 
 private fun LazyListScope.grid(home: Home, ui: Ui, w: Dp) {
-    val label = if (home.dock.isEmpty() && home.rows.isEmpty()) "Apps" else "All apps"
+    val label = ui.cfg.names["all_apps"] ?: if (home.dock.isEmpty() && home.rows.isEmpty()) "Apps" else "All apps"
     item("grid-title") { SectionTitle(label) }
     home.grid.chunked(ui.cfg.columns).forEachIndexed { i, row ->
         item("grid$i") {
@@ -744,7 +744,8 @@ private fun IconTile(app: TvApp, ui: Ui) {
         if (g != null && g.picture && ui.cfg.iconStyle == "colour") {
             Image(g.art, app.label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         } else if (g != null && !g.picture) {
-            Image(g.art, app.label, Modifier.size(width = maxWidth * 0.62f, height = maxHeight * (if (wide) 0.48f else 0.46f)), contentScale = ContentScale.Fit, colorFilter = filter)
+            val art = if (ui.cfg.iconStyle == "mono") g.mono ?: g.art else g.art
+            Image(art, app.label, Modifier.size(width = maxWidth * 0.62f, height = maxHeight * (if (wide) 0.48f else 0.46f)), contentScale = ContentScale.Fit, colorFilter = filter)
         } else {
             Text(app.label.take(1).uppercase(), color = letterInk, fontSize = with(androidx.compose.ui.platform.LocalDensity.current) { (minOf(maxWidth, maxHeight) * 0.42f).toSp() }, fontWeight = FontWeight.SemiBold)
         }
@@ -834,14 +835,14 @@ private fun NowPlayingCard(t: Track, ui: Ui) {
 
 // ---- Top bar pieces -------------------------------------------------------------------------------
 
-/** Icon, temperature, today's high and low, and the place, in one muted line. */
+/** Icon, temperature, today's high and low, and the place, in one muted line. MET Norway's data asks for its name. */
 @Composable
 private fun WeatherLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
     val w = ui.weather ?: return
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Image(weatherIcon(w), null, Modifier.size(with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.3f }), colorFilter = ColorFilter.tint(MUTED))
         Spacer(Modifier.width(6.dp))
-        Text("${w.temp}°  ${w.high}° / ${w.low}°  ${ui.cfg.weatherPlace}", color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text("${w.temp}°  ${w.high}° / ${w.low}°  ${ui.cfg.weatherPlace}${if (w.metNo) " · MET Norway" else ""}", color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -988,7 +989,7 @@ private fun InputsOverlay(inputs: List<Pair<String, String>>, ui: Ui, onClose: (
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().background(scrim(0.9f)), contentAlignment = Alignment.Center) {
             Column(Modifier.width(400.dp).background(PANEL, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Inputs", color = TEXT, fontSize = 24.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(bottom = 6.dp))
+                Text(ui.cfg.names["inputs"] ?: "Inputs", color = TEXT, fontSize = 24.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(bottom = 6.dp))
                 inputs.forEachIndexed { i, (id, label) ->
                     val shape = RoundedCornerShape(12.dp)
                     val (scale, glow, border) = focusStyle(ui, shape, zoom = 1.03f)

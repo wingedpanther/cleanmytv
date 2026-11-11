@@ -632,6 +632,18 @@ describe('launcher 1.4.0 settings', () => {
     expect(H.clean({ quick: ['fireplace'], buttons: [{ code: 186, action: 'fireplace' }] })).toEqual({ quick: ['fireplace'], buttons: [{ code: 186, action: 'fireplace' }] })
   })
 
+  it('names a saved snapshot by local date and time, and has nothing to save before the first one (#92)', () => {
+    expect(S.shotName(new Date(2026, 10, 1, 9, 5))).toBe('TV 2026-11-01 09.05.png')
+    expect(S.lastScreenshot()).toBeNull()
+  })
+
+  it('takes names for the top bar buttons and All apps, trimmed, and nothing else (#67)', () => {
+    expect(H.clean({ names: { inputs: '  Входы ', all_apps: 'Все приложения', wifi: '' } })).toEqual({ names: { inputs: 'Входы', all_apps: 'Все приложения' } })
+    expect(H.clean({ names: { settings: 'x'.repeat(40) } }).names?.settings).toHaveLength(24)
+    expect(() => H.clean({ names: { 'app:com.netflix.ninja': 'N' } })).toThrow(/names/)
+    expect(() => H.clean({ names: ['Inputs'] })).toThrow(/names/)
+  })
+
   it('takes Live TV on or off, and nothing but a boolean', () => {
     expect(H.clean({ live_tv: false })).toEqual({ live_tv: false })
     expect(() => H.clean({ live_tv: 'no' })).toThrow(/live_tv/)

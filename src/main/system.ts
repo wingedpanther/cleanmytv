@@ -100,13 +100,28 @@ export async function key(code: number): Promise<void> {
   await T.tv().shell(`input keyevent ${code}`)
 }
 
+/** The last snapshot taken, so Save writes what the app showed and nothing the page hands back. */
+let lastShot: Buffer | null = null
+
 export async function screenshot(): Promise<string> {
   const f = '/data/local/tmp/cytv-shot.png'
   await T.tv().shell(`screencap -p ${f}`, 30000)
   const png = await T.pullB64(f)
   await T.tv().shell(`rm -f ${f}`)
   if (!png || png.length < 100) throw new Error('The TV returned an empty screenshot. Live TV, HDMI and some streaming apps block capture: press Home and try again.')
+  lastShot = png
   return `data:image/png;base64,${png.toString('base64')}`
+}
+
+/** The last snapshot as PNG bytes, or null before the first one (#92). */
+export function lastScreenshot(): Buffer | null {
+  return lastShot
+}
+
+/** A file name like "TV 2026-11-11 10.42.png", in local time. */
+export function shotName(d = new Date()): string {
+  const p = (n: number): string => String(n).padStart(2, '0')
+  return `TV ${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}.${p(d.getMinutes())}.png`
 }
 
 export async function reboot(): Promise<void> {

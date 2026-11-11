@@ -199,6 +199,8 @@ export interface HomeConfig {
   top_space: number
   /** Quick-settings icons and app shortcuts, in order. Up to 6 app shortcuts. */
   quick: QuickEntry[]
+  /** The owner's own names for top bar buttons and the All apps title (launcher 1.7.5, #67). Empty keeps the English. */
+  names: Partial<Record<QuickId | 'all_apps', string>>
   rows: HomeGroup[]
   folders: HomeGroup[]
   /** Percent, 60 to 150. */
@@ -512,6 +514,8 @@ export interface CytvApi {
 
   /** PNG of the TV screen as a data URL. */
   screenshot(): Promise<string>
+  /** Saves the last snapshot where the owner picks, and shows it in the folder. The path, or null if cancelled. */
+  saveScreenshot(): Promise<string | null>
   /** The same for the TV list's picture, taken in the background: null instead of an error. */
   thumbShot(): Promise<string | null>
   /** HTTPS GET from Bing only (the page itself has no network access). */

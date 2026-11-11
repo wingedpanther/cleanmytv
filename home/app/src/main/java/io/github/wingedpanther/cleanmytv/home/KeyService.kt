@@ -3,9 +3,11 @@ package io.github.wingedpanther.cleanmytv.home
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
@@ -113,5 +115,36 @@ class KeyService : AccessibilityService() {
 
         /** Screen off, as the power button would. Needs the key service on; false when it isn't. */
         fun sleep(): Boolean = running?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) ?: false
+
+        /**
+         * Some TVs take this service out of the accessibility list when they restart, so mapped buttons and
+         * the app lock stopped until the desktop app saved something (#78). Home puts it back itself, with
+         * the secure-settings permission CleanMyTV granted. Without that permission nothing changes.
+         */
+        fun ensureOn(ctx: Context) {
+            val cfg = ConfigStore.config.value
+            if (!cfg.buttonsOn && !cfg.lockOn) return
+            val me = ComponentName(ctx, KeyService::class.java)
+            val r = ctx.contentResolver
+            val list = Settings.Secure.getString(r, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
+                .split(':').filter { it.isNotBlank() && it != "null" }
+            val listed = list.any { ComponentName.unflattenFromString(it) == me }
+            val on = Settings.Secure.getInt(r, Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1
+            if (listed && on) return
+            runCatching {
+                if (!listed) Settings.Secure.putString(r, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, (list + me.flattenToString()).joinToString(":"))
+                Settings.Secure.putInt(r, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
+                Log.i(TAG, "key service switched back on")
+            }.onFailure { Log.w(TAG, "key service: $it") }
+        }
+    }
+}
+
+/** At boot, before anyone presses Home: Fire TV opens Amazon's launcher first and needs the service to leave it. */
+class BootReceiver : BroadcastReceiver() {
+    override fun onReceive(c: Context, i: Intent) {
+        if (i.action != Intent.ACTION_BOOT_COMPLETED) return
+        ConfigStore.load(c)
+        KeyService.ensureOn(c)
     }
 }

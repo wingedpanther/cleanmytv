@@ -8,7 +8,7 @@
     <!-- The music visualiser reads the TV's mixed output. CleanMyTV grants this over ADB. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-    <!-- Weather next to the clock, from Open-Meteo. Nothing else goes online. -->
+    <!-- Weather next to the clock, from Open-Meteo or MET Norway. Nothing else goes online. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- The Quick settings panel's network row: Wi-Fi or Ethernet, and the TV's address. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -16,6 +16,8 @@
          these over ADB when it installs Home; without them the panel opens the TV's own screens. -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
+    <!-- Puts the remote-button service back after a restart when the TV has dropped it (#78). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Android 11+ hides other apps unless we say which ones we look for. -->
     <queries>
@@ -84,6 +86,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </service>
+
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Remote buttons mapped in CleanMyTV, and the app lock's guard. Off until the desktop app turns it on over ADB. -->
         <service

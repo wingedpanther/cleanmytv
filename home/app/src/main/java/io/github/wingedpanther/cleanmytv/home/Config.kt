@@ -68,6 +68,8 @@ data class HomeConfig(
     val slideFrom: String = "mine", // mine, theme
     val clock: String = "time_date", // time_date, time, off
     val greeting: String = "",
+    // The owner's own words for the top bar buttons and the All apps title, by id (#67)
+    val names: Map<String, String> = emptyMap(),
     // Idle screen: after this many minutes without a button press, only the wallpaper and the clock show; 0 is off
     val idleMinutes: Int = 0,
     // Weather next to the clock, from Open-Meteo; off while the place is blank
@@ -129,6 +131,7 @@ data class HomeConfig(
         .put("slide_from", slideFrom)
         .put("clock", clock)
         .put("greeting", greeting)
+        .put("names", JSONObject(names as Map<*, *>))
         .put("idle_minutes", idleMinutes)
         .put("weather_place", weatherPlace)
         .put("weather_lat", weatherLat)
@@ -241,6 +244,9 @@ data class HomeConfig(
                 clock = choice("clock", base.clock, setOf("time_date", "time", "off")),
                 idleMinutes = int("idle_minutes", base.idleMinutes, 0, 60),
                 greeting = if (o.has("greeting")) o.optString("greeting").take(40) else base.greeting,
+                names = o.optJSONObject("names")?.let { n ->
+                    n.keys().asSequence().mapNotNull { k -> n.optString(k).trim().take(24).takeIf { it.isNotEmpty() }?.let { k to it } }.toMap()
+                } ?: base.names,
                 weatherPlace = if (o.has("weather_place")) o.optString("weather_place").replace(Regex("[\\p{Cntrl}]"), "").trim().take(40) else base.weatherPlace,
                 weatherLat = real("weather_lat", base.weatherLat, 90.0),
                 weatherLon = real("weather_lon", base.weatherLon, 180.0),
