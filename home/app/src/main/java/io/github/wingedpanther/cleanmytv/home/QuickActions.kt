@@ -3,6 +3,7 @@ package io.github.wingedpanther.cleanmytv.home
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.tv.TvContract
 import android.media.tv.TvInputInfo
 import android.media.tv.TvInputManager
@@ -44,6 +45,8 @@ fun quickActions(): Map<String, QuickAction> = listOf(
         settings(Settings.ACTION_BLUETOOTH_SETTINGS),
         Intent("com.google.android.intent.action.CONNECT_INPUT"),
         Intent().setComponent(ComponentName("com.android.tv.settings", "com.android.tv.settings.accessories.AddAccessoryActivity")),
+        // Android 12+ guards the pairing screen with a Bluetooth permission Home doesn't hold (#97): Settings then.
+        settings(Settings.ACTION_SETTINGS),
     )),
     QuickAction("display", "Picture & sound", Icons.Outlined.Tv, listOf(settings(Settings.ACTION_DISPLAY_SETTINGS), settings(Settings.ACTION_SOUND_SETTINGS))),
     QuickAction("apps", "Apps", Icons.Outlined.Apps, listOf(settings(Settings.ACTION_APPLICATION_SETTINGS), settings(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))),
@@ -60,9 +63,18 @@ fun quickActions(): Map<String, QuickAction> = listOf(
     QuickAction("fireplace", "Fireplace", Icons.Outlined.LocalFireDepartment, emptyList()),
 ).associateBy { it.id }
 
-/** The first of the action's intents this TV can open, or null when none can (the icon is then left out). */
+/**
+ * The first of the action's intents this TV can open, or null when none can (the icon is then left out).
+ * A screen behind a permission Home doesn't hold is skipped, since starting it would only throw.
+ */
 fun resolve(ctx: Context, a: QuickAction): Intent? =
-    a.intents.firstOrNull { it.resolveActivity(ctx.packageManager) != null }?.let { Intent(it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+    a.intents.firstOrNull { canStart(ctx, it) }?.let { Intent(it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+
+private fun canStart(ctx: Context, i: Intent): Boolean {
+    val info = i.resolveActivityInfo(ctx.packageManager, 0) ?: return false
+    val needs = info.permission ?: return true
+    return ctx.checkSelfPermission(needs) == PackageManager.PERMISSION_GRANTED
+}
 
 /** Inputs needs inputs, Music bars always works, the rest need a screen on this TV that opens them. */
 fun canOpen(ctx: Context, a: QuickAction, hasInputs: Boolean): Boolean = when (a.id) {
@@ -83,13 +95,13 @@ fun availableQuick(ctx: Context): List<String> {
 /**
  * HDMI and other inputs, on TVs that have them, one per port, plus the TV's own tuner (#63). A tuner counts
  * only from a system app: streaming apps register channel inputs too, and those belong in their own app.
- * A box without inputs returns an empty list.
+ * The owner can leave Live TV out (#50). A box without inputs returns an empty list.
  */
-fun tvInputs(ctx: Context): List<Pair<String, String>> = runCatching {
+fun tvInputs(ctx: Context, liveTv: Boolean = ConfigStore.config.value.liveTv): List<Pair<String, String>> = runCatching {
     val tim = ctx.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager ?: return emptyList()
     pickInputs(tim.tvInputList.filter { it.isPassthroughInput || builtInTuner(it) }.map {
         InputRow(it.id, it.parentId, it.type == TvInputInfo.TYPE_HDMI, it.isHidden(ctx), it.loadCustomLabel(ctx)?.toString(), it.loadLabel(ctx)?.toString(), tuner = !it.isPassthroughInput)
-    })
+    }, liveTv)
 }.getOrElse { emptyList() }
 
 private fun builtInTuner(i: TvInputInfo): Boolean =

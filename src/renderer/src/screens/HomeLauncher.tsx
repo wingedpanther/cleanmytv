@@ -713,6 +713,9 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
             onChange={(quick) => set({ quick })}
           />
           <QuickAppAdd apps={apps} quick={cfg.quick} onAdd={(pkg) => set({ quick: [...cfg.quick, `app:${pkg}`] })} />
+          {cfg.quick.includes('inputs') && (
+            <Toggle label="Live TV in Inputs" hint="The TV's tuner, at the top of the Inputs menu. Switch it off if you don't watch TV channels." checked={cfg.live_tv} onChange={(v) => set({ live_tv: v })} />
+          )}
         </div>
       </div>
 

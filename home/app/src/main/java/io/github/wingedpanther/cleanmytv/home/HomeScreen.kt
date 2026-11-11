@@ -174,9 +174,9 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var apps by remember { mutableStateOf<List<TvApp>>(emptyList()) }
     var inputs by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     val glyphs = cfg.iconStyle != "banner"
-    LaunchedEffect(appsVersion, glyphs) {
+    LaunchedEffect(appsVersion, glyphs, cfg.liveTv) {
         apps = withContext(Dispatchers.Default) { loadApps(ctx, glyphs) }
-        inputs = withContext(Dispatchers.Default) { tvInputs(ctx) }
+        inputs = withContext(Dispatchers.Default) { tvInputs(ctx, cfg.liveTv) }
     }
     // Animations off in the TV's settings (or from CleanMyTV): Home stops moving too.
     var motion by remember { mutableStateOf(true) }

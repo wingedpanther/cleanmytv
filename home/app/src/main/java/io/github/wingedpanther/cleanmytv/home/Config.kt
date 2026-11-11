@@ -61,6 +61,7 @@ data class HomeConfig(
     val fireWallSound: Boolean = false, // behind Home: quiet unless asked
     val fireVolume: Int = 40,
     val otherApps: Boolean = false, // phone apps with no TV banner go in an "Other apps" folder (#3)
+    val liveTv: Boolean = true, // the TV's tuner in the Inputs menu (#50)
     val fireTimer: Int = 0, // full screen: minutes until the fire goes out and the TV sleeps; 0 burns on
     // Slideshow: a new wallpaper every few minutes, from the owner's pictures or the current theme's; 0 is off
     val slideMinutes: Int = 0,
@@ -122,6 +123,7 @@ data class HomeConfig(
         .put("fire_wall_sound", fireWallSound)
         .put("fire_volume", fireVolume)
         .put("other_apps", otherApps)
+        .put("live_tv", liveTv)
         .put("fire_timer", fireTimer)
         .put("slide_minutes", slideMinutes)
         .put("slide_from", slideFrom)
@@ -232,6 +234,7 @@ data class HomeConfig(
                 fireWallSound = bool("fire_wall_sound", base.fireWallSound),
                 fireVolume = int("fire_volume", base.fireVolume, 0, 100),
                 otherApps = bool("other_apps", base.otherApps),
+                liveTv = bool("live_tv", base.liveTv),
                 fireTimer = int("fire_timer", base.fireTimer, 0, 240),
                 slideMinutes = int("slide_minutes", base.slideMinutes, 0, 240),
                 slideFrom = choice("slide_from", base.slideFrom, setOf("mine", "theme")),

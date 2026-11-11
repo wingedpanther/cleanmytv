@@ -263,6 +263,8 @@ export interface HomeConfig {
   fire_timer: number
   /** Phone apps with no TV banner go in an Other apps folder (launcher 1.7.4). */
   other_apps: boolean
+  /** The TV's tuner as Live TV in the Inputs menu (launcher 1.7.5). */
+  live_tv: boolean
   /** Slideshow (launcher 1.7.0): a new wallpaper every this many minutes; 0 is off. */
   slide_minutes: number
   /** The slideshow's pictures: the owner's own, or the current theme's. */

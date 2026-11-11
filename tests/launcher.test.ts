@@ -632,6 +632,11 @@ describe('launcher 1.4.0 settings', () => {
     expect(H.clean({ quick: ['fireplace'], buttons: [{ code: 186, action: 'fireplace' }] })).toEqual({ quick: ['fireplace'], buttons: [{ code: 186, action: 'fireplace' }] })
   })
 
+  it('takes Live TV on or off, and nothing but a boolean', () => {
+    expect(H.clean({ live_tv: false })).toEqual({ live_tv: false })
+    expect(() => H.clean({ live_tv: 'no' })).toThrow(/live_tv/)
+  })
+
   it('only sends a PIN of 4 to 6 digits', async () => {
     for (const bad of ['123', '1234567', '12a4', '']) await expect(H.setLockPin(bad)).rejects.toThrow(/4 to 6 digits/)
   })

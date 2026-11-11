@@ -23,7 +23,7 @@ export const DEFAULTS: HomeConfig = {
   icon_style: 'banner', tile_shape: 'wide', intro: true, wallpaper_from: '',
   lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge',
   fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0,
-  slide_minutes: 0, slide_from: 'mine', other_apps: false,
+  slide_minutes: 0, slide_from: 'mine', other_apps: false, live_tv: true,
   clock: 'time_date', greeting: '', idle_minutes: 0,
   weather_place: '', weather_lat: 0, weather_lon: 0, weather_unit: 'c',
   visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
@@ -64,7 +64,7 @@ const RANGES = {
   fire_volume: [0, 100], fire_timer: [0, 240], slide_minutes: [0, 240]
 } as const
 
-const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'visualiser', 'viz_peaks', 'buttons_on'] as const
+const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on'] as const
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 /** Lets the launcher see other apps' media sessions; on only while the Now playing section is. */
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`

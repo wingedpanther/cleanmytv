@@ -37,6 +37,19 @@ class InputsTest {
         assertEquals(listOf("Antenna", "HDMI 1"), pickInputs(listOf(port(1), tuner.copy(custom = "Antenna"))).map { it.second })
     }
 
+    @Test fun `a TV with a tuner per broadcast type lists it once (#50)`() {
+        val svc = "com.mediatek.tvinput/.tuner.TunerInputService"
+        val atv = InputRow("$svc/HW0", null, hdmi = false, hidden = false, custom = null, label = "Tuner", tuner = true)
+        val dtv = atv.copy(id = "$svc/HW1")
+        assertEquals(listOf("Tuner", "HDMI 1"), pickInputs(listOf(port(1), dtv, atv)).map { it.second })
+        assertEquals("$svc/HW0", pickInputs(listOf(dtv, atv)).single().first)
+    }
+
+    @Test fun `Live TV off leaves every tuner out`() {
+        val tuner = InputRow("com.mediatek.tvinput/.tuner.TunerInputService/HW0", null, hdmi = false, hidden = false, custom = null, label = "Tuner", tuner = true)
+        assertEquals(listOf("HDMI 1", "AV"), pickInputs(listOf(tuner, port(1), av), liveTv = false).map { it.second })
+    }
+
     @Test fun `a device whose port isn't listed stands in for it, and blank names fall through`() {
         val rows = listOf(device(4, "Xbox"), port(1, custom = "  "))
         assertEquals(listOf("HDMI 1", "Xbox"), pickInputs(rows).map { it.second })
