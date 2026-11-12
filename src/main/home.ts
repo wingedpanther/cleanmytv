@@ -306,7 +306,7 @@ export async function apps(): Promise<TvApp[]> {
 /** The last remote buttons the TV received, from the launcher's key log. */
 export async function keys(): Promise<KeyPress[]> {
   const out = await T.tv().shell(`content call --uri ${URI} --method keys`)
-  const m = /keys=(\[.*\])\}\]/.exec(out)
+  const m = /keys=(\[.*\])(?:,\s*[a-zA-Z0-9_]+=.*\}\]|\s*\}\])/.exec(out) || /keys=(\[.*\])/.exec(out)
   if (!m) throw new Error(`CleanMyTV Home didn't list the buttons: ${out.trim().slice(0, 200) || 'no output'}`)
   return (JSON.parse(m[1]) as unknown[]).flatMap((k) => {
     const o = k as Record<string, unknown>
@@ -514,6 +514,13 @@ export async function readConfig(): Promise<HomeConfig> {
 
 export async function setConfig(change: Partial<HomeConfig>): Promise<HomeConfig> {
   const checked = clean(change as Record<string, unknown>)
+  if (checked.buttons && checked.buttons.length > 0 && checked.buttons_on === undefined) {
+    const cur = await readConfig().catch(() => null)
+    if (!cur?.buttons_on) {
+      checked.buttons_on = true
+      await addService(KEY_SERVICE).catch(() => {})
+    }
+  }
   const json = JSON.stringify(checked)
   // People paste the activity log into public bug reports.
   log('theme', 'cmd', `set ${JSON.stringify(checked, (k, v) => (PRIVATE_SETTINGS.includes(k) ? '(hidden)' : v))}`)

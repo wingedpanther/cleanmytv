@@ -190,9 +190,12 @@ data class HomeConfig(
                     else ButtonMap(code, action, if (action == "app") app else null)
                 }.distinctBy { it.code }
             }
+            val parsedButtons = buttons()
+            val effectiveButtons = parsedButtons ?: base.buttons
+            val autoButtonsOn = if (parsedButtons != null && parsedButtons.isNotEmpty() && !o.has("buttons_on")) true else bool("buttons_on", base.buttonsOn)
             return base.copy(
-                buttonsOn = bool("buttons_on", base.buttonsOn),
-                buttons = buttons() ?: base.buttons,
+                buttonsOn = autoButtonsOn,
+                buttons = effectiveButtons,
                 layout = choice("layout", base.layout, setOf("shelf", "split", "rail")),
                 sections = strings("sections", SECTIONS) ?: base.sections,
                 topSpace = int("top_space", base.topSpace, 0, 40),

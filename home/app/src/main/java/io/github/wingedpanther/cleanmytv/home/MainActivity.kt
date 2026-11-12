@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         if (ConfigStore.config.value.visualiser) visualiser.start(this)
         NowPlaying.start(this)
+        LocalAdb.ensureDaemon(this)
     }
 
     override fun onResume() {

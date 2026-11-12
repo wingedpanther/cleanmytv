@@ -1244,7 +1244,14 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
   }, [listening])
 
   const mapped = new Set(cfg.buttons.map((b) => b.code))
-  const update = (buttons: HomeButton[]): void => set({ buttons })
+  const update = (buttons: HomeButton[]): void => {
+    if (buttons.length > 0 && !cfg.buttons_on) {
+      set({ buttons, buttons_on: true })
+      void window.cytv.setRemoteButtons(true).catch((e) => props.onError(e))
+    } else {
+      set({ buttons })
+    }
+  }
   const label = (code: number): string => (names[code] ? `${keyName(names[code])} · ${code}` : `Button ${code}`)
   const xiaomi = /xiaomi|redmi/i.test(props.brand ?? '')
   const miDone = cfg.buttons_on && cfg.buttons.some((b) => b.code === MI_BUTTON && b.action === 'home')
