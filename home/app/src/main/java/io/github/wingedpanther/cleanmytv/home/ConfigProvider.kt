@@ -48,6 +48,8 @@ class ConfigProvider : ContentProvider() {
         val out = Bundle()
         if (method == "keys") {
             out.putString("keys", KeyLog.json().toString())
+            out.putBoolean("local_adb_connected", LocalAdb.isConnected)
+            LocalAdb.lastError?.let { out.putString("local_adb_error", it) }
             return out
         }
         if (method == "fire_dir") {
