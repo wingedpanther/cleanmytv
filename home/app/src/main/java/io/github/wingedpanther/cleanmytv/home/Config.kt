@@ -46,6 +46,7 @@ data class HomeConfig(
     // Icons: "banner" is the app's own TV banner; the rest redraw every app's logo the same way
     val iconStyle: String = "banner", // banner, colour, mono, duo
     val tileShape: String = "wide", // wide, square, squircle, round; banner tiles are always wide
+    val tileGlass: Int = 10, // Mono: percent of white in the glass behind each logo
     val intro: Boolean = true, // a new wallpaper comes in like a sunrise
     /** Which built-in theme picture the wallpaper is, as "<theme id>:<picture>", or "" for anything else. */
     val wallpaperFrom: String = "",
@@ -77,6 +78,11 @@ data class HomeConfig(
     val weatherLat: Double = 0.0,
     val weatherLon: Double = 0.0,
     val weatherUnit: String = "c", // c, f
+    val memory: Boolean = false, // free memory under the clock
+    // Day and night: the looks the owner saved as "day" and "night" take turns at these minutes past midnight
+    val dayNight: Boolean = false,
+    val dayAt: Int = 7 * 60,
+    val nightAt: Int = 19 * 60,
     // Music bars
     val visualiser: Boolean = true,
     val vizStyle: String = "bars", // bars, mirror, wave
@@ -113,6 +119,7 @@ data class HomeConfig(
         .put("tilt", tilt)
         .put("icon_style", iconStyle)
         .put("tile_shape", tileShape)
+        .put("tile_glass", tileGlass)
         .put("intro", intro)
         .put("wallpaper_from", wallpaperFrom)
         .put("lock_on", lockOn)
@@ -137,6 +144,10 @@ data class HomeConfig(
         .put("weather_lat", weatherLat)
         .put("weather_lon", weatherLon)
         .put("weather_unit", weatherUnit)
+        .put("memory", memory)
+        .put("day_night", dayNight)
+        .put("day_at", dayAt)
+        .put("night_at", nightAt)
         .put("visualiser", visualiser)
         .put("viz_style", vizStyle)
         .put("viz_bars", vizBars)
@@ -151,7 +162,7 @@ data class HomeConfig(
         private val PKG = Regex("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")
 
         private fun hex(c: Long) = "#%06X".format(c and 0xFFFFFF)
-        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace")
+        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory")
         private val THEME_PICTURE = Regex("^[a-z0-9-]{1,40}:[0-9]$")
         private val SECTIONS = setOf("nowplaying", "dock", "rows", "folders", "grid")
         val BUTTON_ACTIONS = QUICK - "inputs" + setOf("inputs", "home", "back", "none", "app", "next_wallpaper")
@@ -225,6 +236,7 @@ data class HomeConfig(
                 tilt = bool("tilt", base.tilt),
                 iconStyle = choice("icon_style", base.iconStyle, setOf("banner", "colour", "mono", "duo")),
                 tileShape = choice("tile_shape", base.tileShape, setOf("wide", "square", "squircle", "round")),
+                tileGlass = int("tile_glass", base.tileGlass, 0, 60),
                 intro = bool("intro", base.intro),
                 wallpaperFrom = if (o.has("wallpaper_from")) o.optString("wallpaper_from").takeIf { it.isEmpty() || THEME_PICTURE.matches(it) } ?: base.wallpaperFrom else base.wallpaperFrom,
                 lockOn = bool("lock_on", base.lockOn),
@@ -251,6 +263,10 @@ data class HomeConfig(
                 weatherLat = real("weather_lat", base.weatherLat, 90.0),
                 weatherLon = real("weather_lon", base.weatherLon, 180.0),
                 weatherUnit = choice("weather_unit", base.weatherUnit, setOf("c", "f")),
+                memory = bool("memory", base.memory),
+                dayNight = bool("day_night", base.dayNight),
+                dayAt = int("day_at", base.dayAt, 0, 24 * 60 - 1),
+                nightAt = int("night_at", base.nightAt, 0, 24 * 60 - 1),
                 visualiser = bool("visualiser", base.visualiser),
                 vizStyle = choice("viz_style", base.vizStyle, setOf("bars", "mirror", "wave")),
                 vizBars = int("viz_bars", base.vizBars, 8, 64),

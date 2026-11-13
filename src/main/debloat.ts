@@ -478,7 +478,21 @@ const FEATURES: Record<string, string> = {
   'com.google.android.webview': 'web pages inside apps, including YouTube ads',
   'com.android.webview': 'web pages inside apps, including YouTube ads',
   'com.tcl.android.webview': 'web pages inside apps, including YouTube ads',
-  'com.mediatek.support.webview': 'web pages inside apps, including YouTube ads'
+  'com.mediatek.support.webview': 'web pages inside apps, including YouTube ads',
+  // Streaming apps: people pick their TV's list for the bloat, not to lose what they watch. Many lists
+  // switch these off, so they were ticked and had to be turned back on by hand.
+  'com.netflix.ninja': 'Netflix',
+  'com.netflix.mediaclient': 'Netflix',
+  'com.netflix.partner.ncm': 'the remote\'s Netflix button',
+  'com.google.android.youtube.tv': 'YouTube',
+  'com.google.android.youtube.tvmusic': 'YouTube Music',
+  'com.google.android.youtube.tvkids': 'YouTube Kids',
+  'com.amazon.amazonvideo.livingroom': 'Prime Video',
+  'com.disney.disneyplus': 'Disney+',
+  'com.spotify.tv.android': 'Spotify',
+  'com.apple.atve.androidtv.appletv': 'Apple TV',
+  'com.hbo.hbonow': 'Max',
+  'tv.twitch.android.app': 'Twitch'
 }
 
 /** Why a package is the owner's decision rather than a default, or undefined when it is plain bloat. */

@@ -26,6 +26,19 @@ Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther
 - **Mono icons** cut the shape out of single-colour icons (#91).
 - **Save a snapshot** of the TV screen to your computer (#92).
 - **Xiaomi:** Clean up and Finish say when USB drives stop working while debugging is on (#71).
+- **Memory:** free memory under the clock, and a Clean memory button that closes apps left running in the
+  background, on Android 9 to 13. Android 14 doesn't let one app close another.
+- **Day and night looks:** save one look for the day and one for the night, and Home swaps them at the times
+  you set. Any theme works, shared ones too.
+- **Mono glass:** a slider for how much the tile behind each logo shows. Glow focus no longer fills Mono tiles.
+- **Mice and air mice:** point at a tile to move to it, click to open it.
+- **No more green haze:** the shade over the wallpaper uses your background colour (#102).
+- **Dock:** tiles grow past 100% (#89), and the dock stays where Space above the apps puts it (#90).
+- **Volume:** holding a volume button repeats again on TVs where remote buttons stopped it. Home only listens
+  to buttons while one is mapped (#87).
+- **Keyboard:** on TVs that switch back to their own keyboard at every restart, Home puts yours back (#98).
+- **Clean up:** Netflix, YouTube, YouTube Music, Prime Video and other streaming apps stay on unless you tick them.
+- **Another launcher:** one you installed with Install an app can be Home instead (#82).
 
 ### New in 0.7.2
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, HomeTheme, ThemeBackup, HomeLayout, HomeSection, HomeStatus, KeyPress, QuickEntry, QuickId, TvApp } from '@shared/api'
+import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, HomeTheme, ThemeBackup, HomeLayout, HomeSection, HomeStatus, KeyPress, LookSlot, QuickEntry, QuickId, TvApp } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { AppOrder } from '../components/AppOrder'
 import { HomePreview, QUICK_LABEL, QuickMark, quickApp, quickLabel } from '../components/HomePreview'
@@ -291,6 +291,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
           {ready && tab === 'look' && (
             <>
               <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} themes={themes} />
+              <DayNightCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
               <SlideshowCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
               <FireplaceCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
             </>
@@ -389,6 +390,18 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
   const [shooting, setShooting] = useState(false)
   const [shotError, setShotError] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
+  // Other launchers on the TV (#82): null until the owner asks.
+  const [others, setOthers] = useState<string[] | null>(null)
+  const [othersError, setOthersError] = useState<string | null>(null)
+
+  async function findOthers(): Promise<void> {
+    setOthersError(null)
+    try {
+      setOthers(await window.cytv.otherLaunchers())
+    } catch (e) {
+      setOthersError(errorText(e))
+    }
+  }
 
   async function snapshot(): Promise<void> {
     setShooting(true)
@@ -452,7 +465,33 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
               Give Home back to the stock launcher
             </button>
           )}
+          {home.installed && others === null && (
+            <button className="btn ghost" disabled={busy} onClick={() => void findOthers()}>
+              Use another launcher…
+            </button>
+          )}
         </div>
+        {othersError && <div className="notice error" style={{ marginTop: 16, marginBottom: 0 }}>{othersError}</div>}
+        {others !== null && (
+          <div className="notice" style={{ marginTop: 16, marginBottom: 0 }}>
+            {others.length === 0 ? (
+              <p style={{ margin: 0 }}>No other launcher is installed. Put one on with Install an app, then come back here.</p>
+            ) : (
+              <>
+                <p style={{ margin: '0 0 10px' }}>
+                  These can be Home instead. Remote buttons, the app lock and everything in these tabs need CleanMyTV Home, so they stop until you switch back.
+                </p>
+                <div className="row">
+                  {others.map((pkg) => (
+                    <button key={pkg} className="btn small" disabled={busy} onClick={() => run(`Making ${pkg} Home`, () => window.cytv.useOtherLauncher(pkg))}>
+                      Use {pkg}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
         {home.oldLauncher && (
           <div className="notice" style={{ marginTop: 16, marginBottom: 0 }}>
             <p style={{ margin: '0 0 10px' }}>
@@ -628,7 +667,7 @@ const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, num
 
 const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: 'Now playing', dock: 'Dock', rows: 'Rows', folders: 'Folders', grid: 'All apps' }
 const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'dock', 'rows', 'folders', 'grid']
-const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'settings']
+const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'settings']
 /** As the launcher's HomeConfig.MAX_QUICK_APPS. */
 const MAX_QUICK_APPS = 6
 const IDLE_CHOICES: [number, string][] = [[0, 'Off'], [1, '1 min'], [2, '2 min'], [5, '5 min'], [10, '10 min'], [15, '15 min'], [30, '30 min']]
@@ -1026,6 +1065,9 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
             </div>
           </>
         )}
+        {cfg.icon_style === 'mono' && (
+          <Slider label="Glass" hint="How much the tile behind each logo shows. Lower lets more of the wallpaper through." value={cfg.tile_glass} min={0} max={60} unit="%" onChange={(v) => set({ tile_glass: v }, 250)} />
+        )}
       </div>
 
       <div className="card">
@@ -1151,6 +1193,15 @@ function WidgetsTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
           ))}
         </div>
       </div>
+
+      <div className="card">
+        <Toggle
+          label="Free memory"
+          hint="How much memory the TV has free, under the clock, like 1.4 of 2 GB free. Add Clean memory in Layout → Quick settings to close apps left running in the background from the TV."
+          checked={cfg.memory}
+          onChange={(v) => set({ memory: v })}
+        />
+      </div>
     </>
   )
 }
@@ -1216,6 +1267,7 @@ const ACTIONS: [ButtonAction, string][] = [
   ['panel', 'Open Quick settings'],
   ['themes', 'Open Themes'],
   ['fireplace', 'Show the fireplace'],
+  ['memory', 'Clean memory'],
   ['next_wallpaper', "Next picture of the theme"],
   ['none', 'Do nothing']
 ]
@@ -1645,6 +1697,69 @@ const SLIDE_MAX = 12
 const SLIDE_TIMES: [number, string][] = [[0, 'Off'], [5, '5 min'], [15, '15 min'], [30, '30 min'], [60, '1 hour']]
 
 /** Slideshow (#56): a new wallpaper every few minutes, from pictures picked here or the current theme's own. */
+/** "07:00" for minutes past midnight, and back, for the time fields. */
+const hhmm = (m: number): string => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+const minutesOf = (v: string): number | null => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(v)
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null
+}
+
+function DayNightCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: SetFn; setCfg: (c: HomeConfig) => void; onResult: (r: ApplyResult) => void }): ReactNode {
+  const [saving, setSaving] = useState<LookSlot | null>(null)
+  const saved = cfg.looks_saved ?? []
+  const both = saved.includes('day') && saved.includes('night')
+  const save = async (slot: LookSlot): Promise<void> => {
+    setSaving(slot)
+    try {
+      setCfg(await window.cytv.saveHomeLook(slot))
+    } catch (e) {
+      onResult({ ok: false, summary: errorText(e), warnings: [] })
+    } finally {
+      setSaving(null)
+    }
+  }
+  return (
+    <div className="card">
+      <h2>Day and night</h2>
+      <p className="muted">
+        Two looks that swap at set times, each with its own wallpaper, colours and icons. Set Home up the way you want it in the day and save it,
+        then do the same for the night. Any theme works, shared ones too.
+      </p>
+      {cfg.looks_saved === undefined ? (
+        <p className="small muted">Update CleanMyTV Home on the Overview tab to use this.</p>
+      ) : (
+        <>
+          <div className="row" style={{ marginBottom: 8 }}>
+            {(['day', 'night'] as const).map((slot) => (
+              <button key={slot} className="btn" disabled={saving !== null} onClick={() => void save(slot)}>
+                {saving === slot ? 'Saving…' : `${saved.includes(slot) ? 'Save again' : 'Save this'} as the ${slot} look`}
+              </button>
+            ))}
+          </div>
+          <p className="small muted">{saved.length === 0 ? 'No looks saved yet.' : `Saved: the ${saved.join(' and the ')} look.`}</p>
+          <div className="row" style={{ margin: '12px 0' }}>
+            <label>
+              Day from{' '}
+              <input type="time" value={hhmm(cfg.day_at)} onChange={(e) => { const m = minutesOf(e.target.value); if (m !== null) set({ day_at: m }, 600) }} />
+            </label>
+            <label>
+              Night from{' '}
+              <input type="time" value={hhmm(cfg.night_at)} onChange={(e) => { const m = minutesOf(e.target.value); if (m !== null) set({ night_at: m }, 600) }} />
+            </label>
+          </div>
+          <Toggle
+            label="Switch at these times"
+            hint={both ? 'Home puts the right look on within a minute, then again at each time. A theme you pick by hand stays until the next switch.' : 'Save both looks first.'}
+            checked={cfg.day_night}
+            disabled={!both && !cfg.day_night}
+            onChange={(v) => set({ day_night: v })}
+          />
+        </>
+      )}
+    </div>
+  )
+}
+
 function SlideshowCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: SetFn; setCfg: (c: HomeConfig) => void; onResult: (r: ApplyResult) => void }): ReactNode {
   const [phase, setPhase] = usePhase()
   const file = useRef<HTMLInputElement>(null)

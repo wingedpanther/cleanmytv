@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Dehaze
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.NightsStay
 import androidx.compose.material.icons.outlined.Pause
@@ -59,7 +60,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -113,6 +116,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.util.Calendar
@@ -132,8 +136,15 @@ private val CLOCK = FontFamily(Font(R.font.jetbrains_mono_light, FontWeight.Ligh
 /** Text on an accent fill: the ground colour or off-white, whichever reads better on it. */
 private fun onAccent(c: Color): Color = if (c.luminance() > 0.36f) GROUND else TEXT
 
-/** Shades a ground-tinted scrim, so overlays keep the world's green-black instead of plain black. */
-private fun scrim(alpha: Float) = GROUND.copy(alpha = alpha)
+/**
+ * A shade in the background colour, so overlays keep the theme's own dark instead of plain black. Before
+ * 1.7.5 it was always the default green-black, which tinted a black background green (#102). A light
+ * background is darkened first, so text over the shade still reads.
+ */
+private fun scrim(cfg: HomeConfig, alpha: Float): Color {
+    val g = Color(cfg.background)
+    return (if (g.luminance() > 0.2f) lerp(g, Color.Black, 0.75f) else g).copy(alpha = alpha)
+}
 
 // A 1080p TV is 960x540 dp; 5% of each edge stays clear because some TVs crop it.
 private val SAFE_X = 48.dp
@@ -231,6 +242,28 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         }
     }
 
+    // Free memory under the clock, read every 10 seconds; Clean memory reads it again straight away.
+    var memory by remember { mutableStateOf<MemoryNow?>(null) }
+    var memoryTick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(cfg.memory, memoryTick, appsVersion) {
+        memory = null
+        if (!cfg.memory) return@LaunchedEffect
+        while (true) {
+            memory = withContext(Dispatchers.Default) { runCatching { Memory.read(ctx) }.getOrNull() }
+            delay(10_000L)
+        }
+    }
+    // Day and night looks: checked each minute while Home is open, and when it comes back into view.
+    LaunchedEffect(cfg.dayNight, cfg.dayAt, cfg.nightAt, appsVersion) {
+        if (!cfg.dayNight) return@LaunchedEffect
+        while (true) {
+            val c = Calendar.getInstance()
+            withContext(Dispatchers.IO) { runCatching { DayNight.check(ctx, c.get(Calendar.HOUR_OF_DAY) * 60 + c.get(Calendar.MINUTE)) } }
+            delay(60_000L - System.currentTimeMillis() % 60_000L)
+        }
+    }
+    val scope = rememberCoroutineScope()
+
     val home = Home(apps, cfg)
     val accent = Color(cfg.accent)
     // Quick-settings icons this TV can actually open; Inputs only on TVs that have inputs.
@@ -275,6 +308,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         else if (a.id == "panel") openPanel()
         else if (a.id == "themes") showThemes = true
         else if (a.id == "fireplace") runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
+        else if (a.id == "memory") scope.launch { Memory.cleanAndSay(ctx); memoryTick++ }
         else if (a.id == "music") ConfigStore.update(ctx, org.json.JSONObject().put("visualiser", !cfg.visualiser))
         else resolve(ctx, a)?.let { i -> runCatching { ctx.startActivity(i) }.onFailure { Log.w(TAG, "${a.id}: $it") } }
     }
@@ -282,7 +316,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     LaunchedEffect(home.first, cfg.layout) { if (home.first != null) runCatching { first.requestFocus() } }
     var focusColour by remember { mutableStateOf<Color?>(null) }
     val tint by animateColorAsState(focusColour ?: Color.Transparent, tween(600), label = "tint")
-    val ui = Ui(cfg, accent, first, home.first, onFolder = { openFolder = it }, track = track, weather = weather,
+    val ui = Ui(cfg, accent, first, home.first, onFolder = { openFolder = it }, track = track, weather = weather, memory = memory,
         onFocusApp = { a -> focusColour = a.colour?.let { Color(it) } }, motion = motion)
 
     Box(
@@ -308,7 +342,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         if (cfg.followColour) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(tint.copy(alpha = tint.alpha * 0.5f), Color.Transparent))))
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = shown }) {
             // Rows sit over the lower half of the photo; a ground-tinted shade keeps their names readable.
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to scrim(0.8f))))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to scrim(cfg, 0.8f))))
             when (cfg.layout) {
                 "split" -> SplitLayout(home, ui, quick, onQuick)
                 "rail" -> RailLayout(home, ui, quick, onQuick)
@@ -384,6 +418,7 @@ private class Ui(
     val onFolder: (Pair<String, List<TvApp>>) -> Unit,
     val track: Track? = null,
     val weather: WeatherNow? = null,
+    val memory: MemoryNow? = null,
     val onFocusApp: (TvApp) -> Unit = {},
     /** False when the TV's animations are off: tiles still lift, without springs, tilt or sheen. */
     val motion: Boolean = true,
@@ -399,7 +434,7 @@ private class Ui(
 @Composable
 private fun ShelfLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (QuickAction) -> Unit) {
     val cfg = ui.cfg
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(scrim(0.6f), Color.Transparent), endY = 420f)))
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(scrim(cfg, 0.6f), Color.Transparent), endY = 420f)))
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val open = maxHeight * (cfg.topSpace / 100f)
         Column(Modifier.fillMaxSize()) {
@@ -410,6 +445,7 @@ private fun ShelfLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (
                 Column(horizontalAlignment = Alignment.End) {
                     Clock(cfg, 26.sp, 12.sp, Alignment.End)
                     WeatherLine(ui, 13.sp, Modifier.padding(top = 4.dp))
+                    MemoryLine(ui, 13.sp, Modifier.padding(top = 4.dp))
                     if (quick.isNotEmpty()) {
                         if (cfg.clock != "off") Spacer(Modifier.height(10.dp))
                         Row(Modifier.focusGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) { quick.forEach { QuickButton(it, ui, onQuick) } }
@@ -425,12 +461,13 @@ private fun ShelfLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (
 @Composable
 private fun SplitLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (QuickAction) -> Unit) {
     val cfg = ui.cfg
-    Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(scrim(0.7f), Color.Transparent), endX = 900f)))
+    Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(scrim(cfg, 0.7f), Color.Transparent), endX = 900f)))
     Row(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxWidth(0.32f).fillMaxHeight().padding(start = SAFE_X, top = SAFE_Y + 24.dp, bottom = SAFE_Y + 48.dp)) {
             // 46 sp keeps "12:51 PM" on one line in the left third; 12-hour time is the widest.
             Clock(cfg, 46.sp, 15.sp, Alignment.Start)
             WeatherLine(ui, 15.sp, Modifier.padding(top = 6.dp))
+            MemoryLine(ui, 15.sp, Modifier.padding(top = 6.dp))
             Spacer(Modifier.height(14.dp))
             Greeting(cfg, 18.sp)
             Spacer(Modifier.weight(1f))
@@ -450,7 +487,7 @@ private fun RailLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Q
     Row(Modifier.fillMaxSize()) {
         Column(
             Modifier.width(railW).fillMaxHeight()
-                .background(Brush.horizontalGradient(listOf(scrim(if (railFocused) 0.92f else 0.6f), scrim(if (railFocused) 0.75f else 0.1f))))
+                .background(Brush.horizontalGradient(listOf(scrim(cfg, if (railFocused) 0.92f else 0.6f), scrim(cfg, if (railFocused) 0.75f else 0.1f))))
                 .padding(start = SAFE_X - 4.dp, top = SAFE_Y + 8.dp, end = 8.dp)
                 .onFocusChanged { railFocused = it.hasFocus }
                 .focusGroup(),
@@ -468,6 +505,7 @@ private fun RailLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Q
             Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = SAFE_X, top = SAFE_Y), verticalAlignment = Alignment.CenterVertically) {
                 Greeting(cfg, 20.sp)
                 Spacer(Modifier.weight(1f))
+                MemoryLine(ui, 13.sp, Modifier.padding(end = 18.dp))
                 WeatherLine(ui, 13.sp, Modifier.padding(end = 18.dp))
                 Clock(cfg, 26.sp, 12.sp, Alignment.End)
             }
@@ -479,35 +517,53 @@ private fun RailLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Q
 // ---- Sections -------------------------------------------------------------------------------------
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingValues, dockWidth: Dp, showFolders: Boolean = true) {
     val cfg = ui.cfg
+    // Rows keep Android TV's own sideways scrolling; only the column up and down follows STAY.
+    val rowSpec = LocalBringIntoViewSpec.current
     BoxWithConstraints(modifier) {
         val inner = maxWidth - padding.calcHorizontal() - BLEED * 2
         val gridW: Dp = (inner - GAP * (cfg.columns - 1)) / cfg.columns
-        // The default dock fits the screen; a bigger dock size scrolls sideways instead of shrinking past this.
+        // At 100% the dock fits the screen; the size slider scales that, and a bigger dock scrolls sideways (#89).
         val n = home.dock.size.coerceIn(1, 5)
-        val dockW: Dp = minOf(dockWidth * (cfg.dockScale / 100f), (inner - GAP * (n - 1)) / n)
-        LazyColumn(Modifier.fillMaxSize().fadeTop(), contentPadding = padding) {
+        val dockW: Dp = minOf(dockWidth, (inner - GAP * (n - 1)) / n) * (cfg.dockScale / 100f)
+        CompositionLocalProvider(LocalBringIntoViewSpec provides STAY) { LazyColumn(Modifier.fillMaxSize().fadeTop(), contentPadding = padding) {
             for (s in cfg.sections) when (s) {
                 "nowplaying" -> ui.track?.let { t -> item("nowplaying") { NowPlayingCard(t, ui) } }
                 "dock" -> if (home.dock.isNotEmpty()) item("dock") {
-                    TileRow("dock", home.dock, ui, dockW, big = true)
+                    TileRow("dock", home.dock, ui, dockW, big = true, rowSpec)
                 }
                 "rows" -> home.rows.forEachIndexed { i, (name, list) ->
                     item("row$i-title") { SectionTitle(name) }
-                    item("row$i") { TileRow("row$i", list, ui, 148.dp * (cfg.tileScale / 100f), big = false) }
+                    item("row$i") { TileRow("row$i", list, ui, 148.dp * (cfg.tileScale / 100f), big = false, rowSpec) }
                 }
                 "folders" -> if (showFolders && home.folders.isNotEmpty()) {
                     item("folders-title") { SectionTitle("Folders") }
                     item("folders") {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 16.dp)) {
-                            items(home.folders, key = { it.first }) { f -> FolderTile(f, ui, Modifier.width(148.dp * (cfg.tileScale / 100f))) }
+                        CompositionLocalProvider(LocalBringIntoViewSpec provides rowSpec) {
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 16.dp)) {
+                                items(home.folders, key = { it.first }) { f -> FolderTile(f, ui, Modifier.width(148.dp * (cfg.tileScale / 100f))) }
+                            }
                         }
                     }
                 }
                 "grid" -> if (home.grid.isNotEmpty()) grid(home, ui, gridW)
             }
-        }
+        } }
+    }
+}
+
+/**
+ * Up and down, the sections stay where the layout puts them while the focused tile is on screen below the
+ * top 30%, so Top space holds (#90). Android TV's own rule moved every focused row to 30% from the top,
+ * which pulled the dock up. Off screen, or above that line, the row still goes to 30%; the list stops at its top.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+private val STAY = object : BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        val pivot = containerSize * 0.3f
+        return if (offset + size > containerSize || offset < pivot) offset - pivot else 0f
     }
 }
 
@@ -539,14 +595,14 @@ private fun SectionTitle(text: String) {
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
-private fun TileRow(section: String, list: List<TvApp>, ui: Ui, w: Dp, big: Boolean) {
+private fun TileRow(section: String, list: List<TvApp>, ui: Ui, w: Dp, big: Boolean, rowSpec: BringIntoViewSpec) {
     val row = @Composable {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 16.dp)) {
             val tw = if (ui.shape == "wide") w else w * 0.72f
             items(list, key = { it.pkg }) { app -> Tile(section, app, ui, Modifier.width(tw), big) }
         }
     }
-    if (ui.cfg.pinFocus) CompositionLocalProvider(LocalBringIntoViewSpec provides PINNED) { row() } else row()
+    CompositionLocalProvider(LocalBringIntoViewSpec provides if (ui.cfg.pinFocus) PINNED else rowSpec) { row() }
 }
 
 // ---- Tiles ----------------------------------------------------------------------------------------
@@ -654,14 +710,16 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
     // In the grid and folders each slot keeps its width; a square tile sits in the middle of it.
     val inSlot = section == "grid" || section == "folder"
     val banner = ui.cfg.iconStyle == "banner"
+    // Mono glass is see-through, so the Glow focus showed inside the tile too: a focused one gets a solid back.
+    val solid = ui.cfg.iconStyle == "mono" && ui.cfg.focus == "glow"
     Column(size, horizontalAlignment = if (wide) Alignment.Start else Alignment.CenterHorizontally) {
         Surface(
             onClick = { launch(ctx, app) },
-            modifier = ui.focusFor(section, app).fillMaxWidth(if (!wide && inSlot) 0.72f else 1f).aspectRatio(if (wide) 16f / 9f else 1f)
+            modifier = Modifier.pointer { launch(ctx, app) }.then(ui.focusFor(section, app)).fillMaxWidth(if (!wide && inSlot) 0.72f else 1f).aspectRatio(if (wide) 16f / 9f else 1f)
                 .onFocusChanged { focused = it.isFocused; if (it.isFocused) ui.onFocusApp(app) }
                 .lift(ui, shape, focused),
             shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
-            colors = ClickableSurfaceDefaults.colors(containerColor = if (banner) TILE else Color.Transparent, focusedContainerColor = if (banner) TILE_FOCUSED else Color.Transparent)
+            colors = ClickableSurfaceDefaults.colors(containerColor = if (banner) TILE else Color.Transparent, focusedContainerColor = if (banner) TILE_FOCUSED else if (solid) Color(ui.cfg.background) else Color.Transparent)
         ) {
             when {
                 !banner -> IconTile(app, ui)
@@ -727,7 +785,10 @@ private fun IconTile(app: TvApp, ui: Ui) {
     val ink = lerp(accent, Color.White, 0.35f)
     val back: Brush; val filter: ColorFilter?; val letterInk: Color
     when (ui.cfg.iconStyle) {
-        "mono" -> { back = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.13f), Color.White.copy(alpha = 0.07f))); filter = ColorFilter.tint(ink); letterInk = ink }
+        "mono" -> {
+            val glass = ui.cfg.tileGlass / 100f
+            back = Brush.linearGradient(listOf(Color.White.copy(alpha = glass * 1.3f), Color.White.copy(alpha = glass * 0.7f))); filter = ColorFilter.tint(ink); letterInk = ink
+        }
         "duo" -> {
             back = Brush.linearGradient(listOf(lerp(ground, accent, 0.3f), lerp(ground, Color.Black, 0.2f)))
             filter = ColorFilter.colorMatrix(IconArt.duotone(lerp(accent, Color.Black, 0.25f), lerp(accent, Color.White, 0.55f))); letterInk = accent
@@ -791,7 +852,7 @@ private fun FolderTile(folder: Pair<String, List<TvApp>>, ui: Ui, size: Modifier
     Column(size) {
         Surface(
             onClick = { ui.onFolder(folder) },
-            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).onFocusChanged { focused = it.isFocused }.lift(ui, shape, focused),
+            modifier = Modifier.pointer { ui.onFolder(folder) }.fillMaxWidth().aspectRatio(16f / 9f).onFocusChanged { focused = it.isFocused }.lift(ui, shape, focused),
             shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
             colors = ClickableSurfaceDefaults.colors(containerColor = lerp(ground, ui.accent, 0.25f).copy(alpha = 0.9f), focusedContainerColor = lerp(ground, ui.accent, 0.4f))
         ) {
@@ -846,6 +907,17 @@ private fun WeatherLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifie
     }
 }
 
+/** Free memory, in the weather's quiet style. */
+@Composable
+private fun MemoryLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
+    val m = ui.memory ?: return
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Image(Icons.Outlined.Memory, null, Modifier.size(with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.3f }), colorFilter = ColorFilter.tint(MUTED))
+        Spacer(Modifier.width(6.dp))
+        Text(Memory.line(m), color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+    }
+}
+
 /** WMO weather codes, as Open-Meteo reports them, to a drawn icon. */
 private fun weatherIcon(w: WeatherNow): ImageVector = when (w.code) {
     0 -> if (w.day) Icons.Outlined.WbSunny else Icons.Outlined.NightsStay
@@ -864,7 +936,7 @@ private fun RoundButton(icon: ImageVector, label: String, ui: Ui, onClick: () ->
     var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
-        modifier = Modifier.size(44.dp).onFocusChanged { focused = it.isFocused },
+        modifier = Modifier.pointer(onClick).size(44.dp).onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(CircleShape), scale = scale, glow = glow, border = border,
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = ui.accent.copy(alpha = 0.9f))
     ) {
@@ -880,7 +952,7 @@ private fun QuickButton(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit) 
     var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = { onQuick(a) },
-        modifier = Modifier.size(40.dp).onFocusChanged { focused = it.isFocused },
+        modifier = Modifier.pointer { onQuick(a) }.size(40.dp).onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(CircleShape), scale = scale, glow = glow, border = border,
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = ui.accent.copy(alpha = 0.9f))
     ) {
@@ -913,7 +985,7 @@ private fun RailItem(icon: ImageVector, label: String, ui: Ui, expanded: Boolean
     val ink = if (focused) onAccent(ui.accent) else TEXT
     Surface(
         onClick = onClick,
-        modifier = Modifier.height(44.dp).then(if (expanded) Modifier.fillMaxWidth() else Modifier.width(44.dp)).onFocusChanged { focused = it.isFocused },
+        modifier = Modifier.pointer(onClick).height(44.dp).then(if (expanded) Modifier.fillMaxWidth() else Modifier.width(44.dp)).onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(shape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f), glow = glow, border = border,
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = ui.accent.copy(alpha = 0.9f))
     ) {
@@ -967,7 +1039,7 @@ private fun IdleClock(ui: Ui, modifier: Modifier) {
 private fun FolderOverlay(name: String, list: List<TvApp>, ui: Ui, onClose: () -> Unit) {
     val focus = remember { FocusRequester() }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Box(Modifier.fillMaxSize().background(scrim(0.9f)), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxSize().background(scrim(ui.cfg, 0.9f)), contentAlignment = Alignment.Center) {
             Column(Modifier.background(PANEL, RoundedCornerShape(16.dp)).padding(horizontal = 20.dp, vertical = 18.dp)) {
                 Text(name, color = TEXT, fontSize = 24.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = BLEED, bottom = 6.dp))
                 val inner = Ui(ui.cfg, ui.accent, focus, list.firstOrNull()?.let { "folder:${it.pkg}" }, ui.onFolder, motion = ui.motion)
@@ -987,7 +1059,7 @@ private fun InputsOverlay(inputs: List<Pair<String, String>>, ui: Ui, onClose: (
     val ctx = LocalContext.current
     val focus = remember { FocusRequester() }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Box(Modifier.fillMaxSize().background(scrim(0.9f)), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxSize().background(scrim(ui.cfg, 0.9f)), contentAlignment = Alignment.Center) {
             Column(Modifier.width(400.dp).background(PANEL, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(ui.cfg.names["inputs"] ?: "Inputs", color = TEXT, fontSize = 24.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(bottom = 6.dp))
                 inputs.forEachIndexed { i, (id, label) ->
@@ -995,7 +1067,7 @@ private fun InputsOverlay(inputs: List<Pair<String, String>>, ui: Ui, onClose: (
                     val (scale, glow, border) = focusStyle(ui, shape, zoom = 1.03f)
                     Surface(
                         onClick = { onClose(); openInput(ctx, id) },
-                        modifier = (if (i == 0) Modifier.focusRequester(focus) else Modifier).fillMaxWidth().height(52.dp),
+                        modifier = Modifier.pointer { onClose(); openInput(ctx, id) }.then(if (i == 0) Modifier.focusRequester(focus) else Modifier).fillMaxWidth().height(52.dp),
                         shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
                         colors = ClickableSurfaceDefaults.colors(containerColor = TILE, focusedContainerColor = TILE_FOCUSED)
                     ) {

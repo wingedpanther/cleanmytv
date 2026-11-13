@@ -11,6 +11,13 @@ import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -35,6 +42,10 @@ object KeyLog {
  * Remote buttons, mapped from CleanMyTV. Only buttons in the map are handled (and swallowed, so the
  * TV doesn't also do its own thing); every other button returns false and reaches apps untouched.
  * That is the line upstream's key helper crossed in #26.
+ *
+ * Seeing buttons at all (key filtering) is only on while a button is mapped, or the desktop app's button
+ * finder is listening. On some TVs filtering stops held buttons repeating, so volume went up one step per
+ * press (#87); owners who map nothing keep the TV's own behaviour.
  */
 class KeyService : AccessibilityService() {
     // An unlock lasts until the TV sleeps, unless the owner picked 15 minutes or every time.
@@ -46,9 +57,21 @@ class KeyService : AccessibilityService() {
         running = this
         ConfigStore.load(this)
         registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF))
-        // Some builds ignore the flag in the XML; asking again here turns key filtering on.
-        serviceInfo = serviceInfo.apply { flags = flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS }
-        Log.i(TAG, "key service on, flags ${serviceInfo.flags}")
+        scope.launch { ConfigStore.config.map { needsKeys(it, false) }.distinctUntilChanged().collect { filterKeys() } }
+        Log.i(TAG, "key service on")
+    }
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    /** Asks Android for buttons only while something here wants them. */
+    private fun filterKeys() {
+        val on = needsKeys(ConfigStore.config.value, System.currentTimeMillis() < listenUntil)
+        runCatching {
+            serviceInfo = serviceInfo.apply {
+                flags = if (on) flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS else flags and AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS.inv()
+            }
+        }.onFailure { Log.w(TAG, "key filter: $it") }
+        Log.i(TAG, "key filter ${if (on) "on" else "off"}")
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
@@ -70,6 +93,7 @@ class KeyService : AccessibilityService() {
             "panel", "themes" -> startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN, b.action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             "next_wallpaper" -> ThemePack.next(this)
             "fireplace" -> startActivity(Intent(this, FireplaceActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            "memory" -> if (Memory.canClean) scope.launch { Memory.cleanAndSay(this@KeyService) }
             "app" -> b.app?.let { pkg ->
                 (packageManager.getLeanbackLaunchIntentForPackage(pkg) ?: packageManager.getLaunchIntentForPackage(pkg))
                     ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)?.let { startActivity(it) }
@@ -97,9 +121,14 @@ class KeyService : AccessibilityService() {
     }
 
     private val redirect = android.os.Handler(android.os.Looper.getMainLooper())
+    // Its own handler: window changes clear `redirect`'s queue.
+    private val timer = android.os.Handler(android.os.Looper.getMainLooper())
+    private val stopListening = Runnable { filterKeys() }
 
     override fun onDestroy() {
         redirect.removeCallbacksAndMessages(null)
+        timer.removeCallbacksAndMessages(null)
+        scope.cancel()
         if (running === this) running = null
         runCatching { unregisterReceiver(screenOff) }
         super.onDestroy()
@@ -112,6 +141,23 @@ class KeyService : AccessibilityService() {
 
         /** The service while it's on, so the fireplace timer can put the TV to sleep. */
         @Volatile var running: KeyService? = null
+
+        /** Until when the button finder wants every button, whether or not one is mapped. */
+        @Volatile private var listenUntil = 0L
+
+        /** Mapped buttons need the TV's buttons; so does the finder while it listens. */
+        fun needsKeys(cfg: HomeConfig, listening: Boolean) = listening || (cfg.buttonsOn && cfg.buttons.isNotEmpty())
+
+        /** The desktop app's button finder asked for the last buttons: listen for the next two minutes. */
+        fun listen() {
+            val first = System.currentTimeMillis() >= listenUntil
+            listenUntil = System.currentTimeMillis() + 2 * 60_000L
+            val s = running ?: return
+            // Called on a binder thread; the service's info changes on the main one.
+            if (first) s.timer.post { s.filterKeys() }
+            s.timer.removeCallbacks(s.stopListening)
+            s.timer.postDelayed(s.stopListening, 2 * 60_000L + 500)
+        }
 
         /** Screen off, as the power button would. Needs the key service on; false when it isn't. */
         fun sleep(): Boolean = running?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) ?: false
@@ -146,5 +192,6 @@ class BootReceiver : BroadcastReceiver() {
         if (i.action != Intent.ACTION_BOOT_COMPLETED) return
         ConfigStore.load(c)
         KeyService.ensureOn(c)
+        Keyboard.restore(c)
     }
 }

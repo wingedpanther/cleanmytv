@@ -191,6 +191,9 @@ describe('upstream lists', () => {
     expect(D.choiceFor(by('com.mitv.milinkservice'))).toMatch(/^Personal choice: casting/)
     expect(D.choiceFor({ pkg: 'com.xiaomi.mitv.mediaexplorer', note: '', suggested: true })).toMatch(/USB drives/)
     expect(D.choiceFor({ pkg: 'com.tcl.android.webview', note: '', suggested: true })).toMatch(/YouTube ads/)
+    // Streaming apps the Sony list switched off, so they had to be turned back on (Discord).
+    expect(D.choiceFor({ pkg: 'com.netflix.ninja', note: '', suggested: true })).toBe('Turns off Netflix.')
+    expect(D.choiceFor({ pkg: 'com.google.android.youtube.tvmusic', note: '', suggested: true })).toBe('Turns off YouTube Music.')
     expect(D.choiceFor(by('com.google.android.tv.remote.service'))).toMatch(/phone remote/)
     // Known features are protected even where a list does not label them.
     expect(D.choiceFor({ pkg: 'com.google.android.tv.remote.service', note: '', suggested: true })).toMatch(/phone remote/)

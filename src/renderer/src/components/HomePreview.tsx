@@ -20,12 +20,13 @@ const QUICK_GLYPH: Record<QuickId, string> = {
   settings: 'M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1',
   panel: 'M4 7h10M18 7h2M4 17h4M12 17h8M14 5v4M8 15v4',
   themes: 'M12 4a8 8 0 1 0 0 16c1 0 1.5-.8 1.5-1.6 0-1.4 1-2.4 2.4-2.4H18a2 2 0 0 0 2-2A8 8 0 0 0 12 4zM8 11h.01M11 8h.01M15 8h.01',
-  fireplace: 'M12 21c-3.5 0-6-2.4-6-5.6 0-3.2 2.6-5 3.5-8.4 1.8 1.4 2.6 3 2.6 4.6 1-.7 1.6-1.8 1.7-3 1.6 1.6 2.2 3.6 2.2 5.6 0 3.4-2.5 6.8-4 6.8z'
+  fireplace: 'M12 21c-3.5 0-6-2.4-6-5.6 0-3.2 2.6-5 3.5-8.4 1.8 1.4 2.6 3 2.6 4.6 1-.7 1.6-1.8 1.7-3 1.6 1.6 2.2 3.6 2.2 5.6 0 3.4-2.5 6.8-4 6.8z',
+  memory: 'M7 7h10v10H7zM10 4v3M14 4v3M10 17v3M14 17v3M4 10h3M4 14h3M17 10h3M17 14h3'
 }
 
 export const QUICK_LABEL: Record<QuickId, string> = {
   inputs: 'Inputs', wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: 'Picture & sound', apps: 'Apps', sleep: 'Screensaver', search: 'Search', music: 'Music bars', settings: 'Settings',
-  panel: 'Quick settings', themes: 'Themes', fireplace: 'Fireplace'
+  panel: 'Quick settings', themes: 'Themes', fireplace: 'Fireplace', memory: 'Clean memory'
 }
 
 export function QuickIcon({ id, size = 16 }: { id: QuickId; size?: number }): ReactNode {
@@ -88,7 +89,7 @@ function Tile({ app, w, names, focused, cfg }: { app: TvApp; w: number; names: b
   const shape = icons ? cfg.tile_shape : 'wide'
   const side = shape === 'wide' ? w : w * 0.72
   const radius = shape === 'round' ? '50%' : shape === 'squircle' ? '32%' : shape === 'square' ? '22%' : 10
-  const fill = cfg.icon_style === 'mono' ? 'rgba(255,255,255,.12)' : cfg.icon_style === 'duo' ? `color-mix(in srgb, ${cfg.background} 70%, ${cfg.accent})` : '#2D3A2E'
+  const fill = cfg.icon_style === 'mono' ? `rgba(255,255,255,${(cfg.tile_glass ?? 10) / 100})` : cfg.icon_style === 'duo' ? `color-mix(in srgb, ${cfg.background} 70%, ${cfg.accent})` : '#2D3A2E'
   const ink = cfg.icon_style === 'mono' || cfg.icon_style === 'duo' ? `color-mix(in srgb, ${cfg.accent} 65%, white)` : '#F0EBE5'
   return (
     <div style={{ width: side, flex: 'none' }}>
@@ -192,9 +193,13 @@ function Clock({ cfg, size, dateSize, align }: { cfg: HomeConfig; size: number; 
           ☁ 14°  16° / 9°  {cfg.weather_place}
         </div>
       )}
+      {cfg.memory && <div style={{ fontSize: dateSize, color: '#D7CFC4', fontFamily: 'var(--font)', marginTop: 4 }}>▦ 1.4 of 2 GB free</div>}
     </div>
   )
 }
+
+/** The TV's shade over the wallpaper: the background colour at [pct]% (#102). */
+const shade = (cfg: HomeConfig, pct: number): string => `color-mix(in srgb, ${cfg.background} ${pct}%, transparent)`
 
 const greetingText = (cfg: HomeConfig): string | null => (cfg.greeting.trim() ? `Good evening, ${cfg.greeting.trim()}` : null)
 
@@ -226,7 +231,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
   let body: ReactNode
   if (cfg.layout === 'split') {
     body = (
-      <div style={{ display: 'flex', height: '100%', background: 'linear-gradient(90deg, rgba(28,42,31,0.7), transparent 60%)' }}>
+      <div style={{ display: 'flex', height: '100%', background: `linear-gradient(90deg, ${shade(cfg, 70)}, transparent 60%)` }}>
         <div style={{ width: W * 0.32, padding: `${SAFE_Y + 24}px 0 ${SAFE_Y + 48}px ${SAFE_X}px`, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <Clock cfg={cfg} size={56} dateSize={15} align="left" />
           {greet && <div style={{ fontSize: 18, fontWeight: 500 }}>{greet}</div>}
@@ -248,7 +253,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
   } else if (cfg.layout === 'rail') {
     body = (
       <div style={{ display: 'flex', height: '100%' }}>
-        <div style={{ width: SAFE_X + 56, padding: `${SAFE_Y + 8}px 0 0 ${SAFE_X + 7}px`, display: 'flex', flexDirection: 'column', gap: 18, background: 'linear-gradient(90deg, rgba(28,42,31,0.6), rgba(28,42,31,0.1))' }}>
+        <div style={{ width: SAFE_X + 56, padding: `${SAFE_Y + 8}px 0 0 ${SAFE_X + 7}px`, display: 'flex', flexDirection: 'column', gap: 18, background: `linear-gradient(90deg, ${shade(cfg, 60)}, ${shade(cfg, 10)})` }}>
           {quick.map((q) => (
             <span key={q} style={{ width: 22, height: 22, display: 'grid', placeItems: 'center' }}>
               <QuickMark q={q} apps={apps} size={22} />
@@ -272,7 +277,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
     )
   } else {
     body = (
-      <div style={{ height: '100%', padding: `${SAFE_Y}px ${SAFE_X}px 0`, overflow: 'hidden', background: 'linear-gradient(rgba(28,42,31,0.6), transparent 210px)' }}>
+      <div style={{ height: '100%', padding: `${SAFE_Y}px ${SAFE_X}px 0`, overflow: 'hidden', background: `linear-gradient(${shade(cfg, 60)}, transparent 210px)` }}>
         <div style={{ display: 'flex', alignItems: 'flex-start' }}>
           <div style={{ fontSize: 20, fontWeight: 500, flex: 1, paddingTop: 4 }}>{greet}</div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>

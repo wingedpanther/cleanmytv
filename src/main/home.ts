@@ -8,7 +8,7 @@ import { paths } from './paths'
 import { log } from './log'
 import * as T from './tv'
 import { HOME_PKG, OLD_PKG, StockUnknown, addService, detectStock, dropServices, handOver, rememberStock, toSwitchOff } from './launcher'
-import type { HomeButton, HomeConfig, HomeGroup, HomeStatus, InstallResult, KeyPress, QuickId, ThemePackItem, TvApp } from '@shared/api'
+import type { HomeButton, HomeConfig, HomeGroup, HomeStatus, InstallResult, KeyPress, LookSlot, QuickId, ThemePackItem, TvApp } from '@shared/api'
 
 const TASK = 'install'
 const MAIN = `${HOME_PKG}/.MainActivity`
@@ -20,12 +20,13 @@ export const DEFAULTS: HomeConfig = {
   rows: [], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [],
   accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
   order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
-  icon_style: 'banner', tile_shape: 'wide', intro: true, wallpaper_from: '',
+  icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, intro: true, wallpaper_from: '',
   lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge',
   fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0,
   slide_minutes: 0, slide_from: 'mine', other_apps: false, live_tv: true,
   clock: 'time_date', greeting: '', names: {}, idle_minutes: 0,
-  weather_place: '', weather_lat: 0, weather_lon: 0, weather_unit: 'c',
+  weather_place: '', weather_lat: 0, weather_lon: 0, weather_unit: 'c', memory: false,
+  day_night: false, day_at: 7 * 60, night_at: 19 * 60,
   visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
 }
 
@@ -47,7 +48,7 @@ const LISTS = {
   sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid']
 } as const
 
-const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace'] as const
+const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory'] as const
 /** App shortcuts the top bar takes, as the launcher's HomeConfig.MAX_QUICK_APPS. */
 export const MAX_QUICK_APPS = 6
 const quickApp = (q: unknown): boolean => typeof q === 'string' && q.startsWith('app:') && T.PACKAGE_RE.test(q.slice(4))
@@ -61,10 +62,11 @@ const RANGES = {
   top_space: [0, 40], dock_scale: [60, 150], tile_scale: [60, 150],
   wallpaper_dim: [0, 80], dock_size: [0, 8], columns: [3, 8], idle_minutes: [0, 60],
   viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300],
-  fire_volume: [0, 100], fire_timer: [0, 240], slide_minutes: [0, 240]
+  fire_volume: [0, 100], fire_timer: [0, 240], slide_minutes: [0, 240], tile_glass: [0, 60],
+  day_at: [0, 24 * 60 - 1], night_at: [0, 24 * 60 - 1]
 } as const
 
-const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on'] as const
+const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night'] as const
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 /** Lets the launcher see other apps' media sessions; on only while the Now playing section is. */
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
@@ -72,7 +74,7 @@ const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
 export const MIN_SDK = 28
 // Above Android's own codes: TCL remotes send 4001 and up (#47).
 const MAX_KEY = 65535
-const BUTTON_ACTIONS = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'next_wallpaper', 'home', 'back', 'none', 'app']
+const BUTTON_ACTIONS = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'next_wallpaper', 'home', 'back', 'none', 'app']
 /** A built-in theme's picture, as "<theme id>:<picture>". */
 const THEME_PICTURE = /^[a-z0-9-]{1,40}:[0-9]$/
 
@@ -193,6 +195,7 @@ export function parse(out: string): HomeConfig {
   if (typeof o.lock_pin_set === 'boolean') cfg.lock_pin_set = o.lock_pin_set
   if (typeof o.themes_on_tv === 'number') cfg.themes_on_tv = o.themes_on_tv
   if (typeof o.can_change_settings === 'boolean') cfg.can_change_settings = o.can_change_settings
+  if (Array.isArray(o.looks_saved)) cfg.looks_saved = o.looks_saved.filter((l): l is LookSlot => l === 'day' || l === 'night')
   // Older launchers don't report this; leave it unset so the editor doesn't mark everything unavailable.
   if (Array.isArray(o.quick_available)) cfg.quick_available = o.quick_available.filter((q): q is QuickId => (QUICK as readonly unknown[]).includes(q))
   return cfg
@@ -469,6 +472,16 @@ export async function themePackPut(item: ThemePackItem): Promise<void> {
   await call('pack_file_begin', Buffer.from(`${item.id}:${item.picture}`).toString('base64'))
   for (const piece of pieces(data)) await call('pack_file_chunk', piece)
   await call('pack_file_end', createHash('md5').update(data).digest('hex'))
+}
+
+/**
+ * Keeps Home's look and wallpaper as they are now as the day or night look (launcher 1.7.5). Home keeps
+ * them itself and switches at the set times, so nothing needs uploading and any theme works.
+ */
+export async function saveLook(slot: LookSlot): Promise<HomeConfig> {
+  if (slot !== 'day' && slot !== 'night') throw new Error('bad look')
+  log('theme', 'cmd', `save this look for the ${slot}`)
+  return parse(await call('look_save', slot))
 }
 
 /** Replaces the slideshow's pictures on the TV (#56). Each is a prepared JPEG in base64; an empty list clears them. */

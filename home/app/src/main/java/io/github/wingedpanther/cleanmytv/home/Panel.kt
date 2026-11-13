@@ -22,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,6 +47,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import kotlinx.coroutines.launch
 
 private val P_TEXT = Color(0xFFF0EBE5)
 private val P_MUTED = Color(0xFFD7CFC4)
@@ -61,6 +63,8 @@ fun SettingsPanel(accent: Color, onClose: () -> Unit) {
     var tick by remember { mutableIntStateOf(0) }
     var armOff by remember { mutableStateOf(false) }
     val first = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
+    var cleaning by remember { mutableStateOf(false) }
     fun open(i: Intent?) {
         i ?: return
         runCatching { ctx.startActivity(Intent(i).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure { Log.w(TAG, "panel: $it") }
@@ -126,6 +130,12 @@ fun SettingsPanel(accent: Color, onClose: () -> Unit) {
                             arrows = true,
                         ) { onClose(); open(Intent(ctx, FireplaceActivity::class.java)) }
                     }
+                    item("memory") {
+                        val m = remember(tick) { Memory.read(ctx) }
+                        PanelRow("Memory", if (cleaning) "Cleaning…" else Memory.line(m), if (Memory.canClean) "OK closes apps in the background" else null, accent) {
+                            if (Memory.canClean && !cleaning) scope.launch { cleaning = true; Memory.cleanAndSay(ctx); cleaning = false; tick++ }
+                        }
+                    }
                     item("network") { PanelRow("Network", network, null, accent) { open(Intent(Settings.ACTION_WIFI_SETTINGS)) } }
                     item("bluetooth") {
                         PanelRow("Remotes & Bluetooth", "Open", null, accent) { quickActions()["bluetooth"]?.let { a -> resolve(ctx, a)?.let { open(it) } } }
@@ -148,7 +158,7 @@ private fun PanelRow(label: String, value: String, hint: String?, accent: Color,
     var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().height(if (hint != null) 64.dp else 54.dp).onFocusChanged { focused = it.isFocused },
+        modifier = Modifier.pointer(onClick).then(modifier).fillMaxWidth().height(if (hint != null) 64.dp else 54.dp).onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.05f), focusedContainerColor = accent.copy(alpha = 0.9f))

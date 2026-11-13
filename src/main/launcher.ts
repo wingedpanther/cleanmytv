@@ -278,6 +278,33 @@ export async function removeOld(): Promise<ApplyResult> {
     : { ok: false, summary: 'The TV did not remove the CleanYourTV launcher.', warnings: [out.trim()] }
 }
 
+/**
+ * Launchers the owner installed, such as one put on with Install an app (#82): every app that can be Home,
+ * minus ours, the TV's own and the ones that only stand in for a launcher.
+ */
+export async function otherLaunchers(): Promise<string[]> {
+  const stock = stockLaunchers()
+  return (await launcherCandidates()).filter((c) => !stock.includes(c))
+}
+
+/**
+ * Makes another installed launcher Home, the same careful way as CleanMyTV Home: it has to start first, the
+ * TV's own launcher goes off, and the old Home comes back if the switch doesn't stick. CleanMyTV Home stays
+ * installed; its remote buttons and app lock stop, since they come with it.
+ */
+export async function useOther(pkg: string): Promise<ApplyResult> {
+  if (!(await otherLaunchers()).includes(pkg)) return { ok: false, summary: `${pkg} can't be Home on this TV.`, warnings: [] }
+  const main = (await T.tv().shell(`${T.HOME_QUERY} ${pkg} | tail -n 1`)).trim()
+  // No '$': the component goes into a shell command.
+  if (!/^[A-Za-z_][\w.]*\/[\w.]+$/.test(main) || !main.startsWith(pkg + '/')) return { ok: false, summary: `Couldn't find the home screen in ${pkg}.`, warnings: [main] }
+  const result = await switchTo(main)
+  if (result.ok) {
+    await dropServices(HOME_PKG)
+    return { ...result, summary: `${pkg} is Home now. CleanMyTV Home stays installed; use it again from this tab.` }
+  }
+  return result
+}
+
 export async function useStock(): Promise<ApplyResult> {
   const { installed } = await T.packageSets()
   const stock = stockOnTv(installed)

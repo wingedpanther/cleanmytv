@@ -18,6 +18,9 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
     <!-- Puts the remote-button service back after a restart when the TV has dropped it (#78). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Clean memory: closes apps left in the background, up to Android 13. Apps with a launcher icon are
+         the ones the queries below already let Home see. -->
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
 
     <!-- Android 11+ hides other apps unless we say which ones we look for. -->
     <queries>

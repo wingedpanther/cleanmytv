@@ -70,6 +70,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         appsVersion.intValue++
+        Keyboard.check(this)
     }
 
     override fun onStop() {

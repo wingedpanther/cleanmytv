@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.Input
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MusicNote
@@ -61,6 +62,8 @@ fun quickActions(): Map<String, QuickAction> = listOf(
     QuickAction("panel", "Quick settings", Icons.Outlined.Tune, emptyList()),
     QuickAction("themes", "Themes", Icons.Outlined.Palette, emptyList()),
     QuickAction("fireplace", "Fireplace", Icons.Outlined.LocalFireDepartment, emptyList()),
+    // Handled by Home itself: closes apps in the background. Up to Android 13 (see Memory).
+    QuickAction("memory", "Clean memory", Icons.Outlined.CleaningServices, emptyList()),
 ).associateBy { it.id }
 
 /**
@@ -79,6 +82,7 @@ private fun canStart(ctx: Context, i: Intent): Boolean {
 /** Inputs needs inputs, Music bars always works, the rest need a screen on this TV that opens them. */
 fun canOpen(ctx: Context, a: QuickAction, hasInputs: Boolean): Boolean = when (a.id) {
     "inputs" -> hasInputs
+    "memory" -> Memory.canClean
     "music", "panel", "themes", "fireplace" -> true
     else -> resolve(ctx, a) != null
 }

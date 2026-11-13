@@ -161,7 +161,9 @@ export interface HomeStatus {
 
 export type HomeLayout = 'shelf' | 'split' | 'rail'
 export type HomeSection = 'nowplaying' | 'dock' | 'rows' | 'folders' | 'grid'
-export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes' | 'fireplace'
+export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes' | 'fireplace' | 'memory'
+/** A saved look for the day and night switch. */
+export type LookSlot = 'day' | 'night'
 /** A top-bar icon: a quick-settings action, or `app:<package>` for an app shortcut (CleanMyTV Home 1.2.0 and later). */
 export type QuickEntry = QuickId | `app:${string}`
 
@@ -240,6 +242,8 @@ export interface HomeConfig {
   icon_style: 'banner' | 'colour' | 'mono' | 'duo'
   /** Tile outline for the icon styles; banners stay wide. */
   tile_shape: 'wide' | 'square' | 'squircle' | 'round'
+  /** Mono: percent of white in the glass behind each logo, 0 to 60 (launcher 1.7.5). */
+  tile_glass: number
   /** A new wallpaper comes in like a sunrise. */
   intro: boolean
   /** The built-in theme picture the wallpaper is, as "<theme id>:<picture>", or "" for any other. */
@@ -281,6 +285,12 @@ export interface HomeConfig {
   weather_lat: number
   weather_lon: number
   weather_unit: 'c' | 'f'
+  /** Free memory under the clock (launcher 1.7.5). */
+  memory: boolean
+  /** Day and night looks take turns at day_at and night_at, minutes past midnight (launcher 1.7.5). */
+  day_night: boolean
+  day_at: number
+  night_at: number
   // Music bars
   visualiser: boolean
   viz_style: 'bars' | 'mirror' | 'wave'
@@ -308,6 +318,8 @@ export interface HomeConfig {
   slides_on_tv?: number
   /** Read only: the launcher may change TV settings (Quick settings panel). */
   can_change_settings?: boolean
+  /** Read only: which looks are saved for the day and night switch. */
+  looks_saved?: LookSlot[]
 }
 
 /** One picture of a built-in theme, for the TV's own theme carousel. */
@@ -460,6 +472,10 @@ export interface CytvApi {
   // CleanMyTV Home
   /** Give Home back to the stock launcher, leaving CleanMyTV Home installed. */
   useStockLauncher(): Promise<ApplyResult>
+  /** Launchers the owner installed that could be Home instead (#82). */
+  otherLaunchers(): Promise<string[]>
+  /** Makes one of those Home, leaving CleanMyTV Home installed. */
+  useOtherLauncher(pkg: string): Promise<ApplyResult>
   /** Uninstall the CleanYourTV launcher that CleanMyTV 0.1.x installed, once it isn't Home. */
   removeOldLauncher(): Promise<ApplyResult>
   homeStatus(): Promise<HomeStatus>
@@ -491,6 +507,8 @@ export interface CytvApi {
   setSlides(jpegs: string[]): Promise<HomeConfig>
   /** The last buttons the TV received, newest last. */
   homeKeys(): Promise<KeyPress[]>
+  /** Keeps Home's look and wallpaper as they are now, as the day or night look. */
+  saveHomeLook(slot: LookSlot): Promise<HomeConfig>
   /** A prepared JPEG (base64) for the home screen, or null to remove it. */
   setHomeWallpaper(jpegBase64: string | null): Promise<HomeConfig>
   /** Puts a theme on the TV. Before the first one, saves the TV's look on this computer. */

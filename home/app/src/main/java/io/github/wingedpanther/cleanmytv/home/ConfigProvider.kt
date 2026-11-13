@@ -34,6 +34,7 @@ import java.security.MessageDigest
  *                              one fireplace file (fireplace.mp4 or crackle.m4a), into Home's own storage
  *   fire_dir                   the old upload folder on shared storage, for CleanMyTV 0.7.0 and 0.7.1
  *   fire_ready, fire_clear     the files have arrived, or are gone; Home looks again
+ *   look_save <day|night>      keep Home's look and wallpaper as they are now, for the day and night switch
  * Only the shell user (ADB) and root may call it, so other apps on the TV can't restyle Home.
  */
 class ConfigProvider : ContentProvider() {
@@ -47,6 +48,7 @@ class ConfigProvider : ContentProvider() {
         val ctx = requireNotNull(context)
         val out = Bundle()
         if (method == "keys") {
+            KeyService.listen()
             out.putString("keys", KeyLog.json().toString())
             return out
         }
@@ -71,7 +73,12 @@ class ConfigProvider : ContentProvider() {
         when (method) {
             "get" -> ConfigStore.load(ctx)
             "set" -> ConfigStore.update(ctx, json(arg))
-            "set64" -> ConfigStore.update(ctx, json(String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8)))
+            "set64" -> {
+                val change = json(String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8))
+                ConfigStore.update(ctx, change)
+                // A new time or the switch turned on: the right look goes on at the next check, even mid-half.
+                if (listOf("day_night", "day_at", "night_at").any { change.has(it) }) DayNight.reset(ctx)
+            }
             "wallpaper_begin" -> ConfigStore.wallpaperUpload(ctx).writeBytes(ByteArray(0))
             "wallpaper_chunk" -> {
                 val f = ConfigStore.wallpaperUpload(ctx)
@@ -167,6 +174,7 @@ class ConfigProvider : ContentProvider() {
                 f.renameTo(java.io.File(f.parentFile, f.name.removeSuffix(".upload")))
             }
             "fire_ready" -> Fire.changed()
+            "look_save" -> DayNight.save(ctx, arg.orEmpty())
             "fire_clear" -> {
                 Fire.clear(ctx)
                 ConfigStore.update(ctx, JSONObject().put("fire_wall", false))
@@ -183,6 +191,7 @@ class ConfigProvider : ContentProvider() {
             .put("fire_on_tv", Fire.ready(ctx))
             .put("slides_on_tv", Slides.count(ctx))
             .put("can_change_settings", TvSettings.canWriteSecure(ctx))
+            .put("looks_saved", org.json.JSONArray(DayNight.saved(ctx)))
         out.putString("config", config.toString())
         return out
     }

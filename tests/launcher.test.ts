@@ -632,6 +632,12 @@ describe('launcher 1.4.0 settings', () => {
     expect(H.clean({ quick: ['fireplace'], buttons: [{ code: 186, action: 'fireplace' }] })).toEqual({ quick: ['fireplace'], buttons: [{ code: 186, action: 'fireplace' }] })
   })
 
+  it('takes Clean memory, the memory line, Mono glass and day and night times, in range', () => {
+    expect(H.clean({ quick: ['memory'], buttons: [{ code: 186, action: 'memory' }], memory: true, tile_glass: 90, day_night: true, day_at: -5, night_at: 2000 }))
+      .toEqual({ quick: ['memory'], buttons: [{ code: 186, action: 'memory' }], memory: true, tile_glass: 60, day_night: true, day_at: 0, night_at: 1439 })
+    expect(() => H.clean({ day_night: 'yes' })).toThrow(/true or false/)
+  })
+
   it('names a saved snapshot by local date and time, and has nothing to save before the first one (#92)', () => {
     expect(S.shotName(new Date(2026, 10, 1, 9, 5))).toBe('TV 2026-11-01 09.05.png')
     expect(S.lastScreenshot()).toBeNull()
