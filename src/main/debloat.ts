@@ -24,7 +24,7 @@ export const KNOWN_STOCK_LAUNCHERS = [...GOOGLE_LAUNCHERS, 'com.mitv.tvhome']
 const CUSTOM_LAUNCHER = 'com.gathin.tvhome'
 // Core Android and TV middleware: with one of these off, the TV may not boot again (upstream #884, #1578).
 // Same patterns as upstream's tools/recovery.py, and no option overrides them.
-export const CORE_RE = /^(android|android\.ext\.(services|shared)|com\.android\.systemui|com\.android\.shell|com\.android\.phone|com\.android\.settings|com\.android\.tv\.settings|com\.(google\.)?android\.(permissioncontroller|packageinstaller|ext\.services|ext\.shared|modulemetadata)|com\.google\.android\.overlay\.modules.*|com\.android\.providers\..*|com\.cltv\.mal|com\.mediatek\.(tis|tv\.service|tv\.agent))$/
+export const CORE_RE = /^(android|android\.ext\.(services|shared)|com\.android\.sdksandbox|com\.android\.location\.fused|com\.android\.systemui|com\.android\.shell|com\.android\.phone|com\.android\.settings|com\.android\.tv\.settings|com\.(google\.)?android\.(permissioncontroller|packageinstaller|ext\.services|ext\.shared|modulemetadata)|com\.google\.android\.overlay\.modules.*|com\.android\.providers\..*|com\.cltv\.mal|com\.mediatek\.(tis|tv\.service|tv\.agent))$/
 export const CORE_OK = /^com\.android\.providers\.(calendar|contacts|userdictionary|blockednumber)$/
 export const isCore = (pkg: string): boolean => CORE_RE.test(pkg) && !CORE_OK.test(pkg)
 const SETTINGS = ['window_animation_scale', 'transition_animation_scale', 'animator_duration_scale'] as const

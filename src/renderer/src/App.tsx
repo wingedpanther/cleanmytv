@@ -215,6 +215,7 @@ export default function App(): ReactNode {
           </ol>
         </nav>
         <div className="sidebar-foot">
+          {update?.available && <UpdateNote update={update} />}
           Nothing is uninstalled. Every change can be undone from this app or the TV's Settings → Apps.
           <a className="gh-link" href={REPO_URL} target="_blank" rel="noreferrer" title="Source, releases and issues on GitHub">
             <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -223,7 +224,6 @@ export default function App(): ReactNode {
             <span>wingedpanther/cleanmytv</span>
           </a>
           <div className="gh-ver">CleanMyTV v{version} · MIT</div>
-          {update?.available && <UpdateNote update={update} />}
         </div>
       </aside>
       <main className="main">
@@ -289,7 +289,10 @@ function UpdateNote({ update }: { update: UpdateInfo }): ReactNode {
   }
   return (
     <div className="update-note">
-      <span>Version {update.latest} is out.</span>
+      <span>
+        <b>Version {update.latest} is out.</b>{' '}
+        <a href={update.url} target="_blank" rel="noreferrer">What's new</a>
+      </span>
       {phase === 'idle' && <button className="update-btn" onClick={() => void step('downloading', () => window.cytv.downloadUpdate(), 'ready')}>Update now</button>}
       {phase === 'downloading' && <span className="update-state">Downloading… {pct}%</span>}
       {phase === 'ready' && (
@@ -297,7 +300,6 @@ function UpdateNote({ update }: { update: UpdateInfo }): ReactNode {
       )}
       {phase === 'installing' && <span className="update-state">Installing…</span>}
       {note && <span className="update-state">{note}</span>}
-      <a href={update.url} target="_blank" rel="noreferrer">What's new</a>
     </div>
   )
 }
