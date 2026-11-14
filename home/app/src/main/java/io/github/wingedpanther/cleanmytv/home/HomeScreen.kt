@@ -132,8 +132,8 @@ private val CLOCK = FontFamily(Font(R.font.jetbrains_mono_light, FontWeight.Ligh
 /** Text on an accent fill: the ground colour or off-white, whichever reads better on it. */
 private fun onAccent(c: Color): Color = if (c.luminance() > 0.36f) GROUND else TEXT
 
-/** Shades a ground-tinted scrim, so overlays keep the world's green-black instead of plain black. */
-private fun scrim(alpha: Float) = GROUND.copy(alpha = alpha)
+/** Applies a neutral black scrim to overlays, avoiding the unwanted green tint. */
+private fun scrim(alpha: Float) = Color.Black.copy(alpha = alpha)
 
 // A 1080p TV is 960x540 dp; 5% of each edge stays clear because some TVs crop it.
 private val SAFE_X = 48.dp
