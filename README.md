@@ -14,7 +14,7 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
-### New in 0.7.3
+### New in 0.8.0
 
 - **Remote buttons stay on.** Home turns its button service back on after a reboot, or when the TV
   switched it off, so mapped buttons keep working (#78).
@@ -47,8 +47,8 @@ Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther
 - **Long press an app on Home** for Move, Hide, App info and Uninstall. Move lets the arrow keys put the app
   anywhere in the dock, All apps or its row, with no computer needed.
 - **Back to the input at power on:** if the TV went to sleep on HDMI or TV channels, it wakes up there (#94).
-- **Fire TV:** installing no longer reports an error, Settings opens without bouncing back, and Clean up
-  says which Amazon apps Fire OS won't let go.
+- **Fire TV:** installing no longer reports an error, CleanMyTV Home only comes back in front of Amazon's home
+  screen, and Clean up says which Amazon apps Fire OS won't let go.
 - **Volume with mapped buttons:** a volume press pauses the button service for 4 seconds, so holding it repeats.
 - **Clean up** keeps the keyboard you type with on, whatever the list says.
 - **472 TV lists from 129 brands**, up from 371.
