@@ -8,6 +8,7 @@ import { join, resolve } from 'node:path'
 import { paths } from './paths'
 import { log } from './log'
 import * as T from './tv'
+import { keptLauncher } from './kept'
 import type { ApplyResult, DebloatApplyRequest, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState, Probe } from '@shared/api'
 
 const TASK = 'debloat'
@@ -570,6 +571,9 @@ export async function plan(listId: string): Promise<DebloatPlan> {
  */
 export function cameBack(active: string[], installed: Set<string>, disabled: Set<string>, homePackage: string | null, keep: string[] = []): string[] {
   const held = homePackage === OUR_HOME ? [] : [...stockLaunchers(), SETUPWRAITH]
+  // Google's launcher kept on for apps that need it is on by choice, and setupwraith with it (#99, #88).
+  const kept = keptLauncher()
+  if (kept) held.push(kept, SETUPWRAITH)
   return active.filter((p) => installed.has(p) && !disabled.has(p) && !isCore(p) && !held.includes(p) && !keep.includes(p))
 }
 
@@ -727,6 +731,21 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
     }
   }
 
+  // Google TV's launcher, kept on by the owner for apps that need it, stays on with setupwraith (#99, #88).
+  const kept = keptLauncher()
+  const keptHeld = kept ? pkgs.filter((p) => p === kept || p === SETUPWRAITH) : []
+  if (keptHeld.length) {
+    warnings.push(`Kept on: ${keptHeld.join(', ')}. You chose to keep Google TV's launcher on (Home screen → Overview), and ${keptHeld.length === 1 ? 'it needs' : 'they need'} to stay on for that.`)
+    pkgs = pkgs.filter((p) => !keptHeld.includes(p))
+  }
+
+  // The keyboard in use: without it there is no typing a Wi-Fi password or a search.
+  const ime = (await T.sh(TASK, 'settings get secure default_input_method', { quiet: true }).catch(() => '')).trim().split('/')[0]
+  if (T.PACKAGE_RE.test(ime) && pkgs.includes(ime)) {
+    warnings.push(`Kept on: ${ime}. It's the TV's keyboard. Pick another keyboard in the TV's settings first if you want it gone.`)
+    pkgs = pkgs.filter((p) => p !== ime)
+  }
+
   // Home guard: never leave the TV with nothing that can answer Home.
   const homeAns = await T.homeAnswer()
   const homePkg = homeAns.split('/')[0]
@@ -761,10 +780,16 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   await saveRecord(file, host, active, probe.device || undefined)
 
   let done = 0
+  // Fire OS and some other firmware refuse their own apps outright; that is the TV's rule, not a failure.
+  const guarded: string[] = []
   for (const p of pkgs) {
     const out = await T.sh(TASK, `pm disable-user --user 0 ${p}`)
     if (/disabled/.test(out)) done++
+    else if (/Cannot disable a protected package/i.test(out)) guarded.push(p)
     else warnings.push(`${p}: ${out.trim() || 'no answer'}`)
+  }
+  if (guarded.length) {
+    warnings.unshift(`The TV doesn't let ${guarded.length === 1 ? 'this one' : `these ${guarded.length}`} be switched off, so ${guarded.length === 1 ? 'it stays' : 'they stay'} on: ${guarded.join(', ')}.${guarded.length === pkgs.length ? ' Newer Fire TV software protects every Amazon app this way.' : ''}`)
   }
   let enabled = 0
   for (const p of req.enable) {
@@ -778,11 +803,13 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   // Everything picked was held back by a guard: "Disabled 0 of 0" read like a bug (#40).
   // Core packages never go, so they aren't "for now".
   const stayedOn = [...new Set(wanted)].filter((p) => !pkgs.includes(p))
+  const tried = pkgs.length - guarded.length
   const summary = (pkgs.length === 0 && req.disable.length
     ? stayedOn.length ? `Nothing switched off yet: ${stayedOn.join(', ')} stayed on for now. The notes below say why` : 'Nothing switched off. The notes below say why'
-    : `Disabled ${done} of ${pkgs.length} package${pkgs.length === 1 ? '' : 's'}`) + (req.enable.length ? `, switched ${enabled} back on.` : '.')
+    : tried === 0 ? 'Nothing switched off: the TV protects every package picked'
+      : `Disabled ${done} of ${tried} package${tried === 1 ? '' : 's'}${guarded.length ? `; the TV protects ${guarded.length} more` : ''}`) + (req.enable.length ? `, switched ${enabled} back on.` : '.')
   log(TASK, 'ok', summary)
-  return { ok: done === pkgs.length && enabled === req.enable.length, summary, warnings }
+  return { ok: done === tried && enabled === req.enable.length, summary, warnings }
 }
 
 async function stockFallback(): Promise<string> {

@@ -158,7 +158,7 @@ private fun PanelRow(label: String, value: String, hint: String?, accent: Color,
     var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
-        modifier = Modifier.pointer(onClick).then(modifier).fillMaxWidth().height(if (hint != null) 64.dp else 54.dp).onFocusChanged { focused = it.isFocused },
+        modifier = Modifier.pointer(onClick = onClick).then(modifier).fillMaxWidth().height(if (hint != null) 64.dp else 54.dp).onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.05f), focusedContainerColor = accent.copy(alpha = 0.9f))

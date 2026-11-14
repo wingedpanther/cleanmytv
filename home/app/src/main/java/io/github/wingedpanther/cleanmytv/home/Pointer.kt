@@ -15,14 +15,15 @@ import androidx.compose.ui.input.pointer.pointerInput
  * Air mice and plain mice (D#101): pointing at a tile moves the focus there, a click opens it. TV surfaces
  * only answer the remote's OK button on their own. Goes before the surface's own modifiers.
  */
-fun Modifier.pointer(onClick: () -> Unit): Modifier = composed {
+fun Modifier.pointer(onLongClick: (() -> Unit)? = null, onClick: () -> Unit): Modifier = composed {
     val focus = remember { FocusRequester() }
     val click by rememberUpdatedState(onClick)
+    val long by rememberUpdatedState(onLongClick)
     focusRequester(focus)
         .pointerInput(Unit) {
             awaitPointerEventScope {
                 while (true) if (awaitPointerEvent().type == PointerEventType.Enter) runCatching { focus.requestFocus() }
             }
         }
-        .pointerInput(Unit) { detectTapGestures(onTap = { click() }) }
+        .pointerInput(Unit) { detectTapGestures(onTap = { click() }, onLongPress = { long?.invoke() }) }
 }

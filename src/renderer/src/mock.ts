@@ -53,11 +53,12 @@ export function installMock(): void {
   let launcherHome = false
   let homeInstalled = false
   let homeIsHome = false
+  let googleKept = false
   let keySeq = 0
   let themeSavedAt: number | null = null
   const homeConfig: HomeConfig = {
     layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
-    rows: [{ name: 'Watch', apps: ['com.netflix.ninja', 'com.google.android.youtube.tv'] }], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [],
+    rows: [{ name: 'Watch', apps: ['com.netflix.ninja', 'com.google.android.youtube.tv'] }], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false,
     accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
     order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
     icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, intro: true, wallpaper_from: '',
@@ -271,6 +272,12 @@ export function installMock(): void {
       homeIsHome = false
       return ok('Home belongs to com.google.android.apps.tv.launcherx again.')
     },
+    async keepGoogleLauncher(on) {
+      await wait(600)
+      googleKept = on
+      homeConfig.stock_redirect = on ? 'com.google.android.apps.tv.launcherx' : ''
+      return ok(on ? 'com.google.android.apps.tv.launcherx is on again, and Clean up leaves it on.' : 'com.google.android.apps.tv.launcherx is off again, and CleanMyTV Home is Home.')
+    },
     async otherLaunchers() {
       await wait(300)
       return ['com.spocky.projengmenu']
@@ -281,7 +288,7 @@ export function installMock(): void {
     },
     async homeStatus() {
       await wait(200)
-      return { oldLauncher: launcherInstalled, installed: homeInstalled, versionName: homeInstalled ? '0.2.0-preview' : undefined, isHome: homeIsHome, bundled: true, bundledVersion: '0.2.0-preview' }
+      return { oldLauncher: launcherInstalled, installed: homeInstalled, versionName: homeInstalled ? '0.2.0-preview' : undefined, isHome: homeIsHome, bundled: true, bundledVersion: '0.2.0-preview', googleLauncher: 'com.google.android.apps.tv.launcherx', googleKept }
     },
     async removeOldLauncher() {
       await wait(800)

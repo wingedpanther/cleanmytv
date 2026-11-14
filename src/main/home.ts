@@ -7,8 +7,10 @@ import { join } from 'node:path'
 import { paths } from './paths'
 import { log } from './log'
 import * as T from './tv'
-import { HOME_PKG, OLD_PKG, StockUnknown, addService, detectStock, dropServices, handOver, rememberStock, toSwitchOff } from './launcher'
-import type { HomeButton, HomeConfig, HomeGroup, HomeStatus, InstallResult, KeyPress, LookSlot, QuickId, ThemePackItem, TvApp } from '@shared/api'
+import { FIRE_LAUNCHER, HOME_PKG, OLD_PKG, StockUnknown, addService, detectStock, dropServices, handOver, rememberStock, toSwitchOff, wraithBack } from './launcher'
+import { GOOGLE_LAUNCHERS } from './debloat'
+import { keepLauncher, keptLauncher } from './kept'
+import type { ApplyResult, HomeButton, HomeConfig, HomeGroup, HomeStatus, InstallResult, KeyPress, LookSlot, QuickId, ThemePackItem, TvApp } from '@shared/api'
 
 const TASK = 'install'
 const MAIN = `${HOME_PKG}/.MainActivity`
@@ -17,7 +19,7 @@ const HEX = /^#[0-9A-Fa-f]{6}$/
 
 export const DEFAULTS: HomeConfig = {
   layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
-  rows: [], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [],
+  rows: [], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false,
   accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
   order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
   icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, intro: true, wallpaper_from: '',
@@ -66,7 +68,7 @@ const RANGES = {
   day_at: [0, 24 * 60 - 1], night_at: [0, 24 * 60 - 1]
 } as const
 
-const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night'] as const
+const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night', 'power_on_input'] as const
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 /** Lets the launcher see other apps' media sessions; on only while the Now playing section is. */
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
@@ -90,12 +92,23 @@ export async function status(): Promise<HomeStatus> {
   const dump = await T.tv().shell(`dumpsys package ${HOME_PKG} | grep -m1 versionName`)
   const versionName = /versionName=(\S+)/.exec(dump)?.[1]
   const home = await T.homeComponent()
-  const { installed } = await T.packageSets()
+  const { installed, disabled } = await T.packageSets()
+  const fireTv = installed.has(FIRE_LAUNCHER)
+  const google = GOOGLE_LAUNCHERS.find((p) => installed.has(p))
+  const kept = keptLauncher()
+  const keptOn = !!kept && kept === google && !disabled.has(kept)
+  // Fire TV, and a TV whose Google launcher is kept on, open that launcher first; CleanMyTV Home comes back in front of it.
+  // That only works while the remote-button service runs; giving Home back switches it off.
+  const redirected = !!versionName && (fireTv || keptOn) && !!home && (home.startsWith(HOME_PKG + '/') || home.startsWith((fireTv ? FIRE_LAUNCHER : kept) + '/')) &&
+    (await T.tv().shell('settings get secure enabled_accessibility_services')).includes(HOME_PKG + '/')
   return {
     oldLauncher: installed.has(OLD_PKG),
     installed: !!versionName,
     versionName,
-    isHome: !!home && home.startsWith(HOME_PKG + '/'),
+    isHome: (!!home && home.startsWith(HOME_PKG + '/')) || redirected,
+    fireTv,
+    googleLauncher: fireTv ? undefined : google,
+    googleKept: keptOn,
     bundled: existsSync(paths.bundledHomeApk),
     bundledVersion: bundledVersion(),
     unsupported: unsupported() ?? undefined
@@ -126,14 +139,19 @@ export async function install(chosen?: string): Promise<InstallResult> {
   }
   const tooOld = unsupported()
   if (tooOld) return { ok: false, summary: tooOld, warnings: [] }
+  const { installed: onTv, disabled: offOnTv } = await T.packageSets()
+  // Fire OS never hands Home over, and a kept Google launcher stays on: both get the redirect instead.
+  const fire = onTv.has(FIRE_LAUNCHER)
+  const kept = keptLauncher()
+  const redirect = fire ? FIRE_LAUNCHER : kept && onTv.has(kept) && !offOnTv.has(kept) ? kept : null
   let stock: string
   try {
-    stock = await detectStock(chosen)
+    stock = redirect ?? (await detectStock(chosen))
   } catch (e) {
     if (e instanceof StockUnknown) return { ok: false, summary: e.message, warnings: [], stockChoices: e.candidates }
     throw e
   }
-  log(TASK, 'info', `stock launcher: ${stock}`)
+  log(TASK, 'info', redirect ? `${redirect} stays on; CleanMyTV Home comes back in front of it` : `stock launcher: ${stock}`)
   const apk = readFileSync(paths.bundledHomeApk)
   // The upload's base64 copy, the APK, Android's own copy of it and the compiled code all sit on /data.
   const need = Math.ceil((apk.length * 5) / 1024)
@@ -169,20 +187,78 @@ export async function install(chosen?: string): Promise<InstallResult> {
   if (!start.includes('Status: ok') || /^Error/im.test(start)) {
     return { ok: false, summary: 'CleanMyTV Home did not start, so Home was left as it was.', warnings: [start.trim()] }
   }
-  const { failed, notes } = await handOver(toSwitchOff(stock), MAIN)
-  if (failed) return failed
-  rememberStock(stock)
-  // Android switches accessibility services off when their app is reinstalled: turn the button service back on.
-  const cfg = await readConfig().catch(() => null)
-  if (cfg?.buttons_on || cfg?.lock_on) await addService(KEY_SERVICE)
-  if (cfg) await nowPlayingAccess(cfg.sections.includes('nowplaying'))
+  let notes: string[] = []
+  if (redirect) {
+    // Fire OS answers Success and ignores it; with Google's launcher on it holds until that launcher claims Home.
+    await T.sh(TASK, `cmd package set-home-activity --user 0 ${MAIN}`)
+  } else {
+    const handed = await handOver(toSwitchOff(stock), MAIN)
+    if (handed.failed) return handed.failed
+    notes = handed.notes
+    rememberStock(stock)
+  }
+  let cfg = await readConfig().catch(() => null)
   const restored = cfg?.configured === false ? await restoreBackup() : false
+  if (restored) cfg = await readConfig().catch(() => cfg)
+  if (cfg && cfg.stock_redirect !== (redirect ?? '')) cfg = await setConfig({ stock_redirect: redirect ?? '' }).catch(() => cfg)
+  // Android switches accessibility services off when their app is reinstalled: turn the service back on.
+  if (cfg && needsService(cfg)) await addService(KEY_SERVICE)
+  if (cfg) await nowPlayingAccess(cfg.sections.includes('nowplaying'))
+  const again = restored ? " It started empty, so your settings and wallpaper came back from this computer's copy." : ''
   return {
     ok: true,
-    summary: 'CleanMyTV Home is Home now. Press Home on the remote to see it.' + (restored ? " It started empty, so your settings and wallpaper came back from this computer's copy." : ''),
+    summary: (fire
+      ? "CleanMyTV Home is installed. Fire TV always opens Amazon's home screen first, so CleanMyTV Home comes back in front a moment after you press Home, up to 5 seconds on some models."
+      : redirect
+        ? "CleanMyTV Home is Home now. Google TV's launcher stays on, as you chose, so after a Home press CleanMyTV Home comes back in front a moment later."
+        : 'CleanMyTV Home is Home now. Press Home on the remote to see it.') + again,
     warnings: notes
   }
 }
+
+/** The remote-button service has work: buttons, the app lock, the Home redirect or the power-on input. */
+export const needsService = (c: Pick<HomeConfig, 'buttons_on' | 'lock_on' | 'stock_redirect' | 'power_on_input'>): boolean =>
+  c.buttons_on || c.lock_on || !!c.stock_redirect || c.power_on_input
+
+/**
+ * Keeps Google TV's own launcher on beside CleanMyTV Home (#99, #88). Some apps need it: Apple TV and Netflix
+ * on some TVs stop playing, and Google Photos albums for the screensaver won't load, while it is off. It
+ * stays on, and the remote-button service sends its home screen back to CleanMyTV Home. Off puts the usual
+ * handover back.
+ */
+export async function keepGoogleLauncher(on: boolean): Promise<ApplyResult> {
+  const { installed } = await T.packageSets()
+  const google = GOOGLE_LAUNCHERS.find((p) => installed.has(p))
+  if (!google) return { ok: false, summary: "This TV has no Google TV launcher to keep.", warnings: [] }
+  if (on) {
+    await T.sh(TASK, `pm enable --user 0 ${google}`)
+    await wraithBack()
+    keepLauncher(google)
+    await T.sh(TASK, `cmd package set-home-activity --user 0 ${MAIN}`)
+    await setConfig({ stock_redirect: google })
+    await addService(KEY_SERVICE)
+    return { ok: true, summary: `${google} is on again, and Clean up leaves it on. After a Home press, CleanMyTV Home comes back in front a moment later.`, warnings: [] }
+  }
+  const { failed, notes } = await handOver(google, MAIN)
+  if (failed) return failed
+  keepLauncher(null)
+  const cfg = await setConfig({ stock_redirect: '' })
+  if (!needsService(cfg)) await dropServices(HOME_PKG)
+  return { ok: true, summary: `${google} is off again, and CleanMyTV Home is Home.`, warnings: notes }
+}
+
+/**
+ * Home went to the stock or another launcher: CleanMyTV Home stops sending a launcher's home screen back to
+ * itself, and Clean up stops keeping Google's launcher on for it.
+ */
+export async function leftHome(result: ApplyResult): Promise<ApplyResult> {
+  if (!result.ok) return result
+  keepLauncher(null)
+  await setConfig({ stock_redirect: '' }).catch(() => undefined)
+  return result
+}
+
+
 
 /** What the launcher answered, with anything missing or odd replaced by the default. */
 export function parse(out: string): HomeConfig {
@@ -224,6 +300,10 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
     if (o[k] === undefined) continue
     if (typeof o[k] === 'boolean') out[k] = o[k]
     else bad(`${k} must be true or false`)
+  }
+  if (o.stock_redirect !== undefined) {
+    if (typeof o.stock_redirect === 'string' && (o.stock_redirect === '' || T.PACKAGE_RE.test(o.stock_redirect))) out.stock_redirect = o.stock_redirect
+    else bad('stock_redirect must be a package name or empty')
   }
   if (o.wallpaper_from !== undefined) {
     if (typeof o.wallpaper_from === 'string' && (o.wallpaper_from === '' || THEME_PICTURE.test(o.wallpaper_from))) out.wallpaper_from = o.wallpaper_from
@@ -327,8 +407,8 @@ export async function keys(): Promise<KeyPress[]> {
 /** Switches the remote-button service on or off: the TV's accessibility setting plus the launcher's flag. */
 export async function setRemoteButtons(on: boolean): Promise<HomeConfig> {
   if (on) await addService(KEY_SERVICE)
-  // The same service guards locked apps; it stays on while the lock is.
-  else if (!(await readConfig()).lock_on) await dropServices(HOME_PKG)
+  // The same service guards locked apps and more; it stays on while any of them is.
+  else if (!needsService({ ...(await readConfig()), buttons_on: false })) await dropServices(HOME_PKG)
   return setConfig({ buttons_on: on === true })
 }
 
@@ -346,13 +426,13 @@ export async function setAppLock(on: boolean): Promise<HomeConfig> {
   const cfg = await readConfig()
   if (on && !cfg.lock_pin_set) throw new Error('Set a PIN first.')
   if (on) await addService(KEY_SERVICE)
-  else if (!cfg.buttons_on) await dropServices(HOME_PKG)
+  else if (!needsService({ ...cfg, lock_on: false })) await dropServices(HOME_PKG)
   return setConfig({ lock_on: on === true })
 }
 
 export async function clearAppLock(): Promise<HomeConfig> {
   const cfg = keep(parse(await call('lock_clear')))
-  if (!cfg.buttons_on) await dropServices(HOME_PKG)
+  if (!needsService(cfg)) await dropServices(HOME_PKG)
   log('theme', 'ok', 'app lock off and its PIN forgotten')
   return cfg
 }
@@ -539,6 +619,9 @@ export async function setConfig(change: Partial<HomeConfig>): Promise<HomeConfig
   log('theme', 'cmd', `set ${JSON.stringify(checked, (k, v) => (PRIVATE_SETTINGS.includes(k) ? '(hidden)' : v))}`)
   const cfg = keep(parse(await call('set64', Buffer.from(json).toString('base64'))))
   if (change.sections) await nowPlayingAccess(cfg.sections.includes('nowplaying'))
+  // Going back to the input at power on (#94) is the remote-button service's job too.
+  if (checked.power_on_input === true) await addService(KEY_SERVICE)
+  else if (checked.power_on_input === false && !needsService(cfg)) await dropServices(HOME_PKG)
   return cfg
 }
 

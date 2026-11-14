@@ -10,6 +10,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
@@ -34,6 +35,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.GenericShape
@@ -116,6 +118,8 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
@@ -283,6 +287,12 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         HomeConfig.quickApp(id)?.let { p -> byPkg[p]?.let { appAction(it, quickIcons[p]) } } ?: all[id]?.let { a -> cfg.names[id]?.let { a.copy(label = it) } ?: a }
     }.filter { canOpen(ctx, it, inputs.isNotEmpty()) }
     var openFolder by remember { mutableStateOf<Pair<String, List<TvApp>>?>(null) }
+    // Long press on a tile: its menu, and Move, which hands the arrow keys to the tile until OK or Back.
+    var menuFor by remember { mutableStateOf<Pair<String, TvApp>?>(null) }
+    var moving by remember { mutableStateOf<Moving?>(null) }
+    // After a move, Home leaves focus on the app that moved instead of going back to the first tile.
+    var keepFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(appsVersion) { moving = null; keepFocus = false }
     var showInputs by remember { mutableStateOf(false) }
     var showPanel by remember { mutableStateOf(false) }
     var showThemes by remember { mutableStateOf(false) }
@@ -313,15 +323,44 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         else resolve(ctx, a)?.let { i -> runCatching { ctx.startActivity(i) }.onFailure { Log.w(TAG, "${a.id}: $it") } }
     }
     val first = remember { FocusRequester() }
-    LaunchedEffect(home.first, cfg.layout) { if (home.first != null) runCatching { first.requestFocus() } }
+    LaunchedEffect(home.first, cfg.layout) { if (home.first != null && !keepFocus) runCatching { first.requestFocus() } }
+    // While an app moves, the tile that holds focus is the moving one, wherever its new place is.
+    val movingKey = moving?.let { m -> if (m.kind == "main") "${if (home.dock.any { it.pkg == m.pkg }) "dock" else "grid"}:${m.pkg}" else "${m.kind}:${m.pkg}" }
+    LaunchedEffect(movingKey, cfg.order, cfg.rows) {
+        if (movingKey == null) return@LaunchedEffect
+        repeat(5) { delay(40); runCatching { first.requestFocus() } }
+    }
+    fun step(by: Int) {
+        val m = moving ?: return
+        val change = if (m.kind == "main") {
+            JSONObject().put("order", JSONArray(Reorder.order(cfg.order, (home.dock + home.grid).map { it.pkg }, m.pkg, by)))
+        } else {
+            val (name, list) = home.rows.getOrNull(m.kind.removePrefix("row").toIntOrNull() ?: -1) ?: return
+            val rows = cfg.rows.map { g -> if (g.name == name) Group(g.name, Reorder.row(g.apps, list.map { it.pkg }, m.pkg, by)) else g }
+            JSONObject().put("rows", JSONArray(rows.map { g -> JSONObject().put("name", g.name).put("apps", JSONArray(g.apps)) }))
+        }
+        ConfigStore.update(ctx, change)
+    }
     var focusColour by remember { mutableStateOf<Color?>(null) }
     val tint by animateColorAsState(focusColour ?: Color.Transparent, tween(600), label = "tint")
-    val ui = Ui(cfg, accent, first, home.first, onFolder = { openFolder = it }, track = track, weather = weather, memory = memory,
-        onFocusApp = { a -> focusColour = a.colour?.let { Color(it) } }, motion = motion)
+    val ui = Ui(cfg, accent, first, movingKey ?: home.first, onFolder = { openFolder = it }, track = track, weather = weather, memory = memory,
+        onFocusApp = { a -> focusColour = a.colour?.let { Color(it) } }, motion = motion, onAppMenu = { s, a -> menuFor = s to a }, movingKey = movingKey)
 
     Box(
         Modifier.fillMaxSize().background(Color(cfg.background)).onPreviewKeyEvent { e ->
             lastPress = System.currentTimeMillis()
+            if (moving != null) {
+                val inGrid = movingKey?.startsWith("grid:") == true
+                if (e.type == KeyEventType.KeyDown) when (e.key) {
+                    Key.DirectionLeft -> step(-1)
+                    Key.DirectionRight -> step(1)
+                    Key.DirectionUp -> if (inGrid) step(-cfg.columns)
+                    Key.DirectionDown -> if (inGrid) step(cfg.columns)
+                    else -> {}
+                }
+                if (e.type == KeyEventType.KeyUp && e.key in DONE_KEYS) { moving = null; keepFocus = true }
+                return@onPreviewKeyEvent true
+            }
             if (e.type == KeyEventType.KeyDown) Motion.seen(e.key)
             when {
                 idle && e.type == KeyEventType.KeyDown -> { idle = false; swallowUp = true; true }
@@ -351,10 +390,26 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             if (cfg.visualiser) Bars(visualiser, cfg, accent, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
         }
         if (shown < 1f) IdleClock(ui, Modifier.align(Alignment.BottomStart).graphicsLayer { alpha = 1f - shown })
+        moving?.let { m ->
+            Text(
+                "Moving ${m.label}. Use the arrows, then OK.",
+                color = TEXT, fontSize = 16.sp,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = SAFE_Y).background(PANEL, RoundedCornerShape(12.dp)).padding(horizontal = 18.dp, vertical = 10.dp)
+            )
+        }
     }
 
     openFolder?.let { (name, list) -> FolderOverlay(name, list, ui) { openFolder = null } }
     if (showInputs) InputsOverlay(inputs, ui) { showInputs = false }
+    menuFor?.let { (section, app) ->
+        // Folders keep their order in the desktop app; the dock, All apps and rows move here.
+        val kind = when {
+            section == "dock" || section == "grid" -> "main"
+            section.startsWith("row") -> section
+            else -> null
+        }
+        AppMenu(app, ui, onMove = kind?.let { k -> { menuFor = null; openFolder = null; moving = Moving(k, app.pkg, app.label) } }) { menuFor = null }
+    }
     if (showPanel) SettingsPanel(accent) { showPanel = false }
     if (showThemes) ThemeCarousel(accent) { showThemes = false }
     if (panelPin) Dialog(onDismissRequest = { panelPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -422,6 +477,10 @@ private class Ui(
     val onFocusApp: (TvApp) -> Unit = {},
     /** False when the TV's animations are off: tiles still lift, without springs, tilt or sheen. */
     val motion: Boolean = true,
+    /** A long press on a tile, with the section it is in. */
+    val onAppMenu: (String, TvApp) -> Unit = { _, _ -> },
+    /** "<section>:<package>" of the app being moved, drawn with an outline. */
+    val movingKey: String? = null,
 ) {
     /** Banners are always wide; the icon styles take the chosen shape. */
     val shape: String = if (cfg.iconStyle == "banner") "wide" else cfg.tileShape
@@ -528,7 +587,18 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
         // At 100% the dock fits the screen; the size slider scales that, and a bigger dock scrolls sideways (#89).
         val n = home.dock.size.coerceIn(1, 5)
         val dockW: Dp = minOf(dockWidth, (inner - GAP * (n - 1)) / n) * (cfg.dockScale / 100f)
-        CompositionLocalProvider(LocalBringIntoViewSpec provides STAY) { LazyColumn(Modifier.fillMaxSize().fadeTop(), contentPadding = padding) {
+        // An app moved with the arrows can land in a row that isn't drawn yet: scroll there so it can keep focus.
+        val list = rememberLazyListState()
+        LaunchedEffect(ui.movingKey, home.grid.size) {
+            val key = ui.movingKey ?: return@LaunchedEffect
+            val (section, pkg) = key.split(':', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+            val target = if (section == "grid") "grid${home.grid.indexOfFirst { it.pkg == pkg } / cfg.columns}" else section
+            if (list.layoutInfo.visibleItemsInfo.none { it.key == target }) {
+                val at = sectionKeys(home, ui, showFolders).indexOf(target)
+                if (at >= 0) list.scrollToItem(at)
+            }
+        }
+        CompositionLocalProvider(LocalBringIntoViewSpec provides STAY) { LazyColumn(Modifier.fillMaxSize().fadeTop(), state = list, contentPadding = padding) {
             for (s in cfg.sections) when (s) {
                 "nowplaying" -> ui.track?.let { t -> item("nowplaying") { NowPlayingCard(t, ui) } }
                 "dock" -> if (home.dock.isNotEmpty()) item("dock") {
@@ -551,6 +621,17 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
                 "grid" -> if (home.grid.isNotEmpty()) grid(home, ui, gridW)
             }
         } }
+    }
+}
+
+/** The keys of Sections' items, in the order it lays them out. */
+private fun sectionKeys(home: Home, ui: Ui, showFolders: Boolean): List<String> = buildList {
+    for (s in ui.cfg.sections) when (s) {
+        "nowplaying" -> if (ui.track != null) add("nowplaying")
+        "dock" -> if (home.dock.isNotEmpty()) add("dock")
+        "rows" -> home.rows.indices.forEach { add("row$it-title"); add("row$it") }
+        "folders" -> if (showFolders && home.folders.isNotEmpty()) { add("folders-title"); add("folders") }
+        "grid" -> if (home.grid.isNotEmpty()) { add("grid-title"); home.grid.chunked(ui.cfg.columns).indices.forEach { add("grid$it") } }
     }
 }
 
@@ -715,7 +796,8 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
     Column(size, horizontalAlignment = if (wide) Alignment.Start else Alignment.CenterHorizontally) {
         Surface(
             onClick = { launch(ctx, app) },
-            modifier = Modifier.pointer { launch(ctx, app) }.then(ui.focusFor(section, app)).fillMaxWidth(if (!wide && inSlot) 0.72f else 1f).aspectRatio(if (wide) 16f / 9f else 1f)
+            onLongClick = { ui.onAppMenu(section, app) },
+            modifier = Modifier.pointer(onLongClick = { ui.onAppMenu(section, app) }) { launch(ctx, app) }.then(ui.focusFor(section, app)).fillMaxWidth(if (!wide && inSlot) 0.72f else 1f).aspectRatio(if (wide) 16f / 9f else 1f)
                 .onFocusChanged { focused = it.isFocused; if (it.isFocused) ui.onFocusApp(app) }
                 .lift(ui, shape, focused),
             shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
@@ -727,6 +809,7 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
                 else -> GeneratedTile(app, big, named = !ui.cfg.showNames)
             }
             LiftLight(ui, focused)
+            if (ui.movingKey == "$section:${app.pkg}") Box(Modifier.fillMaxSize().border(3.dp, ui.accent, shape))
             if (Lock.isLocked(ui.cfg, app.pkg)) LockBadge(Modifier.align(if (ui.shape == "round") Alignment.BottomCenter else Alignment.TopEnd))
         }
         if (ui.cfg.showNames) {
@@ -936,7 +1019,7 @@ private fun RoundButton(icon: ImageVector, label: String, ui: Ui, onClick: () ->
     var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
-        modifier = Modifier.pointer(onClick).size(44.dp).onFocusChanged { focused = it.isFocused },
+        modifier = Modifier.pointer(onClick = onClick).size(44.dp).onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(CircleShape), scale = scale, glow = glow, border = border,
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = ui.accent.copy(alpha = 0.9f))
     ) {
@@ -985,7 +1068,7 @@ private fun RailItem(icon: ImageVector, label: String, ui: Ui, expanded: Boolean
     val ink = if (focused) onAccent(ui.accent) else TEXT
     Surface(
         onClick = onClick,
-        modifier = Modifier.pointer(onClick).height(44.dp).then(if (expanded) Modifier.fillMaxWidth() else Modifier.width(44.dp)).onFocusChanged { focused = it.isFocused },
+        modifier = Modifier.pointer(onClick = onClick).height(44.dp).then(if (expanded) Modifier.fillMaxWidth() else Modifier.width(44.dp)).onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(shape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f), glow = glow, border = border,
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = ui.accent.copy(alpha = 0.9f))
     ) {
@@ -1042,10 +1125,62 @@ private fun FolderOverlay(name: String, list: List<TvApp>, ui: Ui, onClose: () -
         Box(Modifier.fillMaxSize().background(scrim(ui.cfg, 0.9f)), contentAlignment = Alignment.Center) {
             Column(Modifier.background(PANEL, RoundedCornerShape(16.dp)).padding(horizontal = 20.dp, vertical = 18.dp)) {
                 Text(name, color = TEXT, fontSize = 24.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = BLEED, bottom = 6.dp))
-                val inner = Ui(ui.cfg, ui.accent, focus, list.firstOrNull()?.let { "folder:${it.pkg}" }, ui.onFolder, motion = ui.motion)
+                val inner = Ui(ui.cfg, ui.accent, focus, list.firstOrNull()?.let { "folder:${it.pkg}" }, ui.onFolder, motion = ui.motion, onAppMenu = ui.onAppMenu)
                 list.chunked(5).forEach { row ->
                     Row(Modifier.padding(horizontal = BLEED, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(GAP)) {
                         for (app in row) Tile("folder", app, inner, Modifier.width(148.dp), big = false)
+                    }
+                }
+            }
+        }
+        LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    }
+}
+
+/** An app being moved with the arrow keys: "main" for the dock and All apps, or "row<i>". */
+private data class Moving(val kind: String, val pkg: String, val label: String)
+
+private val DONE_KEYS = setOf(Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.Back, Key.Escape)
+
+/**
+ * What a long press on a tile offers (Discord request): Move, Hide, App info (where Android keeps Force stop
+ * and Clear data) and, for apps the owner installed, Uninstall. Android lets only system apps force-stop
+ * another app, so that one goes through App info.
+ */
+@Composable
+private fun AppMenu(app: TvApp, ui: Ui, onMove: (() -> Unit)?, onClose: () -> Unit) {
+    val ctx = LocalContext.current
+    val focus = remember { FocusRequester() }
+    val installed = remember(app.pkg) {
+        runCatching { ctx.packageManager.getApplicationInfo(app.pkg, 0).flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM == 0 }.getOrDefault(false)
+    }
+    fun open(i: android.content.Intent) {
+        onClose()
+        runCatching { ctx.startActivity(i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure { Log.w(TAG, "${app.pkg}: $it") }
+    }
+    val pkgUri = android.net.Uri.fromParts("package", app.pkg, null)
+    val items = buildList<Pair<String, () -> Unit>> {
+        onMove?.let { add("Move" to it) }
+        add("Hide from Home" to { onClose(); ConfigStore.update(ctx, JSONObject().put("hidden", JSONArray((ui.cfg.hidden + app.pkg).distinct()))) })
+        add("App info" to { open(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkgUri)) })
+        if (installed) add("Uninstall" to { open(android.content.Intent(android.content.Intent.ACTION_DELETE, pkgUri)) })
+    }
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxSize().background(scrim(ui.cfg, 0.85f)), contentAlignment = Alignment.Center) {
+            Column(Modifier.width(360.dp).background(PANEL, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(app.label, color = TEXT, fontSize = 22.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 6.dp))
+                items.forEachIndexed { i, (label, act) ->
+                    val shape = RoundedCornerShape(12.dp)
+                    val (scale, glow, border) = focusStyle(ui, shape, zoom = 1.03f)
+                    Surface(
+                        onClick = act,
+                        modifier = Modifier.pointer { act() }.then(if (i == 0) Modifier.focusRequester(focus) else Modifier).fillMaxWidth().height(50.dp),
+                        shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
+                        colors = ClickableSurfaceDefaults.colors(containerColor = TILE, focusedContainerColor = TILE_FOCUSED)
+                    ) {
+                        Box(Modifier.fillMaxSize().padding(horizontal = 18.dp), contentAlignment = Alignment.CenterStart) {
+                            Text(label, color = TEXT, fontSize = 17.sp)
+                        }
                     }
                 }
             }

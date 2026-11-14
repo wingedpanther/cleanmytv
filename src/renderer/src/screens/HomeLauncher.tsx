@@ -465,12 +465,29 @@ function Overview(props: { home: HomeStatus; busy: boolean; run: (label: string,
               Give Home back to the stock launcher
             </button>
           )}
+          {home.isHome && home.googleLauncher && (
+            <button className="btn ghost" disabled={busy} onClick={() => run(home.googleKept ? "Switching Google TV's launcher off" : "Keeping Google TV's launcher on", () => window.cytv.keepGoogleLauncher(!home.googleKept))}>
+              {home.googleKept ? "Switch Google TV's launcher off again" : "Keep Google TV's launcher on"}
+            </button>
+          )}
           {home.installed && others === null && (
             <button className="btn ghost" disabled={busy} onClick={() => void findOthers()}>
               Use another launcher…
             </button>
           )}
         </div>
+        {home.isHome && home.fireTv && (
+          <p className="muted small" style={{ marginTop: 16, marginBottom: 0 }}>
+            Fire TV always opens Amazon's home screen first. CleanMyTV Home comes back in front a moment after you press Home, up to 5 seconds on some models.
+          </p>
+        )}
+        {home.isHome && home.googleLauncher && (
+          <p className="muted small" style={{ marginTop: 16, marginBottom: 0 }}>
+            {home.googleKept
+              ? "Google TV's launcher is kept on, so apps that need it work. After a Home press, CleanMyTV Home comes back in front a moment later."
+              : "If Apple TV or Netflix stops playing, or Google Photos albums won't load for the screensaver, keep Google TV's launcher on. Those apps need it. CleanMyTV Home then comes back in front a moment after you press Home."}
+          </p>
+        )}
         {othersError && <div className="notice error" style={{ marginTop: 16, marginBottom: 0 }}>{othersError}</div>}
         {others !== null && (
           <div className="notice" style={{ marginTop: 16, marginBottom: 0 }}>
@@ -785,6 +802,15 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
             <Toggle label="Live TV in Inputs" hint="The TV's tuner, at the top of the Inputs menu. Switch it off if you don't watch TV channels." checked={cfg.live_tv} onChange={(v) => set({ live_tv: v })} />
           )}
         </div>
+      </div>
+
+      <div className="card">
+        <Toggle
+          label="Back to the input at power on"
+          hint="If the TV was on an HDMI input or TV channels when it went to sleep, it goes back there when you turn it on. Otherwise it starts on Home as usual. This uses the same accessibility service as Remote buttons."
+          checked={cfg.power_on_input}
+          onChange={(v) => set({ power_on_input: v })}
+        />
       </div>
 
       <div className="card">

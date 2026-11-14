@@ -659,3 +659,102 @@ describe('launcher 1.4.0 settings', () => {
     for (const bad of ['123', '1234567', '12a4', '']) await expect(H.setLockPin(bad)).rejects.toThrow(/4 to 6 digits/)
   })
 })
+
+describe('Fire TV', () => {
+  let tv: FakeTv
+  let server: Server
+  const AMAZON = 'com.amazon.tv.launcher'
+  beforeAll(async () => {
+    tv = newTv()
+    tv.maxData = 256 * 1024
+    tv.manufacturer = 'Amazon'
+    for (const p of [AMAZON, 'com.amazon.device.metrics', 'com.amazon.tv.ads']) tv.packages.set(p, 'enabled')
+    tv.home = `${AMAZON}/.ui.HomeActivity_vNext`
+    tv.homeClaims = [`${AMAZON}/.ui.HomeActivity_vNext`]
+    // Fire OS answers Success to set-home-activity and keeps Home for Amazon's launcher.
+    tv.homeStuck = true
+    tv.protectedPkgs = [AMAZON, 'com.amazon.device.metrics']
+    let port: number
+    ;({ server, port } = await startFakeAdbd(tv))
+    expect((await T.connect(`127.0.0.1:${port}`)).state).toBe('connected')
+  })
+  afterAll(() => { T.disconnect(); server.close() })
+
+  it("installs without trying to switch Amazon's launcher off, and sends its home screen back", async () => {
+    const r = await H.install()
+    expect(r.ok).toBe(true)
+    expect(r.summary).toContain('Fire TV always opens')
+    expect(tv.commands.some((c) => c.startsWith('pm disable-user'))).toBe(false)
+    expect(tv.homeConfig.stock_redirect).toBe(AMAZON)
+    expect(tv.settings.get('enabled_accessibility_services')).toContain('io.github.wingedpanther.cleanmytv.home/')
+    expect(await H.status()).toMatchObject({ installed: true, isHome: true, fireTv: true })
+  })
+
+  it('says plainly when the TV protects what Clean up picked', async () => {
+    const all = await D.apply({ listId: 'custom', disable: ['com.amazon.device.metrics'], enable: [], forceHome: true })
+    expect(all.ok).toBe(true)
+    expect(all.summary).toBe('Nothing switched off: the TV protects every package picked.')
+    expect(all.warnings.join('\n')).toContain("The TV doesn't let this one be switched off")
+    const some = await D.apply({ listId: 'custom', disable: ['com.amazon.device.metrics', 'com.amazon.tv.ads'], enable: [], forceHome: true })
+    expect(some.summary).toBe('Disabled 1 of 1 package; the TV protects 1 more.')
+    expect(tv.packages.get('com.amazon.tv.ads')).toBe('disabled')
+  })
+
+  it('stops the redirect when Home goes back to Amazon', async () => {
+    expect((await H.leftHome(await L.useStock())).ok).toBe(true)
+    expect(tv.homeConfig.stock_redirect).toBe('')
+    expect((await H.status()).isHome).toBe(false)
+  })
+})
+
+describe("Google TV's launcher kept on (#99)", () => {
+  let tv: FakeTv
+  let server: Server
+  const LX = 'com.google.android.apps.tv.launcherx'
+  beforeAll(async () => {
+    tv = newTv()
+    tv.maxData = 256 * 1024
+    tv.settings.set('default_input_method', 'com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME')
+    for (const p of [LX, 'com.google.android.inputmethod.latin', 'com.google.android.tungsten.setupwraith']) tv.packages.set(p, 'enabled')
+    tv.home = `${LX}/.home.HomeActivity`
+    tv.homeClaims = [`${LX}/.home.HomeActivity`]
+    let port: number
+    ;({ server, port } = await startFakeAdbd(tv))
+    expect((await T.connect(`127.0.0.1:${port}`)).state).toBe('connected')
+  })
+  afterAll(() => { T.disconnect(); server.close() })
+
+  it('keeps it on, and Clean up and a reinstall leave it on', async () => {
+    expect((await H.install()).ok).toBe(true)
+    expect(tv.packages.get(LX)).toBe('disabled')
+    const kept = await H.keepGoogleLauncher(true)
+    expect(kept.ok).toBe(true)
+    expect(tv.packages.get(LX)).toBe('enabled')
+    expect(tv.homeConfig.stock_redirect).toBe(LX)
+    // launcherx takes Home back from the preference; the redirect covers it.
+    tv.homeOutranks = [`${LX}/.home.HomeActivity`]
+    tv.home = `${LX}/.home.HomeActivity`
+    expect(await H.status()).toMatchObject({ isHome: true, googleKept: true, googleLauncher: LX })
+    const r = await D.apply({ listId: 'custom', disable: [LX], enable: [] })
+    expect(tv.packages.get(LX)).toBe('enabled')
+    expect(r.warnings.join('\n')).toContain("You chose to keep Google TV's launcher on")
+    const before = tv.commands.length
+    expect((await H.install()).ok).toBe(true)
+    expect(tv.commands.slice(before).some((c) => c === `pm disable-user --user 0 ${LX}`)).toBe(false)
+    expect(tv.homeConfig.stock_redirect).toBe(LX)
+  })
+
+  it('switches it off again with the usual handover', async () => {
+    tv.homeOutranks = undefined
+    expect((await H.keepGoogleLauncher(false)).ok).toBe(true)
+    expect(tv.packages.get(LX)).toBe('disabled')
+    expect(tv.homeConfig.stock_redirect).toBe('')
+    expect((await H.status()).googleKept).toBe(false)
+  })
+
+  it("keeps the keyboard in use on, whatever the list says", async () => {
+    const r = await D.apply({ listId: 'custom', disable: ['com.google.android.inputmethod.latin'], enable: [] })
+    expect(tv.packages.get('com.google.android.inputmethod.latin')).toBe('enabled')
+    expect(r.warnings.join('\n')).toContain("It's the TV's keyboard")
+  })
+})

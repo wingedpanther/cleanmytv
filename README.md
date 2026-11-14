@@ -39,6 +39,16 @@ Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther
 - **Keyboard:** on TVs that switch back to their own keyboard at every restart, Home puts yours back (#98).
 - **Clean up:** Netflix, YouTube, YouTube Music, Prime Video and other streaming apps stay on unless you tick them.
 - **Another launcher:** one you installed with Install an app can be Home instead (#82).
+- **Keep Google TV's launcher on:** for TVs where Apple TV or Netflix stop playing, or Google Photos albums
+  won't load, without it (#99, #88). CleanMyTV Home comes back in front after a Home press.
+- **Long press an app on Home** for Move, Hide, App info and Uninstall. Move lets the arrow keys put the app
+  anywhere in the dock, All apps or its row, with no computer needed.
+- **Back to the input at power on:** if the TV went to sleep on HDMI or TV channels, it wakes up there (#94).
+- **Fire TV:** installing no longer reports an error, Settings opens without bouncing back, and Clean up
+  says which Amazon apps Fire OS won't let go.
+- **Volume with mapped buttons:** a volume press pauses the button service for 4 seconds, so holding it repeats.
+- **Clean up** keeps the keyboard you type with on, whatever the list says.
+- **472 TV lists from 129 brands**, up from 371.
 
 ### New in 0.7.2
 
@@ -144,7 +154,7 @@ computer** to skip the question next time.
 |---|---|
 | **Clean & launch** | The guided path: applies the list that best matches your TV, then installs CleanMyTV Home. |
 | **Setup** | Checks the network, lists the TVs on your Wi-Fi by name (a phone with Wireless debugging on can show up too, and a scan finds older TVs with port 5555 open), connects, and waits while you press Allow on the TV. Google TVs that only offer Wireless debugging get a pairing form that fills in the ports when the TV's pairing screen opens, so you only type the code. With more than one known TV, it shows them with snapshot thumbnails to pick from. |
-| **Clean up** | Picks the upstream list that matches your TV's model, from 371 TVs and 100 brands. Every package shows its live state on the TV, and you choose what to disable. If your TV isn't listed, lists from its brand come first, and it offers the packages other TVs disable. You can add any package on the TV by name. |
+| **Clean up** | Picks the upstream list that matches your TV's model, from 472 TVs and 129 brands. Every package shows its live state on the TV, and you choose what to disable. If your TV isn't listed, lists from its brand come first, and it offers the packages other TVs disable. You can add any package on the TV by name. |
 | **Home screen** | Installs or updates CleanMyTV Home and hands Home over. If Home doesn't land on it, it rolls back. If the app can't tell which app is the TV's own launcher, it asks. Tabs for layout, apps, rows and folders, look and wallpaper, widgets, music bars and remote buttons. See below. |
 | **TV extras** | Ad-blocking Private DNS, animation speed, an on-screen remote, reboot. |
 | **Finish** | Restarts the TV and checks the home screen comes back; if it doesn't, puts the stock launcher back. Then walks through switching debugging off, and checks that port 5555 is closed. |

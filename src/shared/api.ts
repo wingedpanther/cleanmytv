@@ -157,6 +157,12 @@ export interface HomeStatus {
   oldLauncher: boolean
   /** Why CleanMyTV Home can't go on this TV (Android older than 9). */
   unsupported?: string
+  /** A Fire TV: Amazon's launcher always opens first, and CleanMyTV Home comes back in front of it. */
+  fireTv?: boolean
+  /** Google TV's own launcher, when the TV has one. */
+  googleLauncher?: string
+  /** That launcher is kept on beside CleanMyTV Home (#99, #88). */
+  googleKept?: boolean
 }
 
 export type HomeLayout = 'shelf' | 'split' | 'rail'
@@ -212,6 +218,10 @@ export interface HomeConfig {
   /** The remote-button service is on (it only touches buttons in `buttons`). */
   buttons_on: boolean
   buttons: HomeButton[]
+  /** The launcher that stays on and keeps opening first; CleanMyTV Home sends its home screen back. Set by the app. */
+  stock_redirect: string
+  /** After power on, go back to the input that was on when the TV went to sleep (#94). */
+  power_on_input: boolean
   // Look
   /** #RRGGBB, for the focus halo, glow or outline and the music bars. */
   accent: string
@@ -476,6 +486,8 @@ export interface CytvApi {
   otherLaunchers(): Promise<string[]>
   /** Makes one of those Home, leaving CleanMyTV Home installed. */
   useOtherLauncher(pkg: string): Promise<ApplyResult>
+  /** Keeps Google TV's launcher on beside CleanMyTV Home, for apps that need it, or switches it off again. */
+  keepGoogleLauncher(on: boolean): Promise<ApplyResult>
   /** Uninstall the CleanYourTV launcher that CleanMyTV 0.1.x installed, once it isn't Home. */
   removeOldLauncher(): Promise<ApplyResult>
   homeStatus(): Promise<HomeStatus>

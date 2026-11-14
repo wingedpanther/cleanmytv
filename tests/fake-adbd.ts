@@ -64,6 +64,8 @@ export interface FakeTv {
   freeKb?: number
   /** What pm trim-caches frees, in KB. */
   cacheKb?: number
+  /** Packages the firmware refuses to disable, as Fire OS does with Amazon's own. */
+  protectedPkgs?: string[]
   /** Packages that never stay running (pidof finds nothing), like a launcher crashing at boot. */
   crashing?: string[]
   /** Misbehaviour for client hardening tests. */
@@ -103,6 +105,7 @@ function sh(tv: FakeTv, cmd: string): string {
   if ((m = /^settings get global (\S+)$/.exec(cmd))) return (tv.settings.get(m[1]) ?? 'null') + '\n'
   if ((m = /^pm disable-user --user 0 (\S+)$/.exec(cmd))) {
     if (!tv.packages.has(m[1])) return `Error: Unknown package: ${m[1]}\n`
+    if (tv.protectedPkgs?.includes(m[1])) return `Security exception: Cannot disable a protected package: ${m[1]}\n\njava.lang.SecurityException: Cannot disable a protected package: ${m[1]}\n`
     tv.packages.set(m[1], 'disabled'); return `Package ${m[1]} new state: disabled-user\n`
   }
   if ((m = /^pm enable (?:--user 0 )?(\S+)$/.exec(cmd))) {

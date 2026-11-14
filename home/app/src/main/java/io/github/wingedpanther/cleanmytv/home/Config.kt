@@ -27,6 +27,11 @@ data class HomeConfig(
     // Remote buttons (KeyService)
     val buttonsOn: Boolean = false,
     val buttons: List<ButtonMap> = emptyList(),
+    // A launcher that stays on and keeps taking Home: Amazon's on Fire TV, or Google TV's when apps need it
+    // (#99). KeyService sends its home screen back to this one. Empty when Home is really ours.
+    val stockRedirect: String = "",
+    // Back to the input that was on when the TV went to sleep (#94)
+    val powerOnInput: Boolean = false,
     // Look: CleanMyTV's dark green-and-earth world by default
     val accent: Long = 0xFF4CAF50,
     val focus: String = "lift", // lift, glow, outline, none
@@ -104,6 +109,8 @@ data class HomeConfig(
         .put("tile_scale", tileScale)
         .put("buttons_on", buttonsOn)
         .put("buttons", JSONArray(buttons.map { b -> JSONObject().put("code", b.code).put("action", b.action).apply { b.app?.let { put("app", it) } } }))
+        .put("stock_redirect", stockRedirect)
+        .put("power_on_input", powerOnInput)
         .put("accent", hex(accent))
         .put("focus", focus)
         .put("background", hex(background))
@@ -209,6 +216,8 @@ data class HomeConfig(
             return base.copy(
                 buttonsOn = bool("buttons_on", base.buttonsOn),
                 buttons = buttons() ?: base.buttons,
+                stockRedirect = if (o.has("stock_redirect")) o.optString("stock_redirect").takeIf { it.isEmpty() || PKG.matches(it) } ?: base.stockRedirect else base.stockRedirect,
+                powerOnInput = bool("power_on_input", base.powerOnInput),
                 layout = choice("layout", base.layout, setOf("shelf", "split", "rail")),
                 sections = strings("sections", SECTIONS) ?: base.sections,
                 topSpace = int("top_space", base.topSpace, 0, 40),

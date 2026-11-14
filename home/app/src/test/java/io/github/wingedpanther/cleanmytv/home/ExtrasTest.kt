@@ -40,6 +40,56 @@ class ExtrasTest {
         assertTrue(KeyService.needsKeys(HomeConfig(), listening = true))
     }
 
+    @Test fun `an unmapped volume press stops the filter for a moment (#87)`() {
+        val mapped = HomeConfig(buttonsOn = true, buttons = listOf(ButtonMap(183, "inputs")))
+        assertTrue(KeyService.needsKeys(mapped, listening = false, volumePaused = false))
+        assertFalse(KeyService.needsKeys(mapped, listening = false, volumePaused = true))
+        // The button finder still hears everything.
+        assertTrue(KeyService.needsKeys(mapped, listening = true, volumePaused = true))
+    }
+
+    @Test fun `only a launcher's home screen is sent back, not its other screens`() {
+        val homes = setOf("com.amazon.tv.launcher.ui.HomeActivity_vNext")
+        assertTrue(KeyService.sendsBack("com.amazon.tv.launcher.ui.HomeActivity_vNext", homes, activity = true))
+        assertFalse(KeyService.sendsBack("com.amazon.tv.launcher.ui.SettingsActivity", homes, activity = true))
+        // A dialog or an unnamed window keeps the old behaviour, as does a launcher whose home can't be read.
+        assertTrue(KeyService.sendsBack("android.widget.FrameLayout", homes, activity = false))
+        assertTrue(KeyService.sendsBack(null, homes, activity = false))
+        assertTrue(KeyService.sendsBack("com.amazon.tv.launcher.ui.SettingsActivity", emptySet(), activity = true))
+    }
+
+    @Test fun `the service runs for the redirect and the power-on input too`() {
+        assertFalse(KeyService.needsService(HomeConfig()))
+        assertTrue(KeyService.needsService(HomeConfig(stockRedirect = "com.google.android.apps.tv.launcherx")))
+        assertTrue(KeyService.needsService(HomeConfig(powerOnInput = true)))
+        assertTrue(KeyService.needsService(HomeConfig(lockOn = true)))
+    }
+
+    @Test fun `stock_redirect takes a package name or nothing`() {
+        val c = HomeConfig.fromJson(JSONObject("""{"stock_redirect":"com.amazon.tv.launcher","power_on_input":true}"""))
+        assertEquals("com.amazon.tv.launcher", c.stockRedirect)
+        assertTrue(c.powerOnInput)
+        assertEquals(c, HomeConfig.fromJson(c.toJson()))
+        assertEquals("com.amazon.tv.launcher", HomeConfig.fromJson(JSONObject("""{"stock_redirect":"rm -rf /"}"""), c).stockRedirect)
+        assertEquals("", HomeConfig.fromJson(JSONObject("""{"stock_redirect":""}"""), c).stockRedirect)
+    }
+
+    @Test fun `moving an app from the remote shifts it and stops at the ends`() {
+        val shown = listOf("a", "b", "c", "d")
+        assertEquals(listOf("b", "a", "c", "d"), Reorder.move(shown, "a", 1))
+        assertEquals(listOf("a", "b", "c", "d"), Reorder.move(shown, "a", -1))
+        assertEquals(listOf("a", "b", "d", "c"), Reorder.move(shown, "c", 4))
+        assertEquals(listOf("c", "a", "b", "d"), Reorder.move(shown, "c", -6))
+        assertEquals(shown, Reorder.move(shown, "x", 1))
+    }
+
+    @Test fun `a move pins what is on screen and keeps the rest of the saved order`() {
+        // "f" sits in a folder: it stays in the saved order, after the apps on screen.
+        assertEquals(listOf("b", "a", "c", "f"), Reorder.order(listOf("a", "f"), listOf("a", "b", "c"), "b", -1))
+        // A row keeps an app it holds but doesn't show (hidden or uninstalled) at the end.
+        assertEquals(listOf("b", "a", "gone"), Reorder.row(listOf("a", "gone", "b"), listOf("a", "b"), "a", 1))
+    }
+
     @Test fun `the new settings round-trip and stay in range`() {
         val c = HomeConfig.fromJson(JSONObject("""{"tile_glass":90,"memory":true,"day_night":true,"day_at":1500,"night_at":1200,"quick":["memory","wifi"]}"""))
         assertEquals(60, c.tileGlass)

@@ -15,6 +15,8 @@ export const HOME_PKG = 'io.github.wingedpanther.cleanmytv.home'
 /** The CleanYourTV launcher that CleanMyTV 0.1.x installed. */
 export const OLD_PKG = 'com.gathin.tvhome'
 const OUR_LAUNCHERS = [OLD_PKG, HOME_PKG]
+/** Fire OS keeps Home for this one: it can't be switched off, and set-home-activity is ignored. */
+export const FIRE_LAUNCHER = 'com.amazon.tv.launcher'
 
 /** The stock launcher couldn't be told apart from other apps that answer Home: the owner picks it (#39). */
 export class StockUnknown extends Error {
@@ -127,6 +129,13 @@ function rememberWraith(off: boolean): void {
   const rest = wraithOff().filter((k) => k !== key)
   mkdirSync(paths.data, { recursive: true })
   writeFileSync(wraithFile(), JSON.stringify(off ? [...rest, key] : rest, null, 2))
+}
+
+/** Turns setupwraith back on if the handover switched it off on this TV. Google TV's own launcher needs it (#88). */
+export async function wraithBack(): Promise<void> {
+  if (!wraithOff().includes(tvKey())) return
+  await T.sh(TASK, `pm enable --user 0 ${SETUPWRAITH}`)
+  rememberWraith(false)
 }
 
 /** This TV's stock launcher: the one remembered from the handover, else a known one that is installed. */
@@ -307,6 +316,11 @@ export async function useOther(pkg: string): Promise<ApplyResult> {
 
 export async function useStock(): Promise<ApplyResult> {
   const { installed } = await T.packageSets()
+  // Fire OS never gave Home away; CleanMyTV Home only stops coming back in front of Amazon's.
+  if (installed.has(FIRE_LAUNCHER)) {
+    await dropServices(HOME_PKG)
+    return { ok: true, summary: "Amazon's home screen stays in front now. CleanMyTV Home stays installed; use it again from the Home screen step.", warnings: [] }
+  }
   const stock = stockOnTv(installed)
   if (!stock) return { ok: false, summary: 'No stock launcher this app knows is installed on the TV.', warnings: [] }
   const ok = await rollback(stock)
