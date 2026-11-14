@@ -2,6 +2,7 @@
 // bare "could not reach". The same few things come up in help every week: macOS blocking the app from
 // the local network, a computer on another network or a VPN, and the pairing port typed into Connect.
 import type { NetworkInterfaceInfo } from 'node:os'
+import { isVirtualBridge } from './scan'
 
 export interface Failure {
   /** AdbError's code: refused, timeout, unreachable, tls, auth, closed, protocol. */
@@ -21,7 +22,7 @@ export const MAC_FROM_TERMINAL = '/Applications/CleanMyTV.app/Contents/MacOS/Cle
 function lanAddresses(ifaces: Ifaces): string[] {
   const out: string[] = []
   for (const [name, list] of Object.entries(ifaces)) {
-    if (isTunnel(name)) continue
+    if (isTunnel(name) || isVirtualBridge(name)) continue
     for (const a of list ?? []) if (a.family === 'IPv4' && !a.internal && !a.address.startsWith('169.254.')) out.push(a.address)
   }
   return out
@@ -52,6 +53,9 @@ export function diagnose(f: Failure, ifaces: Ifaces, platform: NodeJS.Platform):
     // Some Macs never show the switch for an app without a paid Apple certificate (#65). Started from
     // Terminal, the app uses Terminal's network access instead.
     hints.push(`No CleanMyTV switch there? Quit the app, open Terminal and run: ${MAC_FROM_TERMINAL}`)
+  }
+  if (platform === 'linux' && (noRoute || f.errno === 'EACCES' || f.errno === 'EPERM') && sameNet) {
+    hints.push('A firewall on this computer (such as ufw or firewalld) may be blocking local network connections, or the TV is off.')
   }
   if (isIp(f.host) && lan.length && !sameNet) {
     hints.push(`This computer is on ${lan.map((a) => `${prefix(a)}.x`).filter((v, i, all) => all.indexOf(v) === i).join(' and ')}, and the TV is on ${prefix(f.host)}.x. They need to be on the same network: check for a guest Wi-Fi or a second router.`)

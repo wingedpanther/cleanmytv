@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { configurePaths, paths } from './paths'
@@ -202,6 +202,9 @@ function isAppUrl(url: string | undefined): boolean {
 }
 
 function createWindow(): void {
+  const icon = process.platform === 'linux'
+    ? [join(paths.resources, 'icon.png'), join(app.getAppPath(), 'build', 'icon.png')].find(existsSync)
+    : undefined
   win = new BrowserWindow({
     width: 1240,
     height: 820,
@@ -210,6 +213,7 @@ function createWindow(): void {
     title: 'CleanMyTV',
     backgroundColor: '#FFFFFF',
     show: false,
+    ...(icon ? { icon } : {}),
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: true, contextIsolation: true, nodeIntegration: false, webviewTag: false }
   })
   // Nothing in the app navigates; links open in the system browser instead (below).
@@ -236,7 +240,7 @@ app.whenReady().then(() => {
   if (!primary) return
   // The app needs no camera, microphone, notifications or other web permissions.
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false))
-  // Packaged: lists and the APK sit in Contents/Resources (mac) or resources\ (Windows).
+  // Packaged: lists and the APK sit in Contents/Resources (mac) or resources/ (Windows and Linux).
   configurePaths(app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources'), app.getPath('userData'))
   setSinks((line) => send('log', line), (p) => send('progress', p))
   T.init(paths.adbKey, (s: ConnStatus) => send('status', s))
