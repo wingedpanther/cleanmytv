@@ -182,7 +182,15 @@ export function installMock(): void {
       return { closed: true, message: `${host}:5555 is closed: the TV refused the connection.` }
     },
     async checkUpdate() {
-      return { current: '0.2.1', latest: '0.3.0', available: true, url: 'https://github.com/wingedpanther/cleanmytv/releases/tag/v0.3.0' }
+      return { current: '0.2.1', latest: '0.3.0', available: true, url: 'https://github.com/wingedpanther/cleanmytv/releases/tag/v0.3.0', canInstall: true }
+    },
+    async downloadUpdate() {
+      for (let r = 0; r <= 100; r += 10) { progress.forEach((cb) => cb({ tool: 'update', received: r, total: 100, phase: 'download' })); await wait(150) }
+      return ok('Version 0.3.0 is downloaded and checked.')
+    },
+    async installUpdate() {
+      await wait(500)
+      return ok('Installing the update. CleanMyTV closes and opens again in a moment.')
     },
     async bootCheck() {
       await wait(2500)

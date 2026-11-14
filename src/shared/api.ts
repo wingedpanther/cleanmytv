@@ -135,6 +135,8 @@ export interface UpdateInfo {
   available: boolean
   /** Its release page. */
   url?: string
+  /** This copy can download and install it itself (Mac and Windows builds). */
+  canInstall?: boolean
 }
 
 export interface BootCheckResult {
@@ -415,8 +417,8 @@ export interface SideloadInfo {
 }
 
 export interface DownloadProgress {
-  /** A tool download, or 'sideload' while an app goes up to the TV. */
-  tool: ToolId | 'sideload'
+  /** A tool download, 'sideload' while an app goes up to the TV, or 'update' for a new CleanMyTV. */
+  tool: ToolId | 'sideload' | 'update'
   received: number
   total: number
   phase: 'download' | 'extract' | 'install' | 'done' | 'error'
@@ -459,6 +461,10 @@ export interface CytvApi {
   checkAdbClosed(host: string): Promise<{ closed: boolean; message: string }>
   /** Asks GitHub for a newer CleanMyTV, at most every 12 hours. */
   checkUpdate(): Promise<UpdateInfo>
+  /** Downloads the new version for this computer and checks it against the release's SHA256SUMS.txt. */
+  downloadUpdate(): Promise<ApplyResult>
+  /** Installs the downloaded version; the app quits and opens again. */
+  installUpdate(): Promise<ApplyResult>
   /** Restarts the TV, reconnects, and checks a home screen comes up; puts the stock launcher back if not. */
   bootCheck(): Promise<BootCheckResult>
   /** Wireless-debugging pairing with Google's adb (downloaded on demand), then opens port 5555. */

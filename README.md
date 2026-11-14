@@ -41,6 +41,9 @@ Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther
 - **Another launcher:** one you installed with Install an app can be Home instead (#82).
 - **Keep Google TV's launcher on:** for TVs where Apple TV or Netflix stop playing, or Google Photos albums
   won't load, without it (#99, #88). CleanMyTV Home comes back in front after a Home press.
+- **Update from the app (#93):** when a new version is out, Update now in the sidebar downloads it, checks it
+  against the release's checksums, installs it and opens CleanMyTV again. This starts with the version after
+  this one.
 - **Long press an app on Home** for Move, Hide, App info and Uninstall. Move lets the arrow keys put the app
   anywhere in the dock, All apps or its row, with no computer needed.
 - **Back to the input at power on:** if the TV went to sleep on HDMI or TV channels, it wakes up there (#94).

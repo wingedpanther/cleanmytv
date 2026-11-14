@@ -14,7 +14,8 @@ import { discover, stopDiscovery } from './discover'
 import { localSubnets, scan } from './scan'
 import { reconnect } from './reconnect'
 import { bootCheck } from './bootcheck'
-import { check as checkUpdate, type UpdateCache } from './updates'
+import { check as checkUpdate, isNewer, type UpdateCache } from './updates'
+import * as updater from './updater'
 import { autoConnect, forgetTv, listTvs, rememberTv, setThumb } from './tvlist'
 import * as web from './web'
 import * as home from './home'
@@ -24,6 +25,8 @@ import { bugReport } from './report'
 import type { CheckItem, ConnStatus, CytvApi, KnownTv } from '@shared/api'
 
 let win: BrowserWindow | null = null
+/** The new version's installer once it is downloaded and checked. */
+let updateFile: string | null = null
 
 interface Settings {
   lastHost?: string
@@ -123,7 +126,17 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
     const s = readSettings()
     const { info, cache } = await checkUpdate(app.getVersion(), s.update ?? {})
     if (cache !== s.update) writeSettings({ ...readSettings(), update: cache })
-    return info
+    return { ...info, canInstall: app.isPackaged && !!updater.assetName(info.latest ?? '', process.platform, process.arch) }
+  },
+  downloadUpdate: async () => {
+    const latest = readSettings().update?.latest
+    if (!latest || !isNewer(latest, app.getVersion())) return { ok: false, summary: 'There is no newer version to download.', warnings: [] }
+    updateFile = await updater.download(latest, { platform: process.platform, arch: process.arch, dir: join(paths.data, 'updates') })
+    return { ok: true, summary: `Version ${latest} is downloaded and checked.`, warnings: [] }
+  },
+  installUpdate: async () => {
+    if (!updateFile) return { ok: false, summary: 'Download the update first.', warnings: [] }
+    return updater.install(updateFile, { platform: process.platform, exe: app.getPath('exe'), dir: join(paths.data, 'updates'), quit: () => app.quit(), openPath: (p) => shell.openPath(p) })
   },
   // The pairing form connects once this returns. Connecting here too would do it twice.
   pair: (host, pairPort, code, connectPort) => tools.pair(host, pairPort, code, connectPort),

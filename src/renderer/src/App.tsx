@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import type { ConnStatus, HomeStatus, KnownTv, UpdateInfo } from '@shared/api'
 import { Jump, MOD_KEY, type JumpItem } from './components/Jump'
 import { LogDrawer } from './components/LogDrawer'
-import { NotConnected } from './components/ui'
+import { NotConnected, errorText } from './components/ui'
 import { TvThumb } from './components/TvPicker'
 import { thumbnail } from './lib/image'
 import Guided from './screens/Guided'
@@ -223,11 +223,7 @@ export default function App(): ReactNode {
             <span>wingedpanther/cleanmytv</span>
           </a>
           <div className="gh-ver">CleanMyTV v{version} · MIT</div>
-          {update?.available && (
-            <a className="update-link" href={update.url} target="_blank" rel="noreferrer">
-              Version {update.latest} is out. Download it
-            </a>
-          )}
+          {update?.available && <UpdateNote update={update} />}
         </div>
       </aside>
       <main className="main">
@@ -255,6 +251,53 @@ function ConnPill({ status }: { status: ConnStatus }): ReactNode {
     <div className="conn-pill" title={status.error ?? status.host}>
       <span className={`dot ${dot}`} />
       <span>{text}</span>
+    </div>
+  )
+}
+
+/**
+ * A newer CleanMyTV: download it, check it and install it from here (#93). Builds that can't update
+ * themselves link to the release page as before.
+ */
+function UpdateNote({ update }: { update: UpdateInfo }): ReactNode {
+  const [phase, setPhase] = useState<'idle' | 'downloading' | 'ready' | 'installing'>('idle')
+  const [pct, setPct] = useState(0)
+  const [note, setNote] = useState<string | null>(null)
+  useEffect(() => window.cytv.onProgress((p) => {
+    if (p.tool === 'update' && p.total) setPct(Math.floor((p.received / p.total) * 100))
+  }), [])
+
+  async function step(next: 'downloading' | 'installing', call: () => Promise<{ ok: boolean; summary: string }>, after: 'idle' | 'ready'): Promise<void> {
+    setPhase(next)
+    setNote(null)
+    try {
+      const r = await call()
+      setNote(r.ok && next === 'downloading' ? null : r.summary)
+      setPhase(r.ok ? after : next === 'installing' ? 'ready' : 'idle')
+    } catch (e) {
+      setNote(errorText(e))
+      setPhase(next === 'installing' ? 'ready' : 'idle')
+    }
+  }
+
+  if (!update.canInstall) {
+    return (
+      <a className="update-link" href={update.url} target="_blank" rel="noreferrer">
+        Version {update.latest} is out. Download it
+      </a>
+    )
+  }
+  return (
+    <div className="update-note">
+      <span>Version {update.latest} is out.</span>
+      {phase === 'idle' && <button className="update-btn" onClick={() => void step('downloading', () => window.cytv.downloadUpdate(), 'ready')}>Update now</button>}
+      {phase === 'downloading' && <span className="update-state">Downloading… {pct}%</span>}
+      {phase === 'ready' && (
+        <button className="update-btn" onClick={() => void step('installing', () => window.cytv.installUpdate(), 'ready')}>Restart and update</button>
+      )}
+      {phase === 'installing' && <span className="update-state">Installing…</span>}
+      {note && <span className="update-state">{note}</span>}
+      <a href={update.url} target="_blank" rel="noreferrer">What's new</a>
     </div>
   )
 }
