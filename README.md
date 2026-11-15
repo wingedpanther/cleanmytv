@@ -14,6 +14,30 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
+### New in 0.10.0
+
+The big one: **CleanMyTV Home can now be set up from the TV itself.** Turn on **Edit on the TV** in the
+desktop app once, and a Customize icon in Home's top bar opens an editor you drive with the remote.
+
+- **Customize from the remote** (thanks harikrishna-salver for the editor, #95): layout and sections,
+  rows and folders, look and shading, themes and wallpaper, widgets, apps, remote buttons, App lock,
+  music bars, the fireplace, the greeting and names. It wears your theme's colours, and it has its own
+  PIN switch in App lock.
+- **Search settings:** type "font", "PIN", "photo" or "sleep" and jump straight to the setting.
+- **Photos from your phone:** scan a QR code on the TV and send a photo as the wallpaper or into the
+  slideshow. No computer, and no storage permission.
+- **Home updates itself:** when a new version is out, an update icon shows in the top bar, with the
+  release notes, and Android's own installer does the rest. Your settings stay.
+- **Sleep timer:** 15 minutes to 2 hours, from a top bar icon or a remote button, with "Sleeps at"
+  under the clock.
+- **Daily limits:** give an app so many minutes a day; after that it needs the PIN for the rest of the day.
+- **Idle screen styles:** the clock in the corner, a big clock, or your photos with the clock.
+- **Fonts:** usual, condensed, serif or casual. Themes carry the font.
+- **Bing every day:** Bing's new picture becomes the wallpaper each day.
+- **Fixes:** Rail lines the weather and date up under the clock; square tiles in All apps line up with
+  the heading; Mono cuts the marks out of more logos, like RTL+ and Nova Video Player (#113); Home's
+  menus use your accent instead of green (#112); setting a PIN on the TV uses Home's own number pad.
+
 ### New in 0.9.0
 
 - **Linux:** an AppImage for 64-bit Linux (#109, thanks Morditux).
@@ -197,7 +221,8 @@ the way it was before the first cleanup.
 ## CleanMyTV Home
 
 No ads. Your apps, your layout, the weather and what's playing. You change everything from your
-computer, and the TV shows it as you click.
+computer, and the TV shows it as you click. Or, with **Edit on the TV** switched on, from the TV with the
+remote: a Customize icon in the top bar opens the same settings, with a search to find them.
 
 | | |
 |---|---|
@@ -275,8 +300,17 @@ itself.
   - The fireplace video and sound sit in Home's folder on the TV's shared storage
     (`Android/data/io.github.wingedpanther.cleanmytv.home/files/fireplace`). ADB can write there, and
     Home reads them without a storage permission.
-  - The only thing it fetches from the internet is the weather, every 30 minutes while the place is
-    set. It asks api.open-meteo.com, and api.met.no when Open-Meteo doesn't answer.
+  - What it fetches from the internet: the weather, every 30 minutes while the place is set
+    (api.open-meteo.com, and api.met.no when Open-Meteo doesn't answer); Bing's picture of the day
+    (www.bing.com), only when you pick it or turn on Bing every day; and, once a day while "Look for
+    updates" is on, the latest release from api.github.com. An update is checked against the release's
+    SHA256SUMS.txt before Android's installer asks you to confirm it. Home needs "Install unknown apps"
+    for that, which you allow on the TV the first time.
+  - **From your phone** answers on your home network only while its QR code is on the TV, at a random
+    address that stops working when you close it or after 10 minutes. It takes pictures up to 4 MB and
+    nothing else.
+  - The sleep timer and daily limits use the same accessibility service as remote buttons. Home counts
+    an app's time from which app is in front; it keeps no other record of what you watch.
 - **Your keys.** The app makes its own ADB key in its data folder and signs only with that. It never
   uses `~/.android/adbkey`, which your phones may also trust, and it only logs in to an address you
   picked. Network ADB is plaintext by design, so use it on a network you trust.

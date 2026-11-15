@@ -70,9 +70,13 @@ private val DIGIT_KEYS = mapOf(
 /**
  * The PIN pad: the remote's number keys type straight in, or move over the pad with the D-pad. OK checks;
  * a sixth digit checks by itself. [what] is the package (or Lock.PANEL) that unlocks.
+ *
+ * With [onEntered], the pad takes a new PIN instead of checking one, for setting it on the TV: it hands over
+ * what was typed and shows the note that comes back, if any. Home's own pad, so the TV's keyboard can't end
+ * up behind the dialog.
  */
 @Composable
-fun PinPad(title: String, what: String, accent: Color, onUnlocked: () -> Unit) {
+fun PinPad(title: String, what: String, accent: Color, onEntered: ((String) -> String?)? = null, onUnlocked: () -> Unit) {
     val ctx = LocalContext.current
     var pin by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
@@ -83,6 +87,7 @@ fun PinPad(title: String, what: String, accent: Color, onUnlocked: () -> Unit) {
     LaunchedEffect(wait) { if (wait > 0) { note = "Too many tries. Wait $wait s"; delay(1000); wait = Lock.waitSeconds(); if (wait == 0) note = "" } }
     fun submit() {
         if (pin.length < 4) { note = "At least 4 digits"; return }
+        if (onEntered != null) { note = onEntered(pin).orEmpty(); pin = ""; return }
         if (Lock.check(ctx, pin, what)) { onUnlocked(); return }
         pin = ""
         wait = Lock.waitSeconds()
@@ -164,7 +169,9 @@ class LockActivity : ComponentActivity() {
             override fun handleOnBackPressed() { goHome() }
         })
         setContent {
-            PinPad("Enter the PIN for $label", pkg, Color(ConfigStore.config.value.accent)) {
+            val limit = intent.getBooleanExtra(EXTRA_LIMIT, false)
+            PinPad(if (limit) "Time's up for $label today" else "Enter the PIN for $label", pkg, Color(ConfigStore.config.value.accent)) {
+                if (limit) Limits.extend(this, pkg)
                 launch?.let { runCatching { startActivity(it) }.onFailure { e -> Log.w(TAG, "launch $pkg: $e") } }
                 finish()
                 overridePendingTransition(0, 0)
@@ -181,11 +188,13 @@ class LockActivity : ComponentActivity() {
     companion object {
         const val EXTRA_PKG = "pkg"
         const val EXTRA_LAUNCH = "launch"
+        /** Covering an app whose daily time is up, rather than a locked one. */
+        const val EXTRA_LIMIT = "limit"
         /** Shown at most once at a time: the guard sees the app again while this covers it. */
         @Volatile var showing: String? = null
 
-        fun intent(ctx: android.content.Context, pkg: String, launch: Intent? = null): Intent =
-            Intent(ctx, LockActivity::class.java).putExtra(EXTRA_PKG, pkg).apply { launch?.let { putExtra(EXTRA_LAUNCH, it) } }
+        fun intent(ctx: android.content.Context, pkg: String, launch: Intent? = null, limit: Boolean = false): Intent =
+            Intent(ctx, LockActivity::class.java).putExtra(EXTRA_PKG, pkg).putExtra(EXTRA_LIMIT, limit).apply { launch?.let { putExtra(EXTRA_LAUNCH, it) } }
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
     }
 

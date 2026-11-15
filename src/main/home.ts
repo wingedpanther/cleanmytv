@@ -21,7 +21,7 @@ export const DEFAULTS: HomeConfig = {
   layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
   rows: [], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false,
   accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
-  shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
+  edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, lock_editor: false, update_check: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
   order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
   icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, intro: true, wallpaper_from: '',
   lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge',
@@ -44,14 +44,16 @@ const CHOICES = {
   tile_shape: ['wide', 'square', 'squircle', 'round'],
   lock_for: ['sleep', '15', 'always'],
   lock_show: ['badge', 'hide'],
-  slide_from: ['mine', 'theme']
+  slide_from: ['mine', 'theme'],
+  idle_style: ['corner', 'center', 'photos'],
+  font: ['default', 'condensed', 'serif', 'casual']
 } as const
 
 const LISTS = {
   sections: ['nowplaying', 'recent', 'dock', 'rows', 'folders', 'grid']
 } as const
 
-const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory'] as const
+const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'customize', 'timer'] as const
 /** App shortcuts the top bar takes, as the launcher's HomeConfig.MAX_QUICK_APPS. */
 export const MAX_QUICK_APPS = 6
 const quickApp = (q: unknown): boolean => typeof q === 'string' && q.startsWith('app:') && T.PACKAGE_RE.test(q.slice(4))
@@ -70,7 +72,7 @@ const RANGES = {
   shade_top: [0, 100], shade_top_reach: [0, 100], shade_bottom: [0, 100], shade_bottom_reach: [0, 100], wash: [0, 100], wash_reach: [10, 100]
 } as const
 
-const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night', 'power_on_input'] as const
+const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night', 'power_on_input', 'edit_on_tv', 'bing_daily', 'lock_editor', 'update_check'] as const
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 /** Lets the launcher see other apps' media sessions; on only while the Now playing section is. */
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
@@ -357,6 +359,13 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
       Object.entries(v).every(([k, s]) => ((QUICK as readonly string[]).includes(k) || k === 'all_apps') && typeof s === 'string')
     if (ok) out.names = Object.fromEntries(Object.entries(v as Record<string, string>).map(([k, s]) => [k, plain(s, 24)]).filter(([, s]) => s !== ''))
     else bad(`names must map ${QUICK.join(', ')} or all_apps to text`)
+  }
+  if (o.limits !== undefined) {
+    const v = o.limits
+    const ok = v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length <= 60 &&
+      Object.entries(v).every(([k, m]) => T.PACKAGE_RE.test(k) && Number.isInteger(m) && (m as number) >= 5 && (m as number) <= 720)
+    if (ok) out.limits = { ...(v as Record<string, number>) }
+    else bad('limits must map package names to 5 to 720 minutes a day')
   }
   if (o.weather_place !== undefined) {
     if (typeof o.weather_place === 'string') out.weather_place = plain(o.weather_place, 40)

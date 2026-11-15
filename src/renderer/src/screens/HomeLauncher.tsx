@@ -684,7 +684,7 @@ const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, num
 
 const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: 'Now playing', recent: 'Recently used', dock: 'Dock', rows: 'Rows', folders: 'Folders', grid: 'All apps' }
 const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'recent', 'dock', 'rows', 'folders', 'grid']
-const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'settings']
+const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'timer', 'customize', 'settings']
 /** As the launcher's HomeConfig.MAX_QUICK_APPS. */
 const MAX_QUICK_APPS = 6
 const IDLE_CHOICES: [number, string][] = [[0, 'Off'], [1, '1 min'], [2, '2 min'], [5, '5 min'], [10, '10 min'], [15, '15 min'], [30, '30 min']]
@@ -819,6 +819,19 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
       </div>
 
       <div className="card">
+        <Toggle
+          label="Edit on the TV (experimental)"
+          hint="Adds a Customize icon to the top bar, which opens an editor for the layout, look, widgets, apps, music bars and fireplace from the remote. With App lock on, it asks for the PIN. Turn it off to take the icon away again."
+          checked={cfg.edit_on_tv}
+          onChange={(v) => {
+            const rest = cfg.quick.filter((q) => q !== 'customize')
+            const at = rest.indexOf('settings')
+            set({ edit_on_tv: v, quick: v ? (at < 0 ? [...rest, 'customize'] : [...rest.slice(0, at), 'customize', ...rest.slice(at)]) : rest })
+          }}
+        />
+      </div>
+
+      <div className="card">
         <h2>Sizes</h2>
         <Slider label="Dock tiles" value={cfg.dock_scale} min={60} max={150} step={5} unit="%" onChange={(v) => set({ dock_scale: v }, 250)} />
         <Slider label="Row and folder tiles" value={cfg.tile_scale} min={60} max={150} step={5} unit="%" onChange={(v) => set({ tile_scale: v }, 250)} />
@@ -870,6 +883,13 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
             </button>
           ))}
         </div>
+        <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>What it shows</p>
+        <div className="seg">
+          {([['corner', 'Clock in the corner'], ['center', 'Big clock'], ['photos', 'Photos']] as const).map(([id, label]) => (
+            <button key={id} className={cfg.idle_style === id ? 'on' : ''} onClick={() => set({ idle_style: id })}>{label}</button>
+          ))}
+        </div>
+        {cfg.idle_style === 'photos' && <p className="small muted">The slideshow's photos, or the themes' pictures when there are none, a new one every 20 seconds.</p>}
       </div>
     </>
   )
@@ -1068,6 +1088,13 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
       </div>
 
       <div className="card">
+        <h2>Font</h2>
+        <p className="muted">For names, headings and menus on the TV. The clock keeps its own.</p>
+        <div className="seg" style={{ marginBottom: 18 }}>
+          {([['default', 'Usual'], ['condensed', 'Condensed'], ['serif', 'Serif'], ['casual', 'Casual']] as const).map(([id, label]) => (
+            <button key={id} className={cfg.font === id ? 'on' : ''} onClick={() => set({ font: id })} style={{ fontFamily: FONT_CSS[id] }}>{label}</button>
+          ))}
+        </div>
         <h2>App icons</h2>
         <p className="muted">Banners are each app's own TV picture. The other styles redraw every app's logo the same way, so the rows match.</p>
         <div className="seg">
@@ -1127,6 +1154,7 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
           )}
         </div>
         <Slider label="Darken the wallpaper" hint="Keeps names and the clock readable on bright pictures." value={cfg.wallpaper_dim} min={0} max={80} unit="%" onChange={(v) => set({ wallpaper_dim: v }, 300)} />
+        <Toggle label="Bing every day" hint="Bing's new picture becomes the wallpaper each day, while Home is on screen. Picking another wallpaper doesn't stop it; this switch does." checked={cfg.bing_daily} onChange={(v) => set({ bing_daily: v })} />
         <Shading cfg={cfg} set={set} />
         <Toggle label="Sunrise when it changes" hint="A new wallpaper starts dim and the light comes in from the top. Off when the TV's animations are off." checked={cfg.intro} onChange={(v) => set({ intro: v })} />
         <Colour label="Background colour" hint="Behind everything when there's no wallpaper. Keep it dark: text is white." value={cfg.background} onChange={(c, w) => set({ background: c }, w)} />
@@ -1338,6 +1366,7 @@ const ACTIONS: [ButtonAction, string][] = [
   ['fireplace', 'Show the fireplace'],
   ['memory', 'Clean memory'],
   ['next_wallpaper', "Next picture of the theme"],
+  ['timer', 'Sleep timer: 15, 30, 60, 90, 120 min, off'],
   ['none', 'Do nothing']
 ]
 
@@ -1602,6 +1631,47 @@ function PinForm({ label, onSet }: { label: string; onSet: (pin: string) => Prom
   )
 }
 
+/** As the launcher's homeFont: what each choice looks like here, from fonts every computer has. */
+const FONT_CSS: Record<HomeConfig['font'], string> = {
+  default: 'inherit', condensed: '"Arial Narrow", "Roboto Condensed", sans-serif-condensed, sans-serif', serif: 'Georgia, serif', casual: '"Comic Sans MS", "Comic Neue", cursive'
+}
+
+const LIMIT_CHOICES = [15, 30, 45, 60, 90, 120, 180, 240]
+const minutes = (m: number): string => (m < 60 ? `${m} min` : m % 60 === 0 ? `${m / 60} h` : `${Math.floor(m / 60)} h ${m % 60} min`)
+
+/** Daily limits: an app gets so many minutes a day, then it needs the PIN for the rest of the day. */
+function DailyLimits({ cfg, set, apps }: { cfg: HomeConfig; set: SetFn; apps: TvApp[] }): ReactNode {
+  const [pkg, setPkg] = useState('')
+  const [mins, setMins] = useState(60)
+  const label = (p: string): string => apps.find((a) => a.pkg === p)?.label ?? p
+  const entries = Object.entries(cfg.limits)
+  return (
+    <div className="card">
+      <h2>Daily limits</h2>
+      <p className="muted small">
+        After its minutes for the day, an app needs the PIN, which gives it the rest of the day. Home counts the time itself, and the
+        count starts again at midnight.
+      </p>
+      {entries.map(([p, m]) => (
+        <div key={p} className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+          <span>{label(p)}: {minutes(m)} a day</span>
+          <button className="btn small ghost" onClick={() => set({ limits: Object.fromEntries(entries.filter(([k]) => k !== p)) })}>Remove</button>
+        </div>
+      ))}
+      <div className="row" style={{ marginTop: 10 }}>
+        <select value={pkg} onChange={(e) => setPkg(e.target.value)} aria-label="App">
+          <option value="">Choose an app…</option>
+          {apps.filter((a) => !(a.pkg in cfg.limits)).map((a) => <option key={a.pkg} value={a.pkg}>{a.label}</option>)}
+        </select>
+        <select value={mins} onChange={(e) => setMins(Number(e.target.value))} aria-label="Minutes a day">
+          {LIMIT_CHOICES.map((m) => <option key={m} value={m}>{minutes(m)}</option>)}
+        </select>
+        <button className="btn small" disabled={!pkg} onClick={() => { set({ limits: { ...cfg.limits, [pkg]: mins } }); setPkg('') }}>Add</button>
+      </div>
+    </div>
+  )
+}
+
 function LockTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c: HomeConfig) => void; onError: (e: unknown) => void }): ReactNode {
   const { cfg, set, apps, setCfg, onError } = props
   const [q, setQ] = useState('')
@@ -1649,11 +1719,18 @@ function LockTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c
         <input type="search" placeholder="Find an app" value={q} onChange={(e) => setQ(e.target.value)} style={{ margin: '12px 0', width: '100%' }} aria-label="Find an app" />
         <div className="list-picker" style={{ maxHeight: 360 }}>
           {!q && (
+            <>
             <label className="row" style={{ gap: 10, cursor: 'pointer' }}>
               <input type="checkbox" checked={cfg.lock_system} onChange={(e) => set({ lock_system: e.target.checked })} />
               <span>Settings, Play Store and Quick settings</span>
               <span className="small muted">also the uninstaller, so the lock can't be switched off or uninstalled around</span>
             </label>
+            <label className="row" style={{ gap: 10, cursor: 'pointer' }}>
+              <input type="checkbox" checked={cfg.lock_editor} onChange={(e) => set({ lock_editor: e.target.checked })} />
+              <span>Customize Home</span>
+              <span className="small muted">the editor on the TV; its App lock page always asks</span>
+            </label>
+            </>
           )}
           {shown.map((a) => (
             <label key={a.pkg} className="row" style={{ gap: 10, cursor: 'pointer' }}>
@@ -1681,6 +1758,8 @@ function LockTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c
           ))}
         </div>
       </div>
+
+      <DailyLimits cfg={cfg} set={set} apps={apps} />
 
       <div className="card">
         <h2>PIN</h2>

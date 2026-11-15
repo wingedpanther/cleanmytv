@@ -116,4 +116,46 @@ class ExtrasTest {
         assertEquals(listOf("netflix"), Recent.order(opened, setOf("netflix", "youtube"), "self", limit = 1))
         assertEquals(listOf("recent", "dock", "grid"), HomeConfig.fromJson(JSONObject("""{"sections":["recent","dock","grid"]}""")).sections)
     }
+
+    @Test fun `limits, font, idle style and Bing every day round-trip and stay sane`() {
+        val c = HomeConfig.fromJson(JSONObject("""{"limits":{"com.google.android.youtube.tv":60,"bad name":30,"com.netflix.ninja":2},"font":"serif","idle_style":"photos","bing_daily":true,"lock_editor":true}"""))
+        assertEquals(mapOf("com.google.android.youtube.tv" to 60), c.limits)
+        assertEquals("serif", c.font)
+        assertEquals("photos", c.idleStyle)
+        assertTrue(c.bingDaily)
+        assertTrue(c.lockEditor)
+        assertEquals(c, HomeConfig.fromJson(c.toJson()))
+        assertEquals("default", HomeConfig.fromJson(JSONObject("""{"font":"comic"}""")).font)
+        assertTrue(KeyService.needsService(HomeConfig(limits = mapOf("a.b" to 30))))
+        assertTrue("timer" in HomeConfig.BUTTON_ACTIONS)
+    }
+
+    @Test fun `time reads the way people say it`() {
+        assertEquals("45 min", Limits.words(45))
+        assertEquals("2 h", Limits.words(120))
+        assertEquals("1 h 30 min", Limits.words(90))
+    }
+
+    @Test fun `a release is newer by its numbers, and a test build counts as the version it leads to`() {
+        assertTrue(Updates.newer("1.10.0", "1.9.0"))
+        assertFalse(Updates.newer("1.9.0", "1.10.0-test.2"))
+        assertFalse(Updates.newer("1.10.0", "1.10.0-test.2"))
+        assertTrue(Updates.newer("1.10.1", "1.10.0-test.2"))
+        assertFalse(Updates.newer("1.9.0", "1.9.0"))
+    }
+
+    @Test fun `release notes lose their tables and marks for the TV`() {
+        val md = "**New**\n- **Recently used:** a row (#85)\n\n| | |\n|---|---|\n| Mac | `x.dmg` |\n\n**Full Changelog**: https://x\n[Discord](https://discord.gg/a)"
+        assertEquals("New\n• Recently used: a row (#85)\n\nDiscord", Updates.plain(md))
+    }
+
+    @Test fun `search finds a setting by its name or the words people use, best first`() {
+        val s = io.github.wingedpanther.cleanmytv.home.customization.searchSettings("font")
+        assertEquals("Font", s.first().name)
+        assertEquals(io.github.wingedpanther.cleanmytv.home.customization.CustomizationCategory.LOCK,
+            io.github.wingedpanther.cleanmytv.home.customization.searchSettings("password").first().where)
+        assertTrue(io.github.wingedpanther.cleanmytv.home.customization.searchSettings("sleep timer").isNotEmpty())
+        assertTrue(io.github.wingedpanther.cleanmytv.home.customization.searchSettings("zzz").isEmpty())
+        assertTrue(io.github.wingedpanther.cleanmytv.home.customization.searchSettings("  ").isEmpty())
+    }
 }

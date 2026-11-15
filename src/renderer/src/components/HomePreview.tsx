@@ -21,12 +21,14 @@ const QUICK_GLYPH: Record<QuickId, string> = {
   panel: 'M4 7h10M18 7h2M4 17h4M12 17h8M14 5v4M8 15v4',
   themes: 'M12 4a8 8 0 1 0 0 16c1 0 1.5-.8 1.5-1.6 0-1.4 1-2.4 2.4-2.4H18a2 2 0 0 0 2-2A8 8 0 0 0 12 4zM8 11h.01M11 8h.01M15 8h.01',
   fireplace: 'M12 21c-3.5 0-6-2.4-6-5.6 0-3.2 2.6-5 3.5-8.4 1.8 1.4 2.6 3 2.6 4.6 1-.7 1.6-1.8 1.7-3 1.6 1.6 2.2 3.6 2.2 5.6 0 3.4-2.5 6.8-4 6.8z',
-  memory: 'M7 7h10v10H7zM10 4v3M14 4v3M10 17v3M14 17v3M4 10h3M4 14h3M17 10h3M17 14h3'
+  memory: 'M7 7h10v10H7zM10 4v3M14 4v3M10 17v3M14 17v3M4 10h3M4 14h3M17 10h3M17 14h3',
+  customize: 'M4 5h16v11H4zM9 20h6M8 9h3M13 9h3M8 12h8',
+  timer: 'M12 7v5l3 2M9 3h6M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16z'
 }
 
 export const QUICK_LABEL: Record<QuickId, string> = {
   inputs: 'Inputs', wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: 'Picture & sound', apps: 'Apps', sleep: 'Screensaver', search: 'Search', music: 'Music bars', settings: 'Settings',
-  panel: 'Quick settings', themes: 'Themes', fireplace: 'Fireplace', memory: 'Clean memory'
+  panel: 'Quick settings', themes: 'Themes', fireplace: 'Fireplace', memory: 'Clean memory', customize: 'Customize', timer: 'Sleep timer'
 }
 
 export function QuickIcon({ id, size = 16 }: { id: QuickId; size?: number }): ReactNode {
@@ -208,6 +210,11 @@ function Clock({ cfg, size, dateSize, align }: { cfg: HomeConfig; size: number; 
   )
 }
 
+/** The TV's fonts as near as a computer has them (the launcher's homeFont). */
+const PREVIEW_FONT: Record<string, string> = {
+  default: 'Roboto, system-ui, sans-serif', condensed: '"Roboto Condensed", "Arial Narrow", sans-serif', serif: 'Georgia, serif', casual: '"Comic Sans MS", "Comic Neue", cursive'
+}
+
 /** The TV's shade over the wallpaper: the background colour at [pct]% (#102). */
 const shade = (cfg: HomeConfig, pct: number): string => `color-mix(in srgb, ${cfg.background} ${pct}%, transparent)`
 
@@ -312,7 +319,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
   }
   return (
     <div ref={box} className="home-preview" style={{ height: H * scale }} aria-label="Preview of the TV home screen">
-      <div style={{ width: W, height: H, transform: `scale(${scale})`, transformOrigin: '0 0', color: '#F0EBE5', fontFamily: 'Roboto, system-ui, sans-serif', ...ground }}>{body}</div>
+      <div style={{ width: W, height: H, transform: `scale(${scale})`, transformOrigin: '0 0', color: '#F0EBE5', fontFamily: PREVIEW_FONT[cfg.font] ?? PREVIEW_FONT.default, ...ground }}>{body}</div>
       <span className="home-preview-note">Sample time and greeting · app art shows on the TV</span>
     </div>
   )

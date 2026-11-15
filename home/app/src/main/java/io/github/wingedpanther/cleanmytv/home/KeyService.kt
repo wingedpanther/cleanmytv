@@ -36,6 +36,14 @@ object KeyLog {
 
     @Synchronized
     fun json(): JSONArray = JSONArray(keys.map { (s, c, n) -> JSONObject().put("seq", s).put("code", c).put("name", n) })
+
+    /** Where the log is now, so the on-TV button finder only looks at presses after it. */
+    @Synchronized
+    fun mark(): Int = seq
+
+    /** Key codes pressed after [mark], oldest first. */
+    @Synchronized
+    fun since(mark: Int): List<Int> = keys.filter { it.first > mark }.map { it.second }
 }
 
 /**
@@ -59,7 +67,7 @@ class KeyService : AccessibilityService() {
     private val screen = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             when (i.action) {
-                Intent.ACTION_SCREEN_OFF -> { Lock.lockAll(); PowerOn.asleep(c, front) }
+                Intent.ACTION_SCREEN_OFF -> { Lock.lockAll(); PowerOn.asleep(c, front); Limits.front(c, null) }
                 Intent.ACTION_SCREEN_ON -> timer.postDelayed({ PowerOn.awake(c, front) }, PowerOn.SETTLE_MS)
             }
         }
@@ -127,7 +135,8 @@ class KeyService : AccessibilityService() {
             "none" -> Unit
             "inputs" -> startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN, "inputs").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             "music" -> ConfigStore.update(this, JSONObject().put("visualiser", !ConfigStore.config.value.visualiser))
-            "panel", "themes" -> startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN, b.action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            "timer" -> SleepTimer.next(this)
+            "panel", "themes", "customize" -> startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN, b.action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             "next_wallpaper" -> ThemePack.next(this)
             "fireplace" -> startActivity(Intent(this, FireplaceActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             "memory" -> if (Memory.canClean) scope.launch { Memory.cleanAndSay(this@KeyService) }
@@ -145,7 +154,7 @@ class KeyService : AccessibilityService() {
         val pkg = event.packageName?.toString() ?: return
         val cls = event.className?.toString()
         val activity = cls != null && isActivity(pkg, cls)
-        if (activity) front = pkg
+        if (activity) { front = pkg; Limits.front(this, pkg) }
         // Fire OS won't let the Amazon launcher be disabled or replaced as Home, and Google TV's launcher may
         // be left on for apps that need it (#99), so it opens at boot and on every Home press. Bring CleanMyTV
         // Home back in front of its home screen, but not of its other screens: Fire TV's Settings live in
@@ -161,7 +170,17 @@ class KeyService : AccessibilityService() {
         Lock.seen(pkg, lockScreen = event.className?.toString()?.endsWith("LockActivity") == true)
         if (pkg == packageName || pkg == LockActivity.showing || Lock.justBackedOut(pkg)) return
         if (Lock.needsPin(this, pkg)) runCatching { startActivity(LockActivity.intent(this, pkg)) }.onFailure { Log.w(TAG, "lock $pkg: $it") }
+        else if (activity) checkLimit(pkg)
     }
+
+    /** Daily limits: out of time now, the PIN pad covers the app; otherwise look again when its time runs out. */
+    private fun checkLimit(pkg: String) {
+        timer.removeCallbacks(limitCheck)
+        val left = Limits.left(this, pkg) ?: return
+        if (left > 0) { limitCheck = Runnable { if (front == pkg) checkLimit(pkg) }; timer.postDelayed(limitCheck, left + 500); return }
+        runCatching { startActivity(LockActivity.intent(this, pkg, limit = true)) }.onFailure { Log.w(TAG, "limit $pkg: $it") }
+    }
+    private var limitCheck = Runnable {}
 
     private val activities = HashMap<String, Boolean>()
     private val homes = HashMap<String, Set<String>>()
@@ -215,7 +234,7 @@ class KeyService : AccessibilityService() {
             listening || (!volumePaused && cfg.buttonsOn && cfg.buttons.isNotEmpty())
 
         /** The service has work while any of these is on. */
-        fun needsService(cfg: HomeConfig) = cfg.buttonsOn || cfg.lockOn || cfg.stockRedirect.isNotEmpty() || cfg.powerOnInput
+        fun needsService(cfg: HomeConfig) = cfg.buttonsOn || cfg.lockOn || cfg.stockRedirect.isNotEmpty() || cfg.powerOnInput || cfg.limits.isNotEmpty()
 
         /**
          * Whether a window of such a launcher is its home screen. Only another of its own activities says no;
@@ -235,6 +254,9 @@ class KeyService : AccessibilityService() {
             s.timer.postDelayed(s.stopListening, 2 * 60_000L + 500)
         }
 
+        /** Whether the service is running, so the on-TV editor can say when mapped buttons won't work yet. */
+        val isOn: Boolean get() = running != null
+
         /** Screen off, as the power button would. Needs the key service on; false when it isn't. */
         fun sleep(): Boolean = running?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) ?: false
 
@@ -244,8 +266,8 @@ class KeyService : AccessibilityService() {
          * (#78). Home puts it back itself, with the secure-settings permission CleanMyTV granted. Without that
          * permission nothing changes.
          */
-        fun ensureOn(ctx: Context) {
-            if (!needsService(ConfigStore.config.value)) return
+        fun ensureOn(ctx: Context, force: Boolean = false) {
+            if (!force && !needsService(ConfigStore.config.value)) return
             val me = ComponentName(ctx, KeyService::class.java)
             val r = ctx.contentResolver
             val list = Settings.Secure.getString(r, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()

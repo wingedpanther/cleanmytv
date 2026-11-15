@@ -18,7 +18,10 @@ import androidx.compose.material.icons.outlined.Input
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.MusicOff
+import androidx.compose.material.icons.outlined.DisplaySettings
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
@@ -61,7 +64,13 @@ fun quickActions(): Map<String, QuickAction> = listOf(
     // Handled by Home itself: its own settings panel, and the theme carousel.
     QuickAction("panel", "Quick settings", Icons.Outlined.Tune, emptyList()),
     QuickAction("themes", "Themes", Icons.Outlined.Palette, emptyList()),
+    // Handled by Home itself: the on-TV editor, while the owner has it switched on (experimental).
+    QuickAction("customize", "Customize", Icons.Outlined.DisplaySettings, emptyList()),
     QuickAction("fireplace", "Fireplace", Icons.Outlined.LocalFireDepartment, emptyList()),
+    // Handled by Home itself: picks when the TV goes to sleep.
+    QuickAction("timer", "Sleep timer", Icons.Outlined.Timer, emptyList()),
+    // Shown by Home itself, first in the bar, only while a newer Home is on the release page.
+    QuickAction("update", "Update Home", Icons.Outlined.SystemUpdate, emptyList()),
     // Handled by Home itself: closes apps in the background. Up to Android 13 (see Memory).
     QuickAction("memory", "Clean memory", Icons.Outlined.CleaningServices, emptyList()),
 ).associateBy { it.id }
@@ -83,7 +92,8 @@ private fun canStart(ctx: Context, i: Intent): Boolean {
 fun canOpen(ctx: Context, a: QuickAction, hasInputs: Boolean): Boolean = when (a.id) {
     "inputs" -> hasInputs
     "memory" -> Memory.canClean
-    "music", "panel", "themes", "fireplace" -> true
+    "music", "panel", "themes", "fireplace", "timer", "update" -> true
+    "customize" -> ConfigStore.config.value.editOnTv
     else -> resolve(ctx, a) != null
 }
 
@@ -93,7 +103,7 @@ fun iconFor(a: QuickAction, cfg: HomeConfig) = if (a.id == "music" && !cfg.visua
 /** The quick-settings icons this TV can open, for the desktop editor. */
 fun availableQuick(ctx: Context): List<String> {
     val hasInputs = tvInputs(ctx).isNotEmpty()
-    return quickActions().values.filter { canOpen(ctx, it, hasInputs) }.map { it.id }
+    return quickActions().values.filter { it.id != "update" && canOpen(ctx, it, hasInputs) }.map { it.id }
 }
 
 /**

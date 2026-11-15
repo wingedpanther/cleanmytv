@@ -115,18 +115,51 @@ object IconArt {
         val solid = px.filter { alpha(it) > 200 }
         if (solid.isEmpty()) return null
         val (main, share) = common(solid)
-        if (share < 0.4f) return null
+        return (if (share >= 0.4f) cutAgainst(px, solid, main) else null) ?: cutMarks(px, solid)
+    }
+
+    /**
+     * Against the main colour: a pixel unlike it goes, by lightness or by colour, so a light orange play
+     * button on a white square is cut as well as a white S on red (#113, Nova Video Player). Within 0.2 of
+     * the main colour stays; beyond 0.4 goes; in between fades across the soft edge.
+     */
+    private fun cutAgainst(px: IntArray, solid: List<Int>, main: Int): IntArray? {
         val l = luma(main)
         var cut = 0
         val out = IntArray(px.size)
         for (i in px.indices) {
             val c = px[i]
-            // Within 0.25 of the main colour's lightness stays; beyond 0.45 goes; in between fades.
-            val keep = ((0.45f - abs(luma(c) - l)) / 0.2f).coerceIn(0f, 1f)
+            val d = maxOf(abs(luma(c) - l), distance(c, main))
+            val keep = ((0.4f - d) / 0.2f).coerceIn(0f, 1f)
             if (keep < 0.5f && alpha(c) > 200) cut++
             out[i] = (Math.round(alpha(c) * keep) shl 24) or (c and 0xFFFFFF)
         }
         return if (cut >= solid.size * 0.03f) out else null
+    }
+
+    /**
+     * No main colour, as in RTL+'s coloured boxes or waipu.tv's gradient (#113): white lettering on them, or
+     * black on a light logo, still reads as the mark. The smaller of the two goes, so the shape stays.
+     */
+    private fun cutMarks(px: IntArray, solid: List<Int>): IntArray? {
+        val white = solid.count { whiteish(it) }
+        val black = solid.count { blackish(it) }
+        val cutWhite = white >= solid.size * 0.03f && white <= solid.size * 0.5f && black < solid.size * 0.5f
+        val cutBlack = !cutWhite && black >= solid.size * 0.03f && black <= solid.size * 0.5f
+        if (!cutWhite && !cutBlack) return null
+        return IntArray(px.size) { i ->
+            val c = px[i]
+            if ((cutWhite && whiteish(c)) || (cutBlack && blackish(c))) 0 else c
+        }
+    }
+
+    private fun whiteish(c: Int) = alpha(c) > 200 && luma(c) > 0.8f && saturation(c) < 0.2f
+    private fun blackish(c: Int) = alpha(c) > 200 && luma(c) < 0.15f
+
+    /** How far apart two colours are, 0 to 1. */
+    private fun distance(p: Int, q: Int): Float {
+        val r = (red(p) - red(q)).toFloat(); val g = (green(p) - green(q)).toFloat(); val b = (blue(p) - blue(q)).toFloat()
+        return kotlin.math.sqrt(r * r + g * g + b * b) / 441.7f
     }
 
     private fun luma(c: Int) = (0.2126f * red(c) + 0.7152f * green(c) + 0.0722f * blue(c)) / 255f

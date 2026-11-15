@@ -15,6 +15,18 @@ object Slides {
 
     fun count(ctx: Context): Int = (0 until MAX).count { File(dir(ctx), "$it.jpg").exists() }
 
+    /** A photo sent from a phone joins the slideshow at the end. False when it's full. */
+    fun add(ctx: Context, src: File): Boolean {
+        val n = count(ctx)
+        if (n >= MAX) return false
+        dir(ctx).mkdirs()
+        src.copyTo(File(dir(ctx), "$n.jpg"), overwrite = true)
+        return true
+    }
+
+    /** Picture [n] of the slideshow, for picking one as the wallpaper on the TV. */
+    fun file(ctx: Context, n: Int) = File(dir(ctx), "$n.jpg")
+
     fun begin(ctx: Context) { upload(ctx).deleteRecursively(); upload(ctx).mkdirs() }
 
     fun target(ctx: Context, n: Int): File {

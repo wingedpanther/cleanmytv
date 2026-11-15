@@ -12,8 +12,8 @@ android {
         // Android 9: the Mi Box S and nearly every TV still in use.
         minSdk = 28
         targetSdk = 36
-        versionCode = 26
-        versionName = "1.9.0"
+        versionCode = 34
+        versionName = "1.10.0"
     }
 
     buildTypes {
@@ -42,6 +42,8 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.13.0")
     // Drawn icons for the quick-settings bar; R8 keeps only the few used.
     implementation("androidx.compose.material:material-icons-extended")
+    // The QR code that sends a phone to Home's upload page; only the encoder is used.
+    implementation("com.google.zxing:core:3.5.3")
     testImplementation("junit:junit:4.13.2")
     // Android's org.json is a stub on the JVM; the real one parses the weather in tests.
     testImplementation("org.json:json:20240303")

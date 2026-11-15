@@ -23,6 +23,8 @@
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <!-- Uninstall in a tile's long-press menu: Android still asks the owner to confirm. -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- Home updates itself from the release page; Android still asks the owner to confirm each one. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Recently used: the desktop app grants usage access over ADB only while that row is on. -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
 
@@ -83,6 +85,19 @@
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:launchMode="singleTask"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen"
+            android:screenOrientation="landscape" />
+
+        <!-- The sleep timer's alarm. -->
+        <receiver android:name=".SleepReceiver" android:exported="false" />
+        <!-- Android's installer reports on an update here. -->
+        <receiver android:name=".UpdateReceiver" android:exported="false" />
+
+        <!-- The on-TV editor (experimental), opened from its top bar icon. -->
+        <activity
+            android:name=".customization.CustomizationActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen"
             android:screenOrientation="landscape" />
 

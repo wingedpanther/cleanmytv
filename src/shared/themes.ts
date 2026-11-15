@@ -6,7 +6,7 @@ import type { HomeConfig, HomeTheme } from './api'
 export const THEME_KEYS = [
   'accent', 'focus', 'background', 'wallpaper_dim', 'top_space', 'dock_scale', 'tile_scale', 'show_names', 'clock',
   'visualiser', 'viz_style', 'viz_bars', 'viz_height', 'viz_opacity', 'viz_colour', 'viz_peaks', 'viz_sensitivity',
-  'icon_style', 'tile_shape', 'shade_top', 'shade_top_reach', 'shade_bottom', 'shade_bottom_reach', 'wash', 'wash_reach'
+  'icon_style', 'tile_shape', 'shade_top', 'shade_top_reach', 'shade_bottom', 'shade_bottom_reach', 'wash', 'wash_reach', 'font'
 ] as const satisfies readonly (keyof HomeConfig)[]
 
 export const THEME_EXT = 'cmtvtheme'

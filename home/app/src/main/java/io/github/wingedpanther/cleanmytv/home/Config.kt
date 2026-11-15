@@ -68,6 +68,7 @@ data class HomeConfig(
     val lockSystem: Boolean = false, // Settings, the Play Store, the uninstaller and Quick settings too; off until ticked
     val lockFor: String = "sleep", // sleep, 15, always: how long an unlock lasts
     val lockShow: String = "badge", // badge, hide: locked apps on Home
+    val lockEditor: Boolean = false, // the on-TV editor asks for the PIN too
     // Fireplace: a looping video CleanMyTV puts on the TV, as the screensaver, full screen, or the wallpaper
     val fireWall: Boolean = false, // behind Home instead of the picture
     val fireSound: Boolean = true, // full screen and as the screensaver
@@ -85,6 +86,11 @@ data class HomeConfig(
     val names: Map<String, String> = emptyMap(),
     // Idle screen: after this many minutes without a button press, only the wallpaper and the clock show; 0 is off
     val idleMinutes: Int = 0,
+    val idleStyle: String = "corner", // corner, center, photos: what the idle screen shows
+    val font: String = "default", // default, condensed, serif, casual: Home's text (the clock keeps its own)
+    val bingDaily: Boolean = false, // Bing's picture of the day becomes the wallpaper each day
+    val updateCheck: Boolean = true, // look for a newer Home on the release page once a day
+    val limits: Map<String, Int> = emptyMap(), // package -> minutes a day, then the app needs the PIN
     // Weather next to the clock, from Open-Meteo; off while the place is blank
     val weatherPlace: String = "",
     val weatherLat: Double = 0.0,
@@ -104,6 +110,7 @@ data class HomeConfig(
     val vizColour: String = "accent", // accent, rainbow, white
     val vizPeaks: Boolean = true,
     val vizSensitivity: Int = 100, // percent
+    val editOnTv: Boolean = false, // the on-TV editor (experimental), off until the owner turns it on in the desktop app
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("layout", layout)
@@ -147,6 +154,7 @@ data class HomeConfig(
         .put("lock_system", lockSystem)
         .put("lock_for", lockFor)
         .put("lock_show", lockShow)
+        .put("lock_editor", lockEditor)
         .put("fire_wall", fireWall)
         .put("fire_sound", fireSound)
         .put("fire_wall_sound", fireWallSound)
@@ -160,6 +168,11 @@ data class HomeConfig(
         .put("greeting", greeting)
         .put("names", JSONObject(names as Map<*, *>))
         .put("idle_minutes", idleMinutes)
+        .put("idle_style", idleStyle)
+        .put("font", font)
+        .put("bing_daily", bingDaily)
+        .put("update_check", updateCheck)
+        .put("limits", JSONObject(limits as Map<*, *>))
         .put("weather_place", weatherPlace)
         .put("weather_lat", weatherLat)
         .put("weather_lon", weatherLon)
@@ -176,13 +189,15 @@ data class HomeConfig(
         .put("viz_colour", vizColour)
         .put("viz_peaks", vizPeaks)
         .put("viz_sensitivity", vizSensitivity)
+        .put("edit_on_tv", editOnTv)
 
     companion object {
         private val HEX = Regex("^#[0-9A-Fa-f]{6}$")
+        val FONTS = setOf("default", "condensed", "serif", "casual")
         private val PKG = Regex("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")
 
         private fun hex(c: Long) = "#%06X".format(c and 0xFFFFFF)
-        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory")
+        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "customize", "timer")
         private val THEME_PICTURE = Regex("^[a-z0-9-]{1,40}:[0-9]$")
         private val SECTIONS = setOf("nowplaying", "recent", "dock", "rows", "folders", "grid")
         val BUTTON_ACTIONS = QUICK - "inputs" + setOf("inputs", "home", "back", "none", "app", "next_wallpaper")
@@ -272,6 +287,7 @@ data class HomeConfig(
                 lockSystem = bool("lock_system", base.lockSystem),
                 lockFor = choice("lock_for", base.lockFor, setOf("sleep", "15", "always")),
                 lockShow = choice("lock_show", base.lockShow, setOf("badge", "hide")),
+                lockEditor = bool("lock_editor", base.lockEditor),
                 fireWall = bool("fire_wall", base.fireWall),
                 fireSound = bool("fire_sound", base.fireSound),
                 fireWallSound = bool("fire_wall_sound", base.fireWallSound),
@@ -283,6 +299,13 @@ data class HomeConfig(
                 slideFrom = choice("slide_from", base.slideFrom, setOf("mine", "theme")),
                 clock = choice("clock", base.clock, setOf("time_date", "time", "off")),
                 idleMinutes = int("idle_minutes", base.idleMinutes, 0, 60),
+                idleStyle = choice("idle_style", base.idleStyle, setOf("corner", "center", "photos")),
+                font = choice("font", base.font, FONTS),
+                bingDaily = bool("bing_daily", base.bingDaily),
+                updateCheck = bool("update_check", base.updateCheck),
+                limits = o.optJSONObject("limits")?.let { m ->
+                    m.keys().asSequence().take(60).mapNotNull { k -> m.optInt(k, -1).takeIf { PKG.matches(k) && it in 5..720 }?.let { k to it } }.toMap()
+                } ?: base.limits,
                 greeting = if (o.has("greeting")) o.optString("greeting").take(40) else base.greeting,
                 names = o.optJSONObject("names")?.let { n ->
                     n.keys().asSequence().mapNotNull { k -> n.optString(k).trim().take(24).takeIf { it.isNotEmpty() }?.let { k to it } }.toMap()
@@ -303,6 +326,7 @@ data class HomeConfig(
                 vizColour = choice("viz_colour", base.vizColour, setOf("accent", "rainbow", "white")),
                 vizPeaks = bool("viz_peaks", base.vizPeaks),
                 vizSensitivity = int("viz_sensitivity", base.vizSensitivity, 25, 300),
+                editOnTv = bool("edit_on_tv", base.editOnTv),
             )
         }
     }

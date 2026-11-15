@@ -92,7 +92,7 @@ object ThemePack {
 
     private val LOOK_KEYS = listOf(
         "accent", "background", "focus", "wallpaper_dim", "viz_style", "viz_colour", "viz_peaks", "icon_style", "tile_shape",
-        "shade_top", "shade_top_reach", "shade_bottom", "shade_bottom_reach", "wash", "wash_reach",
+        "shade_top", "shade_top_reach", "shade_bottom", "shade_bottom_reach", "wash", "wash_reach", "font",
     )
     /** What a saved day or night look carries: a theme's keys, plus the glass and the wallpaper's place in a theme. */
     val SAVED_LOOK_KEYS = LOOK_KEYS + listOf("tile_glass", "wallpaper_from")

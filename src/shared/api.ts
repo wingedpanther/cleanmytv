@@ -169,7 +169,7 @@ export interface HomeStatus {
 
 export type HomeLayout = 'shelf' | 'split' | 'rail'
 export type HomeSection = 'nowplaying' | 'recent' | 'dock' | 'rows' | 'folders' | 'grid'
-export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes' | 'fireplace' | 'memory'
+export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes' | 'fireplace' | 'memory' | 'customize' | 'timer'
 /** A saved look for the day and night switch. */
 export type LookSlot = 'day' | 'night'
 /** A top-bar icon: a quick-settings action, or `app:<package>` for an app shortcut (CleanMyTV Home 1.2.0 and later). */
@@ -234,6 +234,20 @@ export interface HomeConfig {
   /** Percent of black over the wallpaper, 0 to 80. */
   wallpaper_dim: number
   /** Shading over the wallpaper: strength and reach (percent of the screen's height). The top one is the Shelf layout's. */
+  /** The on-TV editor (experimental): its Customize icon shows in the top bar only while this is on. */
+  edit_on_tv: boolean
+  /** What the idle screen shows: the clock in the corner, a big clock, or photos with the clock. */
+  idle_style: 'corner' | 'center' | 'photos'
+  /** Home's typeface; the clock keeps its own. */
+  font: 'default' | 'condensed' | 'serif' | 'casual'
+  /** Bing's picture of the day becomes the wallpaper each day. */
+  bing_daily: boolean
+  /** The TV looks for a newer CleanMyTV Home once a day and offers it (set on the TV). */
+  update_check: boolean
+  /** The on-TV editor asks for the PIN too. */
+  lock_editor: boolean
+  /** Minutes a day per package; after them the app needs the PIN. */
+  limits: Record<string, number>
   shade_top: number
   shade_top_reach: number
   shade_bottom: number

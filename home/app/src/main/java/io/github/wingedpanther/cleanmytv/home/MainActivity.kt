@@ -13,6 +13,8 @@ import android.util.Log
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -43,7 +45,10 @@ class MainActivity : ComponentActivity() {
         ConfigStore.load(this)
         KeyService.ensureOn(this)
         open.value = intent.getStringExtra(OPEN)
-        setContent { HomeScreen(visualiser, appsVersion.intValue, open) }
+        setContent {
+            val cfg by ConfigStore.config.collectAsState()
+            HomeFont(cfg.font) { HomeScreen(visualiser, appsVersion.intValue, open) }
+        }
         // Home is the bottom of the stack: Back here stays here instead of closing Home (#69). Folders,
         // Inputs and the panels are dialogs, so Back still closes those first.
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) { override fun handleOnBackPressed() {} })

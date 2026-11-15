@@ -35,4 +35,22 @@ class IconArtTest {
         val px = IntArray(100) { i -> if (i < 20) darker else red }
         assertNull(IconArt.cutOut(px))
     }
+
+    @Test fun `a light orange mark on a white logo is cut by its colour (#113, Nova)`() {
+        val orange = 0xFFFFB74D.toInt()
+        val px = IntArray(100) { i -> if (i % 10 in 3..6 && i / 10 in 3..6) orange else white }
+        val out = IconArt.cutOut(px)
+        assertNotNull(out)
+        assertEquals(0, out!![45] ushr 24)
+        assertEquals(255, out[0] ushr 24)
+    }
+
+    @Test fun `white letters on boxes of many colours are cut (#113, RTL+)`() {
+        val boxes = intArrayOf(0xFFE53935.toInt(), 0xFFFB8C00.toInt(), 0xFF1E88E5.toInt())
+        val px = IntArray(100) { i -> if (i % 10 == 5) white else boxes[(i % 10) % 3] }
+        val out = IconArt.cutOut(px)
+        assertNotNull(out)
+        assertEquals(0, out!![5] ushr 24)
+        assertEquals(255, out[0] ushr 24)
+    }
 }

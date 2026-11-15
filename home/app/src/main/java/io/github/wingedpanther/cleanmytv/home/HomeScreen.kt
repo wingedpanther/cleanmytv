@@ -47,6 +47,7 @@ import androidx.compose.material.icons.outlined.Dehaze
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.NightsStay
 import androidx.compose.material.icons.outlined.Pause
@@ -131,6 +132,9 @@ private val TEXT = Color(0xFFF0EBE5)
 private val MUTED = Color(0xFFD7CFC4)
 private val TILE = Color(0xE62D3A2E)
 private val TILE_FOCUSED = Color(0xFF3A4A3B)
+
+/** A focused row in Home's menus: the accent, mixed into the tile so the light text still reads (#112). */
+private fun menuFocus(ui: Ui): Color = lerp(TILE, ui.accent, 0.45f)
 private val GROUND = Color(0xFF1C2A1F)
 private val PANEL = Color(0xFF2D3A2E)
 
@@ -259,6 +263,10 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             delay(10_000L)
         }
     }
+    // Bing every day: looked at when Home comes back into view, and each hour while it stays.
+    LaunchedEffect(cfg.bingDaily, appsVersion) {
+        while (cfg.bingDaily) { Wallpapers.daily(ctx); delay(60 * 60_000L) }
+    }
     // Day and night looks: checked each minute while Home is open, and when it comes back into view.
     LaunchedEffect(cfg.dayNight, cfg.dayAt, cfg.nightAt, appsVersion) {
         if (!cfg.dayNight) return@LaunchedEffect
@@ -291,7 +299,13 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         }
     }
     val byPkg = apps.associateBy { it.pkg }
-    val quick = cfg.quick.mapNotNull { id ->
+    // A newer Home on the release page: its icon goes first in the bar until it's installed, skipped or put off.
+    val update by Updates.available.collectAsState()
+    LaunchedEffect(appsVersion, cfg.updateCheck) {
+        val r = Updates.check(ctx) ?: return@LaunchedEffect
+        if (Updates.announce(ctx, r)) android.widget.Toast.makeText(ctx, "CleanMyTV Home ${r.version} is out. The update icon is first in the top bar.", android.widget.Toast.LENGTH_LONG).show()
+    }
+    val quick = listOfNotNull(all["update"]?.takeIf { update != null }) + cfg.quick.mapNotNull { id ->
         HomeConfig.quickApp(id)?.let { p -> byPkg[p]?.let { appAction(it, quickIcons[p]) } } ?: all[id]?.let { a -> cfg.names[id]?.let { a.copy(label = it) } ?: a }
     }.filter { canOpen(ctx, it, inputs.isNotEmpty()) }
     var openFolder by remember { mutableStateOf<Pair<String, List<TvApp>>?>(null) }
@@ -304,8 +318,13 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var showInputs by remember { mutableStateOf(false) }
     var showPanel by remember { mutableStateOf(false) }
     var showThemes by remember { mutableStateOf(false) }
+    var showTimer by remember { mutableStateOf(false) }
+    var showUpdate by remember { mutableStateOf(false) }
     var panelPin by remember { mutableStateOf(false) }
     val openPanel = { if (Lock.needsPin(ctx, Lock.PANEL)) panelPin = true else showPanel = true }
+    // App lock asks for the PIN here when its "Customize Home" switch is on.
+    var editPin by remember { mutableStateOf(false) }
+    val openEditor = { if (Lock.needsPin(ctx, Lock.EDITOR)) editPin = true else openEditorNow(ctx) }
     LaunchedEffect(lastPress, cfg.idleMinutes, openFolder, showInputs, showPanel, showThemes) {
         if (cfg.idleMinutes == 0 || openFolder != null || showInputs || showPanel || showThemes) return@LaunchedEffect
         delay(cfg.idleMinutes * 60_000L)
@@ -317,6 +336,9 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             "inputs" -> showInputs = true
             "panel" -> openPanel()
             "themes" -> showThemes = true
+            "customize" -> openEditor()
+            "timer" -> showTimer = true
+            "update" -> showUpdate = true
             "fireplace" -> runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
         }
         open.value = null
@@ -325,6 +347,9 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         if (a.id == "inputs") showInputs = true
         else if (a.id == "panel") openPanel()
         else if (a.id == "themes") showThemes = true
+        else if (a.id == "customize") openEditor()
+        else if (a.id == "timer") showTimer = true
+        else if (a.id == "update") showUpdate = true
         else if (a.id == "fireplace") runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
         else if (a.id == "memory") scope.launch { Memory.cleanAndSay(ctx); memoryTick++ }
         else if (a.id == "music") ConfigStore.update(ctx, org.json.JSONObject().put("visualiser", !cfg.visualiser))
@@ -399,7 +424,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             }
             if (cfg.visualiser) Bars(visualiser, cfg, accent, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
         }
-        if (shown < 1f) IdleClock(ui, Modifier.align(Alignment.BottomStart).graphicsLayer { alpha = 1f - shown })
+        if (shown < 1f) IdleScreen(ui, Modifier.fillMaxSize().graphicsLayer { alpha = 1f - shown })
         moving?.let { m ->
             Text(
                 "Moving ${m.label}. Use the arrows, then OK.",
@@ -422,9 +447,19 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     }
     if (showPanel) SettingsPanel(accent) { showPanel = false }
     if (showThemes) ThemeCarousel(accent) { showThemes = false }
+    if (showTimer) TimerMenu(ui) { showTimer = false }
+    if (showUpdate) update?.let { UpdateDialog(it, accent) { showUpdate = false } }
     if (panelPin) Dialog(onDismissRequest = { panelPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         PinPad("Enter the PIN for Quick settings", Lock.PANEL, accent) { panelPin = false; showPanel = true }
     }
+    if (editPin) Dialog(onDismissRequest = { editPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        PinPad("Enter the PIN to customize Home", Lock.EDITOR, accent) { editPin = false; openEditorNow(ctx) }
+    }
+}
+
+private fun openEditorNow(ctx: android.content.Context) {
+    runCatching { ctx.startActivity(android.content.Intent(ctx, io.github.wingedpanther.cleanmytv.home.customization.CustomizationActivity::class.java)) }
+        .onFailure { Log.w(TAG, "editor: $it") }
 }
 
 /**
@@ -573,12 +608,16 @@ private fun RailLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Q
             }
         }
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = SAFE_X, top = SAFE_Y), verticalAlignment = Alignment.CenterVertically) {
-                Greeting(cfg, 20.sp)
+            // As Shelf: the greeting level with the time, and the date, weather and memory stacked under the time.
+            // Side by side they were centred on the clock's two lines and sat between them.
+            Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = SAFE_X, top = SAFE_Y), verticalAlignment = Alignment.Top) {
+                Box(Modifier.padding(top = 4.dp)) { Greeting(cfg, 20.sp) }
                 Spacer(Modifier.weight(1f))
-                MemoryLine(ui, 13.sp, Modifier.padding(end = 18.dp))
-                WeatherLine(ui, 13.sp, Modifier.padding(end = 18.dp))
-                Clock(cfg, 26.sp, 12.sp, Alignment.End)
+                Column(horizontalAlignment = Alignment.End) {
+                    Clock(cfg, 26.sp, 12.sp, Alignment.End)
+                    WeatherLine(ui, 13.sp, Modifier.padding(top = 4.dp))
+                    MemoryLine(ui, 13.sp, Modifier.padding(top = 4.dp))
+                }
             }
             Sections(home, ui, Modifier.fillMaxSize(), PaddingValues(start = 24.dp - BLEED, end = SAFE_X - BLEED, top = 20.dp, bottom = 96.dp), dockWidth = 196.dp, showFolders = false)
         }
@@ -677,9 +716,12 @@ private fun PaddingValues.calcHorizontal(): Dp =
 private fun LazyListScope.grid(home: Home, ui: Ui, w: Dp) {
     val label = ui.cfg.names["all_apps"] ?: if (home.dock.isEmpty() && home.rows.isEmpty()) "Apps" else "All apps"
     item("grid-title") { SectionTitle(label) }
+    // A square tile fills the middle 72% of its slot: the rows move left by the 14% before it, so the first
+    // tile lines up with the heading and the dock above instead of sitting in from them.
+    val inset = if (ui.shape == "wide") 0.dp else w * 0.14f
     home.grid.chunked(ui.cfg.columns).forEachIndexed { i, row ->
         item("grid$i") {
-            Row(Modifier.padding(horizontal = BLEED, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(GAP)) {
+            Row(Modifier.padding(start = BLEED - inset, end = BLEED + inset, top = 10.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(GAP)) {
                 for (app in row) Tile("grid", app, ui, Modifier.width(w), big = false)
             }
         }
@@ -838,7 +880,11 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
 
 /** Opens an app, through the PIN pad when it's locked. */
 private fun launch(ctx: android.content.Context, app: TvApp) {
-    val i = if (Lock.needsPin(ctx, app.pkg)) LockActivity.intent(ctx, app.pkg, app.launch) else app.launch
+    val i = when {
+        Lock.needsPin(ctx, app.pkg) -> LockActivity.intent(ctx, app.pkg, app.launch)
+        Limits.over(ctx, app.pkg) -> LockActivity.intent(ctx, app.pkg, app.launch, limit = true)
+        else -> app.launch
+    }
     runCatching { ctx.startActivity(i); Recent.note(ctx, app.pkg) }.onFailure { Log.w(TAG, "launch ${app.pkg}: $it") }
 }
 
@@ -1007,14 +1053,28 @@ private fun WeatherLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifie
     }
 }
 
-/** Free memory, in the weather's quiet style. */
+/** Free memory, in the weather's quiet style, and when the sleep timer turns the TV off. */
 @Composable
 private fun MemoryLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
-    val m = ui.memory ?: return
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Image(Icons.Outlined.Memory, null, Modifier.size(with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.3f }), colorFilter = ColorFilter.tint(MUTED))
-        Spacer(Modifier.width(6.dp))
-        Text(Memory.line(m), color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+    val sleepAt by SleepTimer.at.collectAsState()
+    val m = ui.memory
+    if (m == null && sleepAt == null) return
+    val icon = with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.3f }
+    Column(modifier) {
+        m?.let {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(Icons.Outlined.Memory, null, Modifier.size(icon), colorFilter = ColorFilter.tint(MUTED))
+                Spacer(Modifier.width(6.dp))
+                Text(Memory.line(it), color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+            }
+        }
+        sleepAt?.let {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(Icons.Outlined.Timer, null, Modifier.size(icon), colorFilter = ColorFilter.tint(MUTED))
+                Spacer(Modifier.width(6.dp))
+                Text("Sleeps at ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))}", color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+            }
+        }
     }
 }
 
@@ -1123,12 +1183,82 @@ private fun Clock(cfg: HomeConfig, timeSize: androidx.compose.ui.unit.TextUnit, 
     }
 }
 
-/** The idle screen's only text: a large clock and the weather in the lower left, inside the safe area. */
+/**
+ * The idle screen, in the owner's style: a large clock and the weather in the lower left (corner), a bigger
+ * one in the middle (center), or the slideshow's photos, or the themes' when there are none, with the clock
+ * over them (photos). Everything stays inside the safe area.
+ */
 @Composable
-private fun IdleClock(ui: Ui, modifier: Modifier) {
-    Column(modifier.padding(start = SAFE_X, bottom = SAFE_Y + 12.dp)) {
-        Clock(ui.cfg, 64.sp, 18.sp, Alignment.Start)
-        WeatherLine(ui, 16.sp, Modifier.padding(top = 8.dp))
+private fun IdleScreen(ui: Ui, modifier: Modifier) {
+    Box(modifier) {
+        when (ui.cfg.idleStyle) {
+            "center" -> Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                Clock(ui.cfg, 120.sp, 22.sp, Alignment.CenterHorizontally)
+                WeatherLine(ui, 18.sp, Modifier.padding(top = 12.dp))
+            }
+            else -> {
+                if (ui.cfg.idleStyle == "photos") IdlePhotos()
+                Column(Modifier.align(Alignment.BottomStart).padding(start = SAFE_X, bottom = SAFE_Y + 12.dp)) {
+                    Clock(ui.cfg, 64.sp, 18.sp, Alignment.Start)
+                    WeatherLine(ui, 16.sp, Modifier.padding(top = 8.dp))
+                }
+            }
+        }
+    }
+}
+
+/** A new photo every 20 seconds, fading over the last, with a shade so the clock reads on any of them. */
+@Composable
+private fun IdlePhotos() {
+    val ctx = LocalContext.current
+    val files = remember {
+        (0 until Slides.count(ctx)).map { Slides.file(ctx, it) }.ifEmpty {
+            ThemePack.list(ctx).flatMap { t -> (0 until t.pictures).map { ThemePack.picture(ctx, t.id, it) } }
+        }
+    }
+    if (files.isEmpty()) return
+    var at by remember { mutableIntStateOf(0) }
+    var photo by remember { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            photo = withContext(Dispatchers.IO) { runCatching { BitmapFactory.decodeFile(files[at % files.size].path)?.asImageBitmap() }.getOrNull() }
+            delay(20_000L)
+            at++
+        }
+    }
+    androidx.compose.animation.Crossfade(photo, animationSpec = tween(1500), label = "idle photo") { p ->
+        if (p != null) Image(p, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+    }
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.7f))))
+}
+
+/** The sleep timer's choices, from the top bar icon. */
+@Composable
+private fun TimerMenu(ui: Ui, onClose: () -> Unit) {
+    val ctx = LocalContext.current
+    val first = remember { FocusRequester() }
+    val sleepAt by SleepTimer.at.collectAsState()
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxSize().background(scrim(ui.cfg, 0.85f)), contentAlignment = Alignment.Center) {
+            Column(Modifier.width(360.dp).background(PANEL, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Sleep timer", color = TEXT, fontSize = 22.sp, fontWeight = FontWeight.Medium)
+                Text(sleepAt?.let { "The TV sleeps at ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))}" } ?: "The TV goes to sleep after", color = MUTED, fontSize = 15.sp, modifier = Modifier.padding(bottom = 6.dp))
+                val items = SleepTimer.CHOICES.map { m -> Limits.words(m) to { SleepTimer.set(ctx, m) } } + (if (sleepAt != null) listOf("Off" to { SleepTimer.set(ctx, null) }) else emptyList())
+                items.forEachIndexed { i, (label, act) ->
+                    val shape = RoundedCornerShape(12.dp)
+                    val (scale, glow, border) = focusStyle(ui, shape, zoom = 1.03f)
+                    Surface(
+                        onClick = { act(); onClose() },
+                        modifier = Modifier.pointer { act(); onClose() }.then(if (i == 0) Modifier.focusRequester(first) else Modifier).fillMaxWidth().height(50.dp),
+                        shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
+                        colors = ClickableSurfaceDefaults.colors(containerColor = TILE, focusedContainerColor = menuFocus(ui))
+                    ) {
+                        Box(Modifier.fillMaxSize().padding(horizontal = 18.dp), contentAlignment = Alignment.CenterStart) { Text(label, color = TEXT, fontSize = 17.sp) }
+                    }
+                }
+            }
+        }
+        LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
     }
 }
 
@@ -1206,7 +1336,7 @@ private fun AppMenu(app: TvApp, ui: Ui, onMove: (() -> Unit)?, onClose: () -> Un
                         onClick = act,
                         modifier = Modifier.pointer { act() }.then(if (i == 0) Modifier.focusRequester(focus) else Modifier).fillMaxWidth().height(50.dp),
                         shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
-                        colors = ClickableSurfaceDefaults.colors(containerColor = TILE, focusedContainerColor = TILE_FOCUSED)
+                        colors = ClickableSurfaceDefaults.colors(containerColor = TILE, focusedContainerColor = menuFocus(ui))
                     ) {
                         Box(Modifier.fillMaxSize().padding(horizontal = 18.dp), contentAlignment = Alignment.CenterStart) {
                             Text(label, color = TEXT, fontSize = 17.sp)
@@ -1234,7 +1364,7 @@ private fun InputsOverlay(inputs: List<Pair<String, String>>, ui: Ui, onClose: (
                         onClick = { onClose(); openInput(ctx, id) },
                         modifier = Modifier.pointer { onClose(); openInput(ctx, id) }.then(if (i == 0) Modifier.focusRequester(focus) else Modifier).fillMaxWidth().height(52.dp),
                         shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
-                        colors = ClickableSurfaceDefaults.colors(containerColor = TILE, focusedContainerColor = TILE_FOCUSED)
+                        colors = ClickableSurfaceDefaults.colors(containerColor = TILE, focusedContainerColor = menuFocus(ui))
                     ) {
                         Box(Modifier.fillMaxSize().padding(horizontal = 18.dp), contentAlignment = Alignment.CenterStart) {
                             Text(label, color = TEXT, fontSize = 17.sp)
