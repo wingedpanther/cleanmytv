@@ -33,4 +33,17 @@ describe('setup doctor', () => {
     expect(errnoOf('could not reach 192.168.68.64:44777 (EHOSTUNREACH).')).toBe('EHOSTUNREACH')
     expect(errnoOf('the TV closed the connection.')).toBeUndefined()
   })
+
+  it('points Linux at the local firewall when reachable subnet fails with EHOSTUNREACH or EACCES', () => {
+    const h = diagnose({ code: 'unreachable', errno: 'EHOSTUNREACH', host: '192.168.1.50', port: 5555 }, wifi('192.168.1.20'), 'linux')
+    expect(h[0]).toMatch(/ufw or firewalld/)
+    const h2 = diagnose({ code: 'refused', errno: 'EACCES', host: '192.168.1.50', port: 5555 }, wifi('192.168.1.20'), 'linux')
+    expect(h2[0]).toMatch(/ufw or firewalld/)
+  })
+
+  it('ignores Linux virtual bridges when checking local networks', () => {
+    const ifaces = { eth0: nic('192.168.1.20'), docker0: nic('172.17.0.1'), virbr0: nic('192.168.122.1') } as unknown as Ifaces
+    const h = diagnose({ code: 'timeout', host: '172.17.0.5', port: 5555 }, ifaces, 'linux')
+    expect(h.join(' ')).toMatch(/on 192\.168\.1\.x, and the TV is on 172\.17\.0\.x/)
+  })
 })

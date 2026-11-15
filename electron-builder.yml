@@ -17,6 +17,8 @@ extraResources:
     to: signing
   - from: resources/licenses
     to: licenses
+  - from: build/icon.png
+    to: icon.png
 # Fuses are switches baked into the Electron binary. Off: running the app as plain Node, NODE_OPTIONS
 # and --inspect, which would let another program borrow the app's identity and network permission.
 electronFuses:
@@ -53,5 +55,10 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
 linux:
+  category: Utility
   icon: build/icon.png
-  target: AppImage
+  target:
+    - target: AppImage
+      arch: [x64]
+appImage:
+  artifactName: CleanMyTV-${version}.AppImage

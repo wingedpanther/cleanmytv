@@ -1,6 +1,6 @@
 # CleanMyTV
 
-A free Mac and Windows app that cleans up your Android TV over Wi-Fi. It switches off the preinstalled
+A free Mac, Windows and Linux app that cleans up your Android TV over Wi-Fi. It switches off the preinstalled
 bloat and puts in CleanMyTV Home, an ad-free home screen you set up from your computer. You don't need
 Python, Java, Android Studio or `adb`.
 
@@ -116,6 +116,7 @@ Get the latest version from [Releases](https://github.com/wingedpanther/cleanmyt
 | Mac with Apple silicon (M1 and later) | `CleanMyTV-<version>-arm64.dmg` |
 | Mac with Intel | `CleanMyTV-<version>.dmg` |
 | Windows 10 or 11 | `CleanMyTV-Setup-<version>.exe` |
+| Linux (64-bit) | `CleanMyTV-<version>.AppImage` |
 
 Macs need macOS 13 Ventura or newer. The app asks GitHub for a newer version at most twice a day and
 links to it in the sidebar; it never downloads anything by itself.
@@ -139,6 +140,9 @@ time:
 - **Windows:** your browser may call the download uncommon, or even dangerous, because the installer is
   new and not signed. Keep it: in Chrome, open the downloads list and choose **Keep**. When SmartScreen
   says it protected your PC, choose **More info**, then **Run anyway**.
+- **Linux:** make the downloaded file executable (`chmod +x CleanMyTV-*.AppImage`) and run it. Ubuntu
+  22.04 and newer do not ship FUSE 2 by default, which AppImages need: install `libfuse2t64` (Ubuntu 24.04+)
+  or `libfuse2` (Ubuntu 22.04) first (`sudo apt install libfuse2t64` or `sudo apt install libfuse2`).
 
 ## Before you start: on the TV
 
@@ -321,6 +325,7 @@ npx tsx scripts/fake-tv.ts   # a pretend TV on 127.0.0.1:5556 to try the app wit
 UPSTREAM_DIR=<clone at the pinned commit> npm test
 npm run dist:mac             # dist/*.dmg   (on a Mac)
 npm run dist:win             # dist/*.exe   (on Windows, a Mac, or in CI)
+npm run dist:linux           # dist/*.AppImage (on Linux or in CI)
 ```
 
 To move to a newer upstream: review its changes, then `node scripts/pin-upstream.mjs <commit sha>`,

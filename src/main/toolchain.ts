@@ -3,10 +3,11 @@
 // installed system-wide.
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { createWriteStream, existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, readFileSync, chmodSync } from 'node:fs'
-import { join } from 'node:path'
+import { createWriteStream, existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, readFileSync, chmodSync, symlinkSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve, sep } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
+import { inflateRawSync } from 'node:zlib'
 import { paths } from './paths'
 import { log, progress } from './log'
 import type { ApplyResult, ToolId } from '@shared/api'
@@ -89,18 +90,83 @@ async function download(tool: ToolId, url: string, file: string): Promise<void> 
 }
 
 /**
+ * Unpacks a .zip archive in pure Node when the system `unzip` command is not installed on Linux.
+ * Preserves Unix file permissions and relative symlinks inside `into`, and refuses path traversal.
+ */
+export function unzipFile(archive: string, into: string): void {
+  const zip = readFileSync(archive)
+  const root = resolve(into)
+  const from = Math.max(0, zip.length - 65557)
+  let eocd = -1
+  for (let i = zip.length - 22; i >= from; i--) {
+    if (zip.readUInt32LE(i) === 0x06054b50) { eocd = i; break }
+  }
+  if (eocd < 0) throw new Error(`not a zip archive: ${archive}`)
+  const count = zip.readUInt16LE(eocd + 10)
+  let p = zip.readUInt32LE(eocd + 16)
+  for (let n = 0; n < count && p + 46 <= zip.length; n++) {
+    if (zip.readUInt32LE(p) !== 0x02014b50) throw new Error(`corrupt central directory in ${archive}`)
+    const versionMadeBy = zip.readUInt16LE(p + 4)
+    const method = zip.readUInt16LE(p + 10)
+    const csize = zip.readUInt32LE(p + 20)
+    const nameLen = zip.readUInt16LE(p + 28)
+    const extraLen = zip.readUInt16LE(p + 30)
+    const commentLen = zip.readUInt16LE(p + 32)
+    const extAttr = zip.readUInt32LE(p + 38)
+    const local = zip.readUInt32LE(p + 42)
+    const rawName = zip.toString('utf8', p + 46, p + 46 + nameLen)
+    p += 46 + nameLen + extraLen + commentLen
+
+    const dest = resolve(root, rawName)
+    if (dest !== root && !dest.startsWith(root + sep)) throw new Error(`unsafe path in zip: ${rawName}`)
+    if (zip.readUInt32LE(local) !== 0x04034b50) throw new Error(`corrupt local header in ${archive}`)
+    const dataStart = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28)
+    const unixMode = (versionMadeBy >> 8) === 3 ? (extAttr >>> 16) & 0xffff : 0
+    const fileType = unixMode & 0o170000
+
+    if (rawName.endsWith('/') || fileType === 0o040000) {
+      mkdirSync(dest, { recursive: true })
+      continue
+    }
+    const compressed = zip.subarray(dataStart, dataStart + csize)
+    const content = method === 0 ? Buffer.from(compressed) : method === 8 ? inflateRawSync(compressed) : null
+    if (!content) throw new Error(`unsupported zip compression method ${method} in ${rawName}`)
+    mkdirSync(dirname(dest), { recursive: true })
+    if (fileType === 0o120000) {
+      const target = content.toString('utf8')
+      const resolvedTarget = resolve(dirname(dest), target)
+      if (resolvedTarget !== root && !resolvedTarget.startsWith(root + sep)) throw new Error(`unsafe symlink in zip: ${rawName}`)
+      rmSync(dest, { force: true })
+      symlinkSync(target, dest)
+    } else {
+      const perm = (unixMode & 0o777) || 0o644
+      writeFileSync(dest, content, { mode: perm })
+      if (!win && (unixMode & 0o777)) chmodSync(dest, unixMode & 0o777)
+    }
+  }
+}
+
+/**
  * bsdtar (macOS, Windows 10 and later) reads .zip and .tar.gz; GNU tar on Linux reads only tar, so
- * zips go to unzip there.
+ * zips go to unzip there (with a pure-Node fallback if `unzip` is not installed).
  */
 async function extract(tool: ToolId, archive: string, into: string): Promise<void> {
   progress({ tool, received: 0, total: 0, phase: 'extract' })
   mkdirSync(into, { recursive: true })
   // Windows' own bsdtar, not a GNU tar from Git that reads "C:" as a remote host.
   const tar = win ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar'
-  const r = process.platform === 'linux' && archive.endsWith('.zip')
-    ? await run('download', 'unzip', ['-q', '-o', archive, '-d', into], { quiet: true })
-    : await run('download', tar, ['-xf', archive, '-C', into], { quiet: true })
-  if (r.code !== 0) throw new Error(`could not unpack ${archive}: ${r.out.trim()}`)
+  if (process.platform === 'linux' && archive.endsWith('.zip')) {
+    try {
+      const r = await run('download', 'unzip', ['-q', '-o', archive, '-d', into], { quiet: true })
+      if (r.code !== 0) throw new Error(`could not unpack ${archive}: ${r.out.trim()}`)
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') unzipFile(archive, into)
+      else throw e
+    }
+  } else {
+    const r = await run('download', tar, ['-xf', archive, '-C', into], { quiet: true })
+    if (r.code !== 0) throw new Error(`could not unpack ${archive}: ${r.out.trim()}`)
+  }
   rmSync(archive, { force: true })
 }
 
@@ -182,6 +248,7 @@ async function getPlatformTools(): Promise<void> {
   rmSync(dirs.platformTools, { recursive: true, force: true })
   renameSync(join(tmp, 'platform-tools'), dirs.platformTools)
   rmSync(tmp, { recursive: true, force: true })
+  if (!win && existsSync(adbPath())) chmodSync(adbPath(), 0o755)
   if (!platformToolsReady()) throw new Error('the platform-tools download did not contain adb')
 }
 

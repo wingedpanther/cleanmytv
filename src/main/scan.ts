@@ -8,9 +8,15 @@ export function isPrivateIpv4(address: string): boolean {
   return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(address)
 }
 
+/** Container and VM bridges on Linux (Docker, Podman, libvirt, LXC) have private IPs but no TVs. */
+export function isVirtualBridge(name: string): boolean {
+  return /^(docker|br-|veth|virbr|lxcbr|cni|podman)/i.test(name)
+}
+
 export function localSubnets(): string[] {
   const out = new Set<string>()
-  for (const list of Object.values(networkInterfaces())) {
+  for (const [name, list] of Object.entries(networkInterfaces())) {
+    if (isVirtualBridge(name)) continue
     for (const a of list ?? []) {
       if (a.family !== 'IPv4' || a.internal) continue
       // A /24 around this address is where a home TV sits.
