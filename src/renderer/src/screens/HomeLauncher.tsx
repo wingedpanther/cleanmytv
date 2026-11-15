@@ -1102,7 +1102,7 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
         <input
           ref={file}
           type="file"
-          accept="image/*"
+          accept="image/*,.heic,.heif"
           hidden
           onChange={(e) => {
             const f = e.target.files?.[0]
@@ -1817,7 +1817,7 @@ function SlideshowCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: S
           <input
             ref={file}
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             multiple
             hidden
             onChange={(e) => {

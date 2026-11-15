@@ -1141,6 +1141,7 @@ private fun FolderOverlay(name: String, list: List<TvApp>, ui: Ui, onClose: () -
 private data class Moving(val kind: String, val pkg: String, val label: String)
 
 private val DONE_KEYS = setOf(Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.Back, Key.Escape)
+private val OK_KEYS = setOf(Key.DirectionCenter, Key.Enter, Key.NumPadEnter)
 
 /**
  * What a long press on a tile offers (Discord request): Move, Hide, App info (where Android keeps Force stop
@@ -1165,8 +1166,20 @@ private fun AppMenu(app: TvApp, ui: Ui, onMove: (() -> Unit)?, onClose: () -> Un
         add("App info" to { open(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkgUri)) })
         if (installed) add("Uninstall" to { open(android.content.Intent(android.content.Intent.ACTION_DELETE, pkgUri)) })
     }
+    // The menu opens while OK is still held: that press's repeats and its release would pick Move. Only a
+    // press that starts inside the menu counts.
+    var fresh by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Box(Modifier.fillMaxSize().background(scrim(ui.cfg, 0.85f)), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.fillMaxSize().background(scrim(ui.cfg, 0.85f)).onPreviewKeyEvent { e ->
+                when {
+                    e.key !in OK_KEYS -> false
+                    e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0 -> { fresh = true; false }
+                    else -> !fresh
+                }
+            },
+            contentAlignment = Alignment.Center
+        ) {
             Column(Modifier.width(360.dp).background(PANEL, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(app.label, color = TEXT, fontSize = 22.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 6.dp))
                 items.forEachIndexed { i, (label, act) ->

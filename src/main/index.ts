@@ -16,6 +16,7 @@ import { reconnect } from './reconnect'
 import { bootCheck } from './bootcheck'
 import { check as checkUpdate, isNewer, type UpdateCache } from './updates'
 import * as updater from './updater'
+import { toJpeg } from './picture'
 import { autoConnect, forgetTv, listTvs, rememberTv, setThumb } from './tvlist'
 import * as web from './web'
 import * as home from './home'
@@ -175,6 +176,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   saveHomeLook: (slot) => home.saveLook(slot),
   setHomeConfig: (change) => home.setConfig(change ?? {}),
   setHomeWallpaper: (jpeg) => home.setWallpaper(jpeg),
+  pictureToJpeg: (bytes) => toJpeg(bytes),
   applyHomeTheme: (theme) => themes.apply(theme),
   themeBackup: () => themes.backup(),
   restoreThemeBackup: () => themes.restore(),

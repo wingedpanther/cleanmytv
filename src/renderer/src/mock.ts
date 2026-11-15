@@ -388,6 +388,9 @@ export function installMock(): void {
       homeConfig.has_wallpaper = jpeg !== null
       return { ...homeConfig }
     },
+    async pictureToJpeg() {
+      throw new Error("This picture's format can't be opened here. Save it as a JPEG or PNG and choose that.")
+    },
     async applyHomeTheme(theme) {
       await wait(900)
       themeSavedAt ??= Date.now()

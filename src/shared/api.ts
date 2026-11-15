@@ -529,6 +529,8 @@ export interface CytvApi {
   saveHomeLook(slot: LookSlot): Promise<HomeConfig>
   /** A prepared JPEG (base64) for the home screen, or null to remove it. */
   setHomeWallpaper(jpegBase64: string | null): Promise<HomeConfig>
+  /** A picture the window can't open (HEIC), as JPEG bytes. Mac only; elsewhere it fails with a message. */
+  pictureToJpeg(bytes: Uint8Array): Promise<Uint8Array>
   /** Puts a theme on the TV. Before the first one, saves the TV's look on this computer. */
   applyHomeTheme(theme: HomeTheme): Promise<HomeConfig>
   /** The look saved before the first theme on this TV, if any. */

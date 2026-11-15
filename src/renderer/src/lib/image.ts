@@ -12,7 +12,7 @@ export interface PreparedImage extends ImageFile {
 
 /** Centre-crops to 1920x1080 and exports a JPEG, lowering quality until it fits under 300 KB. */
 export async function prepareWallpaper(file: File, name?: string): Promise<PreparedImage> {
-  const bitmap = await createImageBitmap(file)
+  const bitmap = await openPicture(file)
   const canvas = document.createElement('canvas')
   canvas.width = TV_W
   canvas.height = TV_H
@@ -27,6 +27,16 @@ export async function prepareWallpaper(file: File, name?: string): Promise<Prepa
   ctx.drawImage(bitmap, (TV_W - w) / 2, (TV_H - h) / 2, w, h)
   bitmap.close()
   return canvasJpeg(canvas, name ?? file.name)
+}
+
+/** Chromium can't read HEIC, what iPhones and Macs save photos as: the Mac turns those into JPEG first. */
+async function openPicture(file: File): Promise<ImageBitmap> {
+  try {
+    return await createImageBitmap(file)
+  } catch {
+    const jpeg = await window.cytv.pictureToJpeg(new Uint8Array(await file.arrayBuffer()))
+    return createImageBitmap(new Blob([new Uint8Array(jpeg)], { type: 'image/jpeg' }))
+  }
 }
 
 /** A JPEG of the canvas, lowering quality until it fits under 300 KB. */
