@@ -323,9 +323,16 @@ describe('CleanMyTV Home', () => {
     await expect(H.setConfig({ weather_lat: 91 })).rejects.toThrow(/weather_lat/)
     await expect(H.setConfig({ weather_unit: 'k' as never })).rejects.toThrow(/weather_unit/)
     await H.setConfig({ sections: ['dock', 'grid'] })
-    expect(tv.commands.at(-1)).toBe('cmd notification disallow_listener io.github.wingedpanther.cleanmytv.home/io.github.wingedpanther.cleanmytv.home.NowPlayingListener')
-    await H.setConfig({ sections: ['nowplaying', 'dock', 'grid'] })
-    expect(tv.commands.at(-1)).toBe('cmd notification allow_listener io.github.wingedpanther.cleanmytv.home/io.github.wingedpanther.cleanmytv.home.NowPlayingListener')
+    expect(tv.commands.slice(-2)).toEqual([
+      'cmd notification disallow_listener io.github.wingedpanther.cleanmytv.home/io.github.wingedpanther.cleanmytv.home.NowPlayingListener',
+      'appops set io.github.wingedpanther.cleanmytv.home GET_USAGE_STATS default'
+    ])
+    await H.setConfig({ sections: ['nowplaying', 'recent', 'dock', 'grid'] })
+    expect(tv.commands.slice(-2)).toEqual([
+      'cmd notification allow_listener io.github.wingedpanther.cleanmytv.home/io.github.wingedpanther.cleanmytv.home.NowPlayingListener',
+      // Recently used reads which apps the TV opened, so it gets usage access only while it's on.
+      'appops set io.github.wingedpanther.cleanmytv.home GET_USAGE_STATS allow'
+    ])
   })
 
   it('gives Home back to the stock launcher from CleanMyTV Home', async () => {

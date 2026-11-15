@@ -101,4 +101,19 @@ class ExtrasTest {
         assertEquals(c, HomeConfig.fromJson(c.toJson()))
         assertTrue("memory" in HomeConfig.BUTTON_ACTIONS)
     }
+
+    @Test fun `shading keeps today's look until someone moves a slider`() {
+        val d = HomeConfig()
+        assertEquals(listOf(60, 40, 80, 65, 50, 100), listOf(d.shadeTop, d.shadeTopReach, d.shadeBottom, d.shadeBottomReach, d.wash, d.washReach))
+        val c = HomeConfig.fromJson(JSONObject("""{"shade_top":0,"shade_top_reach":130,"shade_bottom":-5,"shade_bottom_reach":30,"wash":75,"wash_reach":0}"""))
+        assertEquals(listOf(0, 100, 0, 30, 75, 10), listOf(c.shadeTop, c.shadeTopReach, c.shadeBottom, c.shadeBottomReach, c.wash, c.washReach))
+        assertEquals(c, HomeConfig.fromJson(c.toJson()))
+    }
+
+    @Test fun `recently used is newest first, once each, and only apps Home shows`() {
+        val opened = listOf("netflix", "self", "youtube", "netflix", "gone", "plex", "youtube")
+        assertEquals(listOf("netflix", "youtube", "plex"), Recent.order(opened, setOf("netflix", "youtube", "plex", "self"), "self"))
+        assertEquals(listOf("netflix"), Recent.order(opened, setOf("netflix", "youtube"), "self", limit = 1))
+        assertEquals(listOf("recent", "dock", "grid"), HomeConfig.fromJson(JSONObject("""{"sections":["recent","dock","grid"]}""")).sections)
+    }
 }

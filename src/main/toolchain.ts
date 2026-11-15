@@ -9,6 +9,7 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { inflateRawSync } from 'node:zlib'
 import { paths } from './paths'
+import { knock } from './scan'
 import { log, progress } from './log'
 import type { ApplyResult, ToolId } from '@shared/api'
 
@@ -279,7 +280,25 @@ export const KEYSTORE = { password: 'cleanyourtv', alias: 'cleanyourtv' }
  * Pair with Google's adb, connect, and switch the TV to classic network ADB on 5555 (upstream
  * TROUBLESHOOTING: Google TVs whose USB debugging never opens 5555). Port 5555 lasts until reboot.
  */
-export async function pair(host: string, pairPort: number, code: string, connectPort: number): Promise<ApplyResult> {
+/**
+ * adb only says "protocol fault" when it can't reach the TV, so after a failed pairing the ports say why.
+ * Only afterwards: a stray connection to the pairing port can close the pairing window.
+ */
+export async function whyPairFailed(host: string, pairPort: number, connectPort: number, knockAt: typeof knock = knock): Promise<string> {
+  const pairing = await knockAt(host, pairPort, 2000)
+  if (pairing === 'open') return 'The TV turned the pairing down. Check the 6-digit code, which changes each time the pairing window opens.'
+  // The connect port, Cast and the remote service answer on any Google or Android TV that is on.
+  const others = await Promise.all([connectPort, 8009, 6466].map((p) => knockAt(host, p, 2000)))
+  if (pairing === 'refused' && others.every((k) => k === 'refused')) {
+    return `Something at ${host} turns every connection away, even the TV's Cast service, so another device may have the same address. Check the IP address on the TV's network screen, or give the TV a fixed IP in its network settings.`
+  }
+  if (pairing === 'silent' && others.every((k) => k === 'silent')) {
+    return `Nothing answers at ${host}. Check that the TV is on and on the same network as this computer.`
+  }
+  return `The TV isn't accepting pairing on port ${pairPort}. The pairing window probably closed: open Pair device with pairing code again, keep it on screen, and use the new code and port.`
+}
+
+export async function pair(host: string, pairPort: number, code: string, connectPort: number, knockAt: typeof knock = knock): Promise<ApplyResult> {
   const port = (p: unknown): boolean => Number.isInteger(p) && (p as number) >= 1 && (p as number) <= 65535
   if (!/^[A-Za-z0-9.-]+$/.test(host) || !/^\d{6}$/.test(code) || !port(pairPort) || !port(connectPort)) {
     return { ok: false, summary: 'Enter the IP address, both ports and the 6-digit code shown on the TV.', warnings: [] }
@@ -303,7 +322,7 @@ export async function pair(host: string, pairPort: number, code: string, connect
     await run('pair', adb, ['kill-server'], { quiet: true })
     p = await attempt()
   }
-  if (!/Successfully paired/i.test(p.out)) return { ok: false, summary: 'Pairing failed. Check the pairing port and code, which change each time the dialog opens.', warnings: [p.out.trim()] }
+  if (!/Successfully paired/i.test(p.out)) return { ok: false, summary: await whyPairFailed(host, pairPort, connectPort, knockAt), warnings: [p.out.trim()] }
   const target = `${host}:${connectPort}`
   const c = await run('pair', adb, ['connect', target])
   if (!/connected to/i.test(c.out)) return { ok: false, summary: `Paired, but could not connect to ${target}. Use the port shown under Wireless debugging (not the pairing port).`, warnings: [c.out.trim()] }

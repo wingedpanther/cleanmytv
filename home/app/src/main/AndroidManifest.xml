@@ -23,6 +23,8 @@
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <!-- Uninstall in a tile's long-press menu: Android still asks the owner to confirm. -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- Recently used: the desktop app grants usage access over ADB only while that row is on. -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
 
     <!-- Android 11+ hides other apps unless we say which ones we look for. -->
     <queries>

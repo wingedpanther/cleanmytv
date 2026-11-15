@@ -37,6 +37,13 @@ data class HomeConfig(
     val focus: String = "lift", // lift, glow, outline, none
     val background: Long = 0xFF1C2A1F,
     val wallpaperDim: Int = 35, // percent of black over the wallpaper
+    // Shading over the wallpaper, each a strength and how far it reaches, in percent of the screen's height
+    val shadeTop: Int = 60, // behind the top bar (Shelf layout)
+    val shadeTopReach: Int = 40,
+    val shadeBottom: Int = 80, // behind the app rows
+    val shadeBottomReach: Int = 65,
+    val wash: Int = 50, // the focused app's colour, with followColour
+    val washReach: Int = 100,
     // Layout
     val order: List<String> = emptyList(), // apps first in this order, the rest alphabetically
     val hidden: Set<String> = emptySet(),
@@ -115,6 +122,12 @@ data class HomeConfig(
         .put("focus", focus)
         .put("background", hex(background))
         .put("wallpaper_dim", wallpaperDim)
+        .put("shade_top", shadeTop)
+        .put("shade_top_reach", shadeTopReach)
+        .put("shade_bottom", shadeBottom)
+        .put("shade_bottom_reach", shadeBottomReach)
+        .put("wash", wash)
+        .put("wash_reach", washReach)
         .put("order", JSONArray(order))
         .put("hidden", JSONArray(hidden.sorted()))
         .put("dock_size", dockSize)
@@ -171,7 +184,7 @@ data class HomeConfig(
         private fun hex(c: Long) = "#%06X".format(c and 0xFFFFFF)
         val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory")
         private val THEME_PICTURE = Regex("^[a-z0-9-]{1,40}:[0-9]$")
-        private val SECTIONS = setOf("nowplaying", "dock", "rows", "folders", "grid")
+        private val SECTIONS = setOf("nowplaying", "recent", "dock", "rows", "folders", "grid")
         val BUTTON_ACTIONS = QUICK - "inputs" + setOf("inputs", "home", "back", "none", "app", "next_wallpaper")
         /** App shortcuts in the top bar, after the quick-settings icons that fit. */
         const val MAX_QUICK_APPS = 6
@@ -234,6 +247,12 @@ data class HomeConfig(
                 focus = choice("focus", base.focus, setOf("lift", "glow", "outline", "none")),
                 background = colour("background", base.background),
                 wallpaperDim = int("wallpaper_dim", base.wallpaperDim, 0, 80),
+                shadeTop = int("shade_top", base.shadeTop, 0, 100),
+                shadeTopReach = int("shade_top_reach", base.shadeTopReach, 0, 100),
+                shadeBottom = int("shade_bottom", base.shadeBottom, 0, 100),
+                shadeBottomReach = int("shade_bottom_reach", base.shadeBottomReach, 0, 100),
+                wash = int("wash", base.wash, 0, 100),
+                washReach = int("wash_reach", base.washReach, 10, 100),
                 order = pkgs("order") ?: base.order,
                 hidden = pkgs("hidden")?.toSet() ?: base.hidden,
                 dockSize = int("dock_size", base.dockSize, 0, 8),

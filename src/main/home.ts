@@ -21,6 +21,7 @@ export const DEFAULTS: HomeConfig = {
   layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
   rows: [], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false,
   accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
+  shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
   order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
   icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, intro: true, wallpaper_from: '',
   lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge',
@@ -47,7 +48,7 @@ const CHOICES = {
 } as const
 
 const LISTS = {
-  sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid']
+  sections: ['nowplaying', 'recent', 'dock', 'rows', 'folders', 'grid']
 } as const
 
 const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory'] as const
@@ -65,7 +66,8 @@ const RANGES = {
   wallpaper_dim: [0, 80], dock_size: [0, 8], columns: [3, 8], idle_minutes: [0, 60],
   viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300],
   fire_volume: [0, 100], fire_timer: [0, 240], slide_minutes: [0, 240], tile_glass: [0, 60],
-  day_at: [0, 24 * 60 - 1], night_at: [0, 24 * 60 - 1]
+  day_at: [0, 24 * 60 - 1], night_at: [0, 24 * 60 - 1],
+  shade_top: [0, 100], shade_top_reach: [0, 100], shade_bottom: [0, 100], shade_bottom_reach: [0, 100], wash: [0, 100], wash_reach: [10, 100]
 } as const
 
 const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night', 'power_on_input'] as const
@@ -204,6 +206,7 @@ export async function install(chosen?: string): Promise<InstallResult> {
   // Android switches accessibility services off when their app is reinstalled: turn the service back on.
   if (cfg && needsService(cfg)) await addService(KEY_SERVICE)
   if (cfg) await nowPlayingAccess(cfg.sections.includes('nowplaying'))
+  if (cfg) await usageAccess(cfg.sections.includes('recent'))
   const again = restored ? " It started empty, so your settings and wallpaper came back from this computer's copy." : ''
   return {
     ok: true,
@@ -619,6 +622,7 @@ export async function setConfig(change: Partial<HomeConfig>): Promise<HomeConfig
   log('theme', 'cmd', `set ${JSON.stringify(checked, (k, v) => (PRIVATE_SETTINGS.includes(k) ? '(hidden)' : v))}`)
   const cfg = keep(parse(await call('set64', Buffer.from(json).toString('base64'))))
   if (change.sections) await nowPlayingAccess(cfg.sections.includes('nowplaying'))
+  if (change.sections) await usageAccess(cfg.sections.includes('recent'))
   // Going back to the input at power on (#94) is the remote-button service's job too.
   if (checked.power_on_input === true) await addService(KEY_SERVICE)
   else if (checked.power_on_input === false && !needsService(cfg)) await dropServices(HOME_PKG)
@@ -738,6 +742,11 @@ async function restoreBackup(): Promise<boolean> {
 /** Notification-listener access for the Now playing section: given with the section, taken away without it. */
 async function nowPlayingAccess(on: boolean): Promise<void> {
   await T.sh('theme', `cmd notification ${on ? 'allow' : 'disallow'}_listener ${NOW_LISTENER}`).catch(() => '')
+}
+
+/** Lets the launcher see which apps the TV opened, for Recently used; on only while that row is. */
+async function usageAccess(on: boolean): Promise<void> {
+  await T.sh('theme', `appops set ${HOME_PKG} GET_USAGE_STATS ${on ? 'allow' : 'default'}`).catch(() => '')
 }
 
 /** Uploads a JPEG in base64 pieces, then has the launcher check its MD5 and swap it in. */

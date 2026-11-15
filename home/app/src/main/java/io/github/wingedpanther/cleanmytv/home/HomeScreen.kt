@@ -158,7 +158,7 @@ private val GAP = 16.dp
 private val BLEED = 22.dp
 
 /** Everything the layouts draw, worked out once from the apps on the TV and the settings. */
-private class Home(all: List<TvApp>, val cfg: HomeConfig) {
+private class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<String> = emptyList()) {
     // "Hide locked apps": they stay out of every section, and only open from elsewhere with the PIN.
     private val apps = if (cfg.lockOn && cfg.lockShow == "hide") all.filter { it.pkg !in cfg.lockApps } else all
     private val byPkg = apps.associateBy { it.pkg }
@@ -170,9 +170,11 @@ private class Home(all: List<TvApp>, val cfg: HomeConfig) {
     val grid = shown.filter { it.pkg !in inFolders && it !in dock && it !in other }
     val rows = cfg.rows.map { g -> g.name to g.apps.mapNotNull { byPkg[it] }.filter { it.pkg !in cfg.hidden } }.filter { it.second.isNotEmpty() }
     val folders = (cfg.folders.map { g -> g.name to g.apps.mapNotNull { byPkg[it] } } + listOf("Other apps" to other)).filter { it.second.isNotEmpty() }
+    val recent = recentPkgs.mapNotNull { byPkg[it] }.filter { it.pkg !in cfg.hidden }
     /** The tile that takes focus when Home opens, as "<section>:<package>" (an app can sit in two sections). */
     val first: String? = cfg.sections.firstNotNullOfOrNull { s ->
         when (s) {
+            "recent" -> recent.firstOrNull()?.let { "recent:${it.pkg}" }
             "dock" -> dock.firstOrNull()?.let { "dock:${it.pkg}" }
             "rows" -> rows.firstOrNull()?.second?.firstOrNull()?.let { "row0:${it.pkg}" }
             "grid" -> grid.firstOrNull()?.let { "grid:${it.pkg}" }
@@ -268,7 +270,13 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     }
     val scope = rememberCoroutineScope()
 
-    val home = Home(apps, cfg)
+    // Read again each time Home comes back, which is when the list can have changed.
+    var recentPkgs by remember { mutableStateOf<List<String>>(emptyList()) }
+    val wantRecent = "recent" in cfg.sections
+    LaunchedEffect(appsVersion, wantRecent, apps) {
+        if (wantRecent) recentPkgs = withContext(Dispatchers.Default) { Recent.apps(ctx, apps.map { it.pkg }.toSet()) }
+    }
+    val home = Home(apps, cfg, if (wantRecent) recentPkgs else emptyList())
     val accent = Color(cfg.accent)
     // Quick-settings icons this TV can actually open; Inputs only on TVs that have inputs.
     val all = remember { quickActions() }
@@ -378,10 +386,12 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         }
         if (intro.value < 1f) Sunrise(intro.value)
         // The focused app's colour washes in from the top; the wallpaper still shows through.
-        if (cfg.followColour) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(tint.copy(alpha = tint.alpha * 0.5f), Color.Transparent))))
+        if (cfg.followColour && cfg.wash > 0) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to tint.copy(alpha = tint.alpha * cfg.wash / 100f), cfg.washReach / 100f to Color.Transparent)))
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = shown }) {
             // Rows sit over the lower half of the photo; a ground-tinted shade keeps their names readable.
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to scrim(cfg, 0.8f))))
+            if (cfg.shadeBottom > 0 && cfg.shadeBottomReach > 0) {
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(1f - cfg.shadeBottomReach / 100f to Color.Transparent, 1f to scrim(cfg, cfg.shadeBottom / 100f))))
+            }
             when (cfg.layout) {
                 "split" -> SplitLayout(home, ui, quick, onQuick)
                 "rail" -> RailLayout(home, ui, quick, onQuick)
@@ -493,7 +503,9 @@ private class Ui(
 @Composable
 private fun ShelfLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (QuickAction) -> Unit) {
     val cfg = ui.cfg
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(scrim(cfg, 0.6f), Color.Transparent), endY = 420f)))
+    if (cfg.shadeTop > 0 && cfg.shadeTopReach > 0) {
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to scrim(cfg, cfg.shadeTop / 100f), cfg.shadeTopReach / 100f to Color.Transparent)))
+    }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val open = maxHeight * (cfg.topSpace / 100f)
         Column(Modifier.fillMaxSize()) {
@@ -601,6 +613,10 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
         CompositionLocalProvider(LocalBringIntoViewSpec provides STAY) { LazyColumn(Modifier.fillMaxSize().fadeTop(), state = list, contentPadding = padding) {
             for (s in cfg.sections) when (s) {
                 "nowplaying" -> ui.track?.let { t -> item("nowplaying") { NowPlayingCard(t, ui) } }
+                "recent" -> if (home.recent.isNotEmpty()) {
+                    item("recent-title") { SectionTitle(cfg.names["recent"] ?: "Recently used") }
+                    item("recent") { TileRow("recent", home.recent, ui, 148.dp * (cfg.tileScale / 100f), big = false, rowSpec) }
+                }
                 "dock" -> if (home.dock.isNotEmpty()) item("dock") {
                     TileRow("dock", home.dock, ui, dockW, big = true, rowSpec)
                 }
@@ -628,6 +644,7 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
 private fun sectionKeys(home: Home, ui: Ui, showFolders: Boolean): List<String> = buildList {
     for (s in ui.cfg.sections) when (s) {
         "nowplaying" -> if (ui.track != null) add("nowplaying")
+        "recent" -> if (home.recent.isNotEmpty()) { add("recent-title"); add("recent") }
         "dock" -> if (home.dock.isNotEmpty()) add("dock")
         "rows" -> home.rows.indices.forEach { add("row$it-title"); add("row$it") }
         "folders" -> if (showFolders && home.folders.isNotEmpty()) { add("folders-title"); add("folders") }
@@ -822,7 +839,7 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
 /** Opens an app, through the PIN pad when it's locked. */
 private fun launch(ctx: android.content.Context, app: TvApp) {
     val i = if (Lock.needsPin(ctx, app.pkg)) LockActivity.intent(ctx, app.pkg, app.launch) else app.launch
-    runCatching { ctx.startActivity(i) }.onFailure { Log.w(TAG, "launch ${app.pkg}: $it") }
+    runCatching { ctx.startActivity(i); Recent.note(ctx, app.pkg) }.onFailure { Log.w(TAG, "launch ${app.pkg}: $it") }
 }
 
 /** Rounded rectangle, rounded square, squircle (a superellipse, like Samsung's and Belle UI's) or circle. */

@@ -682,8 +682,8 @@ const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, num
   { id: 'rail', label: 'Rail', hint: 'Icons down the left edge that open with labels.', mini: [[3, 6, 6, 84, true], [70, 6, 24, 8, true], [16, 24, 78, 28, false], [16, 60, 78, 18, true]] }
 ]
 
-const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: 'Now playing', dock: 'Dock', rows: 'Rows', folders: 'Folders', grid: 'All apps' }
-const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'dock', 'rows', 'folders', 'grid']
+const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: 'Now playing', recent: 'Recently used', dock: 'Dock', rows: 'Rows', folders: 'Folders', grid: 'All apps' }
+const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'recent', 'dock', 'rows', 'folders', 'grid']
 const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'settings']
 /** As the launcher's HomeConfig.MAX_QUICK_APPS. */
 const MAX_QUICK_APPS = 6
@@ -761,6 +761,11 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
             <span className="hint">Your own words for the heading above the grid. Empty keeps "All apps".</span>
             <input type="text" maxLength={24} value={cfg.names.all_apps ?? ''} placeholder="All apps" onChange={(e) => set({ names: { ...cfg.names, all_apps: e.target.value } }, 700)} />
           </label>
+          {cfg.sections.includes('recent') && (
+            <p className="small muted" style={{ marginTop: 10 }}>
+              Recently used shows the last 8 apps the TV opened, newest first, whichever way they were opened.
+            </p>
+          )}
         </div>
         <div className="card">
           <h2>Quick settings</h2>
@@ -1079,18 +1084,16 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
             : "Every logo in two shades of your accent, on your theme's colours."}
           {cfg.icon_style !== 'banner' && ' An app without a usable logo shows its first letter.'}
         </p>
-        {cfg.icon_style !== 'banner' && (
-          <>
-            <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Tile shape</p>
-            <div className="seg">
-              {([['wide', 'Wide'], ['square', 'Square'], ['squircle', 'Squircle'], ['round', 'Round']] as const).map(([id, label]) => (
-                <button key={id} className={cfg.tile_shape === id ? 'on' : ''} onClick={() => set({ tile_shape: id })}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+        {/* Shown under Banners too, so people find it: a banner is the app's own wide picture and keeps its shape. */}
+        <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>Tile shape</p>
+        <div className="seg">
+          {([['wide', 'Wide'], ['square', 'Square'], ['squircle', 'Squircle'], ['round', 'Round']] as const).map(([id, label]) => (
+            <button key={id} className={cfg.icon_style !== 'banner' && cfg.tile_shape === id ? 'on' : ''} disabled={cfg.icon_style === 'banner'} onClick={() => set({ tile_shape: id })}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {cfg.icon_style === 'banner' && <p className="small muted">Pick Colour, Mono or Duotone to change the shape. Banners stay wide.</p>}
         {cfg.icon_style === 'mono' && (
           <Slider label="Glass" hint="How much the tile behind each logo shows. Lower lets more of the wallpaper through." value={cfg.tile_glass} min={0} max={60} unit="%" onChange={(v) => set({ tile_glass: v }, 250)} />
         )}
@@ -1124,11 +1127,51 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
           )}
         </div>
         <Slider label="Darken the wallpaper" hint="Keeps names and the clock readable on bright pictures." value={cfg.wallpaper_dim} min={0} max={80} unit="%" onChange={(v) => set({ wallpaper_dim: v }, 300)} />
+        <Shading cfg={cfg} set={set} />
         <Toggle label="Sunrise when it changes" hint="A new wallpaper starts dim and the light comes in from the top. Off when the TV's animations are off." checked={cfg.intro} onChange={(v) => set({ intro: v })} />
         <Colour label="Background colour" hint="Behind everything when there's no wallpaper. Keep it dark: text is white." value={cfg.background} onChange={(c, w) => set({ background: c }, w)} />
       </div>
     </>
   )
+}
+
+/** The shades over the wallpaper, top and bottom, and the app colour wash: how strong and how far each reaches. */
+function Shading({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
+  const changed = SHADING.some((k) => cfg[k] !== SHADING_DEFAULTS[k])
+  return (
+    <>
+      <p style={{ margin: '18px 0 4px', fontWeight: 600 }}>Shading</p>
+      <p className="small muted" style={{ marginTop: 0 }}>Shades in your background colour keep the top bar and the app names readable. Reach is how far down or up each one goes.</p>
+      {cfg.layout === 'shelf' ? (
+        <>
+          <Slider label="Top shade" value={cfg.shade_top} min={0} max={100} unit="%" onChange={(v) => set({ shade_top: v }, 300)} />
+          <Slider label="Top shade reach" value={cfg.shade_top_reach} min={0} max={100} unit="%" onChange={(v) => set({ shade_top_reach: v }, 300)} />
+        </>
+      ) : (
+        <p className="small muted">The top shade is part of the Shelf layout.</p>
+      )}
+      <Slider label="Bottom shade" value={cfg.shade_bottom} min={0} max={100} unit="%" onChange={(v) => set({ shade_bottom: v }, 300)} />
+      <Slider label="Bottom shade reach" value={cfg.shade_bottom_reach} min={0} max={100} unit="%" onChange={(v) => set({ shade_bottom_reach: v }, 300)} />
+      {cfg.follow_colour ? (
+        <>
+          <Slider label="App colour" hint="The focused app's colour, washing in from the top." value={cfg.wash} min={0} max={100} unit="%" onChange={(v) => set({ wash: v }, 300)} />
+          <Slider label="App colour reach" value={cfg.wash_reach} min={10} max={100} unit="%" onChange={(v) => set({ wash_reach: v }, 300)} />
+        </>
+      ) : (
+        <p className="small muted">Turn on Background takes the app's colour, under Focus, to set its strength and reach here.</p>
+      )}
+      {changed && (
+        <button className="btn ghost" style={{ marginTop: 4 }} onClick={() => set(Object.fromEntries(SHADING.map((k) => [k, SHADING_DEFAULTS[k]])))}>
+          Back to the usual shading
+        </button>
+      )}
+    </>
+  )
+}
+
+const SHADING = ['shade_top', 'shade_top_reach', 'shade_bottom', 'shade_bottom_reach', 'wash', 'wash_reach'] as const
+const SHADING_DEFAULTS: Pick<HomeConfig, (typeof SHADING)[number]> = {
+  shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100
 }
 
 function WidgetsTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {

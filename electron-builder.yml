@@ -44,6 +44,13 @@ mac:
   # The scan and ADB connection reach devices on the home network.
   extendInfo:
     NSLocalNetworkUsageDescription: CleanMyTV connects to your Android TV on your home network.
+    # The services the TV search looks for (#65). macOS wants them named before it asks for local
+    # network access.
+    NSBonjourServices:
+      - _androidtvremote2._tcp
+      - _adb-tls-connect._tcp
+      - _adb-tls-pairing._tcp
+      - _adb._tcp
 win:
   icon: build/icon.ico
   target:
@@ -54,6 +61,8 @@ nsis:
   artifactName: CleanMyTV-Setup-${version}.exe
   oneClick: false
   allowToChangeInstallationDirectory: true
+  # Stops on Windows 8.1 and older, and on 32-bit Windows, with a message (#107).
+  include: build/installer.nsh
 linux:
   category: Utility
   icon: build/icon.png

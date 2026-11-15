@@ -480,6 +480,10 @@ const FEATURES: Record<string, string> = {
   'com.android.webview': 'web pages inside apps, including YouTube ads',
   'com.tcl.android.webview': 'web pages inside apps, including YouTube ads',
   'com.mediatek.support.webview': 'web pages inside apps, including YouTube ads',
+  // TCL's phone app (TCL Home, once T-Cast) talks to these (#81): with them off it can't find the TV. ttvs also
+  // carries TCL's viewing analytics, so it's still there to tick for anyone who doesn't use the app.
+  'com.tcl.ttvs': "TCL's phone app (TCL Home), which also sends TCL viewing data",
+  'com.tcl.magiconnectfree': "TCL's phone app (T-Cast) and phone mirroring",
   // Streaming apps: people pick their TV's list for the bloat, not to lose what they watch. Many lists
   // switch these off, so they were ticked and had to be turned back on by hand.
   'com.netflix.ninja': 'Netflix',

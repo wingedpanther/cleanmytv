@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { configurePaths, paths } from '../src/main/paths'
-import { pair, unzipFile } from '../src/main/toolchain'
+import { pair, unzipFile, whyPairFailed } from '../src/main/toolchain'
+import type { Knock } from '../src/main/scan'
 
 let calls: string
 
@@ -43,9 +44,30 @@ describe.skipIf(process.platform === 'win32')('pair', () => {
 
   it("doesn't restart anything for a wrong code", async () => {
     fakeAdb('error: Failed: wrong password')
-    const r = await pair('192.168.1.50', 37000, '123456', 41000)
+    const r = await pair('192.168.1.50', 37000, '123456', 41000, async () => 'open')
     expect(r.ok).toBe(false)
+    expect(r.summary).toMatch(/6-digit code/)
     expect(made()).toEqual(['pair 192.168.1.50:37000'])
+  })
+})
+
+describe('why pairing failed', () => {
+  const ports = (pairing: Knock, rest: Knock) => async (_h: string, port: number): Promise<Knock> => (port === 37000 ? pairing : rest)
+
+  it('blames the code when the pairing port answers', async () => {
+    expect(await whyPairFailed('192.168.1.3', 37000, 41000, ports('open', 'open'))).toMatch(/6-digit code/)
+  })
+
+  it('says the pairing window closed when only the pairing port turns it away', async () => {
+    expect(await whyPairFailed('192.168.1.3', 37000, 41000, ports('refused', 'open'))).toMatch(/pairing window probably closed/)
+  })
+
+  it('suspects another device on the address when every port turns it away, Cast too', async () => {
+    expect(await whyPairFailed('192.168.1.3', 37000, 41000, ports('refused', 'refused'))).toMatch(/another device may have the same address/)
+  })
+
+  it('says nothing answers when the TV is off or elsewhere', async () => {
+    expect(await whyPairFailed('192.168.1.3', 37000, 41000, ports('silent', 'silent'))).toMatch(/Nothing answers at 192\.168\.1\.3/)
   })
 })
 

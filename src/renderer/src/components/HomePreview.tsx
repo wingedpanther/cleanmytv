@@ -143,6 +143,16 @@ function Sections({ apps, cfg, width, dockW, showFolders = true }: { apps: TvApp
               ))}
             </div>
           )
+        // A stand-in: on the TV it's the apps opened last, newest first.
+        if (s === 'recent')
+          return (
+            <div key={s}>
+              <Title>Recently used</Title>
+              <div style={{ display: 'flex', gap: GAP, padding: '6px 0' }}>
+                {[...m.grid, ...m.dock].slice(0, 5).map((a) => <Tile key={a.pkg} app={a} w={rowW} names={cfg.show_names} focused={false} cfg={cfg} />)}
+              </div>
+            </div>
+          )
         if (s === 'dock' && m.dock.length)
           return (
             <div key={s} style={{ display: 'flex', gap: GAP, padding: '8px 0' }}>
@@ -223,9 +233,11 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
     const pkg = quickApp(q)
     return pkg ? apps.some((a) => a.pkg === pkg) : !cfg.quick_available || cfg.quick_available.includes(q as QuickId)
   })
+  // As on the TV: the bottom shade behind the rows, over the dimmed wallpaper.
+  const bottom = cfg.shade_bottom > 0 && cfg.shade_bottom_reach > 0 ? `linear-gradient(transparent ${100 - cfg.shade_bottom_reach}%, ${shade(cfg, cfg.shade_bottom)}), ` : ''
   const ground: CSSProperties = {
     background: cfg.has_wallpaper
-      ? `linear-gradient(rgba(0,0,0,${cfg.wallpaper_dim / 100}), rgba(0,0,0,${cfg.wallpaper_dim / 100})), linear-gradient(160deg, #6b5a3e, #2f3b2a 55%, #1a2418)`
+      ? `${bottom}linear-gradient(rgba(0,0,0,${cfg.wallpaper_dim / 100}), rgba(0,0,0,${cfg.wallpaper_dim / 100})), linear-gradient(160deg, #6b5a3e, #2f3b2a 55%, #1a2418)`
       : cfg.background
   }
   let body: ReactNode
@@ -277,7 +289,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
     )
   } else {
     body = (
-      <div style={{ height: '100%', padding: `${SAFE_Y}px ${SAFE_X}px 0`, overflow: 'hidden', background: `linear-gradient(${shade(cfg, 60)}, transparent 210px)` }}>
+      <div style={{ height: '100%', padding: `${SAFE_Y}px ${SAFE_X}px 0`, overflow: 'hidden', background: `linear-gradient(${shade(cfg, cfg.shade_top)}, transparent ${cfg.shade_top_reach}%)` }}>
         <div style={{ display: 'flex', alignItems: 'flex-start' }}>
           <div style={{ fontSize: 20, fontWeight: 500, flex: 1, paddingTop: 4 }}>{greet}</div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>

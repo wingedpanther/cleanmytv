@@ -168,7 +168,7 @@ export interface HomeStatus {
 }
 
 export type HomeLayout = 'shelf' | 'split' | 'rail'
-export type HomeSection = 'nowplaying' | 'dock' | 'rows' | 'folders' | 'grid'
+export type HomeSection = 'nowplaying' | 'recent' | 'dock' | 'rows' | 'folders' | 'grid'
 export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes' | 'fireplace' | 'memory'
 /** A saved look for the day and night switch. */
 export type LookSlot = 'day' | 'night'
@@ -233,6 +233,14 @@ export interface HomeConfig {
   background: string
   /** Percent of black over the wallpaper, 0 to 80. */
   wallpaper_dim: number
+  /** Shading over the wallpaper: strength and reach (percent of the screen's height). The top one is the Shelf layout's. */
+  shade_top: number
+  shade_top_reach: number
+  shade_bottom: number
+  shade_bottom_reach: number
+  /** The focused app's colour, with follow_colour: strength and reach. */
+  wash: number
+  wash_reach: number
   // Layout
   /** Apps first in this order; the rest follow alphabetically. */
   order: string[]

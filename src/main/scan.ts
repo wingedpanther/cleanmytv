@@ -28,13 +28,20 @@ export function localSubnets(): string[] {
 }
 
 export function probe(host: string, port: number, timeoutMs: number): Promise<boolean> {
+  return knock(host, port, timeoutMs).then((r) => r === 'open')
+}
+
+/** What a port does when the app knocks: answers, turns it away (something is there), or stays silent. */
+export type Knock = 'open' | 'refused' | 'silent'
+
+export function knock(host: string, port: number, timeoutMs: number): Promise<Knock> {
   return new Promise((resolve) => {
     const s = new Socket()
-    const done = (open: boolean): void => { s.destroy(); resolve(open) }
+    const done = (r: Knock): void => { s.destroy(); resolve(r) }
     s.setTimeout(timeoutMs)
-    s.once('connect', () => done(true))
-    s.once('timeout', () => done(false))
-    s.once('error', () => done(false))
+    s.once('connect', () => done('open'))
+    s.once('timeout', () => done('silent'))
+    s.once('error', (e: NodeJS.ErrnoException) => done(e.code === 'ECONNREFUSED' ? 'refused' : 'silent'))
     s.connect(port, host)
   })
 }

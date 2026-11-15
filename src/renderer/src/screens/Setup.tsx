@@ -570,20 +570,24 @@ function PairForm({ host, tv, onBusy, onPaired }: { host: string; tv?: FoundTv; 
       <div className="row" style={{ alignItems: 'flex-end' }}>
         <label className="field" style={{ width: 120 }}>
           Pair port
-          <input type="text" inputMode="numeric" value={pairPort} onChange={(e) => setPairTyped(e.target.value)} placeholder="37145" />
+          <input type="text" inputMode="numeric" value={pairPort} onChange={(e) => setPairTyped(e.target.value)} />
         </label>
         <label className="field" style={{ width: 130 }}>
           Code
-          <input ref={codeInput} type="text" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} placeholder="482913" />
+          <input ref={codeInput} type="text" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} />
         </label>
         <label className="field" style={{ width: 130 }}>
           Connect port
-          <input type="text" inputMode="numeric" value={connectPort} onChange={(e) => setConnectTyped(e.target.value)} placeholder="41827" />
+          <input type="text" inputMode="numeric" value={connectPort} onChange={(e) => setConnectTyped(e.target.value)} />
         </label>
         <button className="btn primary" onClick={pair} disabled={!valid || busy}>
           {busy ? 'Pairing…' : 'Pair and connect'}
         </button>
       </div>
+      {/* The example numbers that used to sit in these fields read like real ones, and got sent as such. */}
+      <p className="small muted" style={{ marginTop: 8 }}>
+        Pair port and code: from the pairing window. Connect port: the port on the main Wireless debugging screen, after the IP address.
+      </p>
     </div>
   )
 }

@@ -14,6 +14,23 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
+### New in 0.9.0
+
+- **Linux:** an AppImage for 64-bit Linux (#109, thanks Morditux).
+- **Recently used:** a Home section with the last 8 apps the TV opened, newest first, however they were
+  opened. Turn it on under Layout → Sections (#85).
+- **Shading:** sliders for how strong the top and bottom shades over the wallpaper are and how far they
+  reach, and the same for the app colour wash. Themes and day and night looks carry them.
+- **Long press:** letting go of OK no longer picks Move from the menu.
+- **HEIC pictures:** iPhone and Mac photos work as wallpapers and in the slideshow (on a Mac).
+- **Pairing:** when it fails, the app says why: a wrong code, a closed pairing window, a TV that's off, or
+  another device on the TV's address. The example port numbers that looked real are gone from the form.
+- **Tile shape** shows under Banners too, with a note on how to change it.
+- **Windows:** the installer stops on Windows 8.1 and older, and on 32-bit Windows, and says why (#107).
+- **Mac:** the app names the network services it looks for, so macOS asks for local network access (#65).
+- **TCL:** Clean up leaves the TCL Home phone app's packages on unless you tick them (#81).
+- **CleanMyTV Home on its own:** each release has the launcher's APK, for updating it without the desktop app.
+
 ### New in 0.8.0
 
 - **Remote buttons stay on.** Home turns its button service back on after a reboot, or when the TV
@@ -118,8 +135,12 @@ Get the latest version from [Releases](https://github.com/wingedpanther/cleanmyt
 | Windows 10 or 11 | `CleanMyTV-Setup-<version>.exe` |
 | Linux (64-bit) | `CleanMyTV-<version>.AppImage` |
 
-Macs need macOS 13 Ventura or newer. The app asks GitHub for a newer version at most twice a day and
-links to it in the sidebar; it never downloads anything by itself.
+Macs need macOS 13 Ventura or newer, and Windows needs Windows 10 or 11 on a 64-bit PC. The app asks GitHub
+for a newer version at most twice a day. On a Mac or Windows, **Update now** in the sidebar downloads it,
+checks it against the release's checksums and installs it; on Linux, download the new AppImage.
+
+Each release also has `CleanMyTV-Home-<version>.apk`, the launcher on its own. Installed over CleanMyTV Home
+on the TV (with Downloader, for example), it keeps your settings.
 
 The installers are not signed with a paid developer certificate, so your computer warns you the first
 time:

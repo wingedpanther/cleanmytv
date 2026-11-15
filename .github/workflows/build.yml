@@ -116,6 +116,11 @@ jobs:
           [ "$GITHUB_REF_NAME" = "$WANT" ] || { echo "tag $GITHUB_REF_NAME does not match package.json version $WANT"; exit 1; }
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with: { pattern: CleanMyTV-*, path: dist, merge-multiple: true }
+      # CleanMyTV Home on its own, for updating it without the desktop app (Downloader, Open Shelf).
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: launcher, path: launcher }
+      - name: CleanMyTV Home APK
+        run: cp launcher/home.apk "dist/CleanMyTV-Home-$(node -p "require('./launcher/home.json').versionName").apk"
       - name: Checksums
         run: cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
       # A draft: nothing is public until the owner reviews it and presses Publish. A release made by hand
