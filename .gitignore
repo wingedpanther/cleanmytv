@@ -14,3 +14,7 @@ resources/upstream/
 *.key
 adbkey
 adbkey.pub
+.idea/
+*.iml
+.gradle/
+build/
