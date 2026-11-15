@@ -12,7 +12,8 @@ import androidx.compose.ui.graphics.luminance
  * for text on light surfaces. Read through these getters, so a theme picked in the editor recolours it at once.
  */
 object EditorTheme {
-    var accent by mutableStateOf(Color(0xFFA8C7FA))
+    private val FIXED = Color(0xFFA8C7FA)
+    var accent by mutableStateOf(FIXED)
         private set
     var ground by mutableStateOf(Color(0xFF0B1D33))
         private set
@@ -23,7 +24,12 @@ object EditorTheme {
         val a = Color(accentArgb)
         val bg = Color(backgroundArgb)
         // Picked items carry dark text, so a dark accent is lifted toward white until that text reads on it.
-        accent = if (a.luminance() > 0.36f) a else lerp(a, Color.White, 0.5f)
+        // Focus is white, so a white or near-white accent would look focused everywhere: the fixed blue instead.
+        accent = when {
+            minOf(a.red, a.green, a.blue) > 0.75f -> FIXED
+            a.luminance() > 0.36f -> a
+            else -> lerp(a, Color.White, 0.5f)
+        }
         // Dark text on white and on the accent; a light background goes most of the way to black first.
         ground = if (bg.luminance() < 0.04f) bg else lerp(bg, Color.Black, 0.75f)
         panel = if (bg.luminance() < 0.2f) bg else lerp(bg, Color.Black, 0.75f)

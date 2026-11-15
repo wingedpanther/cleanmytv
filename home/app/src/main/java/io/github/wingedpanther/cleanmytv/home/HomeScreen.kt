@@ -87,6 +87,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
@@ -160,6 +161,12 @@ private val SAFE_Y = 27.dp
 private val GAP = 16.dp
 // Room on each side of a row so a focused tile's glow, shadow and zoom aren't clipped.
 private val BLEED = 22.dp
+
+/** The sunrise after a new wallpaper, in its own scope so its frames don't recompose the screen. */
+@Composable
+private fun IntroLayer(intro: Animatable<Float, *>) {
+    if (intro.value < 1f) Sunrise(intro.value)
+}
 
 /** Everything the layouts draw, worked out once from the apps on the TV and the settings. */
 private class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<String> = emptyList()) {
@@ -284,7 +291,8 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     LaunchedEffect(appsVersion, wantRecent, apps) {
         if (wantRecent) recentPkgs = withContext(Dispatchers.Default) { Recent.apps(ctx, apps.map { it.pkg }.toSet()) }
     }
-    val home = Home(apps, cfg, if (wantRecent) recentPkgs else emptyList())
+    // Worked out again only when the apps or settings change, not on every redraw.
+    val home = remember(apps, cfg, recentPkgs, wantRecent) { Home(apps, cfg, if (wantRecent) recentPkgs else emptyList()) }
     val accent = Color(cfg.accent)
     // Quick-settings icons this TV can actually open; Inputs only on TVs that have inputs.
     val all = remember { quickActions() }
@@ -409,9 +417,12 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = cfg.wallpaperDim / 100f)))
         }
-        if (intro.value < 1f) Sunrise(intro.value)
+        IntroLayer(intro)
         // The focused app's colour washes in from the top; the wallpaper still shows through.
-        if (cfg.followColour && cfg.wash > 0) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to tint.copy(alpha = tint.alpha * cfg.wash / 100f), cfg.washReach / 100f to Color.Transparent)))
+        // Drawn in the draw phase, so the fading colour doesn't redraw the whole screen each frame.
+        if (cfg.followColour && cfg.wash > 0) Box(Modifier.fillMaxSize().drawBehind {
+            drawRect(Brush.verticalGradient(0f to tint.copy(alpha = tint.alpha * cfg.wash / 100f), cfg.washReach / 100f to Color.Transparent))
+        })
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = shown }) {
             // Rows sit over the lower half of the photo; a ground-tinted shade keeps their names readable.
             if (cfg.shadeBottom > 0 && cfg.shadeBottomReach > 0) {

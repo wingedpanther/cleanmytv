@@ -60,7 +60,7 @@ export function LogDrawer(): ReactNode {
             )}
             <button
               className="btn small ghost"
-              title="Your TV model, Android version and app versions, then this log, without IP addresses. Paste it into a GitHub issue."
+              title="Your TV model, Android version, app versions and the TV's app list, then this log, without IP addresses. Paste it into a GitHub issue."
               onClick={async () => {
                 const details = await window.cytv.bugReport().catch((e) => `Could not read the details: ${(e as Error).message}`)
                 navigator.clipboard.writeText(noAddresses(`${details}\n\nActivity:\n${lines.map(line).join('\n') || '(empty)'}`))

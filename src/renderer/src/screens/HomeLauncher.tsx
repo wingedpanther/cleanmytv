@@ -219,6 +219,12 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
     backup: themeBackup,
     restore: () => themeStep('Putting your saved look back', () => window.cytv.restoreThemeBackup(), null),
     forget: () => window.cytv.forgetThemeBackup().then(readThemeBackup),
+    saveOnTv: (name) =>
+      themeStep(`Saving ${name.trim()} on the TV`, async () => {
+        const c = await window.cytv.saveThemeOnTv(name)
+        setResult({ ok: true, summary: `${name.trim()} is a theme on the TV now. Pick it under Themes in Customize on the TV, or with the Themes icon.`, warnings: [] })
+        return c
+      }, name.trim()),
     save: async (name) => {
       try {
         const r = await window.cytv.saveHomeTheme(name)
@@ -950,6 +956,8 @@ interface ThemeActions {
   restore: () => void
   forget: () => void
   save: (name: string) => Promise<void>
+  /** The TV's look becomes a theme on the TV, next to the built-in ones. */
+  saveOnTv: (name: string) => void
 }
 
 function ThemeGrid({ themes, actions, busy }: { themes: BuiltInTheme[]; actions: ThemeActions; busy: boolean }): ReactNode {
@@ -971,7 +979,7 @@ function ThemeGrid({ themes, actions, busy }: { themes: BuiltInTheme[]; actions:
   )
 }
 
-function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): ReactNode {
+function ThemesCard({ themes, busy, cfg, set }: { themes: ThemeActions; busy: boolean; cfg: HomeConfig; set: SetFn }): ReactNode {
   const file = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('My theme')
   const [editing, setEditing] = useState(false)
@@ -1034,13 +1042,23 @@ function ThemesCard({ themes, busy }: { themes: ThemeActions; busy: boolean }): 
         <button className="btn" disabled={busy || !name.trim()} onClick={() => themes.save(name)}>
           Save this look…
         </button>
+        <button className="btn ghost" disabled={busy || !name.trim() || !cfg.has_wallpaper} title={cfg.has_wallpaper ? undefined : 'Put a wallpaper on first; a theme needs a picture.'} onClick={() => themes.saveOnTv(name)}>
+          Save to the TV
+        </button>
         <button className="btn ghost" disabled={busy} onClick={() => file.current?.click()}>
           Load a theme file…
         </button>
       </div>
       <p className="small muted" style={{ marginTop: 8, marginBottom: 0 }}>
-        Theme files end in .{THEME_EXT}. Share one and anyone can load it on their TV.
+        Theme files end in .{THEME_EXT}. Share one and anyone can load it on their TV. Save to the TV adds this look and wallpaper to the
+        TV&apos;s themes, or updates the one with the same name, and leaves the others alone.
       </p>
+      <Toggle
+        label="Each theme keeps its changes"
+        hint="Change the look on the TV while a theme is on, and that theme keeps it: colours, sizes, glass, shading, spacing and music bars. Rows, folders, App lock and buttons stay the same for every theme. Works with day and night too."
+        checked={cfg.theme_memory}
+        onChange={(v) => set({ theme_memory: v })}
+      />
     </div>
   )
 }
@@ -1050,7 +1068,7 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
   const file = useRef<HTMLInputElement>(null)
   return (
     <>
-      <ThemesCard themes={themes} busy={busy} />
+      <ThemesCard themes={themes} busy={busy} cfg={cfg} set={set} />
       <div className="card">
         <h2>Accent colour</h2>
         <p className="muted">For the focus glow or outline and the music bars.</p>

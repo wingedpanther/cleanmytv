@@ -242,6 +242,8 @@ export interface HomeConfig {
   font: 'default' | 'condensed' | 'serif' | 'casual'
   /** Bing's picture of the day becomes the wallpaper each day. */
   bing_daily: boolean
+  /** Each theme on the TV keeps the look changes made on the TV while it's on (launcher 1.11.0). */
+  theme_memory: boolean
   /** The TV looks for a newer CleanMyTV Home once a day and offers it (set on the TV). */
   update_check: boolean
   /** The on-TV editor asks for the PIN too. */
@@ -549,6 +551,8 @@ export interface CytvApi {
   homeKeys(): Promise<KeyPress[]>
   /** Keeps Home's look and wallpaper as they are now, as the day or night look. */
   saveHomeLook(slot: LookSlot): Promise<HomeConfig>
+  /** The TV's look and wallpaper become a theme on the TV with this name, or update the one of that name. */
+  saveThemeOnTv(name: string): Promise<HomeConfig>
   /** A prepared JPEG (base64) for the home screen, or null to remove it. */
   setHomeWallpaper(jpegBase64: string | null): Promise<HomeConfig>
   /** A picture the window can't open (HEIC), as JPEG bytes. Mac only; elsewhere it fails with a message. */

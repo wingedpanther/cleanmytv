@@ -89,6 +89,7 @@ data class HomeConfig(
     val idleStyle: String = "corner", // corner, center, photos: what the idle screen shows
     val font: String = "default", // default, condensed, serif, casual: Home's text (the clock keeps its own)
     val bingDaily: Boolean = false, // Bing's picture of the day becomes the wallpaper each day
+    val themeMemory: Boolean = true, // each theme keeps the look changes made while it's on
     val updateCheck: Boolean = true, // look for a newer Home on the release page once a day
     val limits: Map<String, Int> = emptyMap(), // package -> minutes a day, then the app needs the PIN
     // Weather next to the clock, from Open-Meteo; off while the place is blank
@@ -171,6 +172,7 @@ data class HomeConfig(
         .put("idle_style", idleStyle)
         .put("font", font)
         .put("bing_daily", bingDaily)
+        .put("theme_memory", themeMemory)
         .put("update_check", updateCheck)
         .put("limits", JSONObject(limits as Map<*, *>))
         .put("weather_place", weatherPlace)
@@ -302,6 +304,7 @@ data class HomeConfig(
                 idleStyle = choice("idle_style", base.idleStyle, setOf("corner", "center", "photos")),
                 font = choice("font", base.font, FONTS),
                 bingDaily = bool("bing_daily", base.bingDaily),
+                themeMemory = bool("theme_memory", base.themeMemory),
                 updateCheck = bool("update_check", base.updateCheck),
                 limits = o.optJSONObject("limits")?.let { m ->
                     m.keys().asSequence().take(60).mapNotNull { k -> m.optInt(k, -1).takeIf { PKG.matches(k) && it in 5..720 }?.let { k to it } }.toMap()
@@ -360,7 +363,11 @@ object ConfigStore {
 
     /** Merges a partial update, saves it atomically, and the UI follows through the flow. */
     @Synchronized
-    fun update(ctx: Context, json: JSONObject): HomeConfig {
+    /**
+     * [remember]: a look change the owner made, which the theme on screen keeps (ThemePack.remember). Changes
+     * from the desktop app and from putting a theme or a day/night look on pass false.
+     */
+    fun update(ctx: Context, json: JSONObject, remember: Boolean = true): HomeConfig {
         load(ctx)
         val next = HomeConfig.fromJson(json, _config.value)
         val text = next.toJson().toString(2)
@@ -370,6 +377,7 @@ object ConfigStore {
         val swapped = runCatching { tmp.writeText(text); tmp.renameTo(file(ctx)) }.getOrDefault(false)
         if (!swapped) { tmp.delete(); file(ctx).writeText(text) }
         _config.value = next
+        if (remember && json.keys().asSequence().any { it in ThemePack.MEMORY_KEYS }) runCatching { ThemePack.remember(ctx) }
         return next
     }
 

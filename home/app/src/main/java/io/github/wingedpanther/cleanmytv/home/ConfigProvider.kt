@@ -72,10 +72,10 @@ class ConfigProvider : ContentProvider() {
         }
         when (method) {
             "get" -> ConfigStore.load(ctx)
-            "set" -> ConfigStore.update(ctx, json(arg))
+            "set" -> ConfigStore.update(ctx, json(arg), remember = false)
             "set64" -> {
                 val change = json(String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8))
-                ConfigStore.update(ctx, change)
+                ConfigStore.update(ctx, change, remember = false)
                 // A new time or the switch turned on: the right look goes on at the next check, even mid-half.
                 if (listOf("day_night", "day_at", "night_at").any { change.has(it) }) DayNight.reset(ctx)
             }
@@ -175,6 +175,8 @@ class ConfigProvider : ContentProvider() {
             }
             "fire_ready" -> Fire.changed()
             "look_save" -> DayNight.save(ctx, arg.orEmpty())
+            "theme_save" -> out.putString("theme", ThemePack.saveCurrent(ctx, String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8)))
+            "keyboard" -> Keyboard.note(ctx, String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8).trim())
             "fire_clear" -> {
                 Fire.clear(ctx)
                 ConfigStore.update(ctx, JSONObject().put("fire_wall", false))

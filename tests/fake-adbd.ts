@@ -66,6 +66,12 @@ export interface FakeTv {
   cacheKb?: number
   /** Packages the firmware refuses to disable, as Fire OS does with Amazon's own. */
   protectedPkgs?: string[]
+  /** What `ime list -s` prints: the enabled keyboards. */
+  imes?: string[]
+  /** Themes saved on the TV by name. */
+  homeThemes?: string[]
+  /** The keyboard CleanMyTV Home was told about. */
+  homeKeyboard?: string
   /** Packages that never stay running (pidof finds nothing), like a launcher crashing at boot. */
   crashing?: string[]
   /** Misbehaviour for client hardening tests. */
@@ -113,6 +119,7 @@ function sh(tv: FakeTv, cmd: string): string {
     tv.packages.set(m[1], 'enabled'); return `Package ${m[1]} new state: enabled\n`
   }
   if ((m = /^settings put (?:global|secure) (\S+) (.*)$/.exec(cmd)) && !cmd.includes(';')) { tv.settings.set(m[1], m[2]); return '' }
+  if (cmd === 'ime list -s') return (tv.imes ?? []).map((i) => i + '\n').join('')
   if ((m = /^settings get secure (\S+)$/.exec(cmd))) return (tv.settings.get(m[1]) ?? 'null') + '\n'
   if (cmd === 'df -k /data' && tv.freeKb !== undefined) {
     return `Filesystem      1K-blocks    Used Available Use% Mounted on\n/dev/block/dm-5  5806884 5700000 ${String(tv.freeKb).padStart(9)}  99% /data\n`
@@ -138,6 +145,13 @@ function sh(tv: FakeTv, cmd: string): string {
       if (createHash('md5').update(data).digest('hex') !== m[2]) return 'Error: wallpaper upload is damaged\n'
       tv.files.set('/data/data/home/wallpaper.jpg', data)
     } else if (m[1] === 'wallpaper_remove') tv.files.delete('/data/data/home/wallpaper.jpg')
+    else if (m[1] === 'theme_save') {
+      const name = Buffer.from(m[2], 'base64').toString('utf8')
+      if (!tv.files.has('/data/data/home/wallpaper.jpg')) return 'Error while accessing provider:io.github.wingedpanther.cleanmytv.home.config\njava.lang.IllegalArgumentException: put a wallpaper on first; a theme needs a picture\n'
+      tv.homeThemes = [...new Set([...(tv.homeThemes ?? []), name])]
+      return `Result: Bundle[{theme=my-x, config=${JSON.stringify({ ...tv.homeConfig, has_wallpaper: true, configured: true, themes_on_tv: tv.homeThemes.length })}}]\n`
+    }
+    else if (m[1] === 'keyboard') tv.homeKeyboard = Buffer.from(m[2], 'base64').toString('utf8')
     else if (m[1] === 'keys') return `Result: Bundle[{keys=${JSON.stringify([{ seq: 7, code: 83, name: 'KEYCODE_NOTIFICATION' }, { seq: 'x', code: 1 }])}}]\n`
     else if (m[1] === 'apps') return `Result: Bundle[{apps=${JSON.stringify([...tv.leanback.map((p) => ({ pkg: p, label: p.split('.').pop(), tv: true })), { pkg: 'bad;pkg', label: 'x', tv: true }])}}]\n`
     else if (m[1] !== 'get') return `Error: unknown method: ${m[1]}\n`

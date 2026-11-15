@@ -9,6 +9,7 @@ import { paths } from './paths'
 import { log } from './log'
 import * as T from './tv'
 import { keptLauncher } from './kept'
+import { keyboardPackages, noteKeyboard } from './keyboard'
 import type { ApplyResult, DebloatApplyRequest, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState, Probe } from '@shared/api'
 
 const TASK = 'debloat'
@@ -98,6 +99,11 @@ interface Upstream {
 
 let upstreamCache: Upstream[] | null = null
 
+/** Models owners have confirmed on a bundled list that doesn't name them (same board). */
+const ALSO_FITS: Record<string, string> = {
+  'tcl-55q6cx1': 'TCL 75Q6C' // G08 board, #98
+}
+
 function readTvJson(file: string): { tv: string; brand: string } {
   try {
     const j = JSON.parse(readFileSync(file, 'utf8')) as { tv?: unknown; brand?: unknown }
@@ -118,7 +124,9 @@ function upstreamLists(): Upstream[] {
         const text = readFileSync(file, 'utf8')
         const parsed = parseList(text, `${id}/debloat.txt`)
         const meta = readTvJson(join(paths.examples, id, 'tv.json'))
-        out.push({ id, title: parsed.header[0] ?? id, text, parsed, tv: meta.tv, brand: meta.brand })
+        const also = ALSO_FITS[id]
+        const title = (parsed.header[0] ?? id) + (also ? ` Also fits the ${also}.` : '')
+        out.push({ id, title, text, parsed, tv: also ? `${meta.tv} ${also}` : meta.tv, brand: meta.brand })
       } catch (e) {
         log(TASK, 'warn', `skipping upstream list ${id}: ${(e as Error).message}`)
       }
@@ -744,11 +752,21 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   }
 
   // The keyboard in use: without it there is no typing a Wi-Fi password or a search.
-  const ime = (await T.sh(TASK, 'settings get secure default_input_method', { quiet: true }).catch(() => '')).trim().split('/')[0]
+  const imeId = (await T.sh(TASK, 'settings get secure default_input_method', { quiet: true }).catch(() => '')).trim()
+  const ime = imeId.split('/')[0]
   if (T.PACKAGE_RE.test(ime) && pkgs.includes(ime)) {
     warnings.push(`Kept on: ${ime}. It's the TV's keyboard. Pick another keyboard in the TV's settings first if you want it gone.`)
     pkgs = pkgs.filter((p) => p !== ime)
   }
+  // The other keyboards too: with one of them off, some TVs (TCL, #98) drop to the phone-remote keyboard at
+  // every restart, and the on-screen keyboard is gone.
+  const keyboards = keyboardPackages(await T.sh(TASK, 'ime list -s', { quiet: true }).catch(() => ''))
+  const keptKeyboards = pkgs.filter((p) => keyboards.includes(p))
+  if (keptKeyboards.length) {
+    warnings.push(`Kept on: ${keptKeyboards.join(', ')}. ${keptKeyboards.length === 1 ? 'It carries a keyboard' : 'They carry keyboards'}, and switching ${keptKeyboards.length === 1 ? 'it' : 'them'} off can lose the TV's keyboard after a restart.`)
+    pkgs = pkgs.filter((p) => !keptKeyboards.includes(p))
+  }
+  await noteKeyboard(imeId)
 
   // Home guard: never leave the TV with nothing that can answer Home.
   const homeAns = await T.homeAnswer()
@@ -838,3 +856,4 @@ export async function restore(listId: string): Promise<ApplyResult> {
   log('restore', 'ok', summary)
   return { ok: true, summary, warnings: notes }
 }
+

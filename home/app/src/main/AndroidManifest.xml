@@ -30,6 +30,10 @@
 
     <!-- Android 11+ hides other apps unless we say which ones we look for. -->
     <queries>
+        <!-- The keyboards, so Home can put the owner's back when the TV switches at a restart (#98). -->
+        <intent>
+            <action android:name="android.view.InputMethod" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LEANBACK_LAUNCHER" />

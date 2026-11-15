@@ -35,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
@@ -42,6 +44,8 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import io.github.wingedpanther.cleanmytv.home.ConfigStore
 import io.github.wingedpanther.cleanmytv.home.HomeConfig
+import io.github.wingedpanther.cleanmytv.home.Lock
+import io.github.wingedpanther.cleanmytv.home.PinPad
 import io.github.wingedpanther.cleanmytv.home.TvApp
 import org.json.JSONArray
 import org.json.JSONObject
@@ -66,6 +70,13 @@ fun AppCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
     }
 
     val hiddenSet = remember(config.hidden) { config.hidden.toSet() }
+    // With App lock on, the PIN goes first before apps the owner hid come back or the order resets. Once per
+    // visit; an editor behind the PIN has asked already.
+    var pinOk by remember { mutableStateOf(false) }
+    var waiting by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val withPin = { action: () -> Unit ->
+        if (pinOk || !config.lockOn || config.lockEditor || !Lock.hasPin(ctx)) action() else waiting = action
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         TvSlider(
@@ -95,12 +106,12 @@ fun AppCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TvSecondaryButton(
                     text = "Reset Order",
-                    onClick = { ConfigStore.update(ctx, JSONObject().put("order", JSONArray())) }
+                    onClick = { withPin { ConfigStore.update(ctx, JSONObject().put("order", JSONArray())) } }
                 )
 
                 TvSecondaryButton(
                     text = "Show All",
-                    onClick = { ConfigStore.update(ctx, JSONObject().put("hidden", JSONArray())) }
+                    onClick = { withPin { ConfigStore.update(ctx, JSONObject().put("hidden", JSONArray())) } }
                 )
             }
         }
@@ -133,9 +144,12 @@ fun AppCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
                                 }
                             },
                             onToggleHide = {
-                                val nextHidden = hiddenSet.toMutableSet()
-                                if (isHidden) nextHidden.remove(app.pkg) else nextHidden.add(app.pkg)
-                                ConfigStore.update(ctx, JSONObject().put("hidden", JSONArray(nextHidden.toList())))
+                                val hide: () -> Unit = {
+                                    val nextHidden = hiddenSet.toMutableSet()
+                                    if (isHidden) nextHidden.remove(app.pkg) else nextHidden.add(app.pkg)
+                                    ConfigStore.update(ctx, JSONObject().put("hidden", JSONArray(nextHidden.toList())))
+                                }
+                                if (isHidden) withPin(hide) else hide()
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -145,6 +159,12 @@ fun AppCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
                     }
                 }
             }
+        }
+    }
+
+    waiting?.let { action ->
+        Dialog(onDismissRequest = { waiting = null }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            PinPad("Enter the PIN to change hidden apps", Lock.PANEL, Color(config.accent)) { waiting = null; pinOk = true; action() }
         }
     }
 }

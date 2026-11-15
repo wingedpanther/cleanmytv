@@ -14,6 +14,28 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
+### New in 0.11.0
+
+- **Each theme keeps its own look** (LimeNinja's idea): change the look on the TV while a theme is on,
+  and that theme keeps it. That covers colours, tile sizes, glass, dimming, shading, spacing and music
+  bars. Switch themes and each one comes back the way you left it, at the day and night switch too.
+  Rows, folders, App lock and buttons stay the same for every theme. **Forget changes** puts a theme back.
+- **Save to the TV:** the Look tab saves the TV's look and wallpaper as a theme on the TV, next to the
+  built-in ones, or updates the theme with that name. On the TV, **Save this look as a theme** does the
+  same. Putting the built-in themes on the TV again keeps the ones you saved.
+- **The keyboard stays (#98):** on TVs that switch to the phone-remote keyboard at every restart, Home
+  now puts yours back. The 0.8.0 fix couldn't see the TV's keyboards. Clean up also leaves on any app
+  that carries a keyboard, like Google's speech services.
+- **Copy for a bug report** lists the TV's apps, on and switched off, and its keyboard. New TV lists
+  are made from that.
+- **App lock:** with App lock on, showing hidden apps or resetting the app order in the editor asks for
+  the PIN (thanks harikrishna-salver).
+- **Smoother Home:** the layout is worked out once per change instead of on every redraw, and the app
+  colour wash and the sunrise no longer redraw the whole screen while they fade.
+- **Editor colours:** with a white or near-white accent, the editor marks picked items in its own blue,
+  so they don't look focused.
+- **TCL 75Q6C** shows on the TCL 55Q6CX1 list. They share the G08 board.
+
 ### New in 0.10.0
 
 The big one: **CleanMyTV Home can now be set up from the TV itself.** Turn on **Edit on the TV** in the
@@ -388,7 +410,7 @@ To move to a newer upstream: review its changes, then `node scripts/pin-upstream
 trial.
 
 `.github/workflows/build.yml` builds the APK on Linux and runs the tests on every push and pull request.
-Pushes to `main` and version tags also build the macOS and Windows installers; download them from the
+Pushes to `main` and version tags also build the macOS, Windows and Linux installers; download them from the
 run's **Artifacts**. It runs with read-only repository permissions and actions pinned to commits.
 
 ### Releasing

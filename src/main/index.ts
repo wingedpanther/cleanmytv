@@ -174,6 +174,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   fireplace: (action) => home.fireplace(action === 'put' || action === 'saver' || action === 'remove' ? action : 'show'),
   homeKeys: () => home.keys(),
   saveHomeLook: (slot) => home.saveLook(slot),
+  saveThemeOnTv: (name) => home.saveThemeOnTv(String(name ?? '')),
   setHomeConfig: (change) => home.setConfig(change ?? {}),
   setHomeWallpaper: (jpeg) => home.setWallpaper(jpeg),
   pictureToJpeg: (bytes) => toJpeg(bytes),

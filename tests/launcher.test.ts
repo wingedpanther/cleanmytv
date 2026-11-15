@@ -11,6 +11,7 @@ import * as L from '../src/main/launcher'
 import * as H from '../src/main/home'
 import * as D from '../src/main/debloat'
 import { bugReport } from '../src/main/report'
+import { keyboardPackages } from '../src/main/keyboard'
 import * as S from '../src/main/system'
 import * as Th from '../src/main/themes'
 import { BUILT_IN_THEMES, THEME_KEYS, parseTheme, themeFileName, themeToFile } from '../src/shared/themes'
@@ -299,6 +300,16 @@ describe('CleanMyTV Home', () => {
     await H.setWallpaper(null)
   })
 
+  it('saves the look on the TV as a theme, and says why when it needs a wallpaper', async () => {
+    await H.setWallpaper(null)
+    await expect(H.saveThemeOnTv('Evening')).rejects.toThrow(/put a wallpaper on first/)
+    await H.setWallpaper(Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(64)]).toString('base64'))
+    const cfg = await H.saveThemeOnTv('  Evening\u0007 ')
+    expect(tv.homeThemes).toContain('Evening')
+    expect(cfg.themes_on_tv).toBeGreaterThan(0)
+    await H.setWallpaper(null)
+  })
+
   it('describes the TV for a bug report without its address or the owner\'s settings', async () => {
     await H.setConfig({ greeting: 'Hello Sam', weather_place: 'Dublin' })
     const text = await bugReport('9.9.9')
@@ -306,6 +317,8 @@ describe('CleanMyTV Home', () => {
     expect(text).toContain('TV: Sony BRAVIA 4K VH2')
     expect(text).toMatch(/Home: \S+\/\S+/)
     expect(text).toMatch(/CleanMyTV Home: \S+ installed/)
+    expect(text).toMatch(/\nOn \(\d+\):\n(.*\n)*io\.github\.wingedpanther\.cleanmytv\.home/)
+    expect(text).toMatch(/\nSwitched off \(\d+\):\n/)
     for (const secret of [T.host(), 'Sam', 'Dublin']) expect(text).not.toContain(secret)
   })
 
@@ -763,5 +776,28 @@ describe("Google TV's launcher kept on (#99)", () => {
     const r = await D.apply({ listId: 'custom', disable: ['com.google.android.inputmethod.latin'], enable: [] })
     expect(tv.packages.get('com.google.android.inputmethod.latin')).toBe('enabled')
     expect(r.warnings.join('\n')).toContain("It's the TV's keyboard")
+  })
+
+  it('keeps apps that carry a keyboard on, and tells Home the keyboard in use (#98)', async () => {
+    const TTS = 'com.google.android.tts'
+    tv.packages.set(TTS, 'enabled')
+    tv.imes = [
+      'com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME',
+      'com.google.android.tv.remote.service/.ImeBridgeService',
+      `${TTS}/com.google.android.apps.tv.tts.googletts.settings.asr.voiceime.VoiceInputMethodService`
+    ]
+    tv.packages.set('com.google.android.tv.remote.service', 'enabled')
+    const r = await D.apply({ listId: 'custom', disable: [TTS, 'com.google.android.tv.remote.service'], enable: [] })
+    expect(tv.packages.get(TTS)).toBe('enabled')
+    expect(tv.packages.get('com.google.android.tv.remote.service')).toBe('disabled')
+    expect(r.warnings.join('\n')).toContain(`Kept on: ${TTS}. It carries a keyboard`)
+    expect(tv.homeKeyboard).toBe('com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME')
+  })
+})
+
+describe('keyboards', () => {
+  it("reads the keyboards' packages, leaving out the phone remote", () => {
+    expect(keyboardPackages('com.tcl.inputmethod.international/.T_IME\ncom.google.android.tv.remote.service/.ImeBridgeService\n\ngarbage line\n'))
+      .toEqual(['com.tcl.inputmethod.international'])
   })
 })

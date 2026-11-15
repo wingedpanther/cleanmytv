@@ -79,6 +79,8 @@ val SETTINGS_INDEX: List<Findable> = run {
         Findable("Tile size", "dock size grid size bigger smaller scale", K),
         Findable("App names", "labels titles names under tiles", K),
         Findable("Themes", "theme look style colours", T),
+        Findable("Each theme keeps its changes", "theme remember memory own look per theme", T),
+        Findable("Save this look as a theme", "save theme new custom my own", T),
         Findable("Wallpaper", "background picture photo image", T),
         Findable("From your phone", "photo upload phone qr camera picture send", T),
         Findable("Bing picture of the day", "bing daily picture", T),

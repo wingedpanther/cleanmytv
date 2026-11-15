@@ -10,6 +10,8 @@ import * as T from './tv'
 import { FIRE_LAUNCHER, HOME_PKG, OLD_PKG, StockUnknown, addService, detectStock, dropServices, handOver, rememberStock, toSwitchOff, wraithBack } from './launcher'
 import { GOOGLE_LAUNCHERS } from './debloat'
 import { keepLauncher, keptLauncher } from './kept'
+import { themeName } from '@shared/themes'
+import { noteKeyboard } from './keyboard'
 import type { ApplyResult, HomeButton, HomeConfig, HomeGroup, HomeStatus, InstallResult, KeyPress, LookSlot, QuickId, ThemePackItem, TvApp } from '@shared/api'
 
 const TASK = 'install'
@@ -21,7 +23,7 @@ export const DEFAULTS: HomeConfig = {
   layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
   rows: [], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false,
   accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
-  edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, lock_editor: false, update_check: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
+  edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, theme_memory: true, lock_editor: false, update_check: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
   order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
   icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, intro: true, wallpaper_from: '',
   lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge',
@@ -72,7 +74,7 @@ const RANGES = {
   shade_top: [0, 100], shade_top_reach: [0, 100], shade_bottom: [0, 100], shade_bottom_reach: [0, 100], wash: [0, 100], wash_reach: [10, 100]
 } as const
 
-const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night', 'power_on_input', 'edit_on_tv', 'bing_daily', 'lock_editor', 'update_check'] as const
+const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night', 'power_on_input', 'edit_on_tv', 'bing_daily', 'theme_memory', 'lock_editor', 'update_check'] as const
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 /** Lets the launcher see other apps' media sessions; on only while the Now playing section is. */
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
@@ -209,6 +211,7 @@ export async function install(chosen?: string): Promise<InstallResult> {
   if (cfg && needsService(cfg)) await addService(KEY_SERVICE)
   if (cfg) await nowPlayingAccess(cfg.sections.includes('nowplaying'))
   if (cfg) await usageAccess(cfg.sections.includes('recent'))
+  await noteKeyboard((await T.sh(TASK, 'settings get secure default_input_method', { quiet: true }).catch(() => '')).trim())
   const again = restored ? " It started empty, so your settings and wallpaper came back from this computer's copy." : ''
   return {
     ok: true,
@@ -564,6 +567,22 @@ export async function themePackPut(item: ThemePackItem): Promise<void> {
   await call('pack_file_begin', Buffer.from(`${item.id}:${item.picture}`).toString('base64'))
   for (const piece of pieces(data)) await call('pack_file_chunk', piece)
   await call('pack_file_end', createHash('md5').update(data).digest('hex'))
+}
+
+/**
+ * Home's look and wallpaper now become a theme on the TV called [name] (launcher 1.11.0), next to the
+ * built-in ones. A theme of that name already there is updated; the others stay as they are.
+ */
+export async function saveThemeOnTv(name: string): Promise<HomeConfig> {
+  const n = themeName(name)
+  log('theme', 'cmd', `save this look on the TV as the theme ${n}`)
+  const out = await call('theme_save', Buffer.from(n).toString('base64'))
+  if (!/\btheme=/.test(out)) {
+    if (/unknown method/.test(out)) throw new Error('This CleanMyTV Home is too old to save themes. Press Update and use on the Overview tab first.')
+    const why = /IllegalArgumentException: ([^\n]+)/.exec(out)?.[1]
+    throw new Error(why ? `The TV didn't save it: ${why}.` : `The TV didn't save it: ${out.trim().slice(0, 200) || 'no answer'}`)
+  }
+  return parse(out)
 }
 
 /**

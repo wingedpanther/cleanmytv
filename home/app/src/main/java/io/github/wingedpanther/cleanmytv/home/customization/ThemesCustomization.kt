@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +27,7 @@ import io.github.wingedpanther.cleanmytv.home.ThemePack
 import io.github.wingedpanther.cleanmytv.home.Wallpapers
 import io.github.wingedpanther.cleanmytv.home.customization.components.Alert
 import io.github.wingedpanther.cleanmytv.home.customization.components.MUTED_COLOR
+import io.github.wingedpanther.cleanmytv.home.customization.components.TextPrompt
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvPrimaryButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSecondaryButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSwitch
@@ -40,7 +42,11 @@ private fun clock(minute: Int) = "%02d:%02d".format(minute / 60, minute % 60)
  */
 @Composable
 fun ThemesCustomization(config: HomeConfig, ctx: Context) {
-    val themes = remember { ThemePack.list(ctx) }
+    val packVersion by ThemePack.version.collectAsState()
+    val themes = remember(packVersion) { ThemePack.list(ctx) }
+    val changed = remember(packVersion, config) { ThemePack.changed(ctx) }
+    var naming by remember { mutableStateOf(false) }
+    var saveNote by remember { mutableStateOf("") }
     val slides = remember { Slides.count(ctx) }
     var saved by remember { mutableStateOf(DayNight.saved(ctx)) }
     var bing by remember { mutableStateOf("") }
@@ -56,13 +62,22 @@ fun ThemesCustomization(config: HomeConfig, ctx: Context) {
         } else {
             themes.forEach { t ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(t.name, color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                    Text(t.name + if (t.id in changed) " (your changes)" else "", color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
                     TvPrimaryButton(text = "Use theme", onClick = { ThemePack.apply(ctx, t, 0) })
                     // Only the picture: the colours and icons stay as they are.
                     for (v in 0 until t.pictures) TvSecondaryButton(text = "Picture ${v + 1}", onClick = { ThemePack.apply(ctx, t, v, withLook = false) })
+                    if (t.id in changed) TvSecondaryButton(text = "Forget changes", onClick = { ThemePack.forget(ctx, t.id) })
                 }
             }
         }
+        TvSwitch(
+            title = "Each theme keeps its changes",
+            subtitle = "Change the look while a theme is on, and the theme keeps it: colours, sizes, glass, shading, spacing and music bars. Rows, folders, App lock and buttons stay the same for every theme.",
+            checked = config.themeMemory,
+            onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("theme_memory", it)) }
+        )
+        TvSecondaryButton(text = "Save this look as a theme", onClick = { saveNote = ""; naming = true })
+        if (saveNote.isNotEmpty()) Text(saveNote, color = MUTED_COLOR, fontSize = 13.sp)
 
         // ---- Wallpaper ----
         Text("Wallpaper", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -118,4 +133,14 @@ fun ThemesCustomization(config: HomeConfig, ctx: Context) {
         }
     }
     if (phone) PhoneDialog(ctx) { phone = false }
+    if (naming) TextPrompt(
+        title = "A name for this theme",
+        hint = "The look and the wallpaper on now. A theme with the same name takes this look instead.",
+        maxLength = 40,
+        onDismiss = { naming = false },
+        onDone = { name ->
+            naming = false
+            saveNote = runCatching { ThemePack.saveCurrent(ctx, name); "Saved as $name." }.getOrElse { "Not saved: ${it.message}." }
+        }
+    )
 }

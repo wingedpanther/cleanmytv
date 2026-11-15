@@ -10,6 +10,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * Air mice and plain mice (D#101): pointing at a tile moves the focus there, a click opens it. TV surfaces
@@ -19,11 +21,15 @@ fun Modifier.pointer(onLongClick: (() -> Unit)? = null, onClick: () -> Unit): Mo
     val focus = remember { FocusRequester() }
     val click by rememberUpdatedState(onClick)
     val long by rememberUpdatedState(onLongClick)
-    focusRequester(focus)
-        .pointerInput(Unit) {
-            awaitPointerEventScope {
-                while (true) if (awaitPointerEvent().type == PointerEventType.Enter) runCatching { focus.requestFocus() }
+    // One pointer handler per tile, watching for the pointer coming in and for taps.
+    focusRequester(focus).pointerInput(Unit) {
+        coroutineScope {
+            launch {
+                awaitPointerEventScope {
+                    while (true) if (awaitPointerEvent().type == PointerEventType.Enter) runCatching { focus.requestFocus() }
+                }
             }
+            detectTapGestures(onTap = { click() }, onLongPress = { long?.invoke() })
         }
-        .pointerInput(Unit) { detectTapGestures(onTap = { click() }, onLongPress = { long?.invoke() }) }
+    }
 }

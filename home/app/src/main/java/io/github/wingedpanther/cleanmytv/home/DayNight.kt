@@ -60,7 +60,11 @@ object DayNight {
             wall.copyTo(tmp, overwrite = true)
             tmp.renameTo(ConfigStore.wallpaper(ctx))
         }
-        ConfigStore.update(ctx, look)
+        // A theme's own changes since the look was saved come with it.
+        ThemePack.kept(ctx, look.optString("wallpaper_from").substringBefore(':'))?.let { kept ->
+            for (k in kept.keys()) look.put(k, kept.get(k))
+        }
+        ConfigStore.update(ctx, look, remember = false)
         if (wall.exists()) ConfigStore.wallpaperChanged()
         Log.i(TAG, "$slot look on")
         return true

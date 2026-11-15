@@ -6,7 +6,7 @@ const methods = [
   'scan', 'discover', 'stopDiscovery', 'connect', 'disconnect', 'status', 'lastHost', 'reconnect', 'checkAdbClosed', 'bootCheck', 'checkUpdate', 'downloadUpdate', 'installUpdate', 'pair',
   'bugReport', 'checks', 'download',
   'lists', 'plan', 'tvPackages', 'applyDebloat', 'restore',
-  'useStockLauncher', 'otherLaunchers', 'useOtherLauncher', 'keepGoogleLauncher', 'removeOldLauncher', 'homeStatus', 'installHome', 'useHome', 'homeApps', 'readHomeConfig', 'setRemoteButtons', 'setLockPin', 'setAppLock', 'clearAppLock', 'themePackBegin', 'themePackPut', 'themePackEnd', 'setSlides', 'fireplace', 'homeKeys', 'saveHomeLook', 'setHomeConfig', 'setHomeWallpaper', 'pictureToJpeg', 'applyHomeTheme', 'themeBackup', 'restoreThemeBackup', 'forgetThemeBackup', 'saveHomeTheme',
+  'useStockLauncher', 'otherLaunchers', 'useOtherLauncher', 'keepGoogleLauncher', 'removeOldLauncher', 'homeStatus', 'installHome', 'useHome', 'homeApps', 'readHomeConfig', 'setRemoteButtons', 'setLockPin', 'setAppLock', 'clearAppLock', 'themePackBegin', 'themePackPut', 'themePackEnd', 'setSlides', 'fireplace', 'homeKeys', 'saveHomeLook', 'saveThemeOnTv', 'setHomeConfig', 'setHomeWallpaper', 'pictureToJpeg', 'applyHomeTheme', 'themeBackup', 'restoreThemeBackup', 'forgetThemeBackup', 'saveHomeTheme',
   'knownTvs', 'connectKnown', 'forgetTv', 'saveTvThumb',
   'screenshot', 'saveScreenshot', 'thumbShot', 'webGet',
   'systemState', 'setPrivateDns', 'setAnimationScale', 'fixScreensaver', 'sideloadInfo', 'sideload', 'clearCaches', 'key', 'reboot'

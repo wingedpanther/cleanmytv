@@ -60,7 +60,7 @@ export function installMock(): void {
     layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
     rows: [{ name: 'Watch', apps: ['com.netflix.ninja', 'com.google.android.youtube.tv'] }], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false,
     accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
-    edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, lock_editor: false, update_check: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
+    edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, theme_memory: true, lock_editor: false, update_check: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
     order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
     icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, intro: true, wallpaper_from: '',
     lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge', fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0, slide_minutes: 0, slide_from: 'mine', other_apps: false, live_tv: true, slides_on_tv: 0, fire_on_tv: false, lock_pin_set: false, themes_on_tv: 0, can_change_settings: true,
@@ -364,6 +364,11 @@ export function installMock(): void {
     async themePackEnd(order) {
       await wait(300)
       homeConfig.themes_on_tv = order.length
+      return { ...homeConfig }
+    },
+    async saveThemeOnTv(name) {
+      await wait(300)
+      homeConfig.themes_on_tv = (homeConfig.themes_on_tv ?? 0) + (name ? 1 : 0)
       return { ...homeConfig }
     },
     async saveHomeLook(slot) {
