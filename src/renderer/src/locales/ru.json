@@ -1084,7 +1084,7 @@
   "Your own words for the heading above the grid. Empty keeps \"All apps\".": "Свой текст заголовка над сеткой. Если оставить пустым, будет «All apps».",
   "Your PIN and the list stay while it's off.": "Пока блокировка выключена, PIN-код и список сохраняются.",
   "Your TV": "Ваш телевизор",
-  "your TV didn't answer at {host}. If it is on, it may have a new address: pick it from the list below.": "Ваш телевизор не ответил по адресу {host}. Если он включён, возможно, у него новый адрес: выберите его в списке ниже.",
+  "Your TV didn't answer at {host}. If it is on, it may have a new address: pick it from the list below.": "Ваш телевизор не ответил по адресу {host}. Если он включён, возможно, у него новый адрес: выберите его в списке ниже.",
   "Your TV model, Android version, app versions and the TV's app list, then this log, without IP addresses. Paste it into a GitHub issue.": "Модель телевизора, версия Android, версии приложений и список приложений на телевизоре, а затем этот журнал, без IP-адресов. Вставьте это в обращение на GitHub.",
   "Your wallpaper can't be saved": "Ваши обои не получится сохранить",
   "{app}, hidden": "{app}, скрыто",

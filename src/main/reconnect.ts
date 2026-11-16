@@ -52,6 +52,6 @@ export async function reconnect(saved: SavedTv, deps: ReconnectDeps): Promise<Co
         : t('Nothing is accepting connections at {host}. Turn on USB debugging on your TV if it is off; if it is on, the TV has a new address: pick it from the list below.', { host })
       : name
         ? t("{name} didn't answer at {host}. If it is on, it may have a new address: pick it from the list below.", { host, name })
-        : t("your TV didn't answer at {host}. If it is on, it may have a new address: pick it from the list below.", { host })
+        : t("Your TV didn't answer at {host}. If it is on, it may have a new address: pick it from the list below.", { host })
   })
 }

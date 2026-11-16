@@ -39,7 +39,8 @@ object I18n {
         return if (args.isEmpty()) s else fill(s, args, lang)
     }
 
-    private val PLACEHOLDER = Regex("\\{(\\w+)(?:\\|([^{}]*))?}")
+    // Every brace escaped: Android's regex engine rejects a bare "}", which the JVM in unit tests accepts.
+    private val PLACEHOLDER = Regex("\\{(\\w+)(?:\\|([^\\{\\}]*))?\\}")
 
     /** {name} takes the value; {n|one|few|many} picks the Russian word that goes with the number n. */
     fun fill(s: String, args: Array<out Pair<String, Any>>, lang: String = language()): String {
