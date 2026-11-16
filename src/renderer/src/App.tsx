@@ -12,6 +12,7 @@ import { HomeLauncher } from './screens/HomeLauncher'
 import { Extras } from './screens/Extras'
 import { Sideload } from './screens/Sideload'
 import { Finish } from './screens/Finish'
+import { langChoice, setLangChoice, t, type LangChoice } from './lib/i18n'
 import { version } from '../../../package.json'
 
 const REPO_URL = 'https://github.com/wingedpanther/cleanmytv'
@@ -21,13 +22,13 @@ export type StepId = 'guided' | 'setup' | 'debloat' | 'home' | 'extras' | 'sidel
 const STEPS: { id: StepId; label: string; sub: string; needsTv: boolean }[] = [
   // The guided one-button run (#9): composes the same IPC the step screens
   // use, so first-time owners get one path while every step stays reachable.
-  { id: 'guided', label: 'Clean & launch', sub: 'One button, every step', needsTv: true },
-  { id: 'setup', label: 'Setup', sub: 'Check and connect', needsTv: false },
-  { id: 'debloat', label: 'Clean up', sub: 'Turn off the bloat', needsTv: true },
-  { id: 'home', label: 'Home screen', sub: 'Install and customise', needsTv: true },
-  { id: 'extras', label: 'TV extras', sub: 'DNS, animations, remote', needsTv: true },
-  { id: 'sideload', label: 'Install an app', sub: 'From an .apk file', needsTv: true },
-  { id: 'finish', label: 'Finish', sub: 'Close the debug port', needsTv: false }
+  { id: 'guided', label: t('Clean & launch'), sub: t('One button, every step'), needsTv: true },
+  { id: 'setup', label: t('Setup'), sub: t('Check and connect'), needsTv: false },
+  { id: 'debloat', label: t('Clean up'), sub: t('Turn off the bloat'), needsTv: true },
+  { id: 'home', label: t('Home screen'), sub: t('Install and customise'), needsTv: true },
+  { id: 'extras', label: t('TV extras'), sub: t('DNS, animations, remote'), needsTv: true },
+  { id: 'sideload', label: t('Install an app'), sub: t('From an .apk file'), needsTv: true },
+  { id: 'finish', label: t('Finish'), sub: t('Close the debug port'), needsTv: false }
 ]
 
 export interface ScreenProps {
@@ -41,25 +42,30 @@ export interface ScreenProps {
   homeSeen: (hs: HomeStatus) => void
 }
 
-// What ⌘K finds. "home:<tab>" opens that tab of the Home screen step.
+// What ⌘K finds. "home:<tab>" opens that tab of the Home screen step. The keywords stay English, so an
+// English word finds a setting in either language.
+const SETUP = t('Setup')
+const CLEAN_UP = t('Clean up')
+const EXTRAS = t('TV extras')
+const HOME = t('Home screen')
 const JUMP_ITEMS: JumpItem[] = [
-  ...STEPS.map((s) => ({ id: `step:${s.id}`, title: s.label, where: 'Step', words: s.sub.toLowerCase() })),
-  { id: 'step:setup', title: 'Pair with a code', where: 'Setup', words: 'connect wireless debugging adb ip' },
-  { id: 'step:debloat', title: 'Restore', where: 'Clean up', words: 'undo put back packages' },
-  { id: 'step:debloat', title: 'Add a package', where: 'Clean up', words: 'package app missing list' },
-  { id: 'step:extras', title: 'Animation speed', where: 'TV extras', words: 'animations faster' },
-  { id: 'step:extras', title: 'Block ads inside apps', where: 'TV extras', words: 'dns private ad blocking adguard' },
-  { id: 'step:extras', title: 'Remote', where: 'TV extras', words: 'buttons keys' },
-  { id: 'step:extras', title: 'Storage', where: 'TV extras', words: 'space disk free' },
-  { id: 'step:finish', title: 'Restart check', where: 'Finish', words: 'reboot' },
-  { id: 'home:overview', title: 'Install or update CleanMyTV Home', where: 'Home screen', words: 'launcher stock give back' },
-  { id: 'home:layout', title: 'Layout', where: 'Home screen', words: 'sections quick settings sizes clock greeting idle screensaver' },
-  { id: 'home:apps', title: 'Apps, rows & folders', where: 'Home screen', words: 'dock order hide rename folder row' },
-  { id: 'home:look', title: 'Look & wallpaper', where: 'Home screen', words: 'themes accent colour color focus app icons tile shape wallpaper sunrise picture' },
-  { id: 'home:widgets', title: 'Widgets', where: 'Home screen', words: 'weather' },
-  { id: 'home:music', title: 'Music bars', where: 'Home screen', words: 'visualiser style size' },
-  { id: 'home:buttons', title: 'Remote buttons', where: 'Home screen', words: 'button jobs shortcut key press' },
-  { id: 'home:lock', title: 'App lock', where: 'Home screen', words: 'pin password lock apps' }
+  ...STEPS.map((s) => ({ id: `step:${s.id}`, title: s.label, where: t('Step'), words: s.sub.toLowerCase() })),
+  { id: 'step:setup', title: t('Pair with a code'), where: SETUP, words: 'connect wireless debugging adb ip' },
+  { id: 'step:debloat', title: t('Restore'), where: CLEAN_UP, words: 'undo put back packages' },
+  { id: 'step:debloat', title: t('Add a package'), where: CLEAN_UP, words: 'package app missing list' },
+  { id: 'step:extras', title: t('Animation speed'), where: EXTRAS, words: 'animations faster' },
+  { id: 'step:extras', title: t('Block ads inside apps'), where: EXTRAS, words: 'dns private ad blocking adguard' },
+  { id: 'step:extras', title: t('Remote'), where: EXTRAS, words: 'buttons keys' },
+  { id: 'step:extras', title: t('Storage'), where: EXTRAS, words: 'space disk free' },
+  { id: 'step:finish', title: t('Restart check'), where: t('Finish'), words: 'reboot' },
+  { id: 'home:overview', title: t('Install or update CleanMyTV Home'), where: HOME, words: 'launcher stock give back' },
+  { id: 'home:layout', title: t('Layout'), where: HOME, words: 'sections quick settings sizes clock greeting idle screensaver' },
+  { id: 'home:apps', title: t('Apps, rows & folders'), where: HOME, words: 'dock order hide rename folder row' },
+  { id: 'home:look', title: t('Look & wallpaper'), where: HOME, words: 'themes accent colour color focus app icons tile shape wallpaper sunrise picture' },
+  { id: 'home:widgets', title: t('Widgets'), where: HOME, words: 'weather' },
+  { id: 'home:music', title: t('Music bars'), where: HOME, words: 'visualiser style size' },
+  { id: 'home:buttons', title: t('Remote buttons'), where: HOME, words: 'button jobs shortcut key press' },
+  { id: 'home:lock', title: t('App lock'), where: HOME, words: 'pin password lock apps' }
 ].map((it, i) => ({ ...it, id: `${it.id}#${i}` }))
 
 // A fresh snapshot for the sidebar and the TV list when the last one is older than this.
@@ -183,13 +189,13 @@ export default function App(): ReactNode {
           <span className="brand-name">CleanMyTV</span>
         </div>
         {currentTv?.thumb && (
-          <button className="sidebar-tv" onClick={() => setStep('setup')} title="This TV. Open Setup to switch TVs." style={{ all: 'unset', cursor: 'pointer', display: 'block', marginBottom: 10 }}>
+          <button className="sidebar-tv" onClick={() => setStep('setup')} title={t('This TV. Open Setup to switch TVs.')} style={{ all: 'unset', cursor: 'pointer', display: 'block', marginBottom: 10 }}>
             <TvThumb tv={currentTv} />
           </button>
         )}
         <ConnPill status={status} />
         <button className="jump-btn" onClick={() => setJumping(true)}>
-          <span>Find a setting</span>
+          <span>{t('Find a setting')}</span>
           <kbd>{MOD_KEY}K</kbd>
         </button>
         <nav>
@@ -206,7 +212,7 @@ export default function App(): ReactNode {
                     <span className="step-num">{isDone ? '✓' : i + 1}</span>
                     <span className="step-label">
                       {s.label}
-                      <span className="step-sub">{s.id === 'home' && connected && homeBehind ? 'Update ready for this TV' : s.sub}</span>
+                      <span className="step-sub">{s.id === 'home' && connected && homeBehind ? t('Update ready for this TV') : s.sub}</span>
                     </span>
                   </button>
                 </li>
@@ -216,8 +222,13 @@ export default function App(): ReactNode {
         </nav>
         <div className="sidebar-foot">
           {update?.available && <UpdateNote update={update} />}
-          Nothing is uninstalled. Every change can be undone from this app or the TV's Settings → Apps.
-          <a className="gh-link" href={REPO_URL} target="_blank" rel="noreferrer" title="Source, releases and issues on GitHub">
+          {t("Nothing is uninstalled. Every change can be undone from this app or the TV's Settings → Apps.")}
+          <LanguagePick onPick={(c) => {
+            // The window reloads in the new language and opens this step again.
+            location.hash = step
+            setLangChoice(c)
+          }} />
+          <a className="gh-link" href={REPO_URL} target="_blank" rel="noreferrer" title={t('Source, releases and issues on GitHub')}>
             <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
               <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
             </svg>
@@ -239,14 +250,14 @@ function ConnPill({ status }: { status: ConnStatus }): ReactNode {
   const p = status.probe
   const [dot, text] =
     status.state === 'connected'
-      ? ['ok', p ? `${p.manufacturer} ${p.model}` : status.host ?? 'Connected']
+      ? ['ok', p ? `${p.manufacturer} ${p.model}` : status.host ?? t('Connected')]
       : status.state === 'connecting'
-        ? ['busy', `Connecting to ${status.host ?? 'TV'}`]
+        ? ['busy', status.host ? t('Connecting to {host}', { host: status.host }) : t('Connecting to the TV')]
         : status.state === 'waiting-auth'
-          ? ['busy', 'Waiting for Allow on the TV']
+          ? ['busy', t('Waiting for Allow on the TV')]
           : status.state === 'error'
-            ? ['err', 'Not connected']
-            : ['idle', 'No TV connected']
+            ? ['err', t('Not connected')]
+            : ['idle', t('No TV connected')]
   return (
     <div className="conn-pill" title={status.error ?? status.host}>
       <span className={`dot ${dot}`} />
@@ -283,23 +294,37 @@ function UpdateNote({ update }: { update: UpdateInfo }): ReactNode {
   if (!update.canInstall) {
     return (
       <a className="update-link" href={update.url} target="_blank" rel="noreferrer">
-        Version {update.latest} is out. Download it
+        {t('Version {v} is out. Download it', { v: update.latest ?? '' })}
       </a>
     )
   }
   return (
     <div className="update-note">
       <span>
-        <b>Version {update.latest} is out.</b>{' '}
-        <a href={update.url} target="_blank" rel="noreferrer">What's new</a>
+        <b>{t('Version {v} is out.', { v: update.latest ?? '' })}</b>{' '}
+        <a href={update.url} target="_blank" rel="noreferrer">{t("What's new")}</a>
       </span>
-      {phase === 'idle' && <button className="update-btn" onClick={() => void step('downloading', () => window.cytv.downloadUpdate(), 'ready')}>Update now</button>}
-      {phase === 'downloading' && <span className="update-state">Downloading… {pct}%</span>}
+      {phase === 'idle' && <button className="update-btn" onClick={() => void step('downloading', () => window.cytv.downloadUpdate(), 'ready')}>{t('Update now')}</button>}
+      {phase === 'downloading' && <span className="update-state">{t('Downloading… {pct}%', { pct })}</span>}
       {phase === 'ready' && (
-        <button className="update-btn" onClick={() => void step('installing', () => window.cytv.installUpdate(), 'ready')}>Restart and update</button>
+        <button className="update-btn" onClick={() => void step('installing', () => window.cytv.installUpdate(), 'ready')}>{t('Restart and update')}</button>
       )}
-      {phase === 'installing' && <span className="update-state">Installing…</span>}
+      {phase === 'installing' && <span className="update-state">{t('Installing…')}</span>}
       {note && <span className="update-state">{note}</span>}
     </div>
+  )
+}
+
+/** Auto follows the computer's language. A change reloads the window. */
+function LanguagePick({ onPick }: { onPick: (c: LangChoice) => void }): ReactNode {
+  return (
+    <label className="lang-pick">
+      <span>{t('Language')}</span>
+      <select value={langChoice()} onChange={(e) => onPick(e.target.value as LangChoice)}>
+        <option value="auto">{t('Auto')}</option>
+        <option value="en">English</option>
+        <option value="ru">Русский</option>
+      </select>
+    </label>
   )
 }

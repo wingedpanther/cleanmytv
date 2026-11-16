@@ -4,6 +4,7 @@
 // to devices it found by scanning. If the TV is not at the saved address, or something else answers
 // there, the user picks the TV from a scan instead.
 import type { ConnStatus } from '@shared/api'
+import { t } from './i18n'
 
 export interface SavedTv {
   lastHost?: string
@@ -21,7 +22,7 @@ export async function reconnect(saved: SavedTv, deps: ReconnectDeps): Promise<Co
   const host = saved.lastHost
   if (!host) return null
   const s = await deps.connect(host)
-  const name = saved.lastModel || 'your TV'
+  const name = saved.lastModel
   if (s.state === 'connected') {
     // The model is self-reported, so this is a check against mistakes (a new device at a reused
     // address), not proof of identity; it keeps the app from acting on the wrong device.
@@ -29,7 +30,12 @@ export async function reconnect(saved: SavedTv, deps: ReconnectDeps): Promise<Co
       deps.disconnect()
       return deps.report({
         state: 'error', host, moved: true,
-        error: `A different device is answering at ${host} (it says ${s.probe?.model || 'nothing about its model'}). Pick ${name} from the list below.`
+        error: [
+          s.probe?.model
+            ? t('A different device is answering at {host} (it says {model}).', { host, model: s.probe.model })
+            : t('A different device is answering at {host} (it says nothing about its model).', { host }),
+          name ? t('Pick {name} from the list below.', { name }) : t('Pick your TV from the list below.')
+        ].join(' ')
       })
     }
     return s
@@ -37,11 +43,15 @@ export async function reconnect(saved: SavedTv, deps: ReconnectDeps): Promise<Co
   // Waiting on Allow or pairing needed: the address is right, the TV just needs a step.
   if (s.state === 'waiting-auth' || s.needsPairing) return s
   // A refusal means debugging is off, or that the router gave this address to another device.
-  const refused = /network debugging is off/.test(s.error ?? '')
+  const refused = s.refused || /network debugging is off/.test(s.error ?? '')
   return deps.report({
     state: 'error', host, moved: true,
     error: refused
-      ? `Nothing is accepting connections at ${host}. Turn on USB debugging on ${name} if it is off; if it is on, the TV has a new address: pick it from the list below.`
-      : `${name} didn't answer at ${host}. If it is on, it may have a new address: pick it from the list below.`
+      ? name
+        ? t('Nothing is accepting connections at {host}. Turn on USB debugging on {name} if it is off; if it is on, the TV has a new address: pick it from the list below.', { host, name })
+        : t('Nothing is accepting connections at {host}. Turn on USB debugging on your TV if it is off; if it is on, the TV has a new address: pick it from the list below.', { host })
+      : name
+        ? t("{name} didn't answer at {host}. If it is on, it may have a new address: pick it from the list below.", { host, name })
+        : t("your TV didn't answer at {host}. If it is on, it may have a new address: pick it from the list below.", { host })
   })
 }

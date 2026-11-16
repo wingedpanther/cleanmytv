@@ -12,6 +12,7 @@ import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordi
 import { CSS } from '@dnd-kit/utilities'
 import type { TvApp } from '@shared/api'
 import { appColour, monogram } from '../lib/apps'
+import { t } from '../lib/i18n'
 
 /**
  * Drag tiles to set the Home order. The first `columns` visible tiles are the dock.
@@ -89,7 +90,7 @@ function SortableTile(props: {
   const style: CSSProperties = { transform: CSS.Transform.toString(transform), transition }
   const cls = `app-tile${props.dock ? ' dock' : ''}${props.hidden ? ' hidden-app' : ''}${isDragging ? ' dragging' : ''}`
   return (
-    <div ref={setNodeRef} style={style} className={cls} {...attributes} {...listeners} aria-label={`${props.app.label}${props.dock ? ', in the dock' : ''}${props.hidden ? ', hidden' : ''}`}>
+    <div ref={setNodeRef} style={style} className={cls} {...attributes} {...listeners} aria-label={props.dock ? t('{app}, in the dock', { app: props.app.label }) : props.hidden ? t('{app}, hidden', { app: props.app.label }) : props.app.label}>
       <div className="app-art" style={{ background: appColour(props.app.pkg) }}>
         {monogram(props.app.label)}
       </div>
@@ -98,13 +99,13 @@ function SortableTile(props: {
       </div>
       {/* Buttons stop the pointer so a click doesn't start a drag. */}
       <div className="app-tools" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-        <button className="icon-btn" onClick={props.onLeft} disabled={props.first} aria-label={`Move ${props.app.label} earlier`}>
+        <button className="icon-btn" onClick={props.onLeft} disabled={props.first} aria-label={t('Move {app} earlier', { app: props.app.label })}>
           ←
         </button>
-        <button className="icon-btn" onClick={props.onHide} aria-label={props.hidden ? `Show ${props.app.label}` : `Hide ${props.app.label}`}>
-          {props.hidden ? 'Show' : 'Hide'}
+        <button className="icon-btn" onClick={props.onHide} aria-label={props.hidden ? t('Show {app}', { app: props.app.label }) : t('Hide {app}', { app: props.app.label })}>
+          {props.hidden ? t('Show') : t('Hide')}
         </button>
-        <button className="icon-btn" onClick={props.onRight} disabled={props.last} aria-label={`Move ${props.app.label} later`}>
+        <button className="icon-btn" onClick={props.onRight} disabled={props.last} aria-label={t('Move {app} later', { app: props.app.label })}>
           →
         </button>
       </div>

@@ -3,6 +3,7 @@
 // and stay there until the owner puts them back or forgets them, through restarts of the app.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { log } from './log'
+import { t, UiError } from './i18n'
 import { paths } from './paths'
 import * as H from './home'
 import { pickLook, themeName, themeToFile } from '@shared/themes'
@@ -65,7 +66,7 @@ export async function apply(theme: HomeTheme): Promise<HomeConfig> {
 /** Puts the look from before the first theme back, then forgets it. */
 export async function restore(): Promise<HomeConfig> {
   const s = readSaved()
-  if (!s) throw new Error("There's no saved look for this TV.")
+  if (!s) throw new UiError("There's no saved look for this TV.")
   log('theme', 'info', 'putting the look from before themes back')
   const cfg = await put(s.theme)
   forget()
@@ -85,7 +86,7 @@ export async function save(name: string, pick: (fileName: string) => Promise<str
   writeFileSync(file, themeToFile(theme))
   return {
     ok: true,
-    summary: `Saved “${theme.name}”. Load it on any TV from Look & wallpaper → Themes.`,
-    warnings: missing ? ["The wallpaper isn't in the file: an older CleanMyTV set it and kept no copy. Set it again, then save."] : []
+    summary: t('Saved “{name}”. Load it on any TV from Look & wallpaper → Themes.', { name: theme.name }),
+    warnings: missing ? [t("The wallpaper isn't in the file: an older CleanMyTV set it and kept no copy. Set it again, then save.")] : []
   }
 }

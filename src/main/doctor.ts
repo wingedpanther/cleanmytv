@@ -3,6 +3,7 @@
 // the local network, a computer on another network or a VPN, and the pairing port typed into Connect.
 import type { NetworkInterfaceInfo } from 'node:os'
 import { isVirtualBridge } from './scan'
+import { t } from './i18n'
 
 export interface Failure {
   /** AdbError's code: refused, timeout, unreachable, tls, auth, closed, protocol. */
@@ -49,28 +50,33 @@ export function diagnose(f: Failure, ifaces: Ifaces, platform: NodeJS.Platform):
   const noRoute = f.errno === 'EHOSTUNREACH' || f.errno === 'ENETUNREACH'
 
   if (platform === 'darwin' && noRoute && sameNet) {
-    hints.push('macOS is probably blocking CleanMyTV from your network. Open System Settings → Privacy & Security → Local Network, switch CleanMyTV on, then quit and reopen the app.')
+    hints.push(t('macOS is probably blocking CleanMyTV from your network. Open System Settings → Privacy & Security → Local Network, switch CleanMyTV on, then quit and reopen the app.'))
     // Some Macs never show the switch for an app without a paid Apple certificate (#65). Started from
     // Terminal, the app uses Terminal's network access instead.
-    hints.push(`No CleanMyTV switch there? Quit the app, open Terminal and run: ${MAC_FROM_TERMINAL}`)
+    hints.push(t('No CleanMyTV switch there? Quit the app, open Terminal and run: {command}', { command: MAC_FROM_TERMINAL }))
   }
   if (platform === 'linux' && (noRoute || f.errno === 'EACCES' || f.errno === 'EPERM') && sameNet) {
-    hints.push('A firewall on this computer (such as ufw or firewalld) may be blocking local network connections, or the TV is off.')
+    hints.push(t('A firewall on this computer (such as ufw or firewalld) may be blocking local network connections, or the TV is off.'))
   }
   if (isIp(f.host) && lan.length && !sameNet) {
-    hints.push(`This computer is on ${lan.map((a) => `${prefix(a)}.x`).filter((v, i, all) => all.indexOf(v) === i).join(' and ')}, and the TV is on ${prefix(f.host)}.x. They need to be on the same network: check for a guest Wi-Fi or a second router.`)
+    const nets = lan.map((a) => `${prefix(a)}.x`).filter((v, i, all) => all.indexOf(v) === i)
+    hints.push(t('This computer is on {nets}, and the TV is on {tv}. They need to be on the same network: check for a guest Wi-Fi or a second router.', { nets: nets.join(t(' and ')), tv: `${prefix(f.host)}.x` }))
   }
   if (vpnUp(ifaces) && (noRoute || f.code === 'timeout')) {
-    hints.push('A VPN is on. Turn it off while you set up the TV, or allow local network access in the VPN app.')
+    hints.push(t('A VPN is on. Turn it off while you set up the TV, or allow local network access in the VPN app.'))
   }
-  // Wireless debugging uses random high ports. The one in the "Pair with code" window only takes a pairing.
-  if (f.port >= 30000 && f.port <= 49999 && (f.code === 'refused' || f.code === 'closed' || f.code === 'protocol' || f.code === 'tls')) {
-    hints.push('If that port came from the "Pair device with pairing code" window, it only works for pairing. Use Pair with a code with the IP, that port and the 6-digit code. Connect takes the port on the main Wireless debugging screen.')
+  if (isPairingPort(f)) {
+    hints.push(t('If that port came from the "Pair device with pairing code" window, it only works for pairing. Use Pair with a code with the IP, that port and the 6-digit code. Connect takes the port on the main Wireless debugging screen.'))
   }
   if (f.code === 'timeout' && sameNet && !hints.length) {
-    hints.push('The TV may be asleep, or the router keeps devices apart (often called AP or client isolation). Wake the TV, and try again with the computer on the same Wi-Fi band as the TV.')
+    hints.push(t('The TV may be asleep, or the router keeps devices apart (often called AP or client isolation). Wake the TV, and try again with the computer on the same Wi-Fi band as the TV.'))
   }
   return hints
+}
+
+/** Wireless debugging uses random high ports, and the one in the "Pair with code" window only takes a pairing. */
+export function isPairingPort(f: Failure): boolean {
+  return f.port >= 30000 && f.port <= 49999 && (f.code === 'refused' || f.code === 'closed' || f.code === 'protocol' || f.code === 'tls')
 }
 
 /** The system error code inside an AdbError message, like "(EHOSTUNREACH)". */

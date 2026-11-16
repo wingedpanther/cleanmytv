@@ -2,6 +2,7 @@
 // Every random choice comes from the theme's seed: the same theme draws the same picture each time.
 import type { ThemeArt, ThemePaint } from '@shared/themes'
 import { TV_H, TV_W, canvasJpeg, type PreparedImage } from './image'
+import { t } from './i18n'
 
 type Ctx = CanvasRenderingContext2D
 type Rnd = () => number
@@ -14,7 +15,7 @@ export function paintWallpaper(p: ThemePaint, name: string): PreparedImage {
 export function drawWallpaper(p: ThemePaint, w: number, h: number): HTMLCanvasElement {
   const canvas = layer(w, h)
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('This computer could not draw the picture.')
+  if (!ctx) throw new Error(t('This computer could not draw the picture.'))
   const base = ctx.createLinearGradient(0, 0, w, h)
   base.addColorStop(0, p.base[0])
   base.addColorStop(1, p.base[1])

@@ -1,6 +1,7 @@
 // First-party background sources (issue #5). Downloads happen on this computer, in the main process;
 // only prepared JPEGs (1920x1080, under 300 KB) ever reach the TV.
 import { prepareWallpaper, type PreparedImage } from './image'
+import { t } from './i18n'
 
 const BING_BASE = 'https://www.bing.com'
 
@@ -37,17 +38,17 @@ export function bingName(img: BingImage): string {
 
 async function toPrepared(url: string, name: string): Promise<PreparedImage> {
   const res = await get(url)
-  if (!res.ok) throw new Error(`download failed (${res.status})`)
-  if (!res.type.startsWith('image/')) throw new Error('the source did not return a picture')
+  if (!res.ok) throw new Error(t('download failed ({status})', { status: res.status }))
+  if (!res.type.startsWith('image/')) throw new Error(t('the source did not return a picture'))
   return prepareWallpaper(new File([res.bytes], name, { type: res.type }), name)
 }
 
 /** Fetches today's (or the newest available) Bing daily image, prepared for the TV. */
 export async function fetchBingDaily(market = 'en-US'): Promise<PreparedImage> {
   const res = await get(`${BING_BASE}/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=${market}`)
-  if (!res.ok) throw new Error(`Bing daily is unavailable (${res.status})`)
+  if (!res.ok) throw new Error(t('Bing daily is unavailable ({status})', { status: res.status }))
   const data = json<{ images?: BingImage[] }>(res.bytes)
   const img = data.images?.[0]
-  if (!img?.urlbase) throw new Error('Bing daily returned no picture today.')
+  if (!img?.urlbase) throw new Error(t('Bing daily returned no picture today.'))
   return toPrepared(bingFileUrl(img), bingName(img))
 }

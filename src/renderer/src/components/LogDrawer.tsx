@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LogLine } from '@shared/api'
+import { t } from '../lib/i18n'
 
 const MAX_LINES = 500
 
@@ -24,11 +25,11 @@ export function LogDrawer(): ReactNode {
       }
       setRec('saving')
       const path = await window.cytv.recordStop()
-      setRecNote(path ? `Saved to ${path}. Look through it, then attach it to your GitHub issue.` : 'Not saved.')
+      setRecNote(path ? t('Saved to {path}. Look through it, then attach it to your GitHub issue.', { path }) : t('Not saved.'))
       setRec('idle')
     } catch (e) {
       setRec('idle')
-      setRecNote(`Couldn't record: ${(e as Error).message}`)
+      setRecNote(t("Couldn't record: {error}", { error: (e as Error).message }))
     }
   }
 
@@ -53,13 +54,13 @@ export function LogDrawer(): ReactNode {
   return (
     <div className="log">
       <button className="log-bar" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span>{open ? '▾' : '▸'} Activity{rec === 'on' ? ' · recording' : ''}</span>
-        <span className="last">{last ? (last.level === 'cmd' ? `$ ${last.text}` : last.text) : 'Nothing has run yet.'}</span>
-        {lines.length > 0 && <span className="muted small">{lines.length} lines</span>}
+        <span>{open ? '▾' : '▸'} {rec === 'on' ? t('Activity · recording') : t('Activity')}</span>
+        <span className="last">{last ? (last.level === 'cmd' ? `$ ${last.text}` : last.text) : t('Nothing has run yet.')}</span>
+        {lines.length > 0 && <span className="muted small">{t('{n} {n|line|lines}', { n: lines.length })}</span>}
       </button>
       {open && (
         <div className="log-body" ref={body}>
-          {lines.length === 0 && <p className="muted">Commands sent to the TV show up here.</p>}
+          {lines.length === 0 && <p className="muted">{t('Commands sent to the TV show up here.')}</p>}
           {lines.map((l, i) => (
             <div key={i} className={`log-line ${l.level}`}>
               <span className="t">{new Date(l.time).toLocaleTimeString([], { hour12: false })}</span>
@@ -71,38 +72,38 @@ export function LogDrawer(): ReactNode {
             {lines.length > 0 && (
               <>
                 <button className="btn small ghost" onClick={() => setLines([])}>
-                  Clear
+                  {t('Clear')}
                 </button>
                 <button className="btn small ghost" onClick={() => navigator.clipboard.writeText(lines.map(line).join('\n'))}>
-                  Copy all
+                  {t('Copy all')}
                 </button>
               </>
             )}
             <button
               className="btn small ghost"
-              title="Your TV model, Android version, app versions and the TV's app list, then this log, without IP addresses. Paste it into a GitHub issue."
+              title={t("Your TV model, Android version, app versions and the TV's app list, then this log, without IP addresses. Paste it into a GitHub issue.")}
               onClick={async () => {
                 const details = await window.cytv.bugReport().catch((e) => `Could not read the details: ${(e as Error).message}`)
                 navigator.clipboard.writeText(noAddresses(`${details}\n\nActivity:\n${lines.map(line).join('\n') || '(empty)'}`))
               }}
             >
-              Copy for a bug report
+              {t('Copy for a bug report')}
             </button>
             <button
               className={`btn small ${rec === 'on' ? 'primary' : 'ghost'}`}
               disabled={rec === 'saving'}
-              title="Records the TV's own log while you make the problem happen, then saves it as a file with the bug report details. Addresses and email addresses are taken out."
+              title={t("Records the TV's own log while you make the problem happen, then saves it as a file with the bug report details. Addresses and email addresses are taken out.")}
               onClick={() => void record()}
             >
-              {rec === 'on' ? 'Stop and save' : rec === 'saving' ? 'Saving' : 'Record a problem'}
+              {rec === 'on' ? t('Stop and save') : rec === 'saving' ? t('Saving') : t('Record a problem')}
             </button>
             {rec === 'on' && (
               <button className="btn small ghost" onClick={() => { void window.cytv.recordCancel(); setRec('idle') }}>
-                Cancel
+                {t('Cancel')}
               </button>
             )}
           </div>
-          {rec === 'on' && <p className="small">Recording. Now make the problem happen on the TV, then press Stop and save.</p>}
+          {rec === 'on' && <p className="small">{t('Recording. Now make the problem happen on the TV, then press Stop and save.')}</p>}
           {recNote && <p className="small muted">{recNote}</p>}
         </div>
       )}

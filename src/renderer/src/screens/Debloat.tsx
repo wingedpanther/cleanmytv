@@ -4,6 +4,7 @@ import type { ScreenProps } from '../App'
 import { ActionButton, CheckupCard, Confirm, ResultNotice, Skeleton, Toggle, UndoToast, errorText, usePhase } from '../components/ui'
 import { defaultTick } from '../lib/ticks'
 import { usbOffWhileDebugging } from '../lib/usb'
+import { t, tx } from '../lib/i18n'
 
 type Filter = 'all' | 'disable' | 'disabled' | 'absent'
 
@@ -182,6 +183,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
     try { return localStorage.getItem(usbKey) === '1' } catch { return false }
   })
   const usbNote = usbOffWhileDebugging(status.probe) && !usbHidden
+  const tvName = status.probe ? `${status.probe.manufacturer} ${status.probe.model}` : status.host ?? ''
   const hideUsbNote = (): void => {
     setUsbHidden(true)
     try { localStorage.setItem(usbKey, '1') } catch { /* private window: it just shows again next time */ }
@@ -189,38 +191,36 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
 
   return (
     <>
-      <h1>Clean up</h1>
+      <h1>{t('Clean up')}</h1>
       <p className="lede">
-        Pick the list for your TV and untick anything you use. Packages are switched off for your user, never uninstalled.
-        Before the first change, the app writes down how the TV was set up, so Restore puts every package back as it was.
+        {t('Pick the list for your TV and untick anything you use. Packages are switched off for your user, never uninstalled. Before the first change, the app writes down how the TV was set up, so Restore puts every package back as it was.')}
       </p>
 
       {usbNote && (
         <div className="notice warn row between" style={{ flexWrap: 'nowrap', alignItems: 'flex-start' }}>
           <span style={{ flex: 1 }}>
-            This TV turns its USB port off while debugging is on. Drives and USB adapters come back once you finish and switch
-            debugging off. Clean up didn't cause it.
+            {t("This TV turns its USB port off while debugging is on. Drives and USB adapters come back once you finish and switch debugging off. Clean up didn't cause it.")}
           </span>
-          <button className="btn ghost" aria-label="Hide this note" onClick={hideUsbNote}>✕</button>
+          <button className="btn ghost" aria-label={t('Hide this note')} onClick={hideUsbNote}>✕</button>
         </div>
       )}
 
       <div className="card">
         <div className="card-head">
           <div>
-            <h2>Which list?</h2>
+            <h2>{t('Which list?')}</h2>
             <p className="muted small" style={{ margin: 0 }}>
               {selectedList
                 ? selectedList.score > 0
-                  ? 'This list matches your TV. Pick another if you know better.'
-                  : 'No list matched your model exactly. A list from the same brand and year is a good start.'
-                : 'Lists come from people who cleaned the same TV model.'}
+                  ? t('This list matches your TV. Pick another if you know better.')
+                  : t('No list matched your model exactly. A list from the same brand and year is a good start.')
+                : t('Lists come from people who cleaned the same TV model.')}
             </p>
           </div>
-          <input type="search" placeholder="Search brand or model" value={query} onChange={(e) => setQuery(e.target.value)} style={{ width: 240 }} />
+          <input type="search" placeholder={t('Search brand or model')} value={query} onChange={(e) => setQuery(e.target.value)} style={{ width: 240 }} />
         </div>
         {!lists ? (
-          <Skeleton rows={4} label="Loading lists" />
+          <Skeleton rows={4} label={t('Loading lists')} />
         ) : (
           <div className="list-picker" role="listbox">
             {visibleLists.map((l) => (
@@ -231,13 +231,13 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
                 className={`list-opt${l.id === listId ? ' selected' : ''}`}
                 onClick={() => setListId(l.id)}
               >
-                {l.score > 0 && <span className="chip ok">Match</span>}
-                {l.id === 'custom' && <span className="chip">Your TV</span>}
+                {l.score > 0 && <span className="chip ok">{t('Match')}</span>}
+                {l.id === 'custom' && <span className="chip">{t('Your TV')}</span>}
                 <span className="title">{l.title}</span>
                 {l.id !== 'custom' && <span className="id">{l.id}</span>}
               </button>
             ))}
-            {visibleLists.length === 0 && <p className="muted">No list matches “{query}”.</p>}
+            {visibleLists.length === 0 && <p className="muted">{t('No list matches “{query}”.', { query })}</p>}
           </div>
         )}
       </div>
@@ -247,7 +247,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
 
       {loadingPlan && (
         <div className="card white">
-          <Skeleton rows={8} label="Reading what's installed on the TV" />
+          <Skeleton rows={8} label={t("Reading what's installed on the TV")} />
         </div>
       )}
 
@@ -259,7 +259,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
               {plan.header.length > 0 && (
                 <details>
                   <summary className="small muted" style={{ cursor: 'pointer' }}>
-                    Notes from the person who made this list
+                    {t('Notes from the person who made this list')}
                   </summary>
                   <pre className="mono small" style={{ whiteSpace: 'pre-wrap', margin: '8px 0 0', color: 'var(--navy)' }}>
                     {plan.header.join('\n')}
@@ -272,46 +272,42 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
           <div className="stat-row">
             <div className="stat">
               <b>{counts.disable}</b>
-              <span>will be switched off</span>
+              <span>{t('will be switched off')}</span>
             </div>
             <div className="stat">
               <b>{toEnable.length}</b>
-              <span>will be switched back on</span>
+              <span>{t('will be switched back on')}</span>
             </div>
             <div className="stat">
               <b>{counts.disabled}</b>
-              <span>already off</span>
+              <span>{t('already off')}</span>
             </div>
             <div className="stat">
               <b>{counts.absent}</b>
-              <span>not on this TV</span>
+              <span>{t('not on this TV')}</span>
             </div>
           </div>
 
           {plan.record ? (
             <div className="notice">
-              Restore point saved {fmtDate(plan.record.created)} in <code>{plan.record.path}</code>. Keep that file: it is the
-              only copy.
+              {tx('Restore point saved {date} in {path}. Keep that file: it is the only copy.', { date: fmtDate(plan.record.created), path: <code>{plan.record.path}</code> })}
             </div>
           ) : (
-            <div className="notice">No restore point yet. The app saves one before the first package is switched off.</div>
+            <div className="notice">{t('No restore point yet. The app saves one before the first package is switched off.')}</div>
           )}
 
           {!!plan.cameBack?.length && (
             <div className="notice warn">
-              {plan.cameBack.length === 1 ? '1 package' : `${plan.cameBack.length} packages`} you switched off {plan.cameBack.length === 1 ? 'is' : 'are'} on
-              again, often after a firmware update: <code>{plan.cameBack.join(', ')}</code>.
+              {tx('{n} {n|package|packages} you switched off {n|is|are} on again, often after a firmware update: {list}.', { n: plan.cameBack.length, list: <code>{plan.cameBack.join(', ')}</code> })}
               <div style={{ marginTop: 10 }}>
-                <ActionButton phase={backPhase} label="Switch them off again" busyLabel="Switching off" doneLabel="Off again" onClick={() => void switchBackOff()} />
+                <ActionButton phase={backPhase} label={t('Switch them off again')} busyLabel={t('Switching off')} doneLabel={t('Off again')} onClick={() => void switchBackOff()} />
               </div>
             </div>
           )}
 
           {stockHome && (
             <div className="notice warn">
-              This list switches off <code>{plan.homePackage}</code>, which is your Home screen right now. The app skips it until
-              the new launcher is Home, so the TV always has something to start. Install CleanMyTV Home (Home screen step), then apply this list
-              again.
+              {tx('This list switches off {pkg}, which is your Home screen right now. The app skips it until the new launcher is Home, so the TV always has something to start. Install CleanMyTV Home (Home screen step), then apply this list again.', { pkg: <code>{plan.homePackage}</code> })}
             </div>
           )}
 
@@ -319,10 +315,10 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
             <div className="seg" role="tablist">
               {(
                 [
-                  ['all', `All ${counts.all}`],
-                  ['disable', `Will switch off ${counts.disable}`],
-                  ['disabled', `Already off ${counts.disabled}`],
-                  ['absent', `Not installed ${counts.absent}`]
+                  ['all', t('All {n}', { n: counts.all })],
+                  ['disable', t('Will switch off {n}', { n: counts.disable })],
+                  ['disabled', t('Already off {n}', { n: counts.disabled })],
+                  ['absent', t('Not installed {n}', { n: counts.absent })]
                 ] as [Filter, string][]
               ).map(([f, label]) => (
                 <button key={f} className={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>
@@ -330,10 +326,10 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
                 </button>
               ))}
             </div>
-            <input type="search" placeholder="Find a package" value={find} onChange={(e) => setFind(e.target.value)} aria-label="Find a package" style={{ width: 200 }} />
+            <input type="search" placeholder={t('Find a package')} value={find} onChange={(e) => setFind(e.target.value)} aria-label={t('Find a package')} style={{ width: 200 }} />
             <span className="spacer" />
             <button className="btn small ghost" onClick={() => setTicked(new Set(plan.entries.filter(defaultTick).map((e) => e.pkg)))}>
-              Back to the list's choices
+              {t("Back to the list's choices")}
             </button>
           </div>
 
@@ -342,9 +338,9 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
               <thead>
                 <tr>
                   <th style={{ width: 36 }} />
-                  <th>Package</th>
-                  <th style={{ width: 120 }}>On the TV</th>
-                  <th>Why</th>
+                  <th>{t('Package')}</th>
+                  <th style={{ width: 120 }}>{t('On the TV')}</th>
+                  <th>{t('Why')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -353,7 +349,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
                     <td>
                       <input
                         type="checkbox"
-                        aria-label={`Switch off ${e.pkg}`}
+                        aria-label={t('Switch off {pkg}', { pkg: e.pkg })}
                         checked={ticked.has(e.pkg)}
                         disabled={e.state === 'absent'}
                         onChange={(ev) => toggle(e.pkg, ev.target.checked)}
@@ -361,11 +357,9 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
                     </td>
                     <td>
                       <div className="pkg-name">{e.pkg}</div>
-                      {e.choice && <div className="choice-tag">Your choice · {e.choice}</div>}
+                      {e.choice && <div className="choice-tag">{t('Your choice · {why}', { why: e.choice })}</div>}
                       <div className="small muted">
-                        {e.added && 'Added by you. '}
-                        {!e.suggested && 'Kept by the list author. '}
-                        {e.common > 1 && `Switched off in ${e.common} lists.`}
+                        {[e.added && t('Added by you.'), !e.suggested && t('Kept by the list author.'), e.common > 1 && t('Switched off in {n} lists.', { n: e.common })].filter(Boolean).join(' ')}
                       </div>
                     </td>
                     <td>
@@ -377,7 +371,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
                 {shown.length === 0 && (
                   <tr>
                     <td colSpan={4} className="muted">
-                      {find.trim() ? `No package here matches “${find.trim()}”.` : 'Nothing here.'}
+                      {find.trim() ? t('No package here matches “{q}”.', { q: find.trim() }) : t('Nothing here.')}
                     </td>
                   </tr>
                 )}
@@ -396,19 +390,19 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
 
           <div style={{ marginTop: 16 }}>
             <button className="btn small ghost" onClick={() => setShowAdvanced(!showAdvanced)} aria-expanded={showAdvanced}>
-              {showAdvanced ? '▾' : '▸'} Safety overrides
+              {showAdvanced ? '▾' : '▸'} {t('Safety overrides')}
             </button>
             {showAdvanced && (
               <div className="card" style={{ marginTop: 8 }}>
                 <Toggle
-                  label="Switch off the current Home app anyway"
-                  hint="Only if you can still reach the TV another way. Without a launcher, the Home button lands on a test app or nothing."
+                  label={t('Switch off the current Home app anyway')}
+                  hint={t('Only if you can still reach the TV another way. Without a launcher, the Home button lands on a test app or nothing.')}
                   checked={forceHome}
                   onChange={setForceHome}
                 />
                 <Toggle
-                  label="Switch off Google TV's setup wizard even if it owns the Wi-Fi network"
-                  hint="Android deletes a network saved during setup when the wizard is switched off. Use this on Ethernet only."
+                  label={t("Switch off Google TV's setup wizard even if it owns the Wi-Fi network")}
+                  hint={t('Android deletes a network saved during setup when the wizard is switched off. Use this on Ethernet only.')}
                   checked={forceSetup}
                   onChange={setForceSetup}
                 />
@@ -420,12 +414,12 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
             {toDisable.length + toEnable.length > 0 && !busy && (
               <span className="basket" key={toDisable.length + toEnable.length}>
                 <span className="basket-count">{toDisable.length + toEnable.length}</span>
-                {[toDisable.length && `${toDisable.length} to switch off`, toEnable.length && `${toEnable.length} back on`].filter(Boolean).join(' · ')}
+                {[toDisable.length && t('{n} to switch off', { n: toDisable.length }), toEnable.length && t('{n} back on', { n: toEnable.length })].filter(Boolean).join(' · ')}
                 <button
                   className="icon-btn"
                   onClick={() => setTicked(new Set(plan.entries.filter((e) => e.state === 'disabled').map((e) => e.pkg)))}
-                  aria-label="Clear the changes"
-                  title="Leave the TV as it is"
+                  aria-label={t('Clear the changes')}
+                  title={t('Leave the TV as it is')}
                 >
                   ✕
                 </button>
@@ -434,54 +428,48 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
             <ActionButton
               primary
               phase={applyPhase}
-              label="Apply to TV"
-              busyLabel="Applying"
-              doneLabel="Applied"
+              label={t('Apply to TV')}
+              busyLabel={t('Applying')}
+              doneLabel={t('Applied')}
               disabled={busy || (toDisable.length === 0 && toEnable.length === 0)}
               onClick={() => setConfirm('apply')}
             />
             <ActionButton
               phase={restorePhase}
-              label="Restore"
-              busyLabel="Restoring"
-              doneLabel="Restored"
+              label={t('Restore')}
+              busyLabel={t('Restoring')}
+              doneLabel={t('Restored')}
               disabled={busy || !plan.record}
               onClick={() => setConfirm('restore')}
             />
             <span className="spacer" />
             <button className="btn ghost" onClick={() => go('home')}>
-              Next: the home screen
+              {t('Next: the home screen')}
             </button>
           </div>
         </div>
       )}
 
-      {undo && <UndoToast key={undo.text + undo.disable.length} text={undo.text} undoneText="Put back as it was" onUndo={undoApply} onClose={() => setUndo(null)} />}
+      {undo && <UndoToast key={undo.text + undo.disable.length} text={undo.text} undoneText={t('Put back as it was')} onUndo={undoApply} onClose={() => setUndo(null)} />}
 
       {confirm === 'apply' && plan && (
-        <Confirm title="Apply these changes?" confirmLabel="Apply" onConfirm={apply} onCancel={() => setConfirm(null)}>
+        <Confirm title={t('Apply these changes?')} confirmLabel={t('Apply')} onConfirm={apply} onCancel={() => setConfirm(null)}>
           <p>
-            Switch off <b>{toDisable.length}</b> packages
-            {toEnable.length > 0 && (
-              <>
-                {' '}and switch <b>{toEnable.length}</b> back on
-              </>
-            )}{' '}
-            on {status.probe ? `${status.probe.manufacturer} ${status.probe.model}` : status.host}.
+            {toEnable.length > 0
+              ? tx('Switch off {off} packages and switch {on} back on on {tv}.', { off: <b>{toDisable.length}</b>, on: <b>{toEnable.length}</b>, tv: tvName })
+              : tx('Switch off {off} packages on {tv}.', { off: <b>{toDisable.length}</b>, tv: tvName })}
           </p>
           <p className="muted small">
-            {plan.record ? 'The restore point from the first run is kept.' : 'A restore point is saved first.'} Apps you keep
-            update through the Play Store as before.
+            {plan.record ? t('The restore point from the first run is kept.') : t('A restore point is saved first.')} {t('Apps you keep update through the Play Store as before.')}
           </p>
         </Confirm>
       )}
       {confirm === 'restore' && plan && (
-        <Confirm title="Restore this TV?" confirmLabel="Restore" onConfirm={restore} onCancel={() => setConfirm(null)}>
+        <Confirm title={t('Restore this TV?')} confirmLabel={t('Restore')} onConfirm={restore} onCancel={() => setConfirm(null)}>
           <p>
-            Every package from this list goes back to how it was on {fmtDate(plan.record?.created)}. Packages that were already
-            off then stay off. Home goes back to the launcher that owned it.
+            {t('Every package from this list goes back to how it was on {date}. Packages that were already off then stay off. Home goes back to the launcher that owned it.', { date: fmtDate(plan.record?.created) })}
           </p>
-          <p className="muted small">CleanMyTV Home stays installed. Remove it from the TV's Settings → Apps if you want it gone.</p>
+          <p className="muted small">{t("CleanMyTV Home stays installed. Remove it from the TV's Settings → Apps if you want it gone.")}</p>
         </Confirm>
       )}
     </>
@@ -511,9 +499,9 @@ function AddPackage({ have, onAdd }: { have: DebloatEntry[]; onAdd: (e: DebloatE
     const pkg = name.trim()
     if (!pkg) return
     const found = all?.find((e) => e.pkg === pkg)
-    if (inList.has(pkg)) setError(`${pkg} is already in the list above.`)
-    else if (!found) setError(`${pkg} isn't on this TV, or the app protects it: a launcher it looks after itself, or a core package the TV needs to start. Check the spelling.`)
-    else if (found.state !== 'enabled') setError(`${pkg} is already off.`)
+    if (inList.has(pkg)) setError(t('{pkg} is already in the list above.', { pkg }))
+    else if (!found) setError(t("{pkg} isn't on this TV, or the app protects it: a launcher it looks after itself, or a core package the TV needs to start. Check the spelling.", { pkg }))
+    else if (found.state !== 'enabled') setError(t('{pkg} is already off.', { pkg }))
     else {
       onAdd(found)
       setName('')
@@ -526,20 +514,21 @@ function AddPackage({ have, onAdd }: { have: DebloatEntry[]; onAdd: (e: DebloatE
     return (
       <div style={{ marginTop: 16 }}>
         <button className="btn small ghost" onClick={show}>
-          + Add a package that isn't in the list
+          + {t("Add a package that isn't in the list")}
         </button>
       </div>
     )
   }
   return (
     <div className="card" style={{ marginTop: 16 }}>
-      <h3 style={{ marginTop: 0 }}>Add a package</h3>
+      <h3 style={{ marginTop: 0 }}>{t('Add a package')}</h3>
       <p className="small muted" style={{ marginTop: 0 }}>
-        Type a package name, or pick one of the {options.length || ''} apps that are on. It joins the list ticked, the restore point
-        covers it, and Restore switches it back on.
+        {options.length
+          ? t('Type a package name, or pick one of the {n} apps that are on. It joins the list ticked, the restore point covers it, and Restore switches it back on.', { n: options.length })
+          : t('Type a package name, or pick one of the apps that are on. It joins the list ticked, the restore point covers it, and Restore switches it back on.')}
       </p>
       {!all && !error ? (
-        <Skeleton rows={3} label="Reading the TV's packages" />
+        <Skeleton rows={3} label={t("Reading the TV's packages")} />
       ) : (
         <div className="row">
           <input
@@ -553,7 +542,7 @@ function AddPackage({ have, onAdd }: { have: DebloatEntry[]; onAdd: (e: DebloatE
             }}
             onKeyDown={(e) => e.key === 'Enter' && add()}
             style={{ flex: 1, minWidth: 260 }}
-            aria-label="Package name"
+            aria-label={t('Package name')}
           />
           <datalist id="tv-packages">
             {options.map((e) => (
@@ -561,14 +550,16 @@ function AddPackage({ have, onAdd }: { have: DebloatEntry[]; onAdd: (e: DebloatE
             ))}
           </datalist>
           <button className="btn" disabled={!name.trim()} onClick={add}>
-            Add
+            {t('Add')}
           </button>
         </div>
       )}
       {picked && (picked.choice || picked.common > 0) && (
         <p className="small muted" style={{ marginBottom: 0 }}>
-          {picked.choice ? `Careful: ${picked.choice} ` : ''}
-          {picked.common > 0 ? `Switched off in ${picked.common} lists${picked.note ? `: ${picked.note}` : ''}.` : ''}
+          {[
+            picked.choice && t('Careful: {why}', { why: picked.choice }),
+            picked.common > 0 && (picked.note ? t('Switched off in {n} lists: {note}.', { n: picked.common, note: picked.note }) : t('Switched off in {n} lists.', { n: picked.common }))
+          ].filter(Boolean).join(' ')}
         </p>
       )}
       {error && <div className="notice warn" style={{ marginTop: 12, marginBottom: 0 }}>{error}</div>}
@@ -577,16 +568,16 @@ function AddPackage({ have, onAdd }: { have: DebloatEntry[]; onAdd: (e: DebloatE
 }
 
 function StateBadge({ state, recorded, ticked }: { state: PackageState; recorded?: PackageState; ticked: boolean }): ReactNode {
-  if (state === 'absent') return <span className="chip optional">Not installed</span>
+  if (state === 'absent') return <span className="chip optional">{t('Not installed')}</span>
   if (state === 'disabled') {
-    if (!ticked && recorded === 'enabled') return <span className="chip warn">Off · turns on</span>
-    return <span className="chip">Off</span>
+    if (!ticked && recorded === 'enabled') return <span className="chip warn">{t('Off · turns on')}</span>
+    return <span className="chip">{t('Off')}</span>
   }
-  return ticked ? <span className="chip warn">On · turns off</span> : <span className="chip ok">On · kept</span>
+  return ticked ? <span className="chip warn">{t('On · turns off')}</span> : <span className="chip ok">{t('On · kept')}</span>
 }
 
 function fmtDate(iso?: string): string {
-  if (!iso) return 'earlier'
+  if (!iso) return t('earlier')
   // recovery.py writes %Y-%m-%dT%H:%M:%S%z, e.g. 2026-10-20T14:03:00+0100.
   const d = new Date(iso.replace(/([+-]\d{2})(\d{2})$/, '$1:$2'))
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })

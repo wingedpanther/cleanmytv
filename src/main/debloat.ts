@@ -10,6 +10,8 @@ import { log } from './log'
 import * as T from './tv'
 import { keptLauncher } from './kept'
 import { keyboardPackages, noteKeyboard } from './keyboard'
+import { t, UiError } from './i18n'
+import { inEnglish } from './english'
 import type { ApplyResult, DebloatApplyRequest, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState, Probe } from '@shared/api'
 
 const TASK = 'debloat'
@@ -90,6 +92,8 @@ export function parseList(text: string, name = 'list'): ParsedList {
 interface Upstream {
   id: string
   title: string
+  /** Another model the list fits, named after the title. */
+  also?: string
   text: string
   parsed: ParsedList
   /** From the list's tv.json: every model the list was checked on, and the brand. */
@@ -125,8 +129,7 @@ function upstreamLists(): Upstream[] {
         const parsed = parseList(text, `${id}/debloat.txt`)
         const meta = readTvJson(join(paths.examples, id, 'tv.json'))
         const also = ALSO_FITS[id]
-        const title = (parsed.header[0] ?? id) + (also ? ` Also fits the ${also}.` : '')
-        out.push({ id, title, text, parsed, tv: also ? `${meta.tv} ${also}` : meta.tv, brand: meta.brand })
+        out.push({ id, title: parsed.header[0] ?? id, also, text, parsed, tv: also ? `${meta.tv} ${also}` : meta.tv, brand: meta.brand })
       } catch (e) {
         log(TASK, 'warn', `skipping upstream list ${id}: ${(e as Error).message}`)
       }
@@ -194,7 +197,7 @@ export function matchScore(id: string, header: string[], probe: Pick<Probe, 'mod
 export function lists(probe: Probe | undefined): DebloatListSummary[] {
   const all = upstreamLists().map((l) => ({
     id: l.id,
-    title: l.title,
+    title: titleOf(l),
     score: probe ? matchScore(l.id, l.parsed.header, probe, l.tv) : 0,
     sameBrand: !!probe && sameBrand(l.brand, probe.manufacturer)
   }))
@@ -218,13 +221,16 @@ export function lists(probe: Probe | undefined): DebloatListSummary[] {
       const unmatched = out.findIndex((l) => l.score === 0)
       out.splice(unmatched < 0 ? out.length : unmatched, 0, {
         id: base.id,
-        title: `Inferred for your ${family.label} device — review each package`,
+        title: t('Inferred for your {family} device — review each package', { family: family.label }),
         score: 0
       })
     }
   }
-  return [{ id: 'custom', title: 'My TV is not listed: pick from packages other TVs disable', score: 0 }, ...out]
+  return [{ id: 'custom', title: t('My TV is not listed: pick from packages other TVs disable'), score: 0 }, ...out]
 }
+
+/** The list's own title, and the other model it fits. */
+const titleOf = (l: Upstream): string => (l.also ? `${l.title} ${t('Also fits the {tv}.', { tv: l.also })}` : l.title)
 
 /**
  * Known device families: maps a TV's manufacturer (and model-code prefix) to the upstream list
@@ -300,10 +306,10 @@ export function loadRecord(path: string): RecoveryRecord {
   try {
     record = JSON.parse(readFileSync(path, 'utf8'))
   } catch (e) {
-    throw new Error(`${path}: not a usable recovery record (${(e as Error).message}). It is left where it is: move it aside deliberately.`)
+    throw new UiError('{path}: not a usable recovery record ({error}). It is left where it is: move it aside deliberately.', { path, error: (e as Error).message })
   }
   if (record.version !== VERSION || typeof record.packages !== 'object' || !record.packages) {
-    throw new Error(`${path}: unknown recovery record format; move it aside deliberately.`)
+    throw new UiError('{path}: unknown recovery record format; move it aside deliberately.', { path })
   }
   // The record is replayed on the TV's shell: a hand-edited or damaged file stops here.
   for (const [name, state] of Object.entries(record.packages)) {
@@ -328,8 +334,8 @@ export function findRecord(listPath: string, host: string, device: string | unde
   if (existsSync(path)) {
     const record = loadRecord(path)
     if (record.device && device && record.device !== device) {
-      throw new Error(`The restore record for ${host} was taken from another device (${record.device}); this TV reports ${device}. ` +
-        `Nothing was changed. If the TV at this address really is new, move ${path} aside first.`)
+      throw new UiError('The restore record for {host} was taken from another device ({other}); this TV reports {device}. Nothing was changed. If the TV at this address really is new, move {path} aside first.',
+        { host, other: record.device, device, path })
     }
     return { path, record }
   }
@@ -433,7 +439,7 @@ export function restoreCommands(listPackages: string[], record: RecoveryRecord |
   const cmds: string[] = []
   const resolveStock = `cmd package set-home-activity --user 0 $(${T.HOME_QUERY} ${stock} | tail -n 1)`
   if (!record) {
-    notes.push('No recovery record for this TV and list: enabling every listed package and resetting Home and the animation scales to their defaults.')
+    notes.push(t('No recovery record for this TV and list: enabling every listed package and resetting Home and the animation scales to their defaults.'))
     for (const n of listPackages) cmds.push(`pm enable ${n}`)
     cmds.push(`pm enable ${stock}`)
     cmds.push(resolveStock)
@@ -445,7 +451,7 @@ export function restoreCommands(listPackages: string[], record: RecoveryRecord |
   const reEnable = Object.keys(states).filter((n) => states[n] === 'enabled')
   for (const n of reEnable) cmds.push(`pm enable ${n}`)
   const untouched = Object.keys(states).filter((n) => states[n] !== 'enabled')
-  if (untouched.length) notes.push(`Left as they were before cleanup: ${untouched.join(', ')}`)
+  if (untouched.length) notes.push(t('Left as they were before cleanup: {pkgs}', { pkgs: untouched.join(', ') }))
   // The stock launcher comes back unless the owner had disabled it before cleanup.
   if (states[stock] !== 'disabled' && !reEnable.includes(stock)) cmds.push(`pm enable ${stock}`)
   const home = record.home
@@ -457,7 +463,7 @@ export function restoreCommands(listPackages: string[], record: RecoveryRecord |
     else if (SCALE_RE.test(v)) cmds.push(`settings put global ${k} ${v}`)
   }
   const edited = listPackages.filter((n) => !(n in states))
-  if (edited.length) notes.push(`Not in the record, left alone: ${edited.join(', ')}`)
+  if (edited.length) notes.push(t('Not in the record, left alone: {pkgs}', { pkgs: edited.join(', ') }))
   cmds.push('pm list packages -d')
   return cmds
 }
@@ -466,51 +472,52 @@ export function restoreCommands(listPackages: string[], record: RecoveryRecord |
 
 // Features people notice when they are gone. Whatever a list says, these are the owner's call: they are
 // never ticked by default (upstream's prompt asks about them before anything is disabled).
-const FEATURES: Record<string, string> = {
-  'com.google.android.tv.remote.service': 'the phone remote (Google TV / Android TV Remote app)',
-  'com.google.android.apps.mediashell': 'casting from phones (Chromecast built-in)',
-  'com.google.android.katniss': 'voice search and the remote\'s mic button',
-  'com.google.android.speech.pumpkin': 'voice search and the remote\'s mic button',
+// Functions, so the words come out in the window's language when a plan is read.
+const FEATURES: Record<string, () => string> = {
+  'com.google.android.tv.remote.service': () => t('the phone remote (Google TV / Android TV Remote app)'),
+  'com.google.android.apps.mediashell': () => t('casting from phones (Chromecast built-in)'),
+  'com.google.android.katniss': () => t('voice search and the remote\'s mic button'),
+  'com.google.android.speech.pumpkin': () => t('voice search and the remote\'s mic button'),
   // Both are needed: with backdrop off, dreamx still runs but shows Google's gallery, not the owner's albums (#57).
-  'com.google.android.apps.tv.dreamx': 'the Ambient screensaver and its Google Photos albums',
-  'com.google.android.backdrop': 'the Ambient screensaver and its Google Photos albums',
+  'com.google.android.apps.tv.dreamx': () => t('the Ambient screensaver and its Google Photos albums'),
+  'com.google.android.backdrop': () => t('the Ambient screensaver and its Google Photos albums'),
   // USB drives (#71): the media browser and the apps it opens photos and videos with, and Android's own
   // storage providers, which every file browser reads through.
-  'com.xiaomi.mitv.mediaexplorer': 'USB drives in Media Player',
-  'com.mitv.gallery': 'photos from USB drives in Media Player',
-  'com.mitv.videoplayer': 'videos from USB drives in Media Player',
-  'com.android.providers.media': 'USB drives and photos in every app',
-  'com.android.providers.media.module': 'USB drives and photos in every app',
-  'com.android.externalstorage': 'USB drives in file browsers',
-  'com.android.documentsui': 'picking files from USB drives',
+  'com.xiaomi.mitv.mediaexplorer': () => t('USB drives in Media Player'),
+  'com.mitv.gallery': () => t('photos from USB drives in Media Player'),
+  'com.mitv.videoplayer': () => t('videos from USB drives in Media Player'),
+  'com.android.providers.media': () => t('USB drives and photos in every app'),
+  'com.android.providers.media.module': () => t('USB drives and photos in every app'),
+  'com.android.externalstorage': () => t('USB drives in file browsers'),
+  'com.android.documentsui': () => t('picking files from USB drives'),
   // Web viewers (#55): YouTube's ads and many sign-in pages load in them; without them the picture can go black.
-  'com.google.android.webview': 'web pages inside apps, including YouTube ads',
-  'com.android.webview': 'web pages inside apps, including YouTube ads',
-  'com.tcl.android.webview': 'web pages inside apps, including YouTube ads',
-  'com.mediatek.support.webview': 'web pages inside apps, including YouTube ads',
+  'com.google.android.webview': () => t('web pages inside apps, including YouTube ads'),
+  'com.android.webview': () => t('web pages inside apps, including YouTube ads'),
+  'com.tcl.android.webview': () => t('web pages inside apps, including YouTube ads'),
+  'com.mediatek.support.webview': () => t('web pages inside apps, including YouTube ads'),
   // TCL's phone app (TCL Home, once T-Cast) talks to these (#81): with them off it can't find the TV. ttvs also
   // carries TCL's viewing analytics, so it's still there to tick for anyone who doesn't use the app.
-  'com.tcl.ttvs': "TCL's phone app (TCL Home), which also sends TCL viewing data",
-  'com.tcl.magiconnectfree': "TCL's phone app (T-Cast) and phone mirroring",
+  'com.tcl.ttvs': () => t("TCL's phone app (TCL Home), which also sends TCL viewing data"),
+  'com.tcl.magiconnectfree': () => t("TCL's phone app (T-Cast) and phone mirroring"),
   // Streaming apps: people pick their TV's list for the bloat, not to lose what they watch. Many lists
   // switch these off, so they were ticked and had to be turned back on by hand.
-  'com.netflix.ninja': 'Netflix',
-  'com.netflix.mediaclient': 'Netflix',
-  'com.netflix.partner.ncm': 'the remote\'s Netflix button',
-  'com.google.android.youtube.tv': 'YouTube',
-  'com.google.android.youtube.tvmusic': 'YouTube Music',
-  'com.google.android.youtube.tvkids': 'YouTube Kids',
-  'com.amazon.amazonvideo.livingroom': 'Prime Video',
-  'com.disney.disneyplus': 'Disney+',
-  'com.spotify.tv.android': 'Spotify',
-  'com.apple.atve.androidtv.appletv': 'Apple TV',
-  'com.hbo.hbonow': 'Max',
-  'tv.twitch.android.app': 'Twitch'
+  'com.netflix.ninja': () => 'Netflix',
+  'com.netflix.mediaclient': () => 'Netflix',
+  'com.netflix.partner.ncm': () => t('the remote\'s Netflix button'),
+  'com.google.android.youtube.tv': () => 'YouTube',
+  'com.google.android.youtube.tvmusic': () => 'YouTube Music',
+  'com.google.android.youtube.tvkids': () => 'YouTube Kids',
+  'com.amazon.amazonvideo.livingroom': () => 'Prime Video',
+  'com.disney.disneyplus': () => 'Disney+',
+  'com.spotify.tv.android': () => 'Spotify',
+  'com.apple.atve.androidtv.appletv': () => 'Apple TV',
+  'com.hbo.hbonow': () => 'Max',
+  'tv.twitch.android.app': () => 'Twitch'
 }
 
 /** Why a package is the owner's decision rather than a default, or undefined when it is plain bloat. */
 export function choiceFor(e: ListEntry): string | undefined {
-  if (FEATURES[e.pkg]) return `Turns off ${FEATURES[e.pkg]}.`
+  if (FEATURES[e.pkg]) return t('Turns off {feature}.', { feature: FEATURES[e.pkg]() })
   if (e.section && /^(personal choice|optional)\b/i.test(e.section)) return e.section
   return undefined
 }
@@ -520,11 +527,11 @@ function sourceList(listId: string): { title: string; parsed: ParsedList } {
     const entries = [...commonality().entries()]
       .sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]))
       .map(([pkg, c]) => ({ pkg, note: c.note, suggested: false }))
-    return { title: 'Custom list', parsed: { header: ['Custom list made with CleanMyTV from packages other TVs disable.'], entries } }
+    return { title: t('Custom list'), parsed: { header: [t('Custom list made with CleanMyTV from packages other TVs disable.')], entries } }
   }
   const l = upstreamLists().find((u) => u.id === listId)
-  if (!l) throw new Error(`no such list: ${listId}`)
-  return { title: l.title, parsed: l.parsed }
+  if (!l) throw new UiError('no such list: {id}', { id: listId })
+  return { title: titleOf(l), parsed: l.parsed }
 }
 
 /** Active package lines of the list this app saved earlier for this TV, if any. */
@@ -539,7 +546,7 @@ function savedActive(file: string): string[] {
 
 export async function plan(listId: string): Promise<DebloatPlan> {
   const probe = T.getStatus().probe
-  if (!probe) throw new Error('Connect to a TV first.')
+  if (!probe) throw new UiError('Connect to a TV first.')
   const { title, parsed } = sourceList(listId)
   const { installed, disabled } = await T.packageSets()
   const file = savedListPath(listId, probe)
@@ -714,18 +721,24 @@ export function parseWifi(wifi: string): WifiCheck {
 /** For the warnings: saved networks from the first setup that go with setupwraith. No names: logs get pasted. */
 export function lostNetworks(n: number): string[] {
   if (!n) return []
-  return [`${n === 1 ? 'One other saved Wi-Fi network' : `${n} other saved Wi-Fi networks`} from the TV's first setup went with setupwraith. If you use ${n === 1 ? 'it' : 'them'}, join again in Settings > Network & Internet.`]
+  return [n === 1
+    ? t("One other saved Wi-Fi network from the TV's first setup went with setupwraith. If you use it, join again in Settings > Network & Internet.")
+    : t("{n} other saved Wi-Fi networks from the TV's first setup went with setupwraith. If you use them, join again in Settings > Network & Internet.", { n })]
 }
 
 export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   const probe = T.getStatus().probe
-  if (!probe) throw new Error('Connect to a TV first.')
-  for (const p of [...req.disable, ...req.enable]) if (!T.PACKAGE_RE.test(p)) throw new Error(`not a package name: ${p}`)
+  if (!probe) throw new UiError('Connect to a TV first.')
+  for (const p of [...req.disable, ...req.enable]) if (!T.PACKAGE_RE.test(p)) throw new UiError('not a package name: {pkg}', { pkg: p })
   const { title, parsed } = sourceList(req.listId)
   const host = T.host()
   const warnings: string[] = []
   const core = [...new Set(req.disable)].filter(isCore)
-  if (core.length) warnings.push(`Skipped ${core.join(', ')}: without ${core.length === 1 ? 'it' : 'them'} the TV may not boot again.`)
+  if (core.length) {
+    warnings.push(core.length === 1
+      ? t('Skipped {pkgs}: without it the TV may not boot again.', { pkgs: core[0] })
+      : t('Skipped {pkgs}: without them the TV may not boot again.', { pkgs: core.join(', ') }))
+  }
   const wanted = req.disable.filter((p) => !isCore(p))
   let pkgs = [...new Set(wanted)]
 
@@ -735,10 +748,10 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
     const { owner, lost } = await wifiOwner(TASK)
     if (owner === 'system') warnings.push(...lostNetworks(lost))
     if (owner === 'unknown') {
-      warnings.push(`Skipped ${SETUPWRAITH}: could not check which app owns the saved Wi-Fi networks. Try again, or force it if the TV uses Ethernet.`)
+      warnings.push(t('Skipped {pkg}: could not check which app owns the saved Wi-Fi networks. Try again, or force it if the TV uses Ethernet.', { pkg: SETUPWRAITH }))
       pkgs = pkgs.filter((p) => p !== SETUPWRAITH)
     } else if (owner === 'setupwraith') {
-      warnings.push(`Skipped ${SETUPWRAITH}: the saved Wi-Fi network belongs to it, and disabling it would delete that network and take the TV off Wi-Fi. On the TV, forget the network and join it again in Settings > Network & Internet, then apply again.`)
+      warnings.push(t('Skipped {pkg}: the saved Wi-Fi network belongs to it, and disabling it would delete that network and take the TV off Wi-Fi. On the TV, forget the network and join it again in Settings > Network & Internet, then apply again.', { pkg: SETUPWRAITH }))
       pkgs = pkgs.filter((p) => p !== SETUPWRAITH)
     }
   }
@@ -747,7 +760,9 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   const kept = keptLauncher()
   const keptHeld = kept ? pkgs.filter((p) => p === kept || p === SETUPWRAITH) : []
   if (keptHeld.length) {
-    warnings.push(`Kept on: ${keptHeld.join(', ')}. You chose to keep Google TV's launcher on (Home screen → Overview), and ${keptHeld.length === 1 ? 'it needs' : 'they need'} to stay on for that.`)
+    warnings.push(keptHeld.length === 1
+      ? t("Kept on: {pkgs}. You chose to keep Google TV's launcher on (Home screen → Overview), and it needs to stay on for that.", { pkgs: keptHeld[0] })
+      : t("Kept on: {pkgs}. You chose to keep Google TV's launcher on (Home screen → Overview), and they need to stay on for that.", { pkgs: keptHeld.join(', ') }))
     pkgs = pkgs.filter((p) => !keptHeld.includes(p))
   }
 
@@ -755,7 +770,7 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   const imeId = (await T.sh(TASK, 'settings get secure default_input_method', { quiet: true }).catch(() => '')).trim()
   const ime = imeId.split('/')[0]
   if (T.PACKAGE_RE.test(ime) && pkgs.includes(ime)) {
-    warnings.push(`Kept on: ${ime}. It's the TV's keyboard. Pick another keyboard in the TV's settings first if you want it gone.`)
+    warnings.push(t("Kept on: {pkg}. It's the TV's keyboard. Pick another keyboard in the TV's settings first if you want it gone.", { pkg: ime }))
     pkgs = pkgs.filter((p) => p !== ime)
   }
   // The other keyboards too: with one of them off, some TVs (TCL, #98) drop to the phone-remote keyboard at
@@ -763,7 +778,9 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   const keyboards = keyboardPackages(await T.sh(TASK, 'ime list -s', { quiet: true }).catch(() => ''))
   const keptKeyboards = pkgs.filter((p) => keyboards.includes(p))
   if (keptKeyboards.length) {
-    warnings.push(`Kept on: ${keptKeyboards.join(', ')}. ${keptKeyboards.length === 1 ? 'It carries a keyboard' : 'They carry keyboards'}, and switching ${keptKeyboards.length === 1 ? 'it' : 'them'} off can lose the TV's keyboard after a restart.`)
+    warnings.push(keptKeyboards.length === 1
+      ? t("Kept on: {pkgs}. It carries a keyboard, and switching it off can lose the TV's keyboard after a restart.", { pkgs: keptKeyboards[0] })
+      : t("Kept on: {pkgs}. They carry keyboards, and switching them off can lose the TV's keyboard after a restart.", { pkgs: keptKeyboards.join(', ') }))
     pkgs = pkgs.filter((p) => !keptKeyboards.includes(p))
   }
   await noteKeyboard(imeId)
@@ -777,7 +794,9 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   if (homePkg !== OUR_HOME && !req.forceHome) {
     const held = pkgs.filter((p) => stockLaunchers().includes(p) || (p === SETUPWRAITH && homePkg !== SETUPWRAITH))
     if (held.length) {
-      warnings.push(`Kept on for now: ${held.join(', ')}. ${held.length === 1 ? 'It is' : 'They are'} the TV's fallback Home. Install CleanMyTV Home (Home screen step), then apply again.`)
+      warnings.push(held.length === 1
+        ? t("Kept on for now: {pkgs}. It is the TV's fallback Home. Install CleanMyTV Home (Home screen step), then apply again.", { pkgs: held[0] })
+        : t("Kept on for now: {pkgs}. They are the TV's fallback Home. Install CleanMyTV Home (Home screen step), then apply again.", { pkgs: held.join(', ') }))
       pkgs = pkgs.filter((p) => !held.includes(p))
     }
   }
@@ -785,7 +804,7 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
     const claims = await T.homeClaimants()
     const others = claims.filter((c) => c !== homePkg && !pkgs.includes(c) && !NOT_LAUNCHERS.includes(c))
     if (!others.length) {
-      warnings.push(`Skipped ${homePkg}: it owns Home and nothing else that can answer Home stays enabled. Install CleanMyTV Home first (Home screen step), then apply again.`)
+      warnings.push(t('Skipped {pkg}: it owns Home and nothing else that can answer Home stays enabled. Install CleanMyTV Home first (Home screen step), then apply again.', { pkg: homePkg }))
       pkgs = pkgs.filter((p) => p !== homePkg)
     }
   }
@@ -808,29 +827,52 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
     const out = await T.sh(TASK, `pm disable-user --user 0 ${p}`)
     if (/disabled/.test(out)) done++
     else if (/Cannot disable a protected package/i.test(out)) guarded.push(p)
-    else warnings.push(`${p}: ${out.trim() || 'no answer'}`)
+    else warnings.push(`${p}: ${out.trim() || t('no answer')}`)
   }
   if (guarded.length) {
-    warnings.unshift(`The TV doesn't let ${guarded.length === 1 ? 'this one' : `these ${guarded.length}`} be switched off, so ${guarded.length === 1 ? 'it stays' : 'they stay'} on: ${guarded.join(', ')}.${guarded.length === pkgs.length ? ' Newer Fire TV software protects every Amazon app this way.' : ''}`)
+    const all = guarded.length === pkgs.length
+    warnings.unshift(guarded.length === 1
+      ? all
+        ? t("The TV doesn't let this one be switched off, so it stays on: {pkgs}. Newer Fire TV software protects every Amazon app this way.", { pkgs: guarded[0] })
+        : t("The TV doesn't let this one be switched off, so it stays on: {pkgs}.", { pkgs: guarded[0] })
+      : all
+        ? t("The TV doesn't let these {n} be switched off, so they stay on: {pkgs}. Newer Fire TV software protects every Amazon app this way.", { n: guarded.length, pkgs: guarded.join(', ') })
+        : t("The TV doesn't let these {n} be switched off, so they stay on: {pkgs}.", { n: guarded.length, pkgs: guarded.join(', ') }))
   }
   let enabled = 0
   for (const p of req.enable) {
     const out = await T.sh(TASK, `pm enable ${p}`)
     if (/enabled/.test(out)) enabled++
-    else warnings.push(`${p}: ${out.trim() || 'no answer'}`)
+    else warnings.push(`${p}: ${out.trim() || t('no answer')}`)
   }
   if (adbSecure === '0') {
-    warnings.push('This TV reports ro.adb.secure=0: network debugging accepts any device on your network without the Allow prompt. Switch debugging off when you are done (Finish step).')
+    warnings.push(t('This TV reports ro.adb.secure=0: network debugging accepts any device on your network without the Allow prompt. Switch debugging off when you are done (Finish step).'))
   }
   // Everything picked was held back by a guard: "Disabled 0 of 0" read like a bug (#40).
   // Core packages never go, so they aren't "for now".
   const stayedOn = [...new Set(wanted)].filter((p) => !pkgs.includes(p))
   const tried = pkgs.length - guarded.length
-  const summary = (pkgs.length === 0 && req.disable.length
-    ? stayedOn.length ? `Nothing switched off yet: ${stayedOn.join(', ')} stayed on for now. The notes below say why` : 'Nothing switched off. The notes below say why'
-    : tried === 0 ? 'Nothing switched off: the TV protects every package picked'
-      : `Disabled ${done} of ${tried} package${tried === 1 ? '' : 's'}${guarded.length ? `; the TV protects ${guarded.length} more` : ''}`) + (req.enable.length ? `, switched ${enabled} back on.` : '.')
-  log(TASK, 'ok', summary)
+  const back = req.enable.length > 0
+  const say = (): string => {
+    const v = { pkgs: stayedOn.join(', '), done, n: tried, more: guarded.length, back: enabled }
+    if (pkgs.length === 0 && req.disable.length) {
+      if (stayedOn.length) {
+        return back
+          ? t('Nothing switched off yet: {pkgs} stayed on for now. The notes below say why, switched {back} back on.', v)
+          : t('Nothing switched off yet: {pkgs} stayed on for now. The notes below say why.', v)
+      }
+      return back ? t('Nothing switched off. The notes below say why, switched {back} back on.', v) : t('Nothing switched off. The notes below say why.')
+    }
+    if (tried === 0) return back ? t('Nothing switched off: the TV protects every package picked, switched {back} back on.', v) : t('Nothing switched off: the TV protects every package picked.')
+    if (guarded.length) {
+      return back
+        ? t('Disabled {done} of {n} {n|package|packages}; the TV protects {more} more, switched {back} back on.', v)
+        : t('Disabled {done} of {n} {n|package|packages}; the TV protects {more} more.', v)
+    }
+    return back ? t('Disabled {done} of {n} {n|package|packages}, switched {back} back on.', v) : t('Disabled {done} of {n} {n|package|packages}.', v)
+  }
+  const summary = say()
+  log(TASK, 'ok', inEnglish(say))
   return { ok: done === tried && enabled === req.enable.length, summary, warnings }
 }
 
@@ -841,19 +883,21 @@ async function stockFallback(): Promise<string> {
 
 export async function restore(listId: string): Promise<ApplyResult> {
   const probe = T.getStatus().probe
-  if (!probe) throw new Error('Connect to a TV first.')
+  if (!probe) throw new UiError('Connect to a TV first.')
   const file = savedListPath(listId, probe)
   const { record } = findRecord(file, probe.host, probe.device || undefined)
   const listPkgs = existsSync(file) ? savedActive(file) : sourceList(listId).parsed.entries.filter((e) => e.suggested).map((e) => e.pkg)
   const notes: string[] = []
-  const cmds = restoreCommands(listPkgs, record, await stockFallback(), notes)
-  for (const n of notes) log('restore', 'info', n)
+  const stock = await stockFallback()
+  const cmds = restoreCommands(listPkgs, record, stock, notes)
+  for (const n of inEnglish(() => { const en: string[] = []; restoreCommands(listPkgs, record, stock, en); return en })) log('restore', 'info', n)
   await T.batch('restore', cmds)
   const home = await T.homeComponent()
-  const summary = record
-    ? `Restored the state recorded on ${record.created}. Home is ${home ?? 'not set'}.`
-    : `Enabled every package in the list. Home is ${home ?? 'not set'}.`
-  log('restore', 'ok', summary)
+  const say = (): string => record
+    ? home ? t('Restored the state recorded on {date}. Home is {home}.', { date: record.created, home }) : t('Restored the state recorded on {date}. Home is not set.', { date: record.created })
+    : home ? t('Enabled every package in the list. Home is {home}.', { home }) : t('Enabled every package in the list. Home is not set.')
+  const summary = say()
+  log('restore', 'ok', inEnglish(say))
   return { ok: true, summary, warnings: notes }
 }
 

@@ -3,7 +3,7 @@ import type { CytvApi, ConnStatus, DownloadProgress, LogLine } from '@shared/api
 
 // Every method of CytvApi except the event hooks is a plain invoke on a channel of the same name.
 const methods = [
-  'scan', 'discover', 'stopDiscovery', 'connect', 'disconnect', 'status', 'lastHost', 'reconnect', 'checkAdbClosed', 'bootCheck', 'checkUpdate', 'downloadUpdate', 'installUpdate', 'pair',
+  'setLanguage', 'scan', 'discover', 'stopDiscovery', 'connect', 'disconnect', 'status', 'lastHost', 'reconnect', 'checkAdbClosed', 'bootCheck', 'checkUpdate', 'downloadUpdate', 'installUpdate', 'pair',
   'bugReport', 'recordStart', 'recordStop', 'recordCancel', 'checkup', 'checkupFix', 'checks', 'download',
   'lists', 'plan', 'tvPackages', 'applyDebloat', 'restore',
   'useStockLauncher', 'otherLaunchers', 'useOtherLauncher', 'keepGoogleLauncher', 'removeOldLauncher', 'homeStatus', 'installHome', 'useHome', 'homeApps', 'readHomeConfig', 'setRemoteButtons', 'setLockPin', 'setAppLock', 'clearAppLock', 'themePackBegin', 'themePackPut', 'themePackEnd', 'setSlides', 'fireplace', 'homeKeys', 'saveHomeLook', 'saveThemeOnTv', 'setHomeConfig', 'setHomeWallpaper', 'pictureToJpeg', 'applyHomeTheme', 'themeBackup', 'restoreThemeBackup', 'forgetThemeBackup', 'saveHomeTheme',

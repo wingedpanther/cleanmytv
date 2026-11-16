@@ -6,6 +6,8 @@
 // OKAY, sends WRTE chunks we acknowledge with OKAY, and ends with CLSE.
 import { Socket, connect as tcpConnect } from 'node:net'
 import { AdbKey, sign } from './keys'
+import { UiError } from '../i18n'
+import type { Vars } from '@shared/i18n'
 
 const A_CNXN = 0x4e584e43
 const A_AUTH = 0x48545541
@@ -30,9 +32,10 @@ const TOKEN_SIZE = 20
 // One command's output above this is not something a TV sends us; stop instead of filling memory.
 const MAX_STREAM_BYTES = 64 * 1024 * 1024
 
-export class AdbError extends Error {
-  constructor(message: string, readonly code: 'refused' | 'timeout' | 'unreachable' | 'tls' | 'auth' | 'closed' | 'protocol') {
-    super(message)
+/** An ADB failure, in the window's language; `english` keeps the English for the log. */
+export class AdbError extends UiError {
+  constructor(english: string, readonly code: 'refused' | 'timeout' | 'unreachable' | 'tls' | 'auth' | 'closed' | 'protocol', vars?: Vars) {
+    super(english, vars)
   }
 }
 
@@ -120,19 +123,19 @@ export class AdbClient {
       const s = tcpConnect({ host: opts.host, port })
       const timer = setTimeout(() => {
         s.destroy()
-        reject(new AdbError(`${opts.host}:${port} did not answer within 8 seconds.`, 'timeout'))
+        reject(new AdbError('{host}:{port} did not answer within 8 seconds.', 'timeout', { host: opts.host, port }))
       }, 8000)
       s.once('connect', () => { clearTimeout(timer); resolve(s) })
       s.once('error', (e: NodeJS.ErrnoException) => {
         clearTimeout(timer)
-        if (e.code === 'ECONNREFUSED') reject(new AdbError(`${opts.host} refused port ${port}: network debugging is off.`, 'refused'))
-        else reject(new AdbError(`could not reach ${opts.host}:${port} (${e.code ?? e.message}).`, 'unreachable'))
+        if (e.code === 'ECONNREFUSED') reject(new AdbError('{host} refused port {port}: network debugging is off.', 'refused', { host: opts.host, port }))
+        else reject(new AdbError('could not reach {host}:{port} ({error}).', 'unreachable', { host: opts.host, port, error: e.code ?? e.message }))
       })
     })
     this.socket.setNoDelay(true)
     this.socket.on('data', (chunk: Buffer) => this.onData(chunk))
     this.socket.on('close', () => this.fail(new AdbError('the TV closed the connection.', 'closed')))
-    this.socket.on('error', (e) => this.fail(new AdbError(`connection error: ${e.message}`, 'closed')))
+    this.socket.on('error', (e) => this.fail(new AdbError('connection error: {error}', 'closed', { error: e.message })))
 
     this.send(A_CNXN, VERSION, MAX_DATA, Buffer.from('host::\0'))
     let packet = await this.read(10000)
@@ -145,7 +148,7 @@ export class AdbClient {
     while (packet.cmd === A_AUTH && packet.arg0 === AUTH_TOKEN) {
       if (packet.data.length !== TOKEN_SIZE) {
         this.close()
-        throw new AdbError(`the device sent a ${packet.data.length}-byte login challenge, not the 20 bytes a TV sends.`, 'protocol')
+        throw new AdbError('the device sent a {n}-byte login challenge, not the 20 bytes a TV sends.', 'protocol', { n: packet.data.length })
       }
       if (tried < opts.keys.length) {
         this.send(A_AUTH, AUTH_SIGNATURE, 0, sign(opts.keys[tried++], packet.data))
@@ -231,7 +234,7 @@ export class AdbClient {
           s.bytes += p.data.length
           if (s.bytes > MAX_STREAM_BYTES) {
             s.chunks = [] // the caller gets the error, never a truncated answer
-            this.fail(new AdbError(`a command returned more than ${MAX_STREAM_BYTES / 1048576} MB.`, 'protocol'))
+            this.fail(new AdbError('a command returned more than {n} MB.', 'protocol', { n: MAX_STREAM_BYTES / 1048576 }))
             this.socket.destroy()
             return
           }
@@ -271,7 +274,7 @@ export class AdbClient {
     const run = (): Promise<Buffer> => new Promise<Buffer>((resolve, reject) => {
       if (this.closedError) return reject(this.closedError)
       const payload = Buffer.from(service + '\0')
-      if (payload.length > this.maxData) return reject(new AdbError(`command too long for this TV (${payload.length} > ${this.maxData} bytes).`, 'protocol'))
+      if (payload.length > this.maxData) return reject(new AdbError('command too long for this TV ({size} > {max} bytes).', 'protocol', { size: payload.length, max: this.maxData }))
       const localId = this.nextId++
       let done = false
       const timer = setTimeout(() => {
@@ -279,7 +282,7 @@ export class AdbClient {
         done = true
         this.streams.delete(localId)
         if (stream.remoteId && !this.closedError) this.send(A_CLSE, localId, stream.remoteId)
-        reject(new AdbError(`"${service.slice(0, 60)}" did not finish within ${Math.round(timeoutMs / 1000)} s.`, 'timeout'))
+        reject(new AdbError('"{command}" did not finish within {s} s.', 'timeout', { command: service.slice(0, 60), s: Math.round(timeoutMs / 1000) }))
       }, timeoutMs)
       const stream: Stream = {
         localId,

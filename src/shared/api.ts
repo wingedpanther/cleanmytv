@@ -26,6 +26,10 @@ export interface ConnStatus {
   error?: string
   /** The port answered but asked for TLS: Wireless debugging needs a one-time pairing. */
   needsPairing?: boolean
+  /** The TV refused the port: network debugging is off. */
+  refused?: boolean
+  /** Pair with a code may help: debugging refused, or the port typed in is a pairing port. */
+  offerPairing?: boolean
   /**
    * Set by reconnect: the saved TV is not (or no longer) at the saved address. The user picks it from a
    * scan; the app never handshakes with scanned devices on its own.
@@ -480,6 +484,8 @@ export interface WebResponse {
 
 export interface CytvApi {
   platform: 'darwin' | 'win32' | 'linux'
+  /** The window's language, for the messages the main process sends it. */
+  setLanguage(lang: 'en' | 'ru'): Promise<void>
 
   // Connection
   scan(): Promise<ScanHit[]>
