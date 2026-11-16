@@ -50,6 +50,14 @@ object Lock {
     @Synchronized
     fun waitSeconds(): Int = ((waitUntil - SystemClock.elapsedRealtime() + 999) / 1000).toInt().coerceAtLeast(0)
 
+    /** Tests if [pin] matches without incrementing failed attempt counter or setting lockout penalties when wrong. */
+    @Synchronized
+    fun checkSilent(ctx: Context, pin: String, what: String): Boolean {
+        if (waitSeconds() > 0) return false
+        val saved = runCatching { JSONObject(file(ctx).readText()) }.getOrNull() ?: return false
+        return MessageDigest.isEqual(hash(pin, unhex(saved.getString("salt"))), unhex(saved.getString("hash")))
+    }
+
     /** True and unlocks [what] when the PIN is right. Every fifth wrong one in a row adds 30 seconds more. */
     @Synchronized
     fun check(ctx: Context, pin: String, what: String): Boolean {

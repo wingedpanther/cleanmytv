@@ -97,7 +97,21 @@ fun PinPad(title: String, what: String, accent: Color, onEntered: ((String) -> S
     fun type(c: Char) {
         if (wait > 0 || pin.length >= 6) return
         pin += c; note = ""
-        if (pin.length == 6) submit()
+        if (onEntered == null && pin.length >= 4) {
+            if (Lock.checkSilent(ctx, pin, what)) {
+                scope.launch {
+                    delay(120L)
+                    submit()
+                }
+                return
+            }
+        }
+        if (pin.length == 6) {
+            scope.launch {
+                delay(120L)
+                submit()
+            }
+        }
     }
     Box(
         Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.82f)).onPreviewKeyEvent { e ->
