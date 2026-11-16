@@ -173,14 +173,14 @@ class ConfigProvider : ContentProvider() {
                 // Swapped in whole, so a broken upload never leaves half a video.
                 f.renameTo(java.io.File(f.parentFile, f.name.removeSuffix(".upload")))
             }
-            "fire_ready" -> Fire.changed()
+            "fire_ready" -> Fire.changed(ctx)
             "look_save" -> DayNight.save(ctx, arg.orEmpty())
             "theme_save" -> out.putString("theme", ThemePack.saveCurrent(ctx, String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8)))
             "keyboard" -> Keyboard.note(ctx, String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8).trim())
             "fire_clear" -> {
                 Fire.clear(ctx)
                 ConfigStore.update(ctx, JSONObject().put("fire_wall", false))
-                Fire.changed()
+                Fire.changed(ctx)
             }
             else -> throw IllegalArgumentException("unknown method: $method")
         }

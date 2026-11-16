@@ -62,6 +62,19 @@ export interface CheckItem {
   download?: ToolId
 }
 
+/** One thing the check-up after Clean up looks at on the TV. */
+export type CheckupId = 'keyboard' | 'home' | 'voice' | 'screensaver'
+
+export interface CheckupItem {
+  id: CheckupId
+  label: string
+  ok: boolean
+  /** What's wrong, or what's fine, in a sentence. */
+  detail: string
+  /** The button that puts it right, when the app can. */
+  fix?: string
+}
+
 export type ToolId = 'jdk' | 'sdk' | 'platform-tools'
 
 export interface DebloatListSummary {
@@ -176,7 +189,7 @@ export type LookSlot = 'day' | 'night'
 export type QuickEntry = QuickId | `app:${string}`
 
 /** What a mapped remote button does: a quick-settings action, Home, Back, nothing, or open an app. */
-export type ButtonAction = QuickId | 'home' | 'back' | 'none' | 'app' | 'next_wallpaper'
+export type ButtonAction = QuickId | 'home' | 'back' | 'none' | 'app' | 'next_wallpaper' | 'brightness'
 
 export interface HomeButton {
   /** Key code the remote sends, 1 to 65535. Vendor buttons go above Android's own, like TCL's 4001. */
@@ -246,6 +259,7 @@ export interface HomeConfig {
   theme_memory: boolean
   /** The TV looks for a newer CleanMyTV Home once a day and offers it (set on the TV). */
   update_check: boolean
+  keyboard_guard: boolean
   /** The on-TV editor asks for the PIN too. */
   lock_editor: boolean
   /** Minutes a day per package; after them the app needs the PIN. */
@@ -496,6 +510,15 @@ export interface CytvApi {
 
   /** App, computer and TV details for a bug report: no address, serial or settings. */
   bugReport(): Promise<string>
+  /** Record a problem: notes the TV's clock, so Stop gets the TV's log from here on. */
+  recordStart(): Promise<void>
+  /** The TV's log since recordStart with the bug report details, saved where the person picks. Null if they cancel. */
+  recordStop(): Promise<string | null>
+  recordCancel(): Promise<void>
+  /** What commonly breaks after Clean up, checked on the TV: keyboard, Home, the remote's voice, the screensaver. */
+  checkup(): Promise<CheckupItem[]>
+  /** Puts one check-up item right, then checks again. */
+  checkupFix(id: CheckupId): Promise<CheckupItem[]>
 
   // Readiness
   checks(): Promise<CheckItem[]>

@@ -70,6 +70,12 @@ fun MoreCustomization(config: HomeConfig, ctx: Context) {
             checked = config.powerOnInput,
             onCheckedChange = { set("power_on_input", it) }
         )
+        TvSwitch(
+            title = "Keep my keyboard",
+            subtitle = "If the TV switches to the phone keyboard after a restart or standby, put yours back",
+            checked = config.keyboardGuard,
+            onCheckedChange = { set("keyboard_guard", it) }
+        )
         if (config.powerOnInput) ServiceNote("the TV starts on Home instead")
         TvSwitch(
             title = "Phone apps in their own folder",

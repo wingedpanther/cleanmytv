@@ -47,7 +47,26 @@ object Fire {
         for (n in NAMES) { File(dir(ctx), n).delete(); ctx.getExternalFilesDir("fireplace")?.let { File(it, n).delete() } }
     }
     fun ready(ctx: Context): Boolean = video(ctx)?.let { it.length() > 0 } == true
-    fun changed() { _version.value++ }
+    fun changed(ctx: Context) { syncDream(ctx); _version.value++ }
+
+    /**
+     * The fireplace screensaver is listed only while the fireplace is on the TV (#116). Taking it off also
+     * moves the TV's screensaver back to its own, if the fireplace was it.
+     */
+    fun syncDream(ctx: Context) = runCatching {
+        val dream = android.content.ComponentName(ctx, FireplaceDream::class.java)
+        val on = ready(ctx)
+        val want = if (on) android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DEFAULT else android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        val pm = ctx.packageManager
+        if (pm.getComponentEnabledSetting(dream) != want) pm.setComponentEnabledSetting(dream, want, android.content.pm.PackageManager.DONT_KILL_APP)
+        if (on) return@runCatching
+        val r = ctx.contentResolver
+        val saver = android.provider.Settings.Secure.getString(r, "screensaver_components").orEmpty()
+        if (saver.split(",").none { it == dream.flattenToString() || it == dream.flattenToShortString() }) return@runCatching
+        val back = android.provider.Settings.Secure.getString(r, "screensaver_default_component")?.takeIf { it.isNotBlank() }
+        if (back != null) android.provider.Settings.Secure.putString(r, "screensaver_components", back)
+        else android.provider.Settings.Secure.putInt(r, "screensaver_enabled", 0)
+    }.onFailure { Log.w(TAG, "fireplace screensaver: $it") }
 }
 
 /**

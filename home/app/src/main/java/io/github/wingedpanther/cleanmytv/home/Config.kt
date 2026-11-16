@@ -91,6 +91,7 @@ data class HomeConfig(
     val bingDaily: Boolean = false, // Bing's picture of the day becomes the wallpaper each day
     val themeMemory: Boolean = true, // each theme keeps the look changes made while it's on
     val updateCheck: Boolean = true, // look for a newer Home on the release page once a day
+    val keyboardGuard: Boolean = true, // put the owner's keyboard back when the TV switches it at a restart or wake (#98)
     val limits: Map<String, Int> = emptyMap(), // package -> minutes a day, then the app needs the PIN
     // Weather next to the clock, from Open-Meteo; off while the place is blank
     val weatherPlace: String = "",
@@ -174,6 +175,7 @@ data class HomeConfig(
         .put("bing_daily", bingDaily)
         .put("theme_memory", themeMemory)
         .put("update_check", updateCheck)
+        .put("keyboard_guard", keyboardGuard)
         .put("limits", JSONObject(limits as Map<*, *>))
         .put("weather_place", weatherPlace)
         .put("weather_lat", weatherLat)
@@ -202,7 +204,7 @@ data class HomeConfig(
         val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "customize", "timer")
         private val THEME_PICTURE = Regex("^[a-z0-9-]{1,40}:[0-9]$")
         private val SECTIONS = setOf("nowplaying", "recent", "dock", "rows", "folders", "grid")
-        val BUTTON_ACTIONS = QUICK - "inputs" + setOf("inputs", "home", "back", "none", "app", "next_wallpaper")
+        val BUTTON_ACTIONS = QUICK - "inputs" + setOf("inputs", "home", "back", "none", "app", "next_wallpaper", "brightness")
         /** App shortcuts in the top bar, after the quick-settings icons that fit. */
         const val MAX_QUICK_APPS = 6
         fun quickApp(entry: String): String? = entry.removePrefix("app:").takeIf { entry.startsWith("app:") && PKG.matches(it) }
@@ -306,6 +308,7 @@ data class HomeConfig(
                 bingDaily = bool("bing_daily", base.bingDaily),
                 themeMemory = bool("theme_memory", base.themeMemory),
                 updateCheck = bool("update_check", base.updateCheck),
+                keyboardGuard = bool("keyboard_guard", base.keyboardGuard),
                 limits = o.optJSONObject("limits")?.let { m ->
                     m.keys().asSequence().take(60).mapNotNull { k -> m.optInt(k, -1).takeIf { PKG.matches(k) && it in 5..720 }?.let { k to it } }.toMap()
                 } ?: base.limits,

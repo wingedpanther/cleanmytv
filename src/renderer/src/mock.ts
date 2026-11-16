@@ -60,7 +60,7 @@ export function installMock(): void {
     layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
     rows: [{ name: 'Watch', apps: ['com.netflix.ninja', 'com.google.android.youtube.tv'] }], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false,
     accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
-    edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, theme_memory: true, lock_editor: false, update_check: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
+    edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, theme_memory: true, lock_editor: false, update_check: true, keyboard_guard: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
     order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
     icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, intro: true, wallpaper_from: '',
     lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge', fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0, slide_minutes: 0, slide_from: 'mine', other_apps: false, live_tv: true, slides_on_tv: 0, fire_on_tv: false, lock_pin_set: false, themes_on_tv: 0, can_change_settings: true,
@@ -215,6 +215,25 @@ export function installMock(): void {
     },
     async bugReport() {
       return 'CleanMyTV 0.0.0-dev, darwin 25.0.0 arm64\nTV: Sony BRAVIA 4K VH2 (device BRAVIA_VH2, product BRAVIA_VH2_EU), Android 12 (SDK 31), build mock'
+    },
+    async recordStart() {},
+    async recordStop() {
+      await wait(500)
+      return '/Users/you/Documents/cleanmytv-log-bravia-4k-vh2.txt'
+    },
+    async recordCancel() {},
+    async checkup() {
+      await wait(400)
+      return [
+        { id: 'keyboard', label: 'Keyboard', ok: false, detail: 'The TV is on the phone keyboard ("Use the keyboard on your mobile device"). com.google.android.inputmethod.latin can type on the TV.', fix: 'Use it' },
+        { id: 'home', label: 'Home screen', ok: true, detail: 'CleanMyTV Home opens on the Home button.' },
+        { id: 'voice', label: "Remote's microphone", ok: true, detail: 'Voice search and its microphone service are both on.' },
+        { id: 'screensaver', label: 'Screensaver', ok: true, detail: 'The screensaver app is on.' }
+      ]
+    },
+    async checkupFix(id) {
+      await wait(400)
+      return (await this.checkup()).map((i) => (i.id === id ? { ...i, ok: true, detail: 'Fixed.' } : i))
     },
     download: (tool) => fakeDownload(tool),
     async lists() {

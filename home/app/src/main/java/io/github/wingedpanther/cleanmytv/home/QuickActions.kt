@@ -92,7 +92,8 @@ private fun canStart(ctx: Context, i: Intent): Boolean {
 fun canOpen(ctx: Context, a: QuickAction, hasInputs: Boolean): Boolean = when (a.id) {
     "inputs" -> hasInputs
     "memory" -> Memory.canClean
-    "music", "panel", "themes", "fireplace", "timer", "update" -> true
+    "music", "panel", "themes", "timer", "update" -> true
+    "fireplace" -> Fire.ready(ctx)
     "customize" -> ConfigStore.config.value.editOnTv
     else -> resolve(ctx, a) != null
 }

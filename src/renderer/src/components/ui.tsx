@@ -1,6 +1,6 @@
 import type React from 'react'
 import { useEffect, useRef, useState, type ClipboardEvent, type ReactNode } from 'react'
-import type { ApplyResult, CheckStatus } from '@shared/api'
+import type { ApplyResult, CheckStatus, CheckupId, CheckupItem } from '@shared/api'
 
 export function Toggle(props: {
   label: string
@@ -419,6 +419,64 @@ export function Skeleton({ rows = 6, label }: { rows?: number; label: string }):
         </div>
       ))}
       <span className="sr-only">{label}</span>
+    </div>
+  )
+}
+
+/**
+ * The check-up after Clean up: keyboard, Home, the remote's microphone and the screensaver, each with a fix.
+ * [auto] runs it as soon as it shows; otherwise a button does.
+ */
+export function CheckupCard({ auto }: { auto: boolean }): ReactNode {
+  const [items, setItems] = useState<CheckupItem[] | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  const run = async (fix?: CheckupId): Promise<void> => {
+    setBusy(fix ?? 'all')
+    setError('')
+    try {
+      setItems(fix ? await window.cytv.checkupFix(fix) : await window.cytv.checkup())
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setBusy(null)
+    }
+  }
+  useEffect(() => {
+    if (auto) void run()
+  }, [auto])
+  const bad = items?.filter((i) => !i.ok).length ?? 0
+  return (
+    <div className="card">
+      <div className="row between">
+        <h2 style={{ margin: 0 }}>Check-up</h2>
+        <button className="btn small ghost" disabled={busy !== null} onClick={() => void run()}>
+          {busy === 'all' ? 'Checking' : items ? 'Check again' : 'Check the TV'}
+        </button>
+      </div>
+      <p className="muted" style={{ marginTop: 6 }}>
+        {!items
+          ? 'Looks at what most often breaks after Clean up: the keyboard, the Home button, the remote\'s microphone and the screensaver.'
+          : bad === 0
+            ? 'All good.'
+            : bad === 1
+              ? 'One thing needs a look.'
+              : `${bad} things need a look.`}
+      </p>
+      {error && <p className="small" style={{ color: 'var(--destructive)' }}>{error}</p>}
+      {items?.map((i) => (
+        <div key={i.id} className="row between" style={{ padding: '8px 0', borderTop: '1px solid var(--line)', gap: 12 }}>
+          <div>
+            <StatusChip status={i.ok ? 'ok' : 'warn'} text={i.ok ? 'OK' : 'Check'} /> <b>{i.label}</b>
+            <div className="small muted" style={{ marginTop: 4 }}>{i.detail}</div>
+          </div>
+          {!i.ok && i.fix && (
+            <button className="btn small" disabled={busy !== null} onClick={() => void run(i.id)}>
+              {busy === i.id ? 'Fixing' : i.fix}
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   )
 }

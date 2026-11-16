@@ -44,6 +44,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         ConfigStore.load(this)
         KeyService.ensureOn(this)
+        Keyboard.watch(this)
+        Fire.syncDream(this)
         open.value = intent.getStringExtra(OPEN)
         setContent {
             val cfg by ConfigStore.config.collectAsState()

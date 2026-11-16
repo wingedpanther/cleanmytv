@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { ApplyResult, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState } from '@shared/api'
 import type { ScreenProps } from '../App'
-import { ActionButton, Confirm, ResultNotice, Skeleton, Toggle, UndoToast, errorText, usePhase } from '../components/ui'
+import { ActionButton, CheckupCard, Confirm, ResultNotice, Skeleton, Toggle, UndoToast, errorText, usePhase } from '../components/ui'
 import { defaultTick } from '../lib/ticks'
 import { usbOffWhileDebugging } from '../lib/usb'
 
@@ -24,6 +24,8 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
   /** What the last Apply changed, so the toast can put it back. */
   const [undo, setUndo] = useState<{ text: string; disable: string[]; enable: string[] } | null>(null)
   const [result, setResult] = useState<ApplyResult | null>(null)
+  /** Bumped after each Apply, so the check-up runs again on its own. */
+  const [checkup, setCheckup] = useState(0)
   const [forceHome, setForceHome] = useState(false)
   const [forceSetup, setForceSetup] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -114,6 +116,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
       // A clean run shows in the toast; anything with notes stays on the page.
       if (!r.ok || r.warnings.length) setResult(r)
       if (r.ok) {
+        setCheckup((n) => n + 1)
         markDone('debloat')
         setUndo({ text: r.summary, disable, enable })
       }
@@ -240,6 +243,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
       </div>
 
       <ResultNotice result={result} onDismiss={() => setResult(null)} />
+      {checkup > 0 && <CheckupCard key={checkup} auto />}
 
       {loadingPlan && (
         <div className="card white">

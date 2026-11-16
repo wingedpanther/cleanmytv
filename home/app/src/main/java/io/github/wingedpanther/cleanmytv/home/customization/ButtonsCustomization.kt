@@ -60,7 +60,7 @@ private val ACTIONS = listOf(
     "display" to "Open Picture & sound", "apps" to "Open the app list", "sleep" to "Start the screensaver",
     "search" to "Open Search", "music" to "Music bars on or off", "panel" to "Open Quick settings",
     "themes" to "Open Themes", "fireplace" to "Show the fireplace", "memory" to "Clean memory",
-    "next_wallpaper" to "Next picture of the theme", "timer" to "Sleep timer: 15, 30, 60, 90, 120 min, off", "customize" to "Open this editor", "none" to "Do nothing",
+    "next_wallpaper" to "Next picture of the theme", "brightness" to "Brightness: 10, 25, 50, 75, 100%", "timer" to "Sleep timer: 15, 30, 60, 90, 120 min, off", "customize" to "Open this editor", "none" to "Do nothing",
 )
 
 /** The arrows, OK and Back move around Home and this editor, so they can't be given another job here. */

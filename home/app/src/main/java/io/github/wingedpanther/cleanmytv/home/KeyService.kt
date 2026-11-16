@@ -87,6 +87,7 @@ class KeyService : AccessibilityService() {
         ConfigStore.load(this)
         registerReceiver(screen, IntentFilter(Intent.ACTION_SCREEN_OFF).apply { addAction(Intent.ACTION_SCREEN_ON) })
         registerReceiver(volume, IntentFilter(VOLUME_CHANGED))
+        Keyboard.watch(this)
         // A cold start: the service comes up with the TV, and the input it was on may be due back.
         if (SystemClock.elapsedRealtime() < 5 * 60_000L) timer.postDelayed({ PowerOn.awake(this, front) }, PowerOn.SETTLE_MS * 2)
         scope.launch { ConfigStore.config.map { needsKeys(it, false) }.distinctUntilChanged().collect { filterKeys() } }
@@ -140,6 +141,7 @@ class KeyService : AccessibilityService() {
             "next_wallpaper" -> ThemePack.next(this)
             "fireplace" -> startActivity(Intent(this, FireplaceActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             "memory" -> if (Memory.canClean) scope.launch { Memory.cleanAndSay(this@KeyService) }
+            "brightness" -> android.widget.Toast.makeText(this, TvSettings.nextBrightness(this)?.let { "Brightness $it%" } ?: "Brightness needs CleanMyTV's permission", android.widget.Toast.LENGTH_SHORT).show()
             "app" -> b.app?.let { pkg ->
                 (packageManager.getLeanbackLaunchIntentForPackage(pkg) ?: packageManager.getLaunchIntentForPackage(pkg))
                     ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)?.let { startActivity(it) }
@@ -291,5 +293,6 @@ class BootReceiver : BroadcastReceiver() {
         ConfigStore.load(c)
         KeyService.ensureOn(c)
         Keyboard.restore(c)
+        Keyboard.watch(c)
     }
 }

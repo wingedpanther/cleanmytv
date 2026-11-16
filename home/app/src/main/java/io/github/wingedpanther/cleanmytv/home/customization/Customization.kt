@@ -87,6 +87,8 @@ fun CustomizationDialog(
     var inContentPane by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf("") }
     var searching by remember { mutableStateOf(false) }
+    // A new search remounts the section, so its controls look for the setting even when the section is already open.
+    var found by remember { androidx.compose.runtime.mutableIntStateOf(0) }
 
     val categoryFocusRequesters = remember {
         CustomizationCategory.values().associateWith { FocusRequester() }
@@ -345,7 +347,7 @@ fun CustomizationDialog(
                     ) {
                         // Use key(selectedCategory) instead of AnimatedContent!
                         // This forcefully destroys the old view and scroll state, resolving random focus jumps!
-                        key(selectedCategory) {
+                        key(selectedCategory, found) {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -374,9 +376,11 @@ fun CustomizationDialog(
             }
         }
     }
-    if (searching) SettingsSearchDialog(onDismiss = { searching = false }) { cat ->
+    if (searching) SettingsSearchDialog(onDismiss = { searching = false }) { f ->
         searching = false
-        selectedCategory = cat
+        Find.target = f.name
+        found++
+        selectedCategory = f.where
         inContentPane = true
     }
 }

@@ -11,6 +11,26 @@ export function LogDrawer(): ReactNode {
   const [lines, setLines] = useState<LogLine[]>([])
   const [open, setOpen] = useState(false)
   const body = useRef<HTMLDivElement>(null)
+  /** Record a problem: idle, recording, saving, or what happened last. */
+  const [rec, setRec] = useState<'idle' | 'on' | 'saving'>('idle')
+  const [recNote, setRecNote] = useState('')
+  const record = async (): Promise<void> => {
+    setRecNote('')
+    try {
+      if (rec === 'idle') {
+        await window.cytv.recordStart()
+        setRec('on')
+        return
+      }
+      setRec('saving')
+      const path = await window.cytv.recordStop()
+      setRecNote(path ? `Saved to ${path}. Look through it, then attach it to your GitHub issue.` : 'Not saved.')
+      setRec('idle')
+    } catch (e) {
+      setRec('idle')
+      setRecNote(`Couldn't record: ${(e as Error).message}`)
+    }
+  }
 
   useEffect(
     () =>
@@ -33,7 +53,7 @@ export function LogDrawer(): ReactNode {
   return (
     <div className="log">
       <button className="log-bar" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span>{open ? '▾' : '▸'} Activity</span>
+        <span>{open ? '▾' : '▸'} Activity{rec === 'on' ? ' · recording' : ''}</span>
         <span className="last">{last ? (last.level === 'cmd' ? `$ ${last.text}` : last.text) : 'Nothing has run yet.'}</span>
         {lines.length > 0 && <span className="muted small">{lines.length} lines</span>}
       </button>
@@ -68,7 +88,22 @@ export function LogDrawer(): ReactNode {
             >
               Copy for a bug report
             </button>
+            <button
+              className={`btn small ${rec === 'on' ? 'primary' : 'ghost'}`}
+              disabled={rec === 'saving'}
+              title="Records the TV's own log while you make the problem happen, then saves it as a file with the bug report details. Addresses and email addresses are taken out."
+              onClick={() => void record()}
+            >
+              {rec === 'on' ? 'Stop and save' : rec === 'saving' ? 'Saving' : 'Record a problem'}
+            </button>
+            {rec === 'on' && (
+              <button className="btn small ghost" onClick={() => { void window.cytv.recordCancel(); setRec('idle') }}>
+                Cancel
+              </button>
+            )}
           </div>
+          {rec === 'on' && <p className="small">Recording. Now make the problem happen on the TV, then press Stop and save.</p>}
+          {recNote && <p className="small muted">{recNote}</p>}
         </div>
       )}
     </div>

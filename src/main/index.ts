@@ -23,6 +23,8 @@ import * as home from './home'
 import * as themes from './themes'
 import { THEME_EXT, themeFileName } from '@shared/themes'
 import { bugReport } from './report'
+import * as record from './record'
+import * as checkup from './checkup'
 import type { CheckItem, ConnStatus, CytvApi, KnownTv } from '@shared/api'
 
 let win: BrowserWindow | null = null
@@ -142,6 +144,21 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   // The pairing form connects once this returns. Connecting here too would do it twice.
   pair: (host, pairPort, code, connectPort) => tools.pair(host, pairPort, code, connectPort),
   bugReport: () => bugReport(app.getVersion()),
+  recordStart: () => record.start(),
+  recordStop: async () => {
+    const text = await record.stop(await bugReport(app.getVersion()))
+    const model = (T.getStatus().probe?.model ?? 'tv').replace(/[^\w-]+/g, '-').toLowerCase()
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')
+    const opts = { title: 'Save the TV log', defaultPath: join(app.getPath('documents'), `cleanmytv-log-${model}-${stamp}.txt`), filters: [{ name: 'Text', extensions: ['txt'] }] }
+    const r = win && !win.isDestroyed() ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
+    if (r.canceled || !r.filePath) return null
+    writeFileSync(r.filePath, text)
+    shell.showItemInFolder(r.filePath)
+    return r.filePath
+  },
+  recordCancel: async () => record.cancel(),
+  checkup: () => checkup.run(),
+  checkupFix: async (id) => { await checkup.fix(id); return checkup.run() },
   checks,
   download: (tool) => tools.get(tool),
   lists: async () => debloat.lists(T.getStatus().probe),

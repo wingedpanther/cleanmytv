@@ -72,6 +72,8 @@ export interface FakeTv {
   homeThemes?: string[]
   /** The keyboard CleanMyTV Home was told about. */
   homeKeyboard?: string
+  /** What `logcat -d` prints. */
+  logcat?: string
   /** Packages that never stay running (pidof finds nothing), like a launcher crashing at boot. */
   crashing?: string[]
   /** Misbehaviour for client hardening tests. */
@@ -120,6 +122,10 @@ function sh(tv: FakeTv, cmd: string): string {
   }
   if ((m = /^settings put (?:global|secure) (\S+) (.*)$/.exec(cmd)) && !cmd.includes(';')) { tv.settings.set(m[1], m[2]); return '' }
   if (cmd === 'ime list -s') return (tv.imes ?? []).map((i) => i + '\n').join('')
+  if ((m = /^ime enable (\S+)$/.exec(cmd))) return `Input method ${m[1]}: already enabled\n`
+  if ((m = /^ime set (\S+)$/.exec(cmd))) { tv.settings.set('default_input_method', m[1]); return `Input method ${m[1]} selected for user #0\n` }
+  if (cmd === "date '+%m-%d %H:%M:%S.000'") return '11-16 10:00:00.000\n'
+  if (cmd.startsWith('logcat -d -v threadtime -T ')) return tv.logcat ?? ''
   if ((m = /^settings get secure (\S+)$/.exec(cmd))) return (tv.settings.get(m[1]) ?? 'null') + '\n'
   if (cmd === 'df -k /data' && tv.freeKb !== undefined) {
     return `Filesystem      1K-blocks    Used Available Use% Mounted on\n/dev/block/dm-5  5806884 5700000 ${String(tv.freeKb).padStart(9)}  99% /data\n`

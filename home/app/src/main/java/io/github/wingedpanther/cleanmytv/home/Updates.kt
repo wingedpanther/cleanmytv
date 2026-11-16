@@ -56,8 +56,10 @@ object Updates {
         return false
     }
 
-    /** Release notes for a TV screen: no tables, links or Markdown marks, bullets kept. */
+    /** Release notes for a TV screen: up to the downloads, no tables, links or Markdown marks, bullets kept. */
     fun plain(md: String): String = md.lines()
+        // Everything from the downloads table on is for the desktop app's page, not the TV.
+        .takeWhile { !Regex("^\\**Downloads\\**\\s*$").matches(it.trim()) }
         .filterNot { it.trimStart().startsWith("|") || it.startsWith("**Full Changelog") }
         .joinToString("\n") { l ->
             l.replace(Regex("\\*\\*|`"), "").replace(Regex("\\[([^]]+)]\\([^)]+\\)"), "$1").replace(Regex("^\\s*- "), "• ")

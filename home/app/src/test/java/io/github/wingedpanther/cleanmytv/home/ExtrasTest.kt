@@ -149,6 +149,33 @@ class ExtrasTest {
         assertEquals("New\n• Recently used: a row (#85)\n\nDiscord", Updates.plain(md))
     }
 
+    @Test fun `release notes stop at the downloads`() {
+        val md = "Smoother Home.\n\n**Updating**\nPress Update.\n\n**Downloads**\n| | |\n|---|---|\n\nYour browser may warn. Questions: [Discord](https://discord.gg/a)."
+        assertEquals("Smoother Home.\n\nUpdating\nPress Update.", Updates.plain(md))
+    }
+
+    @Test fun `the keyboard guard undoes only the phone keyboard, right after a restart or wake, once`() {
+        val bridge = "com.google.android.tv.remote.service/.ImeBridgeService"
+        val tcl = "com.tcl.inputmethod.international/.T_IME"
+        val hour = 3_600_000L
+        assertTrue(Keyboard.shouldUndo(bridge, hour, 10_000, false, true))
+        assertTrue(Keyboard.shouldUndo(bridge, 60_000, hour, false, true))
+        assertFalse(Keyboard.shouldUndo(bridge, hour, hour, false, true))
+        assertFalse(Keyboard.shouldUndo(bridge, hour, 10_000, true, true))
+        assertFalse(Keyboard.shouldUndo(bridge, hour, 10_000, false, false))
+        assertFalse(Keyboard.shouldUndo(tcl, hour, 10_000, false, true))
+        assertFalse(Keyboard.shouldUndo(null, hour, 10_000, false, true))
+    }
+
+    @Test fun `a search lands on the control with that name`() {
+        val find = io.github.wingedpanther.cleanmytv.home.customization.components.Find
+        assertTrue(find.matches("Layout: Shelf, Split or Rail", "Layout"))
+        assertTrue(find.matches("Darken the wallpaper", "darken the wallpaper"))
+        assertFalse(find.matches("Darken the wallpaper", "Font"))
+        assertFalse(find.matches(null, "Font"))
+        assertFalse(find.matches("Font", "  "))
+    }
+
     @Test fun `search finds a setting by its name or the words people use, best first`() {
         val s = io.github.wingedpanther.cleanmytv.home.customization.searchSettings("font")
         assertEquals("Font", s.first().name)

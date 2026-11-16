@@ -101,6 +101,11 @@ fun PinPad(title: String, what: String, accent: Color, onEntered: ((String) -> S
     }
     Box(
         Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.82f)).onPreviewKeyEvent { e ->
+            // The keyboard's Delete and the remote's Clear take the last digit back.
+            if (e.key == Key.Backspace || e.key == Key.Delete || e.key == Key.Clear) {
+                if (e.type == KeyEventType.KeyDown && wait == 0) { pin = pin.dropLast(1); note = "" }
+                return@onPreviewKeyEvent true
+            }
             val d = DIGIT_KEYS[e.key] ?: return@onPreviewKeyEvent false
             if (e.type == KeyEventType.KeyDown) type(d)
             true

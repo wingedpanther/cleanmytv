@@ -67,6 +67,7 @@ fun TvSlider(
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
         modifier = Modifier
+            .findable(title)
             .fillMaxWidth()
             .onFocusChanged { isFocused = it.isFocused }
             .onPreviewKeyEvent { e ->

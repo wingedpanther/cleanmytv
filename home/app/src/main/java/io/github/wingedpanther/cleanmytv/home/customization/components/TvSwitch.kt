@@ -52,6 +52,7 @@ fun TvSwitch(
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
         modifier = modifier
+            .findable(title)
             .fillMaxWidth()
             .onFocusChanged { isFocused = it.isFocused }
             .semantics {

@@ -78,7 +78,7 @@ fun SettingsPanel(accent: Color, onClose: () -> Unit) {
                 Text("Left and right change a setting.", color = P_MUTED, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
                 // Read again after every change, so each row shows what the TV has now.
                 val choices = remember(tick) {
-                    listOf(TvSettings.volume(ctx), TvSettings.screensaver(ctx), TvSettings.saverApp(ctx), TvSettings.sleep(ctx),
+                    listOf(TvSettings.volume(ctx), TvSettings.brightness(ctx), TvSettings.screensaver(ctx), TvSettings.saverApp(ctx), TvSettings.sleep(ctx),
                         TvSettings.dns(ctx), TvSettings.animations(ctx), TvSettings.clock(ctx))
                 }
                 val network = remember(tick) { TvSettings.network(ctx) }
@@ -136,6 +136,7 @@ fun SettingsPanel(accent: Color, onClose: () -> Unit) {
                             if (Memory.canClean && !cleaning) scope.launch { cleaning = true; Memory.cleanAndSay(ctx); cleaning = false; tick++ }
                         }
                     }
+                    item("picture") { PanelRow("Picture & sound", "Open", null, accent) { quickActions()["display"]?.let { a -> resolve(ctx, a)?.let { open(it) } } } }
                     item("network") { PanelRow("Network", network, null, accent) { open(Intent(Settings.ACTION_WIFI_SETTINGS)) } }
                     item("bluetooth") {
                         PanelRow("Remotes & Bluetooth", "Open", null, accent) { quickActions()["bluetooth"]?.let { a -> resolve(ctx, a)?.let { open(it) } } }

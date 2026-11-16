@@ -826,6 +826,15 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
 
       <div className="card">
         <Toggle
+          label="Keep my keyboard"
+          hint={'Some TVs switch to "Use the keyboard on your mobile device" after a restart or standby. Home puts your keyboard back straight away. Turn it off if you type from the Google TV app on your phone right after turning the TV on.'}
+          checked={cfg.keyboard_guard}
+          onChange={(v) => set({ keyboard_guard: v })}
+        />
+      </div>
+
+      <div className="card">
+        <Toggle
           label="Edit on the TV (experimental)"
           hint="Adds a Customize icon to the top bar, which opens an editor for the layout, look, widgets, apps, music bars and fireplace from the remote. With App lock on, it asks for the PIN. Turn it off to take the icon away again."
           checked={cfg.edit_on_tv}
@@ -1384,6 +1393,7 @@ const ACTIONS: [ButtonAction, string][] = [
   ['fireplace', 'Show the fireplace'],
   ['memory', 'Clean memory'],
   ['next_wallpaper', "Next picture of the theme"],
+  ['brightness', 'Brightness: 10, 25, 50, 75, 100%'],
   ['timer', 'Sleep timer: 15, 30, 60, 90, 120 min, off'],
   ['none', 'Do nothing']
 ]

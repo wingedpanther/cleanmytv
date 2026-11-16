@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { ScreenProps } from '../App'
 import type { BootCheckResult } from '@shared/api'
-import { Busy, errorText } from '../components/ui'
+import { Busy, CheckupCard, errorText } from '../components/ui'
 import { usbOffWhileDebugging } from '../lib/usb'
 
 const STEPS = [
@@ -67,6 +67,8 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
           the TV to get them back.
         </div>
       )}
+
+      {status.state === 'connected' && <CheckupCard auto={false} />}
 
       <div className="card white">
         <h2>1. Restart check</h2>

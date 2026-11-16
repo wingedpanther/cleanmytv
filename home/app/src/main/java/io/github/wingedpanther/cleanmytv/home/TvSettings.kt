@@ -112,6 +112,33 @@ object TvSettings {
         })
     }
 
+    private val BRIGHT_PCT = listOf(10, 25, 50, 75, 100)
+
+    /**
+     * Android's own brightness (#74). TVs that follow it change the backlight; many keep their own in the
+     * picture settings, which OK opens.
+     */
+    fun brightness(ctx: Context): Choice {
+        val v = systemInt(ctx, Settings.System.SCREEN_BRIGHTNESS, 255)
+        val ok = canWriteSystem(ctx)
+        return Choice("Brightness", BRIGHT_PCT.map { "$it%" }, nearest(BRIGHT_PCT, v * 100 / 255), ok,
+            if (!ok) null else { i -> setBrightness(ctx, BRIGHT_PCT[i]) }, Intent(Settings.ACTION_DISPLAY_SETTINGS))
+    }
+
+    private fun setBrightness(ctx: Context, pct: Int) = guarded("brightness") {
+        Settings.System.putInt(ctx.contentResolver, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
+        Settings.System.putInt(ctx.contentResolver, Settings.System.SCREEN_BRIGHTNESS, (pct * 255 / 100).coerceIn(1, 255))
+    }
+
+    /** A remote button's step: the next brightness up, and from full back to the lowest. Null without the permission. */
+    fun nextBrightness(ctx: Context): Int? {
+        if (!canWriteSystem(ctx)) return null
+        val now = brightness(ctx).current
+        val pct = BRIGHT_PCT[(now + 1) % BRIGHT_PCT.size]
+        setBrightness(ctx, pct)
+        return pct
+    }
+
     /** "Ethernet · 192.168.0.8" or "Wi-Fi · …", read only; OK opens the network screen. */
     fun network(ctx: Context): String = runCatching { networkLine(ctx) }.getOrDefault("Open")
 

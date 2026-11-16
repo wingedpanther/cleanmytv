@@ -42,7 +42,7 @@ fun TvPrimaryButton(
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
-        modifier = modifier
+        modifier = modifier.findable(text)
             .onFocusChanged { isFocused = it.isFocused }
             .semantics {
                 role = Role.Button
@@ -83,7 +83,7 @@ fun TvSecondaryButton(
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
-        modifier = modifier
+        modifier = modifier.findable(text)
             .onFocusChanged { isFocused = it.isFocused }
             .semantics {
                 role = Role.Button
@@ -124,7 +124,7 @@ fun TvDestructiveButton(
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
-        modifier = modifier
+        modifier = modifier.findable(text)
             .onFocusChanged { isFocused = it.isFocused }
             .semantics {
                 role = Role.Button

@@ -109,6 +109,7 @@ val SETTINGS_INDEX: List<Findable> = run {
         Findable("Free memory", "ram memory clean", M),
         Findable("Live TV in Inputs", "tuner channels antenna hdmi inputs", M),
         Findable("Back to the input at power on", "hdmi input power on startup boot", M),
+        Findable("Keep my keyboard", "keyboard ime phone typing standby input method", M),
         Findable("Phone apps in their own folder", "other apps phone apps folder", M),
         Findable("Sunrise when the wallpaper changes", "intro animation sunrise", M),
         Findable("Names", "rename label top bar all apps title", M),
@@ -135,7 +136,7 @@ fun searchSettings(query: String, index: List<Findable> = SETTINGS_INDEX): List<
 
 /** The search box and its results; picking one opens its section. */
 @Composable
-fun SettingsSearchDialog(onDismiss: () -> Unit, onPick: (CustomizationCategory) -> Unit) {
+fun SettingsSearchDialog(onDismiss: () -> Unit, onPick: (Findable) -> Unit) {
     var query by remember { mutableStateOf("") }
     var focused by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -178,7 +179,7 @@ fun SettingsSearchDialog(onDismiss: () -> Unit, onPick: (CustomizationCategory) 
                 LazyColumn(Modifier.fillMaxWidth().height(320.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(results.size) { i ->
                         val f = results[i]
-                        TvSecondaryButton(text = "${f.name}  ·  ${f.where.title}", onClick = { keyboard?.hide(); onPick(f.where) }, modifier = Modifier.fillMaxWidth().then(if (i == 0) Modifier.focusRequester(firstResult) else Modifier))
+                        TvSecondaryButton(text = "${f.name}  ·  ${f.where.title}", onClick = { keyboard?.hide(); onPick(f) }, modifier = Modifier.fillMaxWidth().then(if (i == 0) Modifier.focusRequester(firstResult) else Modifier))
                     }
                 }
             }

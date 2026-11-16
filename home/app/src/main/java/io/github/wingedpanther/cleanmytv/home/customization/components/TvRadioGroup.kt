@@ -58,6 +58,7 @@ fun TvRadioGroup(
                     shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
                     modifier = Modifier
                         .weight(1f)
+                        .then(if (isSelected) Modifier.findable(title) else Modifier)
                         .onFocusChanged { isFocused = it.isFocused }
                         .semantics {
                             role = Role.RadioButton
