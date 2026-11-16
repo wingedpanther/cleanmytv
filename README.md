@@ -14,6 +14,20 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
+### New in 0.12.0
+
+- **Russian:** the app follows your computer's language and CleanMyTV Home follows the TV's. You can
+  pick the app's language in the sidebar. Built on linaiven91-cyber's translation (#83).
+- **Check-up after Clean up:** after Apply, Clean up checks the keyboard, the Home button, the remote's
+  microphone and the screensaver, with a button to fix each. The Finish step has the same check.
+- **Record a problem:** in the Activity drawer, record the TV's log while you make the problem happen,
+  then save it as a file for your GitHub issue. Addresses and email addresses are taken out.
+- **The keyboard stays after standby (#98):** on TVs that switch to the phone keyboard every time they
+  wake, Home puts yours back straight away. **Keep my keyboard** turns it off.
+- **Brightness (#74)** in Quick settings and as a remote button action, plus a Picture & sound row.
+- **Fireplace (#116):** listed in the top bar and the TV's screensavers only while it's on the TV.
+- **Search on the TV** goes straight to the setting. The PIN pad takes the keyboard's Delete key.
+
 ### New in 0.11.0
 
 - **Each theme keeps its own look** (LimeNinja's idea): change the look on the TV while a theme is on,
