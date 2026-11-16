@@ -861,8 +861,9 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
     // In the grid and folders each slot keeps its width; a square tile sits in the middle of it.
     val inSlot = section == "grid" || section == "folder"
     val banner = ui.cfg.iconStyle == "banner"
-    // Mono glass is see-through, so the Glow focus showed inside the tile too: a focused one gets a solid back.
-    val solid = ui.cfg.iconStyle == "mono" && ui.cfg.focus == "glow"
+    // Mono glass is see-through, so the Glow focus, and Lift's faint halo, showed inside the tile as a lighter
+    // box: a focused one gets a solid back.
+    val solid = ui.cfg.iconStyle == "mono" && (ui.cfg.focus == "glow" || ui.cfg.focus == "lift")
     Column(size, horizontalAlignment = if (wide) Alignment.Start else Alignment.CenterHorizontally) {
         Surface(
             onClick = { launch(ctx, app) },
