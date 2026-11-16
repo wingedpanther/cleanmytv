@@ -59,7 +59,7 @@ fun UpdateDialog(release: HomeRelease, accent: Color, onClose: () -> Unit) {
     LaunchedEffect(Unit) {
         while (true) {
             val now = Updates.allowed(ctx)
-            if (now && !allowed) Updates.said("Allowed. Press Update.")
+            if (now && !allowed) Updates.said(tr("Allowed. Press Update."))
             allowed = now
             kotlinx.coroutines.delay(1000)
         }
@@ -69,28 +69,28 @@ fun UpdateDialog(release: HomeRelease, accent: Color, onClose: () -> Unit) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.82f)), contentAlignment = Alignment.Center) {
             Column(Modifier.width(620.dp).background(UPDATE_PANEL, RoundedCornerShape(20.dp)).padding(26.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("CleanMyTV Home ${release.version}", color = UPDATE_TEXT, fontSize = 22.sp, fontWeight = FontWeight.Medium)
-                Text("You have ${Updates.installed(ctx)}. Your settings, rows and wallpaper stay as they are.", color = UPDATE_MUTED, fontSize = 14.sp)
-                Text("What's new", color = UPDATE_TEXT, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 4.dp))
+                Text(tr("You have {version}. Your settings, rows and wallpaper stay as they are.", "version" to Updates.installed(ctx)), color = UPDATE_MUTED, fontSize = 14.sp)
+                Text(tr("What's new"), color = UPDATE_TEXT, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 4.dp))
                 // Focusable, so the arrows scroll the notes before they reach the buttons.
                 Text(
-                    release.notes.ifBlank { "No notes for this release." },
+                    release.notes.ifBlank { tr("No notes for this release.") },
                     color = UPDATE_MUTED, fontSize = 14.sp,
                     modifier = Modifier.fillMaxWidth().height(260.dp).background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
                         .focusable().verticalScroll(rememberScrollState()).padding(14.dp)
                 )
                 if (progress.isNotEmpty()) Text(progress, color = accent, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    UpdateButton(if (allowed) "Update" else "Allow updates", accent, Modifier.focusRequester(first), enabled = !busy) {
+                    UpdateButton(if (allowed) tr("Update") else tr("Allow updates"), accent, Modifier.focusRequester(first), enabled = !busy) {
                         if (!Updates.allowed(ctx)) {
-                            Updates.said("Turn on CleanMyTV Home in the screen that opens, then come back and press Update.")
+                            Updates.said(tr("Turn on CleanMyTV Home in the screen that opens, then come back and press Update."))
                             Updates.askToAllow(ctx)
                         } else {
                             busy = true
                             scope.launch { Updates.install(ctx, release); busy = false }
                         }
                     }
-                    UpdateButton("Later", accent) { onClose() }
-                    UpdateButton("Skip this version", accent) { Updates.skip(ctx, release); onClose() }
+                    UpdateButton(tr("Later"), accent) { onClose() }
+                    UpdateButton(tr("Skip this version"), accent) { Updates.skip(ctx, release); onClose() }
                 }
             }
         }

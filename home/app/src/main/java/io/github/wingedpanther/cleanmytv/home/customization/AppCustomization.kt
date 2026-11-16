@@ -47,6 +47,7 @@ import io.github.wingedpanther.cleanmytv.home.HomeConfig
 import io.github.wingedpanther.cleanmytv.home.Lock
 import io.github.wingedpanther.cleanmytv.home.PinPad
 import io.github.wingedpanther.cleanmytv.home.TvApp
+import io.github.wingedpanther.cleanmytv.home.tr
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -80,16 +81,16 @@ fun AppCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         TvSlider(
-            title = "Apps in the dock",
+            title = tr("Apps in the dock"),
             value = config.dockSize,
-            min = 0, max = 8, unit = if (config.dockSize == 0) " apps (off)" else " apps",
+            min = 0, max = 8, unit = if (config.dockSize == 0) tr(" apps (off)") else tr(" apps"),
             onChange = { ConfigStore.update(ctx, JSONObject().put("dock_size", it)) }
         )
 
         TvSlider(
-            title = "Apps per row",
+            title = tr("Apps per row"),
             value = config.columns.coerceIn(3, 8),
-            min = 3, max = 8, unit = " apps",
+            min = 3, max = 8, unit = tr(" apps"),
             onChange = { ConfigStore.update(ctx, JSONObject().put("columns", it)) }
         )
 
@@ -99,18 +100,18 @@ fun AppCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("App Order & Visibility (${apps.size} apps)", color = TEXT_COLOR, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Text("Use ← and → on card to reorder. Border outlines indicate Dock tiles.", color = MUTED_COLOR, fontSize = 12.sp)
+                Text(tr("App Order & Visibility ({n} apps)", "n" to apps.size), color = TEXT_COLOR, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(tr("Use ← and → on card to reorder. Border outlines indicate Dock tiles."), color = MUTED_COLOR, fontSize = 12.sp)
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TvSecondaryButton(
-                    text = "Reset Order",
+                    text = tr("Reset Order"),
                     onClick = { withPin { ConfigStore.update(ctx, JSONObject().put("order", JSONArray())) } }
                 )
 
                 TvSecondaryButton(
-                    text = "Show All",
+                    text = tr("Show All"),
                     onClick = { withPin { ConfigStore.update(ctx, JSONObject().put("hidden", JSONArray())) } }
                 )
             }
@@ -164,7 +165,7 @@ fun AppCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
 
     waiting?.let { action ->
         Dialog(onDismissRequest = { waiting = null }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            PinPad("Enter the PIN to change hidden apps", Lock.PANEL, Color(config.accent)) { waiting = null; pinOk = true; action() }
+            PinPad(tr("Enter the PIN to change hidden apps"), Lock.PANEL, Color(config.accent)) { waiting = null; pinOk = true; action() }
         }
     }
 }
@@ -217,7 +218,7 @@ private fun AppTileControlCard(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.VisibilityOff,
-                        contentDescription = "Hidden",
+                        contentDescription = tr("Hidden"),
                         tint = Color.White,
                         modifier = Modifier.size(20.dp)
                     )
@@ -274,7 +275,7 @@ private fun AppTileControlCard(
                     }
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = "Move Left",
+                        contentDescription = tr("Move Left"),
                         tint = iconTint,
                         modifier = Modifier.size(13.dp)
                     )
@@ -304,7 +305,7 @@ private fun AppTileControlCard(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     val hideTextColor = if (hideFocused) CUSTOMIZATION_BG else Color.White
                     Text(
-                        text = if (isHidden) "Show" else "Hide",
+                        text = if (isHidden) tr("Show") else tr("Hide"),
                         color = hideTextColor,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
@@ -345,7 +346,7 @@ private fun AppTileControlCard(
                     }
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
-                        contentDescription = "Move Right",
+                        contentDescription = tr("Move Right"),
                         tint = iconTint,
                         modifier = Modifier.size(13.dp)
                     )

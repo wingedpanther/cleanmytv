@@ -1,5 +1,8 @@
 package io.github.wingedpanther.cleanmytv.home.customization
 
+import io.github.wingedpanther.cleanmytv.home.tr
+
+/** The editor's sections. [title] is the English, and the key for [label], the name the TV shows. */
 enum class CustomizationCategory(val title: String, val subtitle: String) {
     LAYOUT("Layout", "Layout, space above the apps, sections and top bar icons"),
     ROWS("Rows and folders", "Make, name, fill and order your rows and folders"),
@@ -11,5 +14,7 @@ enum class CustomizationCategory(val title: String, val subtitle: String) {
     LOCK("App lock", "Lock apps behind a PIN"),
     VISUALIZER("Music bars", "Style, colour, height and sensitivity"),
     FIREPLACE("Fireplace", "The fire as the wallpaper, its sound and timer"),
-    MORE("More", "Greeting, names, memory, inputs and power on")
+    MORE("More", "Greeting, names, memory, inputs and power on");
+
+    val label: String get() = tr(title)
 }

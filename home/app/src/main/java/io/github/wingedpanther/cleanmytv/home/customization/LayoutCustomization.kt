@@ -35,6 +35,7 @@ import io.github.wingedpanther.cleanmytv.home.ConfigStore
 import io.github.wingedpanther.cleanmytv.home.HomeConfig
 import io.github.wingedpanther.cleanmytv.home.canOpen
 import io.github.wingedpanther.cleanmytv.home.quickActions
+import io.github.wingedpanther.cleanmytv.home.tr
 import io.github.wingedpanther.cleanmytv.home.tvInputs
 import org.json.JSONArray
 import org.json.JSONObject
@@ -50,14 +51,14 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         // --- Layout Mode & Top Space ---
         TvRadioGroup(
-            title = "Layout",
-            options = listOf("shelf" to "Shelf", "split" to "Split", "rail" to "Rail"),
+            title = tr("Layout"),
+            options = listOf("shelf" to tr("Shelf"), "split" to tr("Split"), "rail" to tr("Rail")),
             current = config.layout,
             onSelect = { ConfigStore.update(ctx, JSONObject().put("layout", it)) }
         )
 
         TvSlider(
-            title = "Space above the apps",
+            title = tr("Space above the apps"),
             value = config.topSpace,
             min = 0, max = 40, unit = "%",
             onChange = { ConfigStore.update(ctx, JSONObject().put("top_space", it)) }
@@ -65,7 +66,7 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
 
         // --- Unified Info Helper Bar ---
         Alert(
-            text = "Check items to enable · Select handle with OK to pick · ↑↓ Move · OK Confirm · Back Cancel",
+            text = tr("Check items to enable · Select handle with OK to pick · ↑↓ Move · OK Confirm · Back Cancel"),
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -77,7 +78,7 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
         ) {
             // Left Column: Active Sections & Order
             CollapsibleCard(
-                title = "Sections",
+                title = tr("Sections"),
                 expanded = activeSectionsExpanded,
                 onToggle = { activeSectionsExpanded = !activeSectionsExpanded },
                 modifier = Modifier.weight(1f)
@@ -89,12 +90,12 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
                     activeItems = config.sections,
                     getLabel = { id ->
                         when (id) {
-                            "nowplaying" -> "Now playing"
-                            "recent" -> "Recently used"
-                            "dock" -> "Dock"
-                            "rows" -> "Rows"
-                            "folders" -> "Folders"
-                            "grid" -> config.names["all_apps"] ?: "All apps"
+                            "nowplaying" -> tr("Now playing")
+                            "recent" -> tr("Recently used")
+                            "dock" -> tr("Dock")
+                            "rows" -> tr("Rows")
+                            "folders" -> tr("Folders")
+                            "grid" -> config.names["all_apps"] ?: tr("All apps")
                             else -> id.replaceFirstChar { it.uppercase() }
                         }
                     },
@@ -107,7 +108,7 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
 
             // Right Column: Quick Settings Shortcuts
             CollapsibleCard(
-                title = "Top bar icons",
+                title = tr("Top bar icons"),
                 expanded = quickShortcutsExpanded,
                 onToggle = { quickShortcutsExpanded = !quickShortcutsExpanded },
                 modifier = Modifier.weight(1f)
@@ -187,7 +188,7 @@ private fun CollapsibleCard(
                 )
                 Icon(
                     imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    contentDescription = if (expanded) tr("Collapse") else tr("Expand"),
                     tint = if (isHeaderFocused) CUSTOMIZATION_BG else Color.White
                 )
             }

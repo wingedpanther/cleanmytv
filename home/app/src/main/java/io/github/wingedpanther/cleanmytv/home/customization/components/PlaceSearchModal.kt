@@ -47,6 +47,8 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import io.github.wingedpanther.cleanmytv.home.I18n
+import io.github.wingedpanther.cleanmytv.home.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -65,7 +67,7 @@ data class Place(
 suspend fun findPlaces(query: String): List<Place> = withContext(Dispatchers.IO) {
     val q = query.trim()
     if (q.length < 2) return@withContext emptyList()
-    val urlStr = "https://geocoding-api.open-meteo.com/v1/search?name=${URLEncoder.encode(q, "UTF-8")}&count=6&language=en&format=json"
+    val urlStr = "https://geocoding-api.open-meteo.com/v1/search?name=${URLEncoder.encode(q, "UTF-8")}&count=6&language=${if (I18n.language() == "ru") "ru" else "en"}&format=json"
     runCatching {
         val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
             connectTimeout = 8_000
@@ -150,14 +152,14 @@ fun PlaceSearchModal(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Search City / Location",
+                        text = tr("Search City / Location"),
                         color = Color.White,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
 
                     TvSecondaryButton(
-                        text = "Close",
+                        text = tr("Close"),
                         onClick = onDismiss
                     )
                 }
@@ -185,7 +187,7 @@ fun PlaceSearchModal(
                         Box(modifier = Modifier.weight(1f)) {
                             if (searchQuery.isEmpty()) {
                                 Text(
-                                    text = "Enter city name (e.g. London, New York, Tokyo)...",
+                                    text = tr("Enter city name (e.g. London, New York, Tokyo)..."),
                                     color = if (inputFocused) CUSTOMIZATION_BG.copy(alpha = 0.6f) else MUTED_COLOR,
                                     fontSize = 13.sp
                                 )
@@ -229,14 +231,14 @@ fun PlaceSearchModal(
                 ) {
                     if (isSearching) {
                         Text(
-                            text = "Searching cities...",
+                            text = tr("Searching cities..."),
                             color = PRIMARY_BUTTON_COLOR,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(top = 8.dp)
                         )
                     } else if (searchQuery.trim().length >= 2 && searchResults.isEmpty()) {
                         Text(
-                            text = "No cities found for '$searchQuery'",
+                            text = tr("No cities found for '{query}'", "query" to searchQuery),
                             color = MUTED_COLOR,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(top = 8.dp)

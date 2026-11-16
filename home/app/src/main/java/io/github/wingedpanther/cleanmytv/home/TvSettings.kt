@@ -40,7 +40,7 @@ object TvSettings {
         val on = secureInt(ctx, "screensaver_enabled", 1) == 1
         val after = systemInt(ctx, Settings.System.SCREEN_OFF_TIMEOUT, 15 * 60_000) / 60_000
         val ok = canWriteSecure(ctx) && canWriteSystem(ctx)
-        return Choice("Screensaver", SAVER_MIN.map { if (it == 0) "Off" else "After $it min" }, if (!on) 0 else nearest(SAVER_MIN, after).coerceAtLeast(1), ok,
+        return Choice(tr("Screensaver"), SAVER_MIN.map { if (it == 0) tr("Off") else tr("After {n} min", "n" to it) }, if (!on) 0 else nearest(SAVER_MIN, after).coerceAtLeast(1), ok,
             if (!ok) null else { i -> guarded("screensaver") {
                 Settings.Secure.putInt(ctx.contentResolver, "screensaver_enabled", if (i == 0) 0 else 1)
                 if (i > 0) Settings.System.putInt(ctx.contentResolver, Settings.System.SCREEN_OFF_TIMEOUT, SAVER_MIN[i] * 60_000)
@@ -56,7 +56,7 @@ object TvSettings {
         val now = Settings.Secure.getString(ctx.contentResolver, "screensaver_components")?.split(",")?.firstOrNull()
         val cur = dreams.indexOfFirst { it.first.flattenToString() == now }.coerceAtLeast(0)
         val ok = canWriteSecure(ctx) && dreams.size > 1
-        return Choice("Screensaver app", dreams.map { it.second }.ifEmpty { listOf("None on this TV") }, cur, ok,
+        return Choice(tr("Screensaver app"), dreams.map { it.second }.ifEmpty { listOf(tr("None on this TV")) }, cur, ok,
             if (!ok) null else { i -> guarded("screensaver app") { Settings.Secure.putString(ctx.contentResolver, "screensaver_components", dreams[i].first.flattenToString()) } },
             Intent(Settings.ACTION_DREAM_SETTINGS))
     }
@@ -65,7 +65,7 @@ object TvSettings {
         val ms = secureInt(ctx, "sleep_timeout", -1)
         val cur = if (ms <= 0) 0 else nearest(SLEEP_MIN, ms / 60_000).coerceAtLeast(1)
         val ok = canWriteSecure(ctx)
-        return Choice("Turn the TV off", SLEEP_MIN.map { if (it < 0) "Never" else if (it < 60) "After $it min" else "After ${it / 60} h" }, cur, ok,
+        return Choice(tr("Turn the TV off"), SLEEP_MIN.map { if (it < 0) tr("Never") else if (it < 60) tr("After {n} min", "n" to it) else tr("After {n} h", "n" to it / 60) }, cur, ok,
             if (!ok) null else { i -> guarded("sleep") { Settings.Secure.putInt(ctx.contentResolver, "sleep_timeout", if (i == 0) -1 else SLEEP_MIN[i] * 60_000) } })
     }
 
@@ -73,7 +73,7 @@ object TvSettings {
         val on = Settings.Global.getString(ctx.contentResolver, "private_dns_mode") == "hostname"
         val host = Settings.Global.getString(ctx.contentResolver, "private_dns_specifier")?.takeIf { it.isNotBlank() } ?: ADGUARD
         val ok = canWriteSecure(ctx)
-        return Choice("Ad-blocking DNS", listOf("Off", "On ($host)"), if (on) 1 else 0, ok,
+        return Choice(tr("Ad-blocking DNS"), listOf(tr("Off"), tr("On ({host})", "host" to host)), if (on) 1 else 0, ok,
             if (!ok) null else { i -> guarded("dns") {
                 if (i == 1) Settings.Global.putString(ctx.contentResolver, "private_dns_specifier", host)
                 Settings.Global.putString(ctx.contentResolver, "private_dns_mode", if (i == 1) "hostname" else "opportunistic")
@@ -84,7 +84,7 @@ object TvSettings {
     fun animations(ctx: Context): Choice {
         val v = globalFloat(ctx, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
         val ok = canWriteSecure(ctx)
-        return Choice("Animations", listOf("Off", "Fast", "Normal"), SCALES.indices.minBy { kotlin.math.abs(SCALES[it] - v) }, ok,
+        return Choice(tr("Animations"), listOf(tr("Off"), tr("Fast"), tr("Normal")), SCALES.indices.minBy { kotlin.math.abs(SCALES[it] - v) }, ok,
             if (!ok) null else { i -> guarded("animations") {
                 for (k in listOf(Settings.Global.WINDOW_ANIMATION_SCALE, Settings.Global.TRANSITION_ANIMATION_SCALE, Settings.Global.ANIMATOR_DURATION_SCALE)) {
                     Settings.Global.putFloat(ctx.contentResolver, k, SCALES[i])
@@ -95,7 +95,7 @@ object TvSettings {
     fun clock(ctx: Context): Choice {
         val h24 = android.text.format.DateFormat.is24HourFormat(ctx)
         val ok = canWriteSystem(ctx)
-        return Choice("Clock", listOf("12-hour", "24-hour"), if (h24) 1 else 0, ok,
+        return Choice(tr("Clock"), listOf(tr("12-hour"), tr("24-hour")), if (h24) 1 else 0, ok,
             if (!ok) null else { i -> guarded("clock") { Settings.System.putString(ctx.contentResolver, Settings.System.TIME_12_24, if (i == 1) "24" else "12") } })
     }
 
@@ -103,8 +103,8 @@ object TvSettings {
         val am = ctx.getSystemService(AudioManager::class.java)
         val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         val muted = am.isStreamMute(AudioManager.STREAM_MUSIC)
-        val opts = (0..max).map { if (it == 0) "Muted" else "$it of $max" }
-        return Choice("Volume", opts, if (muted) 0 else am.getStreamVolume(AudioManager.STREAM_MUSIC), true, set = { i ->
+        val opts = (0..max).map { if (it == 0) tr("Muted") else tr("{n} of {max}", "n" to it, "max" to max) }
+        return Choice(tr("Volume"), opts, if (muted) 0 else am.getStreamVolume(AudioManager.STREAM_MUSIC), true, set = { i ->
             guarded("volume") {
                 am.adjustStreamVolume(AudioManager.STREAM_MUSIC, if (i == 0) AudioManager.ADJUST_MUTE else AudioManager.ADJUST_UNMUTE, 0)
                 if (i > 0) am.setStreamVolume(AudioManager.STREAM_MUSIC, i, AudioManager.FLAG_SHOW_UI)
@@ -121,7 +121,7 @@ object TvSettings {
     fun brightness(ctx: Context): Choice {
         val v = systemInt(ctx, Settings.System.SCREEN_BRIGHTNESS, 255)
         val ok = canWriteSystem(ctx)
-        return Choice("Brightness", BRIGHT_PCT.map { "$it%" }, nearest(BRIGHT_PCT, v * 100 / 255), ok,
+        return Choice(tr("Brightness"), BRIGHT_PCT.map { "$it%" }, nearest(BRIGHT_PCT, v * 100 / 255), ok,
             if (!ok) null else { i -> setBrightness(ctx, BRIGHT_PCT[i]) }, Intent(Settings.ACTION_DISPLAY_SETTINGS))
     }
 
@@ -140,16 +140,16 @@ object TvSettings {
     }
 
     /** "Ethernet · 192.168.0.8" or "Wi-Fi · …", read only; OK opens the network screen. */
-    fun network(ctx: Context): String = runCatching { networkLine(ctx) }.getOrDefault("Open")
+    fun network(ctx: Context): String = runCatching { networkLine(ctx) }.getOrDefault(tr("Open"))
 
     private fun networkLine(ctx: Context): String {
         val cm = ctx.getSystemService(ConnectivityManager::class.java)
-        val net = cm.activeNetwork ?: return "Not connected"
+        val net = cm.activeNetwork ?: return tr("Not connected")
         val caps = cm.getNetworkCapabilities(net)
         val kind = when {
             caps?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true -> "Ethernet"
             caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> "Wi-Fi"
-            else -> "Connected"
+            else -> tr("Connected")
         }
         val ip = cm.getLinkProperties(net)?.linkAddresses?.firstOrNull { it.address is Inet4Address }?.address?.hostAddress
         return listOfNotNull(kind, ip).joinToString(" · ")

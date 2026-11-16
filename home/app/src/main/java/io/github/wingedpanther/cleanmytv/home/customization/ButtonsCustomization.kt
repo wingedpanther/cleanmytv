@@ -49,18 +49,19 @@ import io.github.wingedpanther.cleanmytv.home.customization.components.TvDestruc
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvPrimaryButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSecondaryButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSwitch
+import io.github.wingedpanther.cleanmytv.home.tr
 import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** What a button can do, worded as the desktop app's Remote buttons tab. */
-private val ACTIONS = listOf(
-    "settings" to "Open Settings", "inputs" to "Open Inputs", "home" to "Go Home", "back" to "Back",
-    "app" to "Open an app…", "wifi" to "Open Wi-Fi", "bluetooth" to "Open Bluetooth & remotes",
-    "display" to "Open Picture & sound", "apps" to "Open the app list", "sleep" to "Start the screensaver",
-    "search" to "Open Search", "music" to "Music bars on or off", "panel" to "Open Quick settings",
-    "themes" to "Open Themes", "fireplace" to "Show the fireplace", "memory" to "Clean memory",
-    "next_wallpaper" to "Next picture of the theme", "brightness" to "Brightness: 10, 25, 50, 75, 100%", "timer" to "Sleep timer: 15, 30, 60, 90, 120 min, off", "customize" to "Open this editor", "none" to "Do nothing",
+/** What a button can do, worded as the desktop app's Remote buttons tab, in the TV's language. */
+private fun actions() = listOf(
+    "settings" to tr("Open Settings"), "inputs" to tr("Open Inputs"), "home" to tr("Go Home"), "back" to tr("Back"),
+    "app" to tr("Open an app…"), "wifi" to tr("Open Wi-Fi"), "bluetooth" to tr("Open Bluetooth & remotes"),
+    "display" to tr("Open Picture & sound"), "apps" to tr("Open the app list"), "sleep" to tr("Start the screensaver"),
+    "search" to tr("Open Search"), "music" to tr("Music bars on or off"), "panel" to tr("Open Quick settings"),
+    "themes" to tr("Open Themes"), "fireplace" to tr("Show the fireplace"), "memory" to tr("Clean memory"),
+    "next_wallpaper" to tr("Next picture of the theme"), "brightness" to tr("Brightness: 10, 25, 50, 75, 100%"), "timer" to tr("Sleep timer: 15, 30, 60, 90, 120 min, off"), "customize" to tr("Open this editor"), "none" to tr("Do nothing"),
 )
 
 /** The arrows, OK and Back move around Home and this editor, so they can't be given another job here. */
@@ -93,14 +94,14 @@ fun ButtonsCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
         KeyService.ensureOn(ctx)
     }
     val label = { b: ButtonMap ->
-        if (b.action == "app") "Open ${apps.firstOrNull { it.pkg == b.app }?.label ?: b.app}"
-        else ACTIONS.firstOrNull { it.first == b.action }?.second ?: b.action
+        if (b.action == "app") tr("Open {app}", "app" to (apps.firstOrNull { it.pkg == b.app }?.label ?: b.app.toString()))
+        else actions().firstOrNull { it.first == b.action }?.second ?: b.action
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         TvSwitch(
-            title = "Remote buttons",
-            subtitle = "Give spare buttons, like the colour buttons or a streaming app's, a new job",
+            title = tr("Remote buttons"),
+            subtitle = tr("Give spare buttons, like the colour buttons or a streaming app's, a new job"),
             checked = config.buttonsOn,
             onCheckedChange = {
                 ConfigStore.update(ctx, JSONObject().put("buttons_on", it))
@@ -118,25 +119,25 @@ fun ButtonsCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
                         Text(keyName(b.code), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                         Text(label(b), color = MUTED_COLOR, fontSize = 13.sp)
                     }
-                    TvSecondaryButton(text = "Change", onClick = { code = b.code })
-                    TvDestructiveButton(text = "Remove", onClick = { save(config.buttons.filter { it.code != b.code }) })
+                    TvSecondaryButton(text = tr("Change"), onClick = { code = b.code })
+                    TvDestructiveButton(text = tr("Remove"), onClick = { save(config.buttons.filter { it.code != b.code }) })
                 }
             }
-            ServiceNote("mapped buttons do nothing")
-            TvPrimaryButton(text = "Add a button", onClick = { finding = true })
-            if (Memory.canClean.not()) Alert(text = "Clean memory doesn't work on Android 14 and later, so a button for it does nothing.", modifier = Modifier.fillMaxWidth())
+            ServiceNote(tr("mapped buttons do nothing"))
+            TvPrimaryButton(text = tr("Add a button"), onClick = { finding = true })
+            if (Memory.canClean.not()) Alert(text = tr("Clean memory doesn't work on Android 14 and later, so a button for it does nothing."), modifier = Modifier.fillMaxWidth())
         }
     }
 
     if (finding) FindButton(onDismiss = { finding = false }) { found -> finding = false; code = found }
     code?.let { c ->
         if (pickApp) {
-            Choose("Which app should ${keyName(c)} open?", apps.map { it.pkg to it.label }, onDismiss = { pickApp = false; code = null }) { pkg ->
+            Choose(tr("Which app should {button} open?", "button" to keyName(c)), apps.map { it.pkg to it.label }, onDismiss = { pickApp = false; code = null }) { pkg ->
                 save(config.buttons.filter { it.code != c } + ButtonMap(c, "app", pkg))
                 pickApp = false; code = null
             }
         } else {
-            Choose("What should ${keyName(c)} do?", ACTIONS.filter { it.first != "memory" || Memory.canClean }, onDismiss = { code = null }) { action ->
+            Choose(tr("What should {button} do?", "button" to keyName(c)), actions().filter { it.first != "memory" || Memory.canClean }, onDismiss = { code = null }) { action ->
                 if (action == "app") pickApp = true
                 else { save(config.buttons.filter { it.code != c } + ButtonMap(c, action)); code = null }
             }
@@ -168,7 +169,7 @@ private fun FindButton(onDismiss: () -> Unit, onFound: (Int) -> Unit) {
                 val k = e.nativeKeyEvent.keyCode
                 when {
                     k == KeyEvent.KEYCODE_BACK -> { if (e.type == KeyEventType.KeyUp) onDismiss(); true }
-                    k in NAVIGATION -> { if (e.type == KeyEventType.KeyUp) note = "The arrows and OK move around Home, so they keep their job."; true }
+                    k in NAVIGATION -> { if (e.type == KeyEventType.KeyUp) note = tr("The arrows and OK move around Home, so they keep their job."); true }
                     else -> { if (e.type == KeyEventType.KeyUp) onFound(k); true }
                 }
             },
@@ -178,8 +179,8 @@ private fun FindButton(onDismiss: () -> Unit, onFound: (Int) -> Unit) {
                 Modifier.width(460.dp).clip(RoundedCornerShape(16.dp)).background(DIALOG_BG).padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("Press the button on your remote", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("Back cancels. If nothing happens, the TV handles that button itself and Home can't change it.", color = MUTED_COLOR, fontSize = 13.sp)
+                Text(tr("Press the button on your remote"), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(tr("Back cancels. If nothing happens, the TV handles that button itself and Home can't change it."), color = MUTED_COLOR, fontSize = 13.sp)
                 if (note.isNotEmpty()) Alert(text = note, type = AlertType.WARNING, modifier = Modifier.fillMaxWidth())
             }
         }
@@ -195,7 +196,7 @@ internal fun ServiceNote(what: String) {
     var on by remember { mutableStateOf(KeyService.isOn) }
     LaunchedEffect(Unit) { repeat(10) { on = KeyService.isOn; if (on) return@LaunchedEffect; delay(500) } }
     if (!on) Alert(
-        text = "Home's button service is off, so $what. In CleanMyTV on your computer, open the Home screen step and press Update and use to turn it on.",
+        text = tr("Home's button service is off, so {what}. In CleanMyTV on your computer, open the Home screen step and press Update and use to turn it on.", "what" to what),
         type = AlertType.WARNING,
         modifier = Modifier.fillMaxWidth()
     )

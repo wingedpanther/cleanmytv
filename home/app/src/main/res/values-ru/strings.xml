@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="key_service_label">CleanMyTV Home: кнопки пульта и блокировка приложений</string>
+    <string name="key_service_description">Выполняет действия, которые вы назначили кнопкам пульта в CleanMyTV, и спрашивает PIN, когда открывается заблокированное приложение. Остальные кнопки работают как раньше. Служба видит, какое приложение на экране, но не видит, что внутри.</string>
+    <string name="now_playing_label">CleanMyTV Home: сейчас играет</string>
+    <string name="fireplace_label">CleanMyTV Камин</string>
+</resources>

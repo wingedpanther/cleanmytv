@@ -41,6 +41,7 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import io.github.wingedpanther.cleanmytv.home.tr
 
 enum class ListInteractionMode {
     NORMAL,
@@ -215,7 +216,7 @@ fun <T : Any> ReorderableCheckList(
                             if (isActive) {
                                 Icon(
                                     imageVector = Icons.Outlined.Check,
-                                    contentDescription = "Active",
+                                    contentDescription = tr("Active"),
                                     tint = if (isCardFocused) CUSTOMIZATION_BG else PRIMARY_BUTTON_COLOR,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -278,7 +279,7 @@ fun <T : Any> ReorderableCheckList(
                             ) {
                                 Icon(
                                     imageVector = if (isMoving) Icons.Outlined.SwapVert else Icons.Outlined.SwipeVertical,
-                                    contentDescription = "Drag Handle",
+                                    contentDescription = tr("Drag Handle"),
                                     tint = if (isMoving || isHandleFocused) CUSTOMIZATION_BG else Color.White,
                                     modifier = Modifier.size(18.dp)
                                 )

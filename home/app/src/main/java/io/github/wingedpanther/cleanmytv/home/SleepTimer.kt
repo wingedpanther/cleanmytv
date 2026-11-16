@@ -44,7 +44,7 @@ object SleepTimer {
         val left = _at.value?.let { ((it - System.currentTimeMillis()) / 60_000L).toInt() } ?: -1
         val pick = CHOICES.firstOrNull { it > left + 1 }
         set(ctx, pick)
-        Toast.makeText(ctx, pick?.let { "Sleep in ${Limits.words(it)}" } ?: "Sleep timer off", Toast.LENGTH_SHORT).show()
+        Toast.makeText(ctx, pick?.let { tr("Sleep in {time}", "time" to Limits.words(it)) } ?: tr("Sleep timer off"), Toast.LENGTH_SHORT).show()
     }
 
     internal fun fire(ctx: Context) {

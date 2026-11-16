@@ -47,9 +47,13 @@ import io.github.wingedpanther.cleanmytv.home.customization.components.DIALOG_BG
 import io.github.wingedpanther.cleanmytv.home.customization.components.MUTED_COLOR
 import io.github.wingedpanther.cleanmytv.home.customization.components.PRIMARY_BUTTON_COLOR
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSecondaryButton
+import io.github.wingedpanther.cleanmytv.home.tr
 import kotlinx.coroutines.delay
 
-/** One setting the search can find: its name as the editor shows it, other words for it, and its section. */
+/**
+ * One setting the search can find: its name as the editor shows it, other words for it, and its section.
+ * The name and words are English, and the keys for the TV's language, so a search works in either.
+ */
 data class Findable(val name: String, val words: String, val where: CustomizationCategory)
 
 /** Every setting in the editor, with the words people use when they look for it. */
@@ -122,12 +126,12 @@ fun searchSettings(query: String, index: List<Findable> = SETTINGS_INDEX): List<
     val words = query.lowercase().split(' ').filter { it.isNotBlank() }
     if (words.isEmpty()) return emptyList()
     fun score(f: Findable): Int {
-        val name = f.name.lowercase()
-        val all = "$name ${f.words} ${f.where.title.lowercase()}"
+        val names = listOf(f.name, tr(f.name)).map { it.lowercase() }
+        val all = "${names.joinToString(" ")} ${f.words} ${tr(f.words).lowercase()} ${f.where.title.lowercase()} ${f.where.label.lowercase()}"
         if (!words.all { it in all }) return 0
         return when {
-            name.startsWith(words.first()) -> 3
-            words.all { it in name } -> 2
+            names.any { it.startsWith(words.first()) } -> 3
+            words.all { w -> names.any { w in it } } -> 2
             else -> 1
         }
     }
@@ -151,12 +155,12 @@ fun SettingsSearchDialog(onDismiss: () -> Unit, onPick: (Findable) -> Unit) {
                 Modifier.padding(top = 40.dp).width(560.dp).clip(RoundedCornerShape(16.dp)).background(DIALOG_BG).padding(22.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Search settings", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(tr("Search settings"), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Box(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(if (focused) Color.White else Color(0x22FFFFFF))
                         .padding(horizontal = 14.dp, vertical = 12.dp)
                 ) {
-                    if (query.isEmpty()) Text("Try font, wallpaper, PIN, sleep, weather", color = if (focused) CUSTOMIZATION_BG.copy(alpha = 0.6f) else MUTED_COLOR, fontSize = 14.sp)
+                    if (query.isEmpty()) Text(tr("Try font, wallpaper, PIN, sleep, weather"), color = if (focused) CUSTOMIZATION_BG.copy(alpha = 0.6f) else MUTED_COLOR, fontSize = 14.sp)
                     BasicTextField(
                         value = query,
                         onValueChange = { query = it.take(40) },
@@ -175,11 +179,11 @@ fun SettingsSearchDialog(onDismiss: () -> Unit, onPick: (Findable) -> Unit) {
                             }
                     )
                 }
-                if (query.isNotBlank() && results.isEmpty()) Text("Nothing called that. Try another word.", color = MUTED_COLOR, fontSize = 13.sp)
+                if (query.isNotBlank() && results.isEmpty()) Text(tr("Nothing called that. Try another word."), color = MUTED_COLOR, fontSize = 13.sp)
                 LazyColumn(Modifier.fillMaxWidth().height(320.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(results.size) { i ->
                         val f = results[i]
-                        TvSecondaryButton(text = "${f.name}  ·  ${f.where.title}", onClick = { keyboard?.hide(); onPick(f) }, modifier = Modifier.fillMaxWidth().then(if (i == 0) Modifier.focusRequester(firstResult) else Modifier))
+                        TvSecondaryButton(text = "${tr(f.name)}  ·  ${f.where.label}", onClick = { keyboard?.hide(); onPick(f) }, modifier = Modifier.fillMaxWidth().then(if (i == 0) Modifier.focusRequester(firstResult) else Modifier))
                     }
                 }
             }

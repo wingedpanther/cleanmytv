@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.Text
+import io.github.wingedpanther.cleanmytv.home.tr
 import kotlinx.coroutines.delay
 
 /**
@@ -99,8 +100,8 @@ fun TextPrompt(
                 }
                 if (note.isNotEmpty()) Text(note, color = Color(0xFFFFB23C), fontSize = 13.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TvPrimaryButton(text = "Save", onClick = { done() })
-                    TvSecondaryButton(text = "Cancel", onClick = onDismiss)
+                    TvPrimaryButton(text = tr("Save"), onClick = { done() })
+                    TvSecondaryButton(text = tr("Cancel"), onClick = onDismiss)
                 }
             }
         }

@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import io.github.wingedpanther.cleanmytv.home.tr
 
 @Composable
 fun TvSwitch(
@@ -57,8 +58,8 @@ fun TvSwitch(
             .onFocusChanged { isFocused = it.isFocused }
             .semantics {
                 role = Role.Switch
-                stateDescription = if (checked) "On" else "Off"
-                contentDescription = "$title, ${if (checked) "On" else "Off"}"
+                stateDescription = if (checked) tr("On") else tr("Off")
+                contentDescription = "$title, ${if (checked) tr("On") else tr("Off")}"
             }
     ) {
         Row(
@@ -100,7 +101,7 @@ fun TvSwitch(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = if (checked) "ON" else "OFF",
+                    text = if (checked) tr("ON") else tr("OFF"),
                     color = if (checked) {
                         if (isFocused) Color.White else CUSTOMIZATION_BG
                     } else {

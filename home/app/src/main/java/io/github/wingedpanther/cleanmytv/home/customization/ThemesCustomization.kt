@@ -31,6 +31,7 @@ import io.github.wingedpanther.cleanmytv.home.customization.components.TextPromp
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvPrimaryButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSecondaryButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSwitch
+import io.github.wingedpanther.cleanmytv.home.tr
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -56,91 +57,91 @@ fun ThemesCustomization(config: HomeConfig, ctx: Context) {
 
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         // ---- Themes ----
-        Text("Themes", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(tr("Themes"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         if (themes.isEmpty()) {
-            Text("No themes on the TV yet. The desktop app puts them here when you apply one from its Look tab.", color = MUTED_COLOR, fontSize = 13.sp)
+            Text(tr("No themes on the TV yet. The desktop app puts them here when you apply one from its Look tab."), color = MUTED_COLOR, fontSize = 13.sp)
         } else {
             themes.forEach { t ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(t.name + if (t.id in changed) " (your changes)" else "", color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                    TvPrimaryButton(text = "Use theme", onClick = { ThemePack.apply(ctx, t, 0) })
+                    Text(t.name + if (t.id in changed) tr(" (your changes)") else "", color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                    TvPrimaryButton(text = tr("Use theme"), onClick = { ThemePack.apply(ctx, t, 0) })
                     // Only the picture: the colours and icons stay as they are.
-                    for (v in 0 until t.pictures) TvSecondaryButton(text = "Picture ${v + 1}", onClick = { ThemePack.apply(ctx, t, v, withLook = false) })
-                    if (t.id in changed) TvSecondaryButton(text = "Forget changes", onClick = { ThemePack.forget(ctx, t.id) })
+                    for (v in 0 until t.pictures) TvSecondaryButton(text = tr("Picture {n}", "n" to v + 1), onClick = { ThemePack.apply(ctx, t, v, withLook = false) })
+                    if (t.id in changed) TvSecondaryButton(text = tr("Forget changes"), onClick = { ThemePack.forget(ctx, t.id) })
                 }
             }
         }
         TvSwitch(
-            title = "Each theme keeps its changes",
-            subtitle = "Change the look while a theme is on, and the theme keeps it: colours, sizes, glass, shading, spacing and music bars. Rows, folders, App lock and buttons stay the same for every theme.",
+            title = tr("Each theme keeps its changes"),
+            subtitle = tr("Change the look while a theme is on, and the theme keeps it: colours, sizes, glass, shading, spacing and music bars. Rows, folders, App lock and buttons stay the same for every theme."),
             checked = config.themeMemory,
             onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("theme_memory", it)) }
         )
-        TvSecondaryButton(text = "Save this look as a theme", onClick = { saveNote = ""; naming = true })
+        TvSecondaryButton(text = tr("Save this look as a theme"), onClick = { saveNote = ""; naming = true })
         if (saveNote.isNotEmpty()) Text(saveNote, color = MUTED_COLOR, fontSize = 13.sp)
 
         // ---- Wallpaper ----
-        Text("Wallpaper", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(tr("Wallpaper"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TvPrimaryButton(text = "From your phone", onClick = { phone = true })
-            TvSecondaryButton(text = "Bing picture of the day", onClick = {
-                bing = "Getting today's picture…"
-                scope.launch { bing = Wallpapers.bing(ctx)?.let { "That didn't work: $it." } ?: "" }
+            TvPrimaryButton(text = tr("From your phone"), onClick = { phone = true })
+            TvSecondaryButton(text = tr("Bing picture of the day"), onClick = {
+                bing = tr("Getting today's picture…")
+                scope.launch { bing = Wallpapers.bing(ctx)?.let { tr("That didn't work: {why}.", "why" to it) } ?: "" }
             })
-            if (hasWallpaper) TvSecondaryButton(text = "No wallpaper", onClick = { Wallpapers.remove(ctx) })
+            if (hasWallpaper) TvSecondaryButton(text = tr("No wallpaper"), onClick = { Wallpapers.remove(ctx) })
         }
         if (bing.isNotEmpty()) Text(bing, color = MUTED_COLOR, fontSize = 13.sp)
         TvSwitch(
-            title = "Bing every day",
-            subtitle = "Bing's new picture becomes the wallpaper each day. Picking another wallpaper doesn't stop it; this switch does.",
+            title = tr("Bing every day"),
+            subtitle = tr("Bing's new picture becomes the wallpaper each day. Picking another wallpaper doesn't stop it; this switch does."),
             checked = config.bingDaily,
             onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("bing_daily", it)) }
         )
         if (slides > 0) {
-            Text("The slideshow's photos", color = MUTED_COLOR, fontSize = 13.sp)
+            Text(tr("The slideshow's photos"), color = MUTED_COLOR, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (n in 0 until slides) TvSecondaryButton(text = "${n + 1}", onClick = { Wallpapers.use(ctx, Slides.file(ctx, n)) })
             }
         }
-        Alert(text = "From your phone sends a photo as the wallpaper or into the slideshow. Pictures on your computer go through the desktop app.", modifier = Modifier.fillMaxWidth())
+        Alert(text = tr("From your phone sends a photo as the wallpaper or into the slideshow. Pictures on your computer go through the desktop app."), modifier = Modifier.fillMaxWidth())
 
         // ---- Day and night ----
-        Text("Day and night", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        Text("Set Home up for the day and save it, then the same for the night. Home swaps them at these times.", color = MUTED_COLOR, fontSize = 13.sp)
+        Text(tr("Day and night"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(tr("Set Home up for the day and save it, then the same for the night. Home swaps them at these times."), color = MUTED_COLOR, fontSize = 13.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (slot in listOf("day", "night")) {
                 TvSecondaryButton(
-                    text = "Save this look as ${slot}${if (slot in saved) " (saved)" else ""}",
+                    text = (if (slot == "day") tr("Save this look as day") else tr("Save this look as night")) + (if (slot in saved) tr(" (saved)") else ""),
                     onClick = { DayNight.save(ctx, slot); saved = DayNight.saved(ctx) }
                 )
             }
         }
         TvSwitch(
-            title = "Swap looks at these times",
-            subtitle = if (saved.size < 2) "Save a day look and a night look first" else null,
+            title = tr("Swap looks at these times"),
+            subtitle = if (saved.size < 2) tr("Save a day look and a night look first") else null,
             checked = config.dayNight,
             onCheckedChange = { on ->
                 if (!on || saved.size == 2) { ConfigStore.update(ctx, JSONObject().put("day_night", on)); DayNight.reset(ctx) }
             }
         )
-        for ((key, label, at) in listOf(Triple("day_at", "Day from", config.dayAt), Triple("night_at", "Night from", config.nightAt))) {
+        for ((key, label, at) in listOf(Triple("day_at", tr("Day from"), config.dayAt), Triple("night_at", tr("Night from"), config.nightAt))) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("$label ${clock(at)}", color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
                 val move = { by: Int -> ConfigStore.update(ctx, JSONObject().put(key, Math.floorMod(at + by, 24 * 60))); DayNight.reset(ctx) }
-                TvSecondaryButton(text = "Earlier", onClick = { move(-30) })
-                TvSecondaryButton(text = "Later", onClick = { move(30) })
+                TvSecondaryButton(text = tr("Earlier"), onClick = { move(-30) })
+                TvSecondaryButton(text = tr("Later"), onClick = { move(30) })
             }
         }
     }
     if (phone) PhoneDialog(ctx) { phone = false }
     if (naming) TextPrompt(
-        title = "A name for this theme",
-        hint = "The look and the wallpaper on now. A theme with the same name takes this look instead.",
+        title = tr("A name for this theme"),
+        hint = tr("The look and the wallpaper on now. A theme with the same name takes this look instead."),
         maxLength = 40,
         onDismiss = { naming = false },
         onDone = { name ->
             naming = false
-            saveNote = runCatching { ThemePack.saveCurrent(ctx, name); "Saved as $name." }.getOrElse { "Not saved: ${it.message}." }
+            saveNote = runCatching { ThemePack.saveCurrent(ctx, name); tr("Saved as {name}.", "name" to name) }.getOrElse { tr("Not saved: {why}.", "why" to it.message.toString()) }
         }
     )
 }

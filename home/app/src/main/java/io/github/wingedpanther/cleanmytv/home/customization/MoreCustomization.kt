@@ -33,6 +33,7 @@ import io.github.wingedpanther.cleanmytv.home.UpdateDialog
 import io.github.wingedpanther.cleanmytv.home.Updates
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
+import io.github.wingedpanther.cleanmytv.home.tr
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -49,83 +50,83 @@ fun MoreCustomization(config: HomeConfig, ctx: Context) {
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(if (config.greeting.isBlank()) "No greeting" else "Good evening, ${config.greeting}", color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
-            TvSecondaryButton(text = "Greeting", onClick = { greeting = true })
+            Text(if (config.greeting.isBlank()) tr("No greeting") else "${tr("Good evening")}, ${config.greeting}", color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            TvSecondaryButton(text = tr("Greeting"), onClick = { greeting = true })
         }
         TvSwitch(
-            title = "Free memory",
-            subtitle = "How much memory the TV has free, under the clock",
+            title = tr("Free memory"),
+            subtitle = tr("How much memory the TV has free, under the clock"),
             checked = config.memory,
             onCheckedChange = { set("memory", it) }
         )
         TvSwitch(
-            title = "Live TV in Inputs",
-            subtitle = "The TV's tuner, at the top of the Inputs menu",
+            title = tr("Live TV in Inputs"),
+            subtitle = tr("The TV's tuner, at the top of the Inputs menu"),
             checked = config.liveTv,
             onCheckedChange = { set("live_tv", it) }
         )
         TvSwitch(
-            title = "Back to the input at power on",
-            subtitle = "If the TV slept on HDMI or TV channels, it wakes up there",
+            title = tr("Back to the input at power on"),
+            subtitle = tr("If the TV slept on HDMI or TV channels, it wakes up there"),
             checked = config.powerOnInput,
             onCheckedChange = { set("power_on_input", it) }
         )
         TvSwitch(
-            title = "Keep my keyboard",
-            subtitle = "If the TV switches to the phone keyboard after a restart or standby, put yours back",
+            title = tr("Keep my keyboard"),
+            subtitle = tr("If the TV switches to the phone keyboard after a restart or standby, put yours back"),
             checked = config.keyboardGuard,
             onCheckedChange = { set("keyboard_guard", it) }
         )
-        if (config.powerOnInput) ServiceNote("the TV starts on Home instead")
+        if (config.powerOnInput) ServiceNote(tr("the TV starts on Home instead"))
         TvSwitch(
-            title = "Phone apps in their own folder",
-            subtitle = "Apps with no TV banner go into an Other apps folder",
+            title = tr("Phone apps in their own folder"),
+            subtitle = tr("Apps with no TV banner go into an Other apps folder"),
             checked = config.otherApps,
             onCheckedChange = { set("other_apps", it) }
         )
         TvSwitch(
-            title = "Sunrise when the wallpaper changes",
-            subtitle = "A new wallpaper starts dim and the light comes in from the top",
+            title = tr("Sunrise when the wallpaper changes"),
+            subtitle = tr("A new wallpaper starts dim and the light comes in from the top"),
             checked = config.intro,
             onCheckedChange = { set("intro", it) }
         )
 
-        Text("Updates", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        Text("This is CleanMyTV Home ${Updates.installed(ctx)}.", color = MUTED_COLOR, fontSize = 13.sp)
+        Text(tr("Updates"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(tr("This is CleanMyTV Home {version}.", "version" to Updates.installed(ctx)), color = MUTED_COLOR, fontSize = 13.sp)
         TvSwitch(
-            title = "Look for updates",
-            subtitle = "Once a day. A newer Home puts an update icon first in the top bar.",
+            title = tr("Look for updates"),
+            subtitle = tr("Once a day. A newer Home puts an update icon first in the top bar."),
             checked = config.updateCheck,
             onCheckedChange = { set("update_check", it) }
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TvSecondaryButton(text = "Check now", onClick = {
-                checking = "Looking…"
+            TvSecondaryButton(text = tr("Check now"), onClick = {
+                checking = tr("Looking…")
                 scope.launch {
                     val r = Updates.check(ctx, force = true)
-                    checking = if (r == null) "Home is up to date." else "CleanMyTV Home ${r.version} is out."
+                    checking = if (r == null) tr("Home is up to date.") else tr("CleanMyTV Home {version} is out.", "version" to r.version)
                 }
             })
-            update?.let { TvSecondaryButton(text = "What's new in ${it.version}", onClick = { showUpdate = true }) }
+            update?.let { TvSecondaryButton(text = tr("What's new in {version}", "version" to it.version), onClick = { showUpdate = true }) }
             if (checking.isNotEmpty()) Text(checking, color = MUTED_COLOR, fontSize = 13.sp)
         }
 
-        Text("Names", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        Text("Your own words for the top bar icons and the All apps heading.", color = MUTED_COLOR, fontSize = 13.sp)
+        Text(tr("Names"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(tr("Your own words for the top bar icons and the All apps heading."), color = MUTED_COLOR, fontSize = 13.sp)
         val nameable = listOf("all_apps") + config.quick.filter { it in quickActions() }
         for (id in nameable) {
-            val usual = if (id == "all_apps") "All apps" else quickActions()[id]?.label ?: id
+            val usual = if (id == "all_apps") tr("All apps") else quickActions()[id]?.label ?: id
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(config.names[id]?.let { "$it  ($usual)" } ?: usual, color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                TvSecondaryButton(text = "Rename", onClick = { naming = id })
+                TvSecondaryButton(text = tr("Rename"), onClick = { naming = id })
             }
         }
     }
 
     if (showUpdate) update?.let { UpdateDialog(it, Color(config.accent)) { showUpdate = false } }
     if (greeting) TextPrompt(
-        title = "Your name for the greeting",
-        hint = "Home says good morning, good afternoon or good evening to it. Empty turns the greeting off.",
+        title = tr("Your name for the greeting"),
+        hint = tr("Home says good morning, good afternoon or good evening to it. Empty turns the greeting off."),
         initial = config.greeting,
         maxLength = 40,
         onDismiss = { greeting = false },
@@ -133,8 +134,8 @@ fun MoreCustomization(config: HomeConfig, ctx: Context) {
     )
     naming?.let { id ->
         TextPrompt(
-            title = "A new name",
-            hint = "Empty goes back to the usual name.",
+            title = tr("A new name"),
+            hint = tr("Empty goes back to the usual name."),
             initial = config.names[id].orEmpty(),
             onDismiss = { naming = null },
             onDone = { name ->

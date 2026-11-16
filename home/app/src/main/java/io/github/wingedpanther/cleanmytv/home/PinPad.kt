@@ -84,14 +84,14 @@ fun PinPad(title: String, what: String, accent: Color, onEntered: ((String) -> S
     val shake = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val first = remember { FocusRequester() }
-    LaunchedEffect(wait) { if (wait > 0) { note = "Too many tries. Wait $wait s"; delay(1000); wait = Lock.waitSeconds(); if (wait == 0) note = "" } }
+    LaunchedEffect(wait) { if (wait > 0) { note = tr("Too many tries. Wait {n} s", "n" to wait); delay(1000); wait = Lock.waitSeconds(); if (wait == 0) note = "" } }
     fun submit() {
-        if (pin.length < 4) { note = "At least 4 digits"; return }
+        if (pin.length < 4) { note = tr("At least 4 digits"); return }
         if (onEntered != null) { note = onEntered(pin).orEmpty(); pin = ""; return }
         if (Lock.check(ctx, pin, what)) { onUnlocked(); return }
         pin = ""
         wait = Lock.waitSeconds()
-        if (wait == 0) note = "Wrong PIN"
+        if (wait == 0) note = tr("Wrong PIN")
         scope.launch { for (x in listOf(14f, -12f, 8f, -4f, 0f)) shake.animateTo(x, tween(45)) }
     }
     fun type(c: Char) {
@@ -144,7 +144,7 @@ fun PinPad(title: String, what: String, accent: Color, onEntered: ((String) -> S
                             ) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     when (k) {
-                                        "del" -> Image(Icons.Outlined.Backspace, "Delete", Modifier.size(22.dp), colorFilter = ColorFilter.tint(PAD_TEXT))
+                                        "del" -> Image(Icons.Outlined.Backspace, tr("Delete"), Modifier.size(22.dp), colorFilter = ColorFilter.tint(PAD_TEXT))
                                         "ok" -> Text("OK", color = PAD_TEXT, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                                         else -> Text(k, color = PAD_TEXT, fontSize = 22.sp)
                                     }
@@ -175,7 +175,7 @@ class LockActivity : ComponentActivity() {
         })
         setContent {
             val limit = intent.getBooleanExtra(EXTRA_LIMIT, false)
-            PinPad(if (limit) "Time's up for $label today" else "Enter the PIN for $label", pkg, Color(ConfigStore.config.value.accent)) {
+            PinPad(if (limit) tr("Time's up for {app} today", "app" to label) else tr("Enter the PIN for {app}", "app" to label), pkg, Color(ConfigStore.config.value.accent)) {
                 if (limit) Limits.extend(this, pkg)
                 launch?.let { runCatching { startActivity(it) }.onFailure { e -> Log.w(TAG, "launch $pkg: $e") } }
                 finish()

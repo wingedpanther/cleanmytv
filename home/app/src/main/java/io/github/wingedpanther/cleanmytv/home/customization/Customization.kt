@@ -73,6 +73,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import io.github.wingedpanther.cleanmytv.home.HomeConfig
 import io.github.wingedpanther.cleanmytv.home.TvApp
+import io.github.wingedpanther.cleanmytv.home.tr
 import kotlinx.coroutines.delay
 
 @Composable
@@ -183,11 +184,11 @@ fun CustomizationDialog(
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                                        contentDescription = "Back",
+                                        contentDescription = tr("Back"),
                                         modifier = Modifier.padding(end = 6.dp).size(18.dp)
                                     )
                                     Text(
-                                        text = "Categories",
+                                        text = tr("Categories"),
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -199,7 +200,7 @@ fun CustomizationDialog(
                     }
 
                     AnimatedContent(
-                        targetState = if (inContentPane) selectedCategory.title else "Customize Home",
+                        targetState = if (inContentPane) selectedCategory.label else tr("Customize Home"),
                         transitionSpec = {
                             (fadeIn(animationSpec = tween(220)) + slideInVertically { -it / 2 }) togetherWith
                             (fadeOut(animationSpec = tween(180)) + slideOutVertically { it / 2 }) using
@@ -222,7 +223,7 @@ fun CustomizationDialog(
                         enter = fadeIn(animationSpec = tween(250)),
                         exit = fadeOut(animationSpec = tween(200))
                     ) {
-                        Alert(text = "Press BACK to go back")
+                        Alert(text = tr("Press BACK to go back"))
                     }
                 }
             }
@@ -282,7 +283,7 @@ fun CustomizationDialog(
                                         ) {
                                             Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(Icons.Outlined.Search, contentDescription = null, tint = if (focused) CUSTOMIZATION_BG else MUTED_COLOR, modifier = Modifier.size(18.dp))
-                                                Text("Search settings", color = if (focused) CUSTOMIZATION_BG else MUTED_COLOR, fontSize = 15.sp, modifier = Modifier.padding(start = 10.dp))
+                                                Text(tr("Search settings"), color = if (focused) CUSTOMIZATION_BG else MUTED_COLOR, fontSize = 15.sp, modifier = Modifier.padding(start = 10.dp))
                                             }
                                         }
                                     }
@@ -321,7 +322,7 @@ fun CustomizationDialog(
                                                 }
                                         ) {
                                             Text(
-                                                text = cat.title,
+                                                text = cat.label,
                                                 color = if (isFocused) CUSTOMIZATION_BG else if (isSelected) Color.Black else Color.White,
                                                 fontSize = 15.sp,
                                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
@@ -378,7 +379,7 @@ fun CustomizationDialog(
     }
     if (searching) SettingsSearchDialog(onDismiss = { searching = false }) { f ->
         searching = false
-        Find.target = f.name
+        Find.target = tr(f.name)
         found++
         selectedCategory = f.where
         inContentPane = true

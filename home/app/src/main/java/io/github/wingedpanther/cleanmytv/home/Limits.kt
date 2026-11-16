@@ -64,8 +64,8 @@ object Limits {
 
     /** "1 h 20 min", "45 min": for the editor's list. */
     fun words(minutes: Int): String = when {
-        minutes < 60 -> "$minutes min"
-        minutes % 60 == 0 -> "${minutes / 60} h"
-        else -> "${minutes / 60} h ${minutes % 60} min"
+        minutes < 60 -> tr("{n} min", "n" to minutes)
+        minutes % 60 == 0 -> tr("{n} h", "n" to minutes / 60)
+        else -> tr("{h} h {m} min", "h" to minutes / 60, "m" to minutes % 60)
     }
 }

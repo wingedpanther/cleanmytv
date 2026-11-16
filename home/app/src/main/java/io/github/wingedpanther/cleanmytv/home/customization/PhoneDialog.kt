@@ -37,6 +37,7 @@ import io.github.wingedpanther.cleanmytv.home.customization.components.DIALOG_BG
 import io.github.wingedpanther.cleanmytv.home.customization.components.MUTED_COLOR
 import io.github.wingedpanther.cleanmytv.home.customization.components.PRIMARY_BUTTON_COLOR
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSecondaryButton
+import io.github.wingedpanther.cleanmytv.home.tr
 
 /** The QR code a phone scans to send a photo; Home listens only while this is open. */
 @Composable
@@ -55,16 +56,16 @@ fun PhoneDialog(ctx: Context, onDismiss: () -> Unit) {
             ) {
                 if (code != null) Box(Modifier.size(220.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(12.dp)) { Qr(code) }
                 Column(Modifier.width(320.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Send a photo from your phone", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(tr("Send a photo from your phone"), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     if (url == null) {
-                        Text("The TV has no network address right now. Check it's on Wi-Fi or a cable.", color = MUTED_COLOR, fontSize = 14.sp)
+                        Text(tr("The TV has no network address right now. Check it's on Wi-Fi or a cable."), color = MUTED_COLOR, fontSize = 14.sp)
                     } else {
-                        Text("Scan the code with your phone's camera. Your phone has to be on the same Wi-Fi as the TV.", color = MUTED_COLOR, fontSize = 14.sp)
-                        Text("Or open $url", color = MUTED_COLOR, fontSize = 12.sp)
-                        Text("The address stops working when you close this, or after 10 minutes.", color = MUTED_COLOR, fontSize = 12.sp)
+                        Text(tr("Scan the code with your phone's camera. Your phone has to be on the same Wi-Fi as the TV."), color = MUTED_COLOR, fontSize = 14.sp)
+                        Text(tr("Or open {url}", "url" to url), color = MUTED_COLOR, fontSize = 12.sp)
+                        Text(tr("The address stops working when you close this, or after 10 minutes."), color = MUTED_COLOR, fontSize = 12.sp)
                         if (note.isNotEmpty()) Text(note, color = PRIMARY_BUTTON_COLOR, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     }
-                    TvSecondaryButton(text = "Close", onClick = onDismiss)
+                    TvSecondaryButton(text = tr("Close"), onClick = onDismiss)
                 }
             }
         }
