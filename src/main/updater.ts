@@ -11,6 +11,7 @@ import { accessSync, constants, createWriteStream, existsSync, mkdirSync, mkdtem
 import { dirname, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { log, progress } from './log'
+import { t, UiError } from './i18n'
 import type { ApplyResult } from '@shared/api'
 
 const TASK = 'update'
@@ -41,14 +42,14 @@ export function sumFor(sums: string, name: string): string | null {
 async function fetchRelease(url: string, fetchImpl: typeof fetch, timeoutMs: number): Promise<Response> {
   let u = new URL(url)
   for (let hop = 0; hop < 5; hop++) {
-    if (u.protocol !== 'https:' || !HOSTS.has(u.hostname)) throw new Error(`the update download went somewhere unexpected (${u.hostname})`)
+    if (u.protocol !== 'https:' || !HOSTS.has(u.hostname)) throw new UiError('the update download went somewhere unexpected ({host})', { host: u.hostname })
     const res = await fetchImpl(u, { redirect: 'manual', signal: AbortSignal.timeout(timeoutMs) })
     const next = res.headers.get('location')
     if (res.status >= 300 && res.status < 400 && next) { u = new URL(next, u); continue }
-    if (!res.ok) throw new Error(`couldn't download the update (HTTP ${res.status})`)
+    if (!res.ok) throw new UiError("couldn't download the update (HTTP {status})", { status: res.status })
     return res
   }
-  throw new Error('too many redirects')
+  throw new UiError('too many redirects')
 }
 
 function sha256File(file: string): string {
@@ -67,15 +68,15 @@ export interface UpdateTarget {
  * Downloads version `version`'s installer for this computer and checks it. Returns its path. A copy that
  * already passed the check is used again, so a second press doesn't download it twice.
  */
-export async function download(version: string, t: UpdateTarget): Promise<string> {
-  const fetchImpl = t.fetchImpl ?? fetch
-  const name = assetName(version, t.platform, t.arch)
-  if (!name) throw new Error('Updating from the app works on Mac and Windows. Download the new version from GitHub.')
+export async function download(version: string, to: UpdateTarget): Promise<string> {
+  const fetchImpl = to.fetchImpl ?? fetch
+  const name = assetName(version, to.platform, to.arch)
+  if (!name) throw new UiError('Updating from the app works on Mac and Windows. Download the new version from GitHub.')
   const sums = await (await fetchRelease(`${RELEASE}v${version}/SHA256SUMS.txt`, fetchImpl, 30000)).text()
   const want = sumFor(sums.slice(0, 64 * 1024), name)
-  if (!want) throw new Error(`the release has no checksum for ${name}`)
-  mkdirSync(t.dir, { recursive: true })
-  const file = join(t.dir, name)
+  if (!want) throw new UiError('the release has no checksum for {file}', { file: name })
+  mkdirSync(to.dir, { recursive: true })
+  const file = join(to.dir, name)
   if (existsSync(file) && sha256File(file) === want) return file
   log(TASK, 'cmd', `download ${name}`)
   const res = await fetchRelease(`${RELEASE}v${version}/${name}`, fetchImpl, 30 * 60 * 1000)
@@ -86,7 +87,7 @@ export async function download(version: string, t: UpdateTarget): Promise<string
   let received = 0
   let shown = -1
   try {
-    if (!res.body) throw new Error('the download was empty')
+    if (!res.body) throw new UiError('the download was empty')
     for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
       hash.update(chunk)
       if (!out.write(chunk)) await new Promise((r) => out.once('drain', r))
@@ -103,12 +104,12 @@ export async function download(version: string, t: UpdateTarget): Promise<string
   }
   if (hash.digest('hex') !== want) {
     rmSync(part, { force: true })
-    progress({ tool: 'update', received, total, phase: 'error', message: 'damaged download' })
-    throw new Error(`the update download is damaged (${name}); try again`)
+    progress({ tool: 'update', received, total, phase: 'error', message: t('damaged download') })
+    throw new UiError('the update download is damaged ({file}); try again', { file: name })
   }
   renameSync(part, file)
   // Older downloads only take up room.
-  for (const f of readdirSync(t.dir)) if (f !== name && /^CleanMyTV-/.test(f)) rmSync(join(t.dir, f), { force: true })
+  for (const f of readdirSync(to.dir)) if (f !== name && /^CleanMyTV-/.test(f)) rmSync(join(to.dir, f), { force: true })
   log(TASK, 'ok', `${name} downloaded and checked`)
   progress({ tool: 'update', received, total, phase: 'done' })
   return file
@@ -157,34 +158,34 @@ fi
  * Installs a downloaded, checked update. On success the app is about to quit; `quit` does that, and the
  * installer or the swap script opens the new version.
  */
-export async function install(file: string, t: { platform: NodeJS.Platform; exe: string; dir: string; quit: () => void; openPath: (p: string) => Promise<string> }): Promise<ApplyResult> {
-  if (!existsSync(file)) throw new Error('Download the update first.')
-  if (t.platform === 'win32') {
+export async function install(file: string, to: { platform: NodeJS.Platform; exe: string; dir: string; quit: () => void; openPath: (p: string) => Promise<string> }): Promise<ApplyResult> {
+  if (!existsSync(file)) throw new UiError('Download the update first.')
+  if (to.platform === 'win32') {
     log(TASK, 'info', 'running the installer; CleanMyTV opens again when it is done')
     // electron-builder's NSIS installer: silent, over the copy that is there, then starts the app.
     spawn(file, ['--updated', '/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref()
-    setTimeout(t.quit, 500)
-    return { ok: true, summary: 'Installing the update. CleanMyTV closes and opens again in a moment.', warnings: [] }
+    setTimeout(to.quit, 500)
+    return { ok: true, summary: t('Installing the update. CleanMyTV closes and opens again in a moment.'), warnings: [] }
   }
-  if (t.platform !== 'darwin') throw new Error('Updating from the app works on Mac and Windows.')
-  const bundle = appBundle(t.exe)
+  if (to.platform !== 'darwin') throw new UiError('Updating from the app works on Mac and Windows.')
+  const bundle = appBundle(to.exe)
   const why = cantReplace(bundle, canWrite)
   if (why || !bundle) {
     log(TASK, 'info', `can't replace this copy: ${why}; opening the disk image`)
-    await t.openPath(file)
-    return { ok: true, summary: "The new version's disk image is open in Finder. Quit CleanMyTV, drag the new one into Applications and replace the old one, then open it.", warnings: [] }
+    await to.openPath(file)
+    return { ok: true, summary: t("The new version's disk image is open in Finder. Quit CleanMyTV, drag the new one into Applications and replace the old one, then open it."), warnings: [] }
   }
-  const mnt = mkdtempSync(join(t.dir, 'mnt-'))
+  const mnt = mkdtempSync(join(to.dir, 'mnt-'))
   await run('/usr/bin/hdiutil', ['attach', '-nobrowse', '-readonly', '-noautoopen', '-mountpoint', mnt, file])
   const app = readdirSync(mnt).find((f) => f.endsWith('.app'))
   if (!app) {
     await run('/usr/bin/hdiutil', ['detach', '-quiet', mnt]).catch(() => undefined)
-    throw new Error('the disk image has no app in it')
+    throw new UiError('the disk image has no app in it')
   }
-  const script = join(t.dir, 'swap.sh')
+  const script = join(to.dir, 'swap.sh')
   writeFileSync(script, MAC_SWAP, { mode: 0o700 })
   log(TASK, 'info', `replacing ${bundle}; CleanMyTV opens again when it is done`)
   spawn('/bin/bash', [script, String(process.pid), join(mnt, app), bundle, mnt], { detached: true, stdio: 'ignore' }).unref()
-  setTimeout(t.quit, 300)
-  return { ok: true, summary: 'Installing the update. CleanMyTV closes and opens again in a moment.', warnings: [] }
+  setTimeout(to.quit, 300)
+  return { ok: true, summary: t('Installing the update. CleanMyTV closes and opens again in a moment.'), warnings: [] }
 }

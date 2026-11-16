@@ -1,6 +1,7 @@
 import type React from 'react'
 import { useEffect, useRef, useState, type ClipboardEvent, type ReactNode } from 'react'
 import type { ApplyResult, CheckStatus, CheckupId, CheckupItem } from '@shared/api'
+import { t } from '../lib/i18n'
 
 export function Toggle(props: {
   label: string
@@ -27,11 +28,11 @@ export function Toggle(props: {
 }
 
 const chipText: Record<CheckStatus, string> = {
-  ok: 'Ready',
-  missing: 'Needed',
-  warn: 'Check',
-  optional: 'Optional',
-  checking: 'Checking'
+  ok: t('Ready'),
+  missing: t('Needed'),
+  warn: t('Check'),
+  optional: t('Optional'),
+  checking: t('Checking')
 }
 
 export function StatusChip({ status, text }: { status: CheckStatus; text?: string }): ReactNode {
@@ -68,7 +69,7 @@ export function Confirm(props: {
       <div>{props.children}</div>
       <div className="modal-actions">
         <button className="btn ghost" onClick={props.onCancel}>
-          Cancel
+          {t('Cancel')}
         </button>
         <button className="btn primary" onClick={props.onConfirm} autoFocus>
           {props.confirmLabel}
@@ -86,7 +87,7 @@ export function ResultNotice({ result, onDismiss }: { result: ApplyResult | null
       <div className="row between">
         <b>{result.summary}</b>
         {onDismiss && (
-          <button className="icon-btn" onClick={onDismiss} aria-label="Dismiss">
+          <button className="icon-btn" onClick={onDismiss} aria-label={t('Dismiss')}>
             ✕
           </button>
         )}
@@ -162,10 +163,10 @@ export function NotConnected({ onGo }: { onGo: () => void }): ReactNode {
   return (
     <div className="empty">
       <div className="tv-glyph" />
-      <h2>Connect to your TV first</h2>
-      <p className="muted">This step reads and changes things on the TV, so it needs the connection from Setup.</p>
+      <h2>{t('Connect to your TV first')}</h2>
+      <p className="muted">{t('This step reads and changes things on the TV, so it needs the connection from Setup.')}</p>
       <button className="btn primary" onClick={onGo}>
-        Go to Setup
+        {t('Go to Setup')}
       </button>
     </div>
   )
@@ -204,8 +205,8 @@ export function ActionButton(props: {
   const faces: [Phase, ReactNode][] = [
     ['idle', props.label],
     ['busy', <><span className="spinner" />{props.busyLabel}</>],
-    ['done', <><Tick />{props.doneLabel ?? 'Done'}</>],
-    ['failed', <><span className="morph-bang">!</span>{props.failedLabel ?? "Didn't work"}</>]
+    ['done', <><Tick />{props.doneLabel ?? t('Done')}</>],
+    ['failed', <><span className="morph-bang">!</span>{props.failedLabel ?? t("Didn't work")}</>]
   ]
   return (
     <button
@@ -291,13 +292,13 @@ export function UndoToast(props: {
         onMouseLeave={() => setPaused(false)}
       >
         <span className="toast-icon">{state === 'undone' ? <Tick /> : state === 'undoing' ? <span className="spinner" /> : <Tick />}</span>
-        <span className="toast-text">{state === 'undone' ? props.undoneText : state === 'undoing' ? 'Putting it back' : props.text}</span>
+        <span className="toast-text">{state === 'undone' ? props.undoneText : state === 'undoing' ? t('Putting it back') : props.text}</span>
         {state === 'open' && (
           <button className="btn small" onClick={undo}>
-            ↶ Undo
+            ↶ {t('Undo')}
           </button>
         )}
-        <button className="icon-btn" onClick={() => setState('leaving')} aria-label="Close">
+        <button className="icon-btn" onClick={() => setState('leaving')} aria-label={t('Close')}>
           ✕
         </button>
         {state === 'open' && <span className="toast-clock" style={{ transform: `scaleX(${left / total})` }} />}
@@ -368,7 +369,7 @@ export function PinBoxes(props: { value: string; onChange: (v: string) => void; 
           maxLength={2}
           value={props.value[i] ?? ''}
           className={props.value[i] ? 'filled' : ''}
-          aria-label={`${props.label}, digit ${i + 1} of ${length}`}
+          aria-label={t('{label}, digit {i} of {n}', { label: props.label, i: i + 1, n: length })}
           onChange={(e) => type(i, e.target.value)}
           onKeyDown={(e) => key(i, e)}
           onPaste={paste}
@@ -382,7 +383,7 @@ export function PinBoxes(props: { value: string; onChange: (v: string) => void; 
 /** Numbered steps joined by a line that fills as each one finishes. */
 export function Stepper(props: { steps: string[]; at: number; failed?: boolean; skipped?: number[] }): ReactNode {
   return (
-    <ol className="stepper" aria-label="Progress">
+    <ol className="stepper" aria-label={t('Progress')}>
       {props.steps.map((label, i) => {
         const skipped = props.skipped?.includes(i)
         const state = i < props.at ? (skipped ? 'skipped' : 'complete') : i === props.at ? (props.failed ? 'failed' : 'current') : 'upcoming'
@@ -396,8 +397,8 @@ export function Stepper(props: { steps: string[]; at: number; failed?: boolean; 
             <span className="stepper-dot">{state === 'complete' ? <Tick /> : state === 'failed' ? '!' : state === 'skipped' ? '–' : i + 1}</span>
             <span className="stepper-label">
               {label}
-              {skipped && <span className="sr-only"> (skipped)</span>}
-              {state === 'complete' && <span className="sr-only"> (done)</span>}
+              {skipped && <span className="sr-only"> {t('(skipped)')}</span>}
+              {state === 'complete' && <span className="sr-only"> {t('(done)')}</span>}
             </span>
           </li>
         )
@@ -449,30 +450,30 @@ export function CheckupCard({ auto }: { auto: boolean }): ReactNode {
   return (
     <div className="card">
       <div className="row between">
-        <h2 style={{ margin: 0 }}>Check-up</h2>
+        <h2 style={{ margin: 0 }}>{t('Check-up')}</h2>
         <button className="btn small ghost" disabled={busy !== null} onClick={() => void run()}>
-          {busy === 'all' ? 'Checking' : items ? 'Check again' : 'Check the TV'}
+          {busy === 'all' ? t('Checking') : items ? t('Check again') : t('Check the TV')}
         </button>
       </div>
       <p className="muted" style={{ marginTop: 6 }}>
         {!items
-          ? 'Looks at what most often breaks after Clean up: the keyboard, the Home button, the remote\'s microphone and the screensaver.'
+          ? t("Looks at what most often breaks after Clean up: the keyboard, the Home button, the remote's microphone and the screensaver.")
           : bad === 0
-            ? 'All good.'
+            ? t('All good.')
             : bad === 1
-              ? 'One thing needs a look.'
-              : `${bad} things need a look.`}
+              ? t('One thing needs a look.')
+              : t('{n} things need a look.', { n: bad })}
       </p>
       {error && <p className="small" style={{ color: 'var(--destructive)' }}>{error}</p>}
       {items?.map((i) => (
         <div key={i.id} className="row between" style={{ padding: '8px 0', borderTop: '1px solid var(--line)', gap: 12 }}>
           <div>
-            <StatusChip status={i.ok ? 'ok' : 'warn'} text={i.ok ? 'OK' : 'Check'} /> <b>{i.label}</b>
+            <StatusChip status={i.ok ? 'ok' : 'warn'} text={i.ok ? t('OK') : t('Check')} /> <b>{i.label}</b>
             <div className="small muted" style={{ marginTop: 4 }}>{i.detail}</div>
           </div>
           {!i.ok && i.fix && (
             <button className="btn small" disabled={busy !== null} onClick={() => void run(i.id)}>
-              {busy === i.id ? 'Fixing' : i.fix}
+              {busy === i.id ? t('Fixing') : i.fix}
             </button>
           )}
         </div>

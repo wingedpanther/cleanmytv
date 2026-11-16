@@ -2,6 +2,7 @@
 // details on top, so an issue gets the log it needs without anyone typing adb commands (#99, #111).
 import * as T from './tv'
 import { log } from './log'
+import { UiError } from './i18n'
 
 let since: string | null = null
 
@@ -22,7 +23,7 @@ export function lastLines(text: string, max: number): string {
 /** Notes the TV's clock; Stop asks for everything logged after it. Clearing the log isn't needed. */
 export async function start(): Promise<void> {
   const now = (await T.sh('record', "date '+%m-%d %H:%M:%S.000'", { quiet: true })).trim()
-  if (!/^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.000$/.test(now)) throw new Error(`the TV gave an odd time (${now || 'nothing'})`)
+  if (!/^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.000$/.test(now)) throw now ? new UiError('the TV gave an odd time ({time})', { time: now }) : new UiError('the TV gave an odd time (nothing)')
   since = now
   log('record', 'info', `recording the TV's log from ${now}`)
 }
@@ -35,7 +36,7 @@ export function cancel(): void {
 
 /** The log since Start, the package list and the TV's details, ready to save. */
 export async function stop(details: string): Promise<string> {
-  if (!since) throw new Error('press Record first')
+  if (!since) throw new UiError('press Record first')
   const from = since
   since = null
   const body = await T.sh('record', `logcat -d -v threadtime -T '${from}'`, { quiet: true, timeoutMs: 60_000 })

@@ -8,6 +8,7 @@ import { log } from './log'
 import { paths } from './paths'
 import { GOOGLE_LAUNCHERS, NOT_LAUNCHERS, SETUPWRAITH, lostNetworks, stockLaunchers, wifiOwner } from './debloat'
 import type { ApplyResult, InstallResult } from '@shared/api'
+import { t, UiError } from './i18n'
 
 const TASK = 'install'
 /** CleanMyTV Home, built from home/. */
@@ -37,7 +38,7 @@ async function launcherCandidates(): Promise<string[]> {
 export async function detectStock(chosen?: string): Promise<string> {
   const known = stockLaunchers()
   if (chosen) {
-    if (!(await launcherCandidates()).includes(chosen)) throw new Error(`${chosen} can't be Home on this TV, so it can't be the stock launcher.`)
+    if (!(await launcherCandidates()).includes(chosen)) throw new UiError("{pkg} can't be Home on this TV, so it can't be the stock launcher.", { pkg: chosen })
     log(TASK, 'info', `stock launcher picked by hand: ${chosen}`)
     return chosen
   }
@@ -56,7 +57,7 @@ export async function detectStock(chosen?: string): Promise<string> {
     return 'none'
   }
   if (homePkg === SETUPWRAITH) {
-    throw new Error("Home resolves to Google TV's setup wizard. Add com.google.android.tungsten.setupwraith to your cleanup list, apply it, then install again.")
+    throw new UiError("Home resolves to Google TV's setup wizard. Add com.google.android.tungsten.setupwraith to your cleanup list, apply it, then install again.")
   }
   const candidates = await launcherCandidates()
   if (homePkg === 'android') {
@@ -67,13 +68,15 @@ export async function detectStock(chosen?: string): Promise<string> {
       log(TASK, 'info', `Home is Android's chooser; the stock launcher among the candidates is ${pick}.`)
       return pick
     }
-    throw new StockUnknown("Home is Android's launcher chooser, and the app can't tell which one is the TV's own launcher.", candidates)
+    throw new StockUnknown(t("Home is Android's launcher chooser, and the app can't tell which one is the TV's own launcher."), candidates)
   }
   if (candidates.includes(homePkg)) {
     log(TASK, 'info', `Home belongs to ${homePkg}, which no list names; taking it as the stock launcher.`)
     return homePkg
   }
-  throw new StockUnknown(`Home resolves to '${homePkg || 'nothing'}', so the app can't tell which app is the TV's own launcher.`, candidates)
+  throw new StockUnknown(homePkg
+    ? t("Home resolves to '{pkg}', so the app can't tell which app is the TV's own launcher.", { pkg: homePkg })
+    : t("Home resolves to 'nothing', so the app can't tell which app is the TV's own launcher."), candidates)
 }
 
 /**
@@ -208,18 +211,20 @@ export async function handOver(stock: string, main: string): Promise<{ failed: I
     await T.sh(TASK, `cmd package set-home-activity --user 0 ${previous}`).catch(() => '')
     back = (await T.homeComponent().catch(() => null)) === previous
   }
-  const was = stock !== 'none' ? stock : previous ?? 'the previous launcher'
+  const was = stock !== 'none' ? stock : previous
   const failed: InstallResult = {
     ok: false,
-    summary: now ? `Home resolves to ${now}, not to the new launcher.` : 'The TV stopped answering while Home was switched.',
+    summary: now ? t('Home resolves to {now}, not to the new launcher.', { now }) : t('The TV stopped answering while Home was switched.'),
     warnings: [
-      back ? `${was} was put back as Home.` : stock !== 'none' ? `Could not give Home back automatically. Run: pm enable --user 0 ${stock}` : 'Could not put the previous Home back automatically.',
+      back
+        ? was ? t('{pkg} was put back as Home.', { pkg: was }) : t('the previous launcher was put back as Home.')
+        : stock !== 'none' ? t('Could not give Home back automatically. Run: {command}', { command: `pm enable --user 0 ${stock}` }) : t('Could not put the previous Home back automatically.'),
       ...(wraith === 'setupwraith'
-        ? ["Google TV's setup wizard (setupwraith) takes Home here, so it has to go, but your saved Wi-Fi network belongs to it and would be deleted with it. On the TV, forget the network and join it again in Settings > Network & Internet, then install again."]
+        ? [t("Google TV's setup wizard (setupwraith) takes Home here, so it has to go, but your saved Wi-Fi network belongs to it and would be deleted with it. On the TV, forget the network and join it again in Settings > Network & Internet, then install again.")]
         : wraith === 'unknown'
-          ? ["Google TV's setup wizard (setupwraith) takes Home here, and the app couldn't check who owns your saved Wi-Fi, so it stayed on. Try again. On Ethernet, switch it off in Clean up with the safety overrides, then install again."]
+          ? [t("Google TV's setup wizard (setupwraith) takes Home here, and the app couldn't check who owns your saved Wi-Fi, so it stayed on. Try again. On Ethernet, switch it off in Clean up with the safety overrides, then install again.")]
           : wraith === 'off'
-            ? [`${SETUPWRAITH} was switched off and Home still didn't stick, so it is back on.`]
+            ? [t("{pkg} was switched off and Home still didn't stick, so it is back on.", { pkg: SETUPWRAITH })]
             : [])
     ]
   }
@@ -240,11 +245,11 @@ export async function switchTo(main: string, chosen?: string): Promise<ApplyResu
   }
   const start = await T.sh(TASK, `am start -W -n ${main}`)
   if (!start.includes('Status: ok') || /^Error/im.test(start)) {
-    return { ok: false, summary: 'That launcher did not start, so Home was left as it was.', warnings: [start.trim()] }
+    return { ok: false, summary: t('That launcher did not start, so Home was left as it was.'), warnings: [start.trim()] }
   }
   const { failed, notes } = await handOver(toSwitchOff(stock), main)
   if (!failed) rememberStock(stock)
-  return failed ?? { ok: true, summary: 'Switched. Press Home on the remote to see it.', warnings: notes }
+  return failed ?? { ok: true, summary: t('Switched. Press Home on the remote to see it.'), warnings: notes }
 }
 
 /** Takes a package's accessibility services out of the TV's enabled list, keeping everyone else's. */
@@ -272,10 +277,10 @@ export async function addService(component: string): Promise<void> {
  */
 export async function removeOld(): Promise<ApplyResult> {
   const { installed } = await T.packageSets()
-  if (!installed.has(OLD_PKG)) return { ok: true, summary: 'The CleanYourTV launcher is not on this TV.', warnings: [] }
+  if (!installed.has(OLD_PKG)) return { ok: true, summary: t('The CleanYourTV launcher is not on this TV.'), warnings: [] }
   const home = await T.homeComponent()
   if (home?.startsWith(OLD_PKG + '/')) {
-    return { ok: false, summary: 'The CleanYourTV launcher is still Home. Switch to CleanMyTV Home first, then remove it.', warnings: [] }
+    return { ok: false, summary: t('The CleanYourTV launcher is still Home. Switch to CleanMyTV Home first, then remove it.'), warnings: [] }
   }
   await dropServices(OLD_PKG)
   if ((await T.tv().shell('settings get secure screensaver_components')).includes(OLD_PKG)) {
@@ -283,8 +288,8 @@ export async function removeOld(): Promise<ApplyResult> {
   }
   const out = await T.sh(TASK, `pm uninstall ${OLD_PKG}`)
   return out.includes('Success')
-    ? { ok: true, summary: 'The CleanYourTV launcher is removed from the TV.', warnings: [] }
-    : { ok: false, summary: 'The TV did not remove the CleanYourTV launcher.', warnings: [out.trim()] }
+    ? { ok: true, summary: t('The CleanYourTV launcher is removed from the TV.'), warnings: [] }
+    : { ok: false, summary: t('The TV did not remove the CleanYourTV launcher.'), warnings: [out.trim()] }
 }
 
 /**
@@ -302,14 +307,14 @@ export async function otherLaunchers(): Promise<string[]> {
  * installed; its remote buttons and app lock stop, since they come with it.
  */
 export async function useOther(pkg: string): Promise<ApplyResult> {
-  if (!(await otherLaunchers()).includes(pkg)) return { ok: false, summary: `${pkg} can't be Home on this TV.`, warnings: [] }
+  if (!(await otherLaunchers()).includes(pkg)) return { ok: false, summary: t("{pkg} can't be Home on this TV.", { pkg }), warnings: [] }
   const main = (await T.tv().shell(`${T.HOME_QUERY} ${pkg} | tail -n 1`)).trim()
   // No '$': the component goes into a shell command.
-  if (!/^[A-Za-z_][\w.]*\/[\w.]+$/.test(main) || !main.startsWith(pkg + '/')) return { ok: false, summary: `Couldn't find the home screen in ${pkg}.`, warnings: [main] }
+  if (!/^[A-Za-z_][\w.]*\/[\w.]+$/.test(main) || !main.startsWith(pkg + '/')) return { ok: false, summary: t("Couldn't find the home screen in {pkg}.", { pkg }), warnings: [main] }
   const result = await switchTo(main)
   if (result.ok) {
     await dropServices(HOME_PKG)
-    return { ...result, summary: `${pkg} is Home now. CleanMyTV Home stays installed; use it again from this tab.` }
+    return { ...result, summary: t('{pkg} is Home now. CleanMyTV Home stays installed; use it again from this tab.', { pkg }) }
   }
   return result
 }
@@ -319,10 +324,10 @@ export async function useStock(): Promise<ApplyResult> {
   // Fire OS never gave Home away; CleanMyTV Home only stops coming back in front of Amazon's.
   if (installed.has(FIRE_LAUNCHER)) {
     await dropServices(HOME_PKG)
-    return { ok: true, summary: "Amazon's home screen stays in front now. CleanMyTV Home stays installed; use it again from the Home screen step.", warnings: [] }
+    return { ok: true, summary: t("Amazon's home screen stays in front now. CleanMyTV Home stays installed; use it again from the Home screen step."), warnings: [] }
   }
   const stock = stockOnTv(installed)
-  if (!stock) return { ok: false, summary: 'No stock launcher this app knows is installed on the TV.', warnings: [] }
+  if (!stock) return { ok: false, summary: t('No stock launcher this app knows is installed on the TV.'), warnings: [] }
   const ok = await rollback(stock)
   // The stock launcher is back: CleanMyTV Home's remote-button service goes with it, and setupwraith comes
   // back if the handover switched it off. The stock launcher outranks it, so Home stays put.
@@ -332,6 +337,6 @@ export async function useStock(): Promise<ApplyResult> {
     rememberWraith(false)
   }
   return ok
-    ? { ok, summary: `${stock} is Home again. CleanMyTV Home stays installed; use it again from the Home screen step.`, warnings: [] }
-    : { ok, summary: `Could not make ${stock} Home. Pick it in the TV's home settings.`, warnings: [] }
+    ? { ok, summary: t('{pkg} is Home again. CleanMyTV Home stays installed; use it again from the Home screen step.', { pkg: stock }), warnings: [] }
+    : { ok, summary: t("Could not make {pkg} Home. Pick it in the TV's home settings.", { pkg: stock }), warnings: [] }
 }

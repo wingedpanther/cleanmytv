@@ -12,6 +12,7 @@ import { GOOGLE_LAUNCHERS } from './debloat'
 import { keepLauncher, keptLauncher } from './kept'
 import { themeName } from '@shared/themes'
 import { noteKeyboard } from './keyboard'
+import { englishOf, t, UiError } from './i18n'
 import type { ApplyResult, HomeButton, HomeConfig, HomeGroup, HomeStatus, InstallResult, KeyPress, LookSlot, QuickId, ThemePackItem, TvApp } from '@shared/api'
 
 const TASK = 'install'
@@ -126,7 +127,7 @@ export function unsupported(): string | null {
   const probe = T.getStatus().probe
   // An unknown SDK (0) is let through: pm install gives its own answer.
   if (!probe?.sdk || probe.sdk >= MIN_SDK) return null
-  return `CleanMyTV Home needs Android 9 or newer, and this TV runs Android ${probe.release || '?'} (SDK ${probe.sdk}). Clean up still works on it.`
+  return t('CleanMyTV Home needs Android 9 or newer, and this TV runs Android {release} (SDK {sdk}). Clean up still works on it.', { release: probe.release || '?', sdk: probe.sdk })
 }
 
 // "Requested internal only, but not enough space" on older Android, INSTALL_FAILED_INSUFFICIENT_STORAGE on newer (#48).
@@ -134,14 +135,15 @@ const SPACE_RE = /not enough space|INSUFFICIENT_STORAGE/i
 
 function noSpace(free: number, need: number): string {
   const mb = (kb: number): string => `${Math.max(0, kb / 1024).toFixed(kb < 10240 ? 1 : 0)} MB`
-  const has = Number.isFinite(free) ? `has ${mb(free)} free and ` : ''
-  return `The TV is out of storage: it ${has}CleanMyTV Home needs about ${mb(need)}. The app already cleared every app's cache. Uninstall an app you don't use, then try again.`
+  return Number.isFinite(free)
+    ? t("The TV is out of storage: it has {free} free and CleanMyTV Home needs about {need}. The app already cleared every app's cache. Uninstall an app you don't use, then try again.", { free: mb(free), need: mb(need) })
+    : t("The TV is out of storage: it CleanMyTV Home needs about {need}. The app already cleared every app's cache. Uninstall an app you don't use, then try again.", { need: mb(need) })
 }
 
 /** Installs or updates CleanMyTV Home, starts it, and only then makes it Home. */
 export async function install(chosen?: string): Promise<InstallResult> {
   if (!existsSync(paths.bundledHomeApk)) {
-    return { ok: false, summary: 'This copy of the app has no CleanMyTV Home bundled.', warnings: [] }
+    return { ok: false, summary: t('This copy of the app has no CleanMyTV Home bundled.'), warnings: [] }
   }
   const tooOld = unsupported()
   if (tooOld) return { ok: false, summary: tooOld, warnings: [] }
@@ -182,7 +184,7 @@ export async function install(chosen?: string): Promise<InstallResult> {
   await T.sh(TASK, `rm -f ${tmp}`)
   if (SPACE_RE.test(out)) return { ok: false, summary: noSpace(await T.freeKb(TASK), need), warnings: [out.trim()] }
   if (!out.includes('Success')) {
-    return { ok: false, summary: 'Install failed; Home was left as it was.', warnings: [out.trim()] }
+    return { ok: false, summary: t('Install failed; Home was left as it was.'), warnings: [out.trim()] }
   }
   // The music bars read the TV's sound output. Granted here so the TV never asks.
   await T.sh(TASK, `pm grant ${HOME_PKG} android.permission.RECORD_AUDIO 2>/dev/null; echo audio-granted`)
@@ -191,7 +193,7 @@ export async function install(chosen?: string): Promise<InstallResult> {
   await T.sh(TASK, `pm grant ${HOME_PKG} android.permission.WRITE_SECURE_SETTINGS 2>/dev/null; appops set ${HOME_PKG} WRITE_SETTINGS allow 2>/dev/null; echo settings-granted`)
   const start = await T.sh(TASK, `am start -W -n ${MAIN}`)
   if (!start.includes('Status: ok') || /^Error/im.test(start)) {
-    return { ok: false, summary: 'CleanMyTV Home did not start, so Home was left as it was.', warnings: [start.trim()] }
+    return { ok: false, summary: t('CleanMyTV Home did not start, so Home was left as it was.'), warnings: [start.trim()] }
   }
   let notes: string[] = []
   if (redirect) {
@@ -212,14 +214,14 @@ export async function install(chosen?: string): Promise<InstallResult> {
   if (cfg) await nowPlayingAccess(cfg.sections.includes('nowplaying'))
   if (cfg) await usageAccess(cfg.sections.includes('recent'))
   await noteKeyboard((await T.sh(TASK, 'settings get secure default_input_method', { quiet: true }).catch(() => '')).trim())
-  const again = restored ? " It started empty, so your settings and wallpaper came back from this computer's copy." : ''
+  const again = restored ? ` ${t("It started empty, so your settings and wallpaper came back from this computer's copy.")}` : ''
   return {
     ok: true,
     summary: (fire
-      ? "CleanMyTV Home is installed. Fire TV always opens Amazon's home screen first, so CleanMyTV Home comes back in front a moment after you press Home, up to 5 seconds on some models."
+      ? t("CleanMyTV Home is installed. Fire TV always opens Amazon's home screen first, so CleanMyTV Home comes back in front a moment after you press Home, up to 5 seconds on some models.")
       : redirect
-        ? "CleanMyTV Home is Home now. Google TV's launcher stays on, as you chose, so after a Home press CleanMyTV Home comes back in front a moment later."
-        : 'CleanMyTV Home is Home now. Press Home on the remote to see it.') + again,
+        ? t("CleanMyTV Home is Home now. Google TV's launcher stays on, as you chose, so after a Home press CleanMyTV Home comes back in front a moment later.")
+        : t('CleanMyTV Home is Home now. Press Home on the remote to see it.')) + again,
     warnings: notes
   }
 }
@@ -237,7 +239,7 @@ export const needsService = (c: Pick<HomeConfig, 'buttons_on' | 'lock_on' | 'sto
 export async function keepGoogleLauncher(on: boolean): Promise<ApplyResult> {
   const { installed } = await T.packageSets()
   const google = GOOGLE_LAUNCHERS.find((p) => installed.has(p))
-  if (!google) return { ok: false, summary: "This TV has no Google TV launcher to keep.", warnings: [] }
+  if (!google) return { ok: false, summary: t('This TV has no Google TV launcher to keep.'), warnings: [] }
   if (on) {
     await T.sh(TASK, `pm enable --user 0 ${google}`)
     await wraithBack()
@@ -245,14 +247,14 @@ export async function keepGoogleLauncher(on: boolean): Promise<ApplyResult> {
     await T.sh(TASK, `cmd package set-home-activity --user 0 ${MAIN}`)
     await setConfig({ stock_redirect: google })
     await addService(KEY_SERVICE)
-    return { ok: true, summary: `${google} is on again, and Clean up leaves it on. After a Home press, CleanMyTV Home comes back in front a moment later.`, warnings: [] }
+    return { ok: true, summary: t('{pkg} is on again, and Clean up leaves it on. After a Home press, CleanMyTV Home comes back in front a moment later.', { pkg: google }), warnings: [] }
   }
   const { failed, notes } = await handOver(google, MAIN)
   if (failed) return failed
   keepLauncher(null)
   const cfg = await setConfig({ stock_redirect: '' })
   if (!needsService(cfg)) await dropServices(HOME_PKG)
-  return { ok: true, summary: `${google} is off again, and CleanMyTV Home is Home.`, warnings: notes }
+  return { ok: true, summary: t('{pkg} is off again, and CleanMyTV Home is Home.', { pkg: google }), warnings: notes }
 }
 
 /**
@@ -271,7 +273,7 @@ export async function leftHome(result: ApplyResult): Promise<ApplyResult> {
 /** What the launcher answered, with anything missing or odd replaced by the default. */
 export function parse(out: string): HomeConfig {
   const m = /config=(\{.*\})\}\]/.exec(out)
-  if (!m) throw new Error(`CleanMyTV Home didn't answer: ${out.trim().slice(0, 300) || 'no output'}`)
+  if (!m) throw new UiError("CleanMyTV Home didn't answer: {output}", { output: out.trim().slice(0, 300) || 'no output' })
   const o = JSON.parse(m[1]) as Record<string, unknown>
   const cfg: HomeConfig = { ...DEFAULTS, ...clean(o, true) }
   cfg.has_wallpaper = o.has_wallpaper === true
@@ -398,7 +400,7 @@ function call(method: string, arg?: string, task = 'theme'): Promise<string> {
 export async function apps(): Promise<TvApp[]> {
   const out = await T.tv().shell(`content call --uri ${URI} --method apps`)
   const m = /apps=(\[.*\])\}\]/.exec(out)
-  if (!m) throw new Error(`CleanMyTV Home didn't list its apps: ${out.trim().slice(0, 200) || 'no output'}`)
+  if (!m) throw new UiError("CleanMyTV Home didn't list its apps: {output}", { output: out.trim().slice(0, 200) || 'no output' })
   const list = JSON.parse(m[1]) as unknown[]
   return list.flatMap((a) => {
     const o = a as Record<string, unknown>
@@ -412,7 +414,7 @@ export async function apps(): Promise<TvApp[]> {
 export async function keys(): Promise<KeyPress[]> {
   const out = await T.tv().shell(`content call --uri ${URI} --method keys`)
   const m = /keys=(\[.*\])\}\]/.exec(out)
-  if (!m) throw new Error(`CleanMyTV Home didn't list the buttons: ${out.trim().slice(0, 200) || 'no output'}`)
+  if (!m) throw new UiError("CleanMyTV Home didn't list the buttons: {output}", { output: out.trim().slice(0, 200) || 'no output' })
   return (JSON.parse(m[1]) as unknown[]).flatMap((k) => {
     const o = k as Record<string, unknown>
     return Number.isInteger(o.seq) && Number.isInteger(o.code) ? [{ seq: o.seq as number, code: o.code as number, name: typeof o.name === 'string' ? o.name.slice(0, 40) : `KEYCODE_${o.code}` }] : []
@@ -431,7 +433,7 @@ export async function setRemoteButtons(on: boolean): Promise<HomeConfig> {
 // The PIN goes to the launcher once, in base64 so it needs no quoting, and is never logged or read back.
 
 export async function setLockPin(pin: string): Promise<HomeConfig> {
-  if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) throw new Error('The PIN must be 4 to 6 digits.')
+  if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) throw new UiError('The PIN must be 4 to 6 digits.')
   log('theme', 'cmd', 'set the app lock PIN')
   return keep(parse(await call('lock_pin', Buffer.from(JSON.stringify({ pin })).toString('base64'))))
 }
@@ -439,7 +441,7 @@ export async function setLockPin(pin: string): Promise<HomeConfig> {
 /** The key service watches which app comes to the front; it's on while the lock or the remote buttons are. */
 export async function setAppLock(on: boolean): Promise<HomeConfig> {
   const cfg = await readConfig()
-  if (on && !cfg.lock_pin_set) throw new Error('Set a PIN first.')
+  if (on && !cfg.lock_pin_set) throw new UiError('Set a PIN first.')
   if (on) await addService(KEY_SERVICE)
   else if (!needsService({ ...cfg, lock_on: false })) await dropServices(HOME_PKG)
   return setConfig({ lock_on: on === true })
@@ -477,25 +479,25 @@ async function fireFile(f: (typeof FIRE_FILES)[number], fetchImpl: typeof fetch 
   log('fireplace', 'cmd', `download ${f.name} (${Math.round(f.size / 1024)} KB)`)
   let u = new URL(FIRE_RELEASE + f.name)
   for (let hop = 0; hop < 5; hop++) {
-    if (u.protocol !== 'https:' || !FIRE_HOSTS.has(u.hostname)) throw new Error(`the fireplace download went somewhere unexpected (${u.hostname})`)
+    if (u.protocol !== 'https:' || !FIRE_HOSTS.has(u.hostname)) throw new UiError('the fireplace download went somewhere unexpected ({host})', { host: u.hostname })
     const res = await fetchImpl(u, { redirect: 'manual', signal: AbortSignal.timeout(120000) })
     const next = res.headers.get('location')
     if (res.status >= 300 && res.status < 400 && next) { u = new URL(next, u); continue }
-    if (!res.ok) throw new Error(`couldn't download the fireplace (${f.name}: HTTP ${res.status})`)
+    if (!res.ok) throw new UiError("couldn't download the fireplace ({file}: HTTP {status})", { file: f.name, status: res.status })
     const b = Buffer.from(await res.arrayBuffer())
-    if (b.length !== f.size || sum(b) !== f.sha256) throw new Error(`the fireplace download is damaged (${f.name}); try again`)
+    if (b.length !== f.size || sum(b) !== f.sha256) throw new UiError('the fireplace download is damaged ({file}); try again', { file: f.name })
     mkdirSync(dir, { recursive: true })
     writeFileSync(local, b)
     return b
   }
-  throw new Error('too many redirects')
+  throw new UiError('too many redirects')
 }
 
 /** Home 1.6.0 to 1.7.2: the files go into its folder on shared storage, which ADB can write on most TVs. */
 async function fireToSharedFolder(files: { f: (typeof FIRE_FILES)[number]; data: Buffer }[]): Promise<void> {
   const out = await T.tv().shell(`content call --uri ${URI} --method fire_dir`)
   const dir = /dir=([^,}\s]+)/.exec(out)?.[1]
-  if (!dir) throw new Error('this TV has no shared storage for Home to read the fireplace from. Update Home on the Overview tab and try again.')
+  if (!dir) throw new UiError('this TV has no shared storage for Home to read the fireplace from. Update Home on the Overview tab and try again.')
   T.q(dir)
   await T.sh('fireplace', `mkdir -p ${dir}`)
   for (const { f, data } of files) {
@@ -507,29 +509,29 @@ async function fireToSharedFolder(files: { f: (typeof FIRE_FILES)[number]; data:
 export async function fireplace(action: 'put' | 'show' | 'saver' | 'remove'): Promise<{ ok: boolean; summary: string; warnings: string[] }> {
   if (action === 'remove') {
     await call('fire_clear')
-    return { ok: true, summary: 'The fireplace is off the TV. Home is back on its picture.', warnings: [] }
+    return { ok: true, summary: t('The fireplace is off the TV. Home is back on its picture.'), warnings: [] }
   }
   if (action === 'saver') {
     await T.sh('theme', `settings put secure screensaver_components ${FIRE_DREAM}; settings put secure screensaver_enabled 1`)
-    return { ok: true, summary: "The fireplace is the TV's screensaver now. It starts after the TV's screensaver time.", warnings: [] }
+    return { ok: true, summary: t("The fireplace is the TV's screensaver now. It starts after the TV's screensaver time."), warnings: [] }
   }
   if (action === 'show') {
     // Through Home, which opens it; the fireplace screen itself isn't open to other apps.
     await T.sh('theme', `am start -n ${MAIN} --es open fireplace`)
-    return { ok: true, summary: 'The fireplace is on the TV. Back on the remote closes it.', warnings: [] }
+    return { ok: true, summary: t('The fireplace is on the TV. Back on the remote closes it.'), warnings: [] }
   }
   const files = []
   for (const f of FIRE_FILES) files.push({ f, data: await fireFile(f) })
   const need = Math.ceil(files.reduce((n, x) => n + x.data.length, 0) * 2.4 / 1024)
   const free = await T.freeKb('fireplace')
-  if (free < need) throw new Error(`the TV needs about ${Math.round(need / 1024)} MB free for the fireplace and has ${Math.round(free / 1024)} MB`)
+  if (free < need) throw new UiError('the TV needs about {need} MB free for the fireplace and has {free} MB', { need: Math.round(need / 1024), free: Math.round(free / 1024) })
   for (const { f, data } of files) {
     // Through Home's settings channel into its own storage, as the wallpaper goes: Fire OS won't let ADB
     // write to Android/data (#70). Home before 1.7.3 doesn't know these calls; it gets the old folder.
     try {
       parse(await call('fire_file_begin', Buffer.from(f.name).toString('base64'), 'fireplace'))
     } catch (e) {
-      if (!/unknown method/.test(String(e))) throw e
+      if (!/unknown method/.test(englishOf(e))) throw e
       await fireToSharedFolder(files)
       break
     }
@@ -543,7 +545,7 @@ export async function fireplace(action: 'put' | 'show' | 'saver' | 'remove'): Pr
     parse(await call('fire_file_end', createHash('md5').update(data).digest('hex'), 'fireplace'))
   }
   await call('fire_ready')
-  return { ok: true, summary: 'The fireplace is on the TV. Show it, make it the screensaver, or put it behind Home.', warnings: [] }
+  return { ok: true, summary: t('The fireplace is on the TV. Show it, make it the screensaver, or put it behind Home.'), warnings: [] }
 }
 
 // ---- themes on the TV ---------------------------------------------------------------------------
@@ -578,9 +580,9 @@ export async function saveThemeOnTv(name: string): Promise<HomeConfig> {
   log('theme', 'cmd', `save this look on the TV as the theme ${n}`)
   const out = await call('theme_save', Buffer.from(n).toString('base64'))
   if (!/\btheme=/.test(out)) {
-    if (/unknown method/.test(out)) throw new Error('This CleanMyTV Home is too old to save themes. Press Update and use on the Overview tab first.')
+    if (/unknown method/.test(out)) throw new UiError('This CleanMyTV Home is too old to save themes. Press Update and use on the Overview tab first.')
     const why = /IllegalArgumentException: ([^\n]+)/.exec(out)?.[1]
-    throw new Error(why ? `The TV didn't save it: ${why}.` : `The TV didn't save it: ${out.trim().slice(0, 200) || 'no answer'}`)
+    throw why ? new UiError("The TV didn't save it: {why}.", { why }) : new UiError("The TV didn't save it: {why}", { why: out.trim().slice(0, 200) || 'no answer' })
   }
   return parse(out)
 }
@@ -633,7 +635,7 @@ function jpeg(b64: unknown): Buffer {
 function pieces(data: Buffer): string[] {
   let chunk = Math.min(48 * 1024, Math.floor(((T.tv().maxData - 200) * 3) / 4))
   chunk -= chunk % 3
-  if (chunk < 3) throw new Error('this TV accepts commands too short to upload a picture')
+  if (chunk < 3) throw new UiError('this TV accepts commands too short to upload a picture')
   const out: string[] = []
   for (let i = 0; i < data.length; i += chunk) out.push(data.subarray(i, i + chunk).toString('base64'))
   return out

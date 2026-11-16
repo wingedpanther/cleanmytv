@@ -1,6 +1,7 @@
 // Themes for CleanMyTV Home: the look in one go, from a built-in set or a .cmtvtheme file someone shared.
 // A theme never touches apps, rows, folders, layout, buttons or anything personal like the weather place.
 import type { HomeConfig, HomeTheme } from './api'
+import { t } from './i18n'
 
 /** The settings a theme carries. */
 export const THEME_KEYS = [
@@ -40,14 +41,14 @@ export function parseTheme(text: string): HomeTheme {
   try {
     o = JSON.parse(text) as Record<string, unknown>
   } catch {
-    throw new Error("This isn't a CleanMyTV theme file.")
+    throw new Error(t("This isn't a CleanMyTV theme file."))
   }
-  if (!o || typeof o !== 'object' || o.format !== FORMAT) throw new Error("This isn't a CleanMyTV theme file.")
-  if (o.version !== 1) throw new Error('This theme was saved by a newer CleanMyTV. Update the app, then load it again.')
+  if (!o || typeof o !== 'object' || o.format !== FORMAT) throw new Error(t("This isn't a CleanMyTV theme file."))
+  if (o.version !== 1) throw new Error(t('This theme was saved by a newer CleanMyTV. Update the app, then load it again.'))
   const look = o.look && typeof o.look === 'object' ? pickLook(o.look as Record<string, unknown>) : {}
   const w = o.wallpaper
   if (w !== undefined && w !== null && (typeof w !== 'string' || w.length > MAX_WALLPAPER_B64 || !/^[A-Za-z0-9+/]+=*$/.test(w))) {
-    throw new Error("The wallpaper in this theme file is damaged.")
+    throw new Error(t('The wallpaper in this theme file is damaged.'))
   }
   return { name: themeName(o.name), look, wallpaper: w as string | null | undefined }
 }

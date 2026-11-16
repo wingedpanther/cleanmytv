@@ -7,6 +7,7 @@ import { log } from './log'
 import { NOT_LAUNCHERS } from './debloat'
 import { rollback, stockOnTv } from './launcher'
 import type { BootCheckResult } from '@shared/api'
+import { t, UiError } from './i18n'
 
 const TASK = 'restart check'
 
@@ -40,7 +41,7 @@ async function until(deps: BootCheckDeps, ms: number, step: number, test: () => 
 
 export async function bootCheck(deps: BootCheckDeps = realDeps): Promise<BootCheckResult> {
   const target = T.getStatus().host
-  if (!target) throw new Error('Connect to the TV first.')
+  if (!target) throw new UiError('Connect to the TV first.')
   const [ip, p] = target.split(':')
   const port = Number(p) || 5555
 
@@ -54,8 +55,8 @@ export async function bootCheck(deps: BootCheckDeps = realDeps): Promise<BootChe
     log(TASK, 'error', `${target} did not come back within 4 minutes`)
     return {
       ok: false, reconnected: false,
-      summary: "The TV didn't come back on the network within 4 minutes, so the app couldn't check it.",
-      advice: 'Look at the TV. If the home screen is up, you are fine. If it is black, leave debugging on and connect again from Setup: the app can still put the stock launcher back. TVs that needed a pairing code close the port on restart, so pair again first.'
+      summary: t("The TV didn't come back on the network within 4 minutes, so the app couldn't check it."),
+      advice: t('Look at the TV. If the home screen is up, you are fine. If it is black, leave debugging on and connect again from Setup: the app can still put the stock launcher back. TVs that needed a pairing code close the port on restart, so pair again first.')
     }
   }
   const booted = await until(deps, 120000, 3000, async () => (await T.tv().shell('getprop sys.boot_completed')).trim() === '1')
@@ -73,7 +74,7 @@ export async function bootCheck(deps: BootCheckDeps = realDeps): Promise<BootChe
   const home = seen.home
   if (running) {
     log(TASK, 'ok', `The TV restarted and ${home} is running.`)
-    return { ok: true, reconnected: true, summary: `The TV restarted and its home screen came up (${home?.split('/')[0]}).` }
+    return { ok: true, reconnected: true, summary: t('The TV restarted and its home screen came up ({pkg}).', { pkg: home?.split('/')[0] ?? '' }) }
   }
 
   log(TASK, 'error', `After the restart Home is ${home ?? 'nothing'} and no launcher is running`)
@@ -82,9 +83,11 @@ export async function bootCheck(deps: BootCheckDeps = realDeps): Promise<BootChe
   const fixed = stock ? await rollback(stock) : false
   return {
     ok: false, reconnected: true,
-    summary: `After the restart no home screen came up (Home resolves to ${home ?? 'nothing'}).`,
+    summary: home
+      ? t('After the restart no home screen came up (Home resolves to {home}).', { home })
+      : t('After the restart no home screen came up (Home resolves to nothing).'),
     advice: fixed
-      ? `The app switched ${stock} back on and made it Home. Keep debugging on, and report this on GitHub with your TV model.`
-      : 'The app could not put a stock launcher back. Keep debugging on, open Clean up and choose Undo, then report this on GitHub with your TV model.'
+      ? t('The app switched {pkg} back on and made it Home. Keep debugging on, and report this on GitHub with your TV model.', { pkg: stock ?? '' })
+      : t('The app could not put a stock launcher back. Keep debugging on, open Clean up and choose Undo, then report this on GitHub with your TV model.')
   }
 }

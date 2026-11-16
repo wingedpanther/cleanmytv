@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { t, tx } from '../lib/i18n'
 
 export interface JumpItem {
   id: string
@@ -57,10 +58,10 @@ export function Jump({ items, onPick, onClose }: { items: JumpItem[]; onPick: (i
 
   return (
     <div className="jump-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="jump" role="dialog" aria-modal="true" aria-label="Jump to">
+      <div className="jump" role="dialog" aria-modal="true" aria-label={t('Jump to')}>
         <input
           autoFocus
-          placeholder="Jump to a step or setting"
+          placeholder={t('Jump to a step or setting')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={key}
@@ -86,12 +87,12 @@ export function Jump({ items, onPick, onClose }: { items: JumpItem[]; onPick: (i
               <span>{it.where}</span>
             </button>
           ))}
-          {shown.length === 0 && <div className="jump-empty">Nothing called “{q}”.</div>}
+          {shown.length === 0 && <div className="jump-empty">{t('Nothing called “{q}”.', { q })}</div>}
         </div>
         <div className="jump-foot">
-          <span><kbd>↑</kbd> <kbd>↓</kbd> move</span>
-          <span><kbd>Enter</kbd> open</span>
-          <span><kbd>Esc</kbd> close</span>
+          <span>{tx('{up} {down} move', { up: <kbd>↑</kbd>, down: <kbd>↓</kbd> })}</span>
+          <span>{tx('{key} open', { key: <kbd>Enter</kbd> })}</span>
+          <span>{tx('{key} close', { key: <kbd>Esc</kbd> })}</span>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { HomeConfig, QuickEntry, QuickId, TvApp } from '@shared/api'
+import { t } from '../lib/i18n'
 
 // The launcher lays out in dp on a 960x540 screen; the preview draws at that size and scales to fit.
 const W = 960
@@ -26,9 +27,16 @@ const QUICK_GLYPH: Record<QuickId, string> = {
   timer: 'M12 7v5l3 2M9 3h6M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16z'
 }
 
+/** What the TV calls each icon. CleanMyTV Home is in English, so these stay English: the preview and the rename boxes show them. */
 export const QUICK_LABEL: Record<QuickId, string> = {
   inputs: 'Inputs', wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: 'Picture & sound', apps: 'Apps', sleep: 'Screensaver', search: 'Search', music: 'Music bars', settings: 'Settings',
   panel: 'Quick settings', themes: 'Themes', fireplace: 'Fireplace', memory: 'Clean memory', customize: 'Customize', timer: 'Sleep timer'
+}
+
+/** The same icons named in this app's language, for its own lists. */
+export const QUICK_NAME: Record<QuickId, string> = {
+  inputs: t('Inputs'), wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: t('Picture & sound'), apps: t('Apps'), sleep: t('Screensaver'), search: t('Search'), music: t('Music bars'),
+  settings: t('Settings'), panel: t('Quick settings'), themes: t('Themes'), fireplace: t('Fireplace'), memory: t('Clean memory'), customize: t('Customize'), timer: t('Sleep timer')
 }
 
 export function QuickIcon({ id, size = 16 }: { id: QuickId; size?: number }): ReactNode {
@@ -318,9 +326,9 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
     )
   }
   return (
-    <div ref={box} className="home-preview" style={{ height: H * scale }} aria-label="Preview of the TV home screen">
+    <div ref={box} className="home-preview" style={{ height: H * scale }} aria-label={t('Preview of the TV home screen')}>
       <div style={{ width: W, height: H, transform: `scale(${scale})`, transformOrigin: '0 0', color: '#F0EBE5', fontFamily: PREVIEW_FONT[cfg.font] ?? PREVIEW_FONT.default, ...ground }}>{body}</div>
-      <span className="home-preview-note">Sample time and greeting · app art shows on the TV</span>
+      <span className="home-preview-note">{t('Sample time and greeting · app art shows on the TV')}</span>
     </div>
   )
 }

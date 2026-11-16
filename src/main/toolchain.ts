@@ -11,6 +11,7 @@ import { inflateRawSync } from 'node:zlib'
 import { paths } from './paths'
 import { knock } from './scan'
 import { log, progress } from './log'
+import { englishOf, t, UiError } from './i18n'
 import type { ApplyResult, ToolId } from '@shared/api'
 
 const win = process.platform === 'win32'
@@ -76,8 +77,8 @@ async function download(tool: ToolId, url: string, file: string): Promise<void> 
   log('download', 'cmd', `download ${url}`)
   const res = await fetch(url, { redirect: 'follow' })
   // Redirects are followed (Adoptium and GitHub use them), but never down to plain HTTP.
-  if (!res.url.startsWith('https://')) throw new Error(`refusing a download that was redirected away from HTTPS (${res.url})`)
-  if (!res.ok || !res.body) throw new Error(`download failed: ${res.status} ${res.statusText} (${url})`)
+  if (!res.url.startsWith('https://')) throw new UiError('refusing a download that was redirected away from HTTPS ({url})', { url: res.url })
+  if (!res.ok || !res.body) throw new UiError('download failed: {status} ({url})', { status: `${res.status} ${res.statusText}`, url })
   const total = Number(res.headers.get('content-length')) || 0
   let received = 0
   let last = 0
@@ -159,14 +160,14 @@ async function extract(tool: ToolId, archive: string, into: string): Promise<voi
   if (process.platform === 'linux' && archive.endsWith('.zip')) {
     try {
       const r = await run('download', 'unzip', ['-q', '-o', archive, '-d', into], { quiet: true })
-      if (r.code !== 0) throw new Error(`could not unpack ${archive}: ${r.out.trim()}`)
+      if (r.code !== 0) throw new UiError('could not unpack {file}: {output}', { file: archive, output: r.out.trim() })
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === 'ENOENT') unzipFile(archive, into)
       else throw e
     }
   } else {
     const r = await run('download', tar, ['-xf', archive, '-C', into], { quiet: true })
-    if (r.code !== 0) throw new Error(`could not unpack ${archive}: ${r.out.trim()}`)
+    if (r.code !== 0) throw new UiError('could not unpack {file}: {output}', { file: archive, output: r.out.trim() })
   }
   rmSync(archive, { force: true })
 }
@@ -250,7 +251,7 @@ async function getPlatformTools(): Promise<void> {
   renameSync(join(tmp, 'platform-tools'), dirs.platformTools)
   rmSync(tmp, { recursive: true, force: true })
   if (!win && existsSync(adbPath())) chmodSync(adbPath(), 0o755)
-  if (!platformToolsReady()) throw new Error('the platform-tools download did not contain adb')
+  if (!platformToolsReady()) throw new UiError('the platform-tools download did not contain adb')
 }
 
 export async function get(tool: ToolId): Promise<ApplyResult> {
@@ -262,11 +263,11 @@ export async function get(tool: ToolId): Promise<ApplyResult> {
     progress({ tool, received: 1, total: 1, phase: 'done' })
     const what = { jdk: 'Java 17', sdk: 'Android SDK', 'platform-tools': 'Google platform-tools' }[tool]
     log('download', 'ok', `${what} is ready.`)
-    return { ok: true, summary: `${what} is ready.`, warnings: [] }
+    return { ok: true, summary: t('{tool} is ready.', { tool: what }), warnings: [] }
   } catch (e) {
     const message = (e as Error).message
     progress({ tool, received: 0, total: 0, phase: 'error', message })
-    log('download', 'error', message)
+    log('download', 'error', englishOf(e))
     return { ok: false, summary: message, warnings: [] }
   }
 }
@@ -286,22 +287,22 @@ export const KEYSTORE = { password: 'cleanyourtv', alias: 'cleanyourtv' }
  */
 export async function whyPairFailed(host: string, pairPort: number, connectPort: number, knockAt: typeof knock = knock): Promise<string> {
   const pairing = await knockAt(host, pairPort, 2000)
-  if (pairing === 'open') return 'The TV turned the pairing down. Check the 6-digit code, which changes each time the pairing window opens.'
+  if (pairing === 'open') return t('The TV turned the pairing down. Check the 6-digit code, which changes each time the pairing window opens.')
   // The connect port, Cast and the remote service answer on any Google or Android TV that is on.
   const others = await Promise.all([connectPort, 8009, 6466].map((p) => knockAt(host, p, 2000)))
   if (pairing === 'refused' && others.every((k) => k === 'refused')) {
-    return `Something at ${host} turns every connection away, even the TV's Cast service, so another device may have the same address. Check the IP address on the TV's network screen, or give the TV a fixed IP in its network settings.`
+    return t("Something at {host} turns every connection away, even the TV's Cast service, so another device may have the same address. Check the IP address on the TV's network screen, or give the TV a fixed IP in its network settings.", { host })
   }
   if (pairing === 'silent' && others.every((k) => k === 'silent')) {
-    return `Nothing answers at ${host}. Check that the TV is on and on the same network as this computer.`
+    return t('Nothing answers at {host}. Check that the TV is on and on the same network as this computer.', { host })
   }
-  return `The TV isn't accepting pairing on port ${pairPort}. The pairing window probably closed: open Pair device with pairing code again, keep it on screen, and use the new code and port.`
+  return t("The TV isn't accepting pairing on port {port}. The pairing window probably closed: open Pair device with pairing code again, keep it on screen, and use the new code and port.", { port: pairPort })
 }
 
 export async function pair(host: string, pairPort: number, code: string, connectPort: number, knockAt: typeof knock = knock): Promise<ApplyResult> {
   const port = (p: unknown): boolean => Number.isInteger(p) && (p as number) >= 1 && (p as number) <= 65535
   if (!/^[A-Za-z0-9.-]+$/.test(host) || !/^\d{6}$/.test(code) || !port(pairPort) || !port(connectPort)) {
-    return { ok: false, summary: 'Enter the IP address, both ports and the 6-digit code shown on the TV.', warnings: [] }
+    return { ok: false, summary: t('Enter the IP address, both ports and the 6-digit code shown on the TV.'), warnings: [] }
   }
   if (!platformToolsReady()) {
     const got = await get('platform-tools')
@@ -325,11 +326,11 @@ export async function pair(host: string, pairPort: number, code: string, connect
   if (!/Successfully paired/i.test(p.out)) return { ok: false, summary: await whyPairFailed(host, pairPort, connectPort, knockAt), warnings: [p.out.trim()] }
   const target = `${host}:${connectPort}`
   const c = await run('pair', adb, ['connect', target])
-  if (!/connected to/i.test(c.out)) return { ok: false, summary: `Paired, but could not connect to ${target}. Use the port shown under Wireless debugging (not the pairing port).`, warnings: [c.out.trim()] }
-  const t = await run('pair', adb, ['-s', target, 'tcpip', '5555'])
+  if (!/connected to/i.test(c.out)) return { ok: false, summary: t('Paired, but could not connect to {target}. Use the port shown under Wireless debugging (not the pairing port).', { target }), warnings: [c.out.trim()] }
+  const tcp = await run('pair', adb, ['-s', target, 'tcpip', '5555'])
   await new Promise((r) => setTimeout(r, 3000))
   await run('pair', adb, ['disconnect'], { quiet: true })
   await run('pair', adb, ['kill-server'], { quiet: true })
-  if (!/restarting|5555/i.test(t.out)) return { ok: false, summary: 'Connected, but the TV did not open port 5555.', warnings: [t.out.trim()] }
-  return { ok: true, summary: 'Port 5555 is open until the TV reboots. Connecting now.', warnings: [] }
+  if (!/restarting|5555/i.test(tcp.out)) return { ok: false, summary: t('Connected, but the TV did not open port 5555.'), warnings: [tcp.out.trim()] }
+  return { ok: true, summary: t('Port 5555 is open until the TV reboots. Connecting now.'), warnings: [] }
 }

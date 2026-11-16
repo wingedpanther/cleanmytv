@@ -1,4 +1,5 @@
 import type { ImageFile } from '@shared/api'
+import { t } from './i18n'
 
 export const TV_W = 1920
 export const TV_H = 1080
@@ -17,7 +18,7 @@ export async function prepareWallpaper(file: File, name?: string): Promise<Prepa
   canvas.width = TV_W
   canvas.height = TV_H
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('This computer could not draw the picture.')
+  if (!ctx) throw new Error(t('This computer could not draw the picture.'))
   const scale = Math.max(TV_W / bitmap.width, TV_H / bitmap.height)
   const w = bitmap.width * scale
   const h = bitmap.height * scale
@@ -87,7 +88,7 @@ export async function thumbnail(dataUrl: string, w = 320, h = 180): Promise<stri
   canvas.width = w
   canvas.height = h
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('This computer could not draw the picture.')
+  if (!ctx) throw new Error(t('This computer could not draw the picture.'))
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(img, 0, 0, w, h)
   return canvas.toDataURL('image/jpeg', 0.75)

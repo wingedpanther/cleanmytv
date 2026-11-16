@@ -25,6 +25,7 @@ import { THEME_EXT, themeFileName } from '@shared/themes'
 import { bugReport } from './report'
 import * as record from './record'
 import * as checkup from './checkup'
+import { englishOf, languageFromLocale, setLanguage, t, UiError } from './i18n'
 import type { CheckItem, ConnStatus, CytvApi, KnownTv } from '@shared/api'
 
 let win: BrowserWindow | null = null
@@ -58,28 +59,28 @@ async function checks(): Promise<CheckItem[]> {
   const connected = st.state === 'connected'
   return [
     {
-      id: 'network', label: 'Local network',
+      id: 'network', label: t('Local network'),
       ...(localSubnets().length
-        ? { status: 'ok', detail: `This computer is on ${localSubnets().map((n) => n + '.x').join(', ')}.` }
-        : { status: 'missing', detail: 'No home network found. Join the same Wi-Fi or Ethernet as the TV.' })
+        ? { status: 'ok', detail: t('This computer is on {nets}.', { nets: localSubnets().map((n) => n + '.x').join(', ') }) }
+        : { status: 'missing', detail: t('No home network found. Join the same Wi-Fi or Ethernet as the TV.') })
     },
     {
-      id: 'tv', label: 'TV with network debugging on',
+      id: 'tv', label: t('TV with network debugging on'),
       ...(connected
-        ? { status: 'ok', detail: `${st.probe?.manufacturer} ${st.probe?.model} at ${st.host}` }
-        : { status: 'missing', detail: 'Turn on Developer options and USB debugging on the TV, then find it below.' })
+        ? { status: 'ok', detail: t('{tv} at {host}', { tv: `${st.probe?.manufacturer} ${st.probe?.model}`, host: st.host ?? '' }) }
+        : { status: 'missing', detail: t('Turn on Developer options and USB debugging on the TV, then find it below.') })
     },
     {
-      id: 'auth', label: 'This computer allowed on the TV',
+      id: 'auth', label: t('This computer allowed on the TV'),
       ...(connected
-        ? { status: 'ok', detail: 'The TV accepted this computer.' }
+        ? { status: 'ok', detail: t('The TV accepted this computer.') }
         : st.state === 'waiting-auth'
-          ? { status: 'checking', detail: 'Choose Allow on the TV.' }
-          : { status: 'missing', detail: 'The TV asks once, the first time you connect.' })
+          ? { status: 'checking', detail: t('Choose Allow on the TV.') }
+          : { status: 'missing', detail: t('The TV asks once, the first time you connect.') })
     },
     {
-      id: 'platform-tools', label: "Google's adb (only for Wireless debugging pairing)",
-      ...(tools.platformToolsReady() ? { status: 'ok', detail: tools.adbPath() } : { status: 'optional', detail: 'About 15 MB. Some Google TVs need a one-time pairing code.', download: 'platform-tools' })
+      id: 'platform-tools', label: t("Google's adb (only for Wireless debugging pairing)"),
+      ...(tools.platformToolsReady() ? { status: 'ok', detail: tools.adbPath() } : { status: 'optional', detail: t('About 15 MB. Some Google TVs need a one-time pairing code.'), download: 'platform-tools' })
     }
   ] as CheckItem[]
 }
@@ -87,6 +88,7 @@ async function checks(): Promise<CheckItem[]> {
 type Handlers = { [K in keyof CytvApi as CytvApi[K] extends (...a: never[]) => Promise<unknown> ? K : never]: CytvApi[K] }
 
 const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
+  setLanguage: async (lang) => setLanguage(lang),
   scan: () => scan(),
   discover: () => discover(),
   stopDiscovery: async () => stopDiscovery(),
@@ -106,7 +108,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   knownTvs: async () => knownTvs(),
   connectKnown: async (host) => {
     const tv = knownTvs().find((t) => t.host === host)
-    if (!tv) throw new Error('That TV is not in the list.')
+    if (!tv) throw new UiError('That TV is not in the list.')
     const s = await reconnect({ lastHost: tv.host, lastDevice: tv.device, lastModel: tv.model }, { connect: T.connect, disconnect: T.disconnect, report: T.report })
     if (s?.state === 'connected') remember(tv.host, s)
     return s ?? T.getStatus()
@@ -133,12 +135,12 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   },
   downloadUpdate: async () => {
     const latest = readSettings().update?.latest
-    if (!latest || !isNewer(latest, app.getVersion())) return { ok: false, summary: 'There is no newer version to download.', warnings: [] }
+    if (!latest || !isNewer(latest, app.getVersion())) return { ok: false, summary: t('There is no newer version to download.'), warnings: [] }
     updateFile = await updater.download(latest, { platform: process.platform, arch: process.arch, dir: join(paths.data, 'updates') })
-    return { ok: true, summary: `Version ${latest} is downloaded and checked.`, warnings: [] }
+    return { ok: true, summary: t('Version {v} is downloaded and checked.', { v: latest }), warnings: [] }
   },
   installUpdate: async () => {
-    if (!updateFile) return { ok: false, summary: 'Download the update first.', warnings: [] }
+    if (!updateFile) return { ok: false, summary: t('Download the update first.'), warnings: [] }
     return updater.install(updateFile, { platform: process.platform, exe: app.getPath('exe'), dir: join(paths.data, 'updates'), quit: () => app.quit(), openPath: (p) => shell.openPath(p) })
   },
   // The pairing form connects once this returns. Connecting here too would do it twice.
@@ -149,7 +151,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
     const text = await record.stop(await bugReport(app.getVersion()))
     const model = (T.getStatus().probe?.model ?? 'tv').replace(/[^\w-]+/g, '-').toLowerCase()
     const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')
-    const opts = { title: 'Save the TV log', defaultPath: join(app.getPath('documents'), `cleanmytv-log-${model}-${stamp}.txt`), filters: [{ name: 'Text', extensions: ['txt'] }] }
+    const opts = { title: t('Save the TV log'), defaultPath: join(app.getPath('documents'), `cleanmytv-log-${model}-${stamp}.txt`), filters: [{ name: t('Text'), extensions: ['txt'] }] }
     const r = win && !win.isDestroyed() ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
     if (r.canceled || !r.filePath) return null
     writeFileSync(r.filePath, text)
@@ -175,7 +177,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   installHome: (stock) => home.install(typeof stock === 'string' ? stock : undefined),
   useHome: async (stock) => {
     const st = await home.status()
-    if (!st.installed) return { ok: false, summary: 'CleanMyTV Home is not installed yet.', warnings: [] }
+    if (!st.installed) return { ok: false, summary: t('CleanMyTV Home is not installed yet.'), warnings: [] }
     return launcher.switchTo(`${launcher.HOME_PKG}/.MainActivity`, typeof stock === 'string' ? stock : undefined)
   },
   homeApps: () => home.apps(),
@@ -201,7 +203,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   forgetThemeBackup: async () => themes.forget(),
   saveHomeTheme: (name) =>
     themes.save(String(name ?? ''), async (n) => {
-      const opts = { title: 'Save the theme', defaultPath: join(app.getPath('documents'), themeFileName(n)), filters: [{ name: 'CleanMyTV theme', extensions: [THEME_EXT] }] }
+      const opts = { title: t('Save the theme'), defaultPath: join(app.getPath('documents'), themeFileName(n)), filters: [{ name: t('CleanMyTV theme'), extensions: [THEME_EXT] }] }
       const r = win && !win.isDestroyed() ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
       return r.canceled || !r.filePath ? null : r.filePath
     }),
@@ -209,7 +211,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   saveScreenshot: async () => {
     const png = system.lastScreenshot()
     if (!png) return null
-    const opts = { title: 'Save the snapshot', defaultPath: join(app.getPath('pictures'), system.shotName()), filters: [{ name: 'PNG image', extensions: ['png'] }] }
+    const opts = { title: t('Save the snapshot'), defaultPath: join(app.getPath('pictures'), system.shotName()), filters: [{ name: t('PNG image'), extensions: ['png'] }] }
     const r = win && !win.isDestroyed() ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
     if (r.canceled || !r.filePath) return null
     writeFileSync(r.filePath, png)
@@ -285,6 +287,7 @@ app.on('second-instance', () => {
 
 app.whenReady().then(() => {
   if (!primary) return
+  languageFromLocale(app.getLocale())
   // The app needs no camera, microphone, notifications or other web permissions.
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false))
   // Packaged: lists and the APK sit in Contents/Resources (mac) or resources/ (Windows and Linux).
@@ -297,7 +300,7 @@ app.whenReady().then(() => {
       try {
         return await (fn as (...a: unknown[]) => Promise<unknown>)(...args)
       } catch (e) {
-        log(name, 'error', (e as Error).message)
+        log(name, 'error', englishOf(e))
         throw e
       }
     })

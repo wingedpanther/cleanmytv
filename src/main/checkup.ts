@@ -6,6 +6,7 @@ import * as T from './tv'
 import { HOME_PKG } from './launcher'
 import { noteKeyboard } from './keyboard'
 import * as launcher from './launcher'
+import { t, UiError } from './i18n'
 
 const TASK = 'check-up'
 const BRIDGE = 'com.google.android.tv.remote.service/'
@@ -37,31 +38,31 @@ export function assess(s: TvState): CheckupItem[] {
   const typing = typingKeyboard(s)
   const kb = s.keyboard.trim()
   if (kb && kb !== 'null' && !kb.startsWith(BRIDGE) && on(s, pkgOf(kb))) {
-    out.push({ id: 'keyboard', label: 'Keyboard', ok: true, detail: `The TV types with ${pkgOf(kb)}.` })
+    out.push({ id: 'keyboard', label: t('Keyboard'), ok: true, detail: t('The TV types with {pkg}.', { pkg: pkgOf(kb) }) })
   } else if (typing) {
-    const why = kb.startsWith(BRIDGE) ? 'The TV is on the phone keyboard ("Use the keyboard on your mobile device").' : !kb || kb === 'null' ? 'The TV has no keyboard set.' : `The keyboard in use (${pkgOf(kb)}) is switched off.`
-    out.push({ id: 'keyboard', label: 'Keyboard', ok: false, detail: `${why} ${pkgOf(typing)} can type on the TV.`, fix: 'Use it' })
+    const why = kb.startsWith(BRIDGE) ? t('The TV is on the phone keyboard ("Use the keyboard on your mobile device").') : !kb || kb === 'null' ? t('The TV has no keyboard set.') : t('The keyboard in use ({pkg}) is switched off.', { pkg: pkgOf(kb) })
+    out.push({ id: 'keyboard', label: t('Keyboard'), ok: false, detail: `${why} ${t('{pkg} can type on the TV.', { pkg: pkgOf(typing) })}`, fix: t('Use it') })
   } else {
-    out.push({ id: 'keyboard', label: 'Keyboard', ok: !!kb && kb !== 'null', detail: kb && kb !== 'null' ? 'Only the phone keyboard is on, so typing works from the Google TV app on a phone.' : 'The TV has no keyboard on. Switch the TV maker\'s keyboard or Gboard back on in Clean up.' })
+    out.push({ id: 'keyboard', label: t('Keyboard'), ok: !!kb && kb !== 'null', detail: kb && kb !== 'null' ? t('Only the phone keyboard is on, so typing works from the Google TV app on a phone.') : t('The TV has no keyboard on. Switch the TV maker\'s keyboard or Gboard back on in Clean up.') })
   }
 
   if (s.home && on(s, pkgOf(s.home))) {
-    out.push({ id: 'home', label: 'Home screen', ok: true, detail: pkgOf(s.home) === HOME_PKG ? 'CleanMyTV Home opens on the Home button.' : `${pkgOf(s.home)} opens on the Home button.` })
+    out.push({ id: 'home', label: t('Home screen'), ok: true, detail: pkgOf(s.home) === HOME_PKG ? t('CleanMyTV Home opens on the Home button.') : t('{pkg} opens on the Home button.', { pkg: pkgOf(s.home) }) })
   } else {
-    out.push({ id: 'home', label: 'Home screen', ok: false, detail: 'Nothing switched on answers the Home button, so it may do nothing or show an error.', fix: on(s, HOME_PKG) ? 'Use CleanMyTV Home' : 'Put the stock home back' })
+    out.push({ id: 'home', label: t('Home screen'), ok: false, detail: t('Nothing switched on answers the Home button, so it may do nothing or show an error.'), fix: on(s, HOME_PKG) ? t('Use CleanMyTV Home') : t('Put the stock home back') })
   }
 
   if (s.installed.has(VOICE) && s.installed.has(REMOTE) && on(s, VOICE) !== on(s, REMOTE)) {
-    out.push({ id: 'voice', label: "Remote's microphone", ok: false, detail: `Voice needs both ${VOICE} and ${REMOTE}, which also carries the remote's microphone. Only one of them is on.`, fix: 'Switch both on' })
+    out.push({ id: 'voice', label: t("Remote's microphone"), ok: false, detail: t("Voice needs both {voice} and {remote}, which also carries the remote's microphone. Only one of them is on.", { voice: VOICE, remote: REMOTE }), fix: t('Switch both on') })
   } else if (s.installed.has(VOICE)) {
-    out.push({ id: 'voice', label: "Remote's microphone", ok: true, detail: on(s, VOICE) ? 'Voice search and its microphone service are both on.' : 'Voice search is off, as Clean up left it.' })
+    out.push({ id: 'voice', label: t("Remote's microphone"), ok: true, detail: on(s, VOICE) ? t('Voice search and its microphone service are both on.') : t('Voice search is off, as Clean up left it.') })
   }
 
   const saver = s.screensaver.split(',')[0]?.trim() ?? ''
   if (s.screensaverOn && saver && saver !== 'null' && !on(s, pkgOf(saver))) {
-    out.push({ id: 'screensaver', label: 'Screensaver', ok: false, detail: `The screensaver is ${pkgOf(saver)}, which is switched off, so the screen may stay black or the TV may skip it.`, fix: 'Turn the screensaver off' })
+    out.push({ id: 'screensaver', label: t('Screensaver'), ok: false, detail: t('The screensaver is {pkg}, which is switched off, so the screen may stay black or the TV may skip it.', { pkg: pkgOf(saver) }), fix: t('Turn the screensaver off') })
   } else {
-    out.push({ id: 'screensaver', label: 'Screensaver', ok: true, detail: !s.screensaverOn ? 'The screensaver is off.' : 'The screensaver app is on.' })
+    out.push({ id: 'screensaver', label: t('Screensaver'), ok: true, detail: !s.screensaverOn ? t('The screensaver is off.') : t('The screensaver app is on.') })
   }
   return out
 }
@@ -89,7 +90,7 @@ export async function fix(id: CheckupId): Promise<void> {
   const s = await read()
   if (id === 'keyboard') {
     const k = typingKeyboard(s)
-    if (!k) throw new Error('no keyboard on the TV can type; switch one back on in Clean up')
+    if (!k) throw new UiError('no keyboard on the TV can type; switch one back on in Clean up')
     T.q(k)
     await T.sh(TASK, `ime enable ${k}`)
     await T.sh(TASK, `ime set ${k}`)

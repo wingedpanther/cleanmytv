@@ -3,12 +3,13 @@ import type { ScreenProps } from '../App'
 import type { BootCheckResult } from '@shared/api'
 import { Busy, CheckupCard, errorText } from '../components/ui'
 import { usbOffWhileDebugging } from '../lib/usb'
+import { t } from '../lib/i18n'
 
 const STEPS = [
-  'On the TV, open Developer options and turn off USB debugging.',
-  'Turn off Network debugging, ADB debugging or Wireless debugging if your TV has it.',
-  'Optional: choose Revoke USB debugging authorisations, so no computer is trusted any more. Skip this to avoid the Allow prompt next time.',
-  'Restart the TV.'
+  t('On the TV, open Developer options and turn off USB debugging.'),
+  t('Turn off Network debugging, ADB debugging or Wireless debugging if your TV has it.'),
+  t('Optional: choose Revoke USB debugging authorisations, so no computer is trusted any more. Skip this to avoid the Allow prompt next time.'),
+  t('Restart the TV.')
 ]
 
 export function Finish({ status, markDone }: ScreenProps): ReactNode {
@@ -54,34 +55,30 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
 
   return (
     <>
-      <h1>Finish and lock</h1>
+      <h1>{t('Finish and lock')}</h1>
       <p className="lede">
-        Network debugging is a plain-text shell on port 5555. On some TVs any device on your Wi-Fi can use it without the Allow
-        prompt. Close it when you're done. The home screen and the clean-up keep working without it. Turn it on again
-        any time you want to change something from this app.
+        {t("Network debugging is a plain-text shell on port 5555. On some TVs any device on your Wi-Fi can use it without the Allow prompt. Close it when you're done. The home screen and the clean-up keep working without it. Turn it on again any time you want to change something from this app.")}
       </p>
 
       {usbOffWhileDebugging(status.probe) && (
         <div className="notice warn">
-          On this TV, USB drives and USB Ethernet adapters don't work while debugging is on. Switch it off below and restart
-          the TV to get them back.
+          {t("On this TV, USB drives and USB Ethernet adapters don't work while debugging is on. Switch it off below and restart the TV to get them back.")}
         </div>
       )}
 
       {status.state === 'connected' && <CheckupCard auto={false} />}
 
       <div className="card white">
-        <h2>1. Restart check</h2>
+        <h2>{t('1. Restart check')}</h2>
         <p className="muted">
-          Restart the TV once while debugging is still on. If it comes back to a black screen, the app can still put the stock
-          launcher back. With debugging off, only a factory reset could.
+          {t('Restart the TV once while debugging is still on. If it comes back to a black screen, the app can still put the stock launcher back. With debugging off, only a factory reset could.')}
         </p>
         <div className="row">
           <button className="btn primary" onClick={restartCheck} disabled={restarting || status.state !== 'connected'}>
-            Restart the TV and check
+            {t('Restart the TV and check')}
           </button>
-          {restarting && <Busy text="Restarting the TV and waiting for its home screen. This can take 3 minutes" />}
-          {!restarting && status.state !== 'connected' && !boot && <span className="small muted">Connect to the TV first.</span>}
+          {restarting && <Busy text={t('Restarting the TV and waiting for its home screen. This can take 3 minutes')} />}
+          {!restarting && status.state !== 'connected' && !boot && <span className="small muted">{t('Connect to the TV first.')}</span>}
         </div>
         {boot && (
           <div className={`notice ${boot.ok ? 'ok' : 'error'}`} style={{ marginTop: 16, marginBottom: 0 }}>
@@ -91,14 +88,14 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
         {!boot?.ok && (
           <label className="row small" style={{ marginTop: 12, cursor: 'pointer' }}>
             <input type="checkbox" checked={sawHome} onChange={(e) => setSawHome(e.target.checked)} />
-            <span>I restarted the TV myself and its home screen came up</span>
+            <span>{t('I restarted the TV myself and its home screen came up')}</span>
           </label>
         )}
       </div>
 
       <div className="card" style={safe ? undefined : { opacity: 0.5, pointerEvents: 'none' }} aria-disabled={!safe}>
-        <h2>2. On the TV</h2>
-        {!safe && <p className="small muted">Do the restart check first.</p>}
+        <h2>{t('2. On the TV')}</h2>
+        {!safe && <p className="small muted">{t('Do the restart check first.')}</p>}
         <ul className="checklist">
           {STEPS.map((s, i) => (
             <li key={i} className="check" style={{ gridTemplateColumns: 'auto 1fr' }}>
@@ -111,41 +108,40 @@ export function Finish({ status, markDone }: ScreenProps): ReactNode {
         </ul>
         {status.state === 'connected' && (
           <p className="small muted" style={{ marginTop: 10 }}>
-            The app is still connected. Turning debugging off ends the connection, which is expected.
+            {t('The app is still connected. Turning debugging off ends the connection, which is expected.')}
           </p>
         )}
       </div>
 
       <div className="card white">
-        <h2>Coming back later</h2>
+        <h2>{t('Coming back later')}</h2>
         <p className="muted" style={{ marginBottom: 8 }}>
-          To change the wallpaper, the app order or anything else on the home screen:
+          {t('To change the wallpaper, the app order or anything else on the home screen:')}
         </p>
         <ol className="small" style={{ margin: '0 0 8px', paddingLeft: 20 }}>
-          <li>On the TV, turn USB debugging on again (and Network or ADB debugging if your TV has it).</li>
-          <li>Open this app. It reconnects to the TV by itself, finds it again if its address changed, and opens the Home screen step.</li>
-          <li>If you revoked the authorisations, choose Allow on the TV once more.</li>
-          <li>Apply your changes, then turn debugging off again.</li>
+          <li>{t('On the TV, turn USB debugging on again (and Network or ADB debugging if your TV has it).')}</li>
+          <li>{t('Open this app. It reconnects to the TV by itself, finds it again if its address changed, and opens the Home screen step.')}</li>
+          <li>{t('If you revoked the authorisations, choose Allow on the TV once more.')}</li>
+          <li>{t('Apply your changes, then turn debugging off again.')}</li>
         </ol>
         <p className="small muted" style={{ margin: 0 }}>
-          The app reads what is on the TV before you edit, so you always start from the current wallpaper and order. Some Google TVs
-          that needed a pairing code close port 5555 when they restart; the app shows the pairing form again if so.
+          {t('The app reads what is on the TV before you edit, so you always start from the current wallpaper and order. Some Google TVs that needed a pairing code close port 5555 when they restart; the app shows the pairing form again if so.')}
         </p>
       </div>
 
       <div className="card white">
-        <h2>3. Check from this computer</h2>
-        <p className="muted">Once the TV has restarted, check that port 5555 no longer answers.</p>
+        <h2>{t('3. Check from this computer')}</h2>
+        <p className="muted">{t('Once the TV has restarted, check that port 5555 no longer answers.')}</p>
         <div className="row">
           <input type="text" value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.50" style={{ width: 200 }} />
           <button className="btn primary" onClick={check} disabled={!safe || checking || !/^\d{1,3}(\.\d{1,3}){3}$/.test(host.trim())}>
-            Check port 5555 is closed
+            {t('Check port 5555 is closed')}
           </button>
-          {checking && <Busy text="Knocking on port 5555" />}
+          {checking && <Busy text={t('Knocking on port 5555')} />}
         </div>
         {res && (
           <div className={`notice ${res.closed ? 'ok' : 'warn'}`} style={{ marginTop: 16, marginBottom: 0 }}>
-            <b>{res.closed ? 'Closed.' : 'Still open.'}</b> {res.message}
+            <b>{res.closed ? t('Closed.') : t('Still open.')}</b> {res.message}
           </div>
         )}
       </div>
