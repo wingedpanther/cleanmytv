@@ -26,6 +26,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import io.github.wingedpanther.cleanmytv.home.ConfigStore
 import io.github.wingedpanther.cleanmytv.home.HomeConfig
+import io.github.wingedpanther.cleanmytv.home.tr
 import org.json.JSONObject
 
 @Composable
@@ -36,9 +37,9 @@ fun WidgetCustomization(config: HomeConfig, ctx: Context) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // --- Weather Location Section ---
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Weather Location", color = TEXT_COLOR, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(tr("Weather Location"), color = TEXT_COLOR, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Text(
-                text = if (hasLocation) "📍 Active location: ${config.weatherPlace}" else "📍 Active location: Not set (Weather widget is hidden)",
+                text = if (hasLocation) tr("📍 Active location: {place}", "place" to config.weatherPlace) else tr("📍 Active location: Not set (Weather widget is hidden)"),
                 color = if (hasLocation) Color(0xFF4CAF50) else MUTED_COLOR,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
@@ -46,14 +47,14 @@ fun WidgetCustomization(config: HomeConfig, ctx: Context) {
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 TvPrimaryButton(
-                    text = "Search City / Location",
+                    text = tr("Search City / Location"),
                     onClick = { showSearchModal = true },
-                    icon = { Icon(imageVector = Icons.Outlined.Search, contentDescription = "Search", modifier = Modifier.size(16.dp)) }
+                    icon = { Icon(imageVector = Icons.Outlined.Search, contentDescription = tr("Search"), modifier = Modifier.size(16.dp)) }
                 )
 
                 if (hasLocation) {
                     TvDestructiveButton(
-                        text = "Clear Location",
+                        text = tr("Clear Location"),
                         onClick = {
                             ConfigStore.update(
                                 ctx,
@@ -63,40 +64,40 @@ fun WidgetCustomization(config: HomeConfig, ctx: Context) {
                                     .put("weather_lon", 0.0)
                             )
                         },
-                        icon = { Icon(imageVector = Icons.Outlined.Delete, contentDescription = "Clear", modifier = Modifier.size(14.dp)) }
+                        icon = { Icon(imageVector = Icons.Outlined.Delete, contentDescription = tr("Clear"), modifier = Modifier.size(14.dp)) }
                     )
                 }
             }
         }
 
         TvRadioGroup(
-            title = "Clock",
-            options = listOf("time_date" to "Time & Date", "time" to "Time Only", "off" to "Off"),
+            title = tr("Clock"),
+            options = listOf("time_date" to tr("Time & Date"), "time" to tr("Time Only"), "off" to tr("Off")),
             current = config.clock,
             onSelect = { ConfigStore.update(ctx, JSONObject().put("clock", it)) }
         )
 
         TvRadioGroup(
-            title = "Temperature",
-            options = listOf("c" to "Celsius (°C)", "f" to "Fahrenheit (°F)"),
+            title = tr("Temperature"),
+            options = listOf("c" to tr("Celsius (°C)"), "f" to tr("Fahrenheit (°F)")),
             current = config.weatherUnit,
             onSelect = { ConfigStore.update(ctx, JSONObject().put("weather_unit", it)) }
         )
 
         TvSlider(
-            title = "Idle screen after",
+            title = tr("Idle screen after"),
             value = config.idleMinutes,
-            min = 0, max = 60, unit = " min (0=Off)",
+            min = 0, max = 60, unit = tr(" min (0=Off)"),
             onChange = { ConfigStore.update(ctx, JSONObject().put("idle_minutes", it)) }
         )
 
         TvRadioGroup(
-            title = "Idle screen",
-            options = listOf("corner" to "Clock in the corner", "center" to "Big clock", "photos" to "Photos"),
+            title = tr("Idle screen"),
+            options = listOf("corner" to tr("Clock in the corner"), "center" to tr("Big clock"), "photos" to tr("Photos")),
             current = config.idleStyle,
             onSelect = { ConfigStore.update(ctx, JSONObject().put("idle_style", it)) }
         )
-        if (config.idleStyle == "photos") Text("The slideshow's photos, or the themes' pictures when there are none, a new one every 20 seconds.", color = MUTED_COLOR, fontSize = 13.sp)
+        if (config.idleStyle == "photos") Text(tr("The slideshow's photos, or the themes' pictures when there are none, a new one every 20 seconds."), color = MUTED_COLOR, fontSize = 13.sp)
     }
 
     if (showSearchModal) {

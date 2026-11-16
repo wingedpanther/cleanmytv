@@ -32,6 +32,7 @@ import io.github.wingedpanther.cleanmytv.home.customization.components.TextPromp
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvDestructiveButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvPrimaryButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSecondaryButton
+import io.github.wingedpanther.cleanmytv.home.tr
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -43,9 +44,9 @@ private const val MAX_FOLDERS = 12
 @Composable
 fun RowsCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        Alert(text = "Rows show under the dock. Folders open on OK. An app can sit in a row and a folder at once.", modifier = Modifier.fillMaxWidth())
-        Groups("Rows", "rows", config.rows, MAX_ROWS, ctx, apps)
-        Groups("Folders", "folders", config.folders, MAX_FOLDERS, ctx, apps)
+        Alert(text = tr("Rows show under the dock. Folders open on OK. An app can sit in a row and a folder at once."), modifier = Modifier.fillMaxWidth())
+        Groups(tr("Rows"), "rows", config.rows, MAX_ROWS, ctx, apps)
+        Groups(tr("Folders"), "folders", config.folders, MAX_FOLDERS, ctx, apps)
     }
 }
 
@@ -57,11 +58,11 @@ private fun Groups(title: String, key: String, groups: List<Group>, max: Int, ct
     val save = { next: List<Group> ->
         ConfigStore.update(ctx, JSONObject().put(key, JSONArray(next.map { JSONObject().put("name", it.name).put("apps", JSONArray(it.apps)) })))
     }
-    val singular = title.dropLast(1).lowercase()
+    val folders = key == "folders"
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        if (groups.isEmpty()) Text("No $key yet.", color = MUTED_COLOR, fontSize = 13.sp)
+        if (groups.isEmpty()) Text(if (folders) tr("No folders yet.") else tr("No rows yet."), color = MUTED_COLOR, fontSize = 13.sp)
         groups.forEachIndexed { i, g ->
             Column(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0x11FFFFFF)).padding(12.dp),
@@ -69,14 +70,14 @@ private fun Groups(title: String, key: String, groups: List<Group>, max: Int, ct
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(g.name, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                    Text("${g.apps.size} apps", color = MUTED_COLOR, fontSize = 12.sp)
+                    Text(tr("{n} apps", "n" to g.apps.size), color = MUTED_COLOR, fontSize = 12.sp)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TvPrimaryButton(text = if (picking == i) "Done" else "Apps", onClick = { picking = if (picking == i) null else i })
-                    TvSecondaryButton(text = "Rename", onClick = { naming = i })
-                    if (i > 0) TvSecondaryButton(text = "Up", onClick = { save(groups.toMutableList().apply { add(i - 1, removeAt(i)) }); picking = null })
-                    if (i < groups.size - 1) TvSecondaryButton(text = "Down", onClick = { save(groups.toMutableList().apply { add(i + 1, removeAt(i)) }); picking = null })
-                    TvDestructiveButton(text = "Remove", onClick = { save(groups.filterIndexed { j, _ -> j != i }); picking = null })
+                    TvPrimaryButton(text = if (picking == i) tr("Done") else tr("Apps"), onClick = { picking = if (picking == i) null else i })
+                    TvSecondaryButton(text = tr("Rename"), onClick = { naming = i })
+                    if (i > 0) TvSecondaryButton(text = tr("Up"), onClick = { save(groups.toMutableList().apply { add(i - 1, removeAt(i)) }); picking = null })
+                    if (i < groups.size - 1) TvSecondaryButton(text = tr("Down"), onClick = { save(groups.toMutableList().apply { add(i + 1, removeAt(i)) }); picking = null })
+                    TvDestructiveButton(text = tr("Remove"), onClick = { save(groups.filterIndexed { j, _ -> j != i }); picking = null })
                 }
                 if (picking == i) {
                     val byPkg = apps.associateBy { it.pkg }
@@ -92,13 +93,13 @@ private fun Groups(title: String, key: String, groups: List<Group>, max: Int, ct
                 }
             }
         }
-        if (groups.size < max) TvSecondaryButton(text = "New $singular", onClick = { naming = -1 })
-        else Text("That's the most $key Home shows.", color = MUTED_COLOR, fontSize = 13.sp)
+        if (groups.size < max) TvSecondaryButton(text = if (folders) tr("New folder") else tr("New row"), onClick = { naming = -1 })
+        else Text(if (folders) tr("That's the most folders Home shows.") else tr("That's the most rows Home shows."), color = MUTED_COLOR, fontSize = 13.sp)
     }
 
     naming?.let { i ->
         TextPrompt(
-            title = if (i < 0) "Name the new $singular" else "Rename ${groups[i].name}",
+            title = if (i < 0) (if (folders) tr("Name the new folder") else tr("Name the new row")) else tr("Rename {name}", "name" to groups[i].name),
             initial = if (i < 0) "" else groups[i].name,
             onDismiss = { naming = null },
             onDone = { name ->

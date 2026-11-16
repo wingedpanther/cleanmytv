@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import io.github.wingedpanther.cleanmytv.home.tr
 
 @Composable
 fun TvRadioGroup(
@@ -63,7 +64,7 @@ fun TvRadioGroup(
                         .semantics {
                             role = Role.RadioButton
                             selected = isSelected
-                            contentDescription = "$label, ${if (isSelected) "selected" else "not selected"}"
+                            contentDescription = "$label, ${if (isSelected) tr("selected") else tr("not selected")}"
                         }
                 ) {
                     Box(

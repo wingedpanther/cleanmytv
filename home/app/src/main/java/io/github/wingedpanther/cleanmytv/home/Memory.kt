@@ -49,21 +49,22 @@ object Memory {
         val freed = clean(ctx)
         val now = read(ctx)
         withContext(Dispatchers.Main) {
-            Toast.makeText(ctx, "Memory cleaned: ${size(freed)} back, ${size(now.free)} free", Toast.LENGTH_SHORT).show()
+            Toast.makeText(ctx, tr("Memory cleaned: {back} back, {free} free", "back" to size(freed), "free" to size(now.free)), Toast.LENGTH_SHORT).show()
         }
     }
 
     /** 820 MB, 1.4 GB. */
     fun size(bytes: Long): String {
         val mb = bytes / (1024.0 * 1024.0)
-        return if (mb < 1000) "${mb.toInt()} MB" else String.format(Locale.US, "%.1f GB", mb / 1024.0)
+        return if (mb < 1000) tr("{n} MB", "n" to mb.toInt()) else tr("{n} GB", "n" to String.format(Locale.US, "%.1f", mb / 1024.0))
     }
 
     /** "1.4 of 2 GB free", "820 MB of 2 GB free": the total rounded up to the size the box is sold as. */
     fun line(m: MemoryNow): String {
         val gb = 1024.0 * 1024.0 * 1024.0
         val sold = (m.total / gb).let { if (it < 1) String.format(Locale.US, "%.1f", it) else kotlin.math.ceil(it).toInt().toString() }
-        val free = size(m.free).removeSuffix(" GB")
-        return "$free of $sold GB free"
+        val mb = m.free / (1024.0 * 1024.0)
+        val free = if (mb < 1000) size(m.free) else String.format(Locale.US, "%.1f", mb / 1024.0)
+        return tr("{free} of {total} GB free", "free" to free, "total" to sold)
     }
 }

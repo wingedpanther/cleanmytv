@@ -30,6 +30,7 @@ import androidx.tv.material3.Text
 import io.github.wingedpanther.cleanmytv.home.ConfigStore
 import io.github.wingedpanther.cleanmytv.home.Fire
 import io.github.wingedpanther.cleanmytv.home.HomeConfig
+import io.github.wingedpanther.cleanmytv.home.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,42 +43,42 @@ import java.net.URL
 fun VisualizerCustomization(config: HomeConfig, ctx: Context) {
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         TvSwitch(
-            title = "Music bars",
-            subtitle = "Bars that move with the music while something plays",
+            title = tr("Music bars"),
+            subtitle = tr("Bars that move with the music while something plays"),
             checked = config.visualiser,
             onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("visualiser", it)) }
         )
 
         TvRadioGroup(
-            title = "Style",
-            options = listOf("bars" to "Spectrum Bars", "mirror" to "Mirrored Bars", "wave" to "Waveform Line"),
+            title = tr("Style"),
+            options = listOf("bars" to tr("Spectrum Bars"), "mirror" to tr("Mirrored Bars"), "wave" to tr("Waveform Line")),
             current = config.vizStyle,
             onSelect = { ConfigStore.update(ctx, JSONObject().put("viz_style", it)) }
         )
 
         TvRadioGroup(
-            title = "Colour",
-            options = listOf("accent" to "Accent", "rainbow" to "Rainbow", "white" to "White"),
+            title = tr("Colour"),
+            options = listOf("accent" to tr("Accent"), "rainbow" to tr("Rainbow"), "white" to tr("White")),
             current = config.vizColour,
             onSelect = { ConfigStore.update(ctx, JSONObject().put("viz_colour", it)) }
         )
 
         TvSlider(
-            title = "Height",
+            title = tr("Height"),
             value = config.vizHeight,
             min = 4, max = 40, unit = "%",
             onChange = { ConfigStore.update(ctx, JSONObject().put("viz_height", it)) }
         )
 
         TvSlider(
-            title = "Opacity",
+            title = tr("Opacity"),
             value = config.vizOpacity,
             min = 20, max = 100, unit = "%",
             onChange = { ConfigStore.update(ctx, JSONObject().put("viz_opacity", it)) }
         )
 
         TvSlider(
-            title = "Sensitivity",
+            title = tr("Sensitivity"),
             value = config.vizSensitivity,
             min = 25, max = 300, unit = "%",
             onChange = { ConfigStore.update(ctx, JSONObject().put("viz_sensitivity", it)) }
@@ -101,9 +102,9 @@ fun FireplaceCustomization(config: HomeConfig, ctx: Context) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Fireplace Storage Status:", color = MUTED_COLOR, fontSize = 12.sp)
+                Text(tr("Fireplace Storage Status:"), color = MUTED_COLOR, fontSize = 12.sp)
                 Text(
-                    text = if (isReady) "MEDIA READY (VIDEO & CRACKLE INSTALLED)" else "NO MEDIA ON TV (UPLOAD FROM DESKTOP APP)",
+                    text = if (isReady) tr("MEDIA READY (VIDEO & CRACKLE INSTALLED)") else tr("NO MEDIA ON TV (UPLOAD FROM DESKTOP APP)"),
                     color = if (isReady) Color(0xFF4CAF50) else Color(0xFFFFB23C),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
@@ -112,30 +113,30 @@ fun FireplaceCustomization(config: HomeConfig, ctx: Context) {
         }
 
         TvSwitch(
-            title = "Fireplace as the wallpaper",
-            subtitle = "The fire burns behind Home",
+            title = tr("Fireplace as the wallpaper"),
+            subtitle = tr("The fire burns behind Home"),
             checked = config.fireWall,
             onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("fire_wall", it)) }
         )
 
         TvSwitch(
-            title = "Crackle in full screen",
-            subtitle = "The fire's sound when it fills the screen",
+            title = tr("Crackle in full screen"),
+            subtitle = tr("The fire's sound when it fills the screen"),
             checked = config.fireSound,
             onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("fire_sound", it)) }
         )
 
         TvSlider(
-            title = "Volume",
+            title = tr("Volume"),
             value = config.fireVolume,
             min = 0, max = 100, unit = "%",
             onChange = { ConfigStore.update(ctx, JSONObject().put("fire_volume", it)) }
         )
 
         TvSlider(
-            title = "Turn off after",
+            title = tr("Turn off after"),
             value = config.fireTimer,
-            min = 0, max = 240, unit = " min (0=Off)",
+            min = 0, max = 240, unit = tr(" min (0=Off)"),
             onChange = { ConfigStore.update(ctx, JSONObject().put("fire_timer", it)) }
         )
     }

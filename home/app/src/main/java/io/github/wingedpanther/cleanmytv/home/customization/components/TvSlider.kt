@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import io.github.wingedpanther.cleanmytv.home.tr
 import kotlinx.coroutines.delay
 
 @Composable
@@ -90,7 +91,7 @@ fun TvSlider(
                 } else false
             }
             .semantics {
-                contentDescription = "$title, value $localValue $unit"
+                contentDescription = tr("{title}, value {value} {unit}", "title" to title, "value" to localValue, "unit" to unit)
             }
     ) {
         Column(

@@ -74,8 +74,8 @@ fun SettingsPanel(accent: Color, onClose: () -> Unit) {
             Column(
                 Modifier.align(Alignment.CenterEnd).width(420.dp).fillMaxHeight().background(P_PANEL).padding(horizontal = 24.dp, vertical = 27.dp)
             ) {
-                Text("Quick settings", color = P_TEXT, fontSize = 24.sp, fontWeight = FontWeight.Medium)
-                Text("Left and right change a setting.", color = P_MUTED, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
+                Text(tr("Quick settings"), color = P_TEXT, fontSize = 24.sp, fontWeight = FontWeight.Medium)
+                Text(tr("Left and right change a setting."), color = P_MUTED, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
                 // Read again after every change, so each row shows what the TV has now.
                 val choices = remember(tick) {
                     listOf(TvSettings.volume(ctx), TvSettings.brightness(ctx), TvSettings.screensaver(ctx), TvSettings.saverApp(ctx), TvSettings.sleep(ctx),
@@ -92,7 +92,7 @@ fun SettingsPanel(accent: Color, onClose: () -> Unit) {
                                 val i = (c.current + d).coerceIn(0, c.options.size - 1)
                                 if (i != c.current) { c.set.invoke(i); tick++ }
                             }
-                            PanelRow(c.label, c.options.getOrElse(c.current) { "" }, if (c.writable) null else "Change it in the TV's settings", accent,
+                            PanelRow(c.label, c.options.getOrElse(c.current) { "" }, if (c.writable) null else tr("Change it in the TV's settings"), accent,
                                 Modifier.then(if (n == 0) Modifier.focusRequester(first) else Modifier).onPreviewKeyEvent { e ->
                                     if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                                     when (e.key) {
@@ -110,7 +110,7 @@ fun SettingsPanel(accent: Color, onClose: () -> Unit) {
                     // The fireplace, once CleanMyTV has put it on the TV: left and right set it behind Home, OK shows it full screen.
                     if (fire) item("fireplace") {
                         val cfg = ConfigStore.config.value
-                        val modes = listOf("Off", "Behind Home", "With crackle")
+                        val modes = listOf(tr("Off"), tr("Behind Home"), tr("With crackle"))
                         val cur = if (!cfg.fireWall) 0 else if (cfg.fireWallSound) 2 else 1
                         fun step(d: Int) {
                             val i = (cur + d).coerceIn(0, modes.size - 1)
@@ -118,7 +118,7 @@ fun SettingsPanel(accent: Color, onClose: () -> Unit) {
                             ConfigStore.update(ctx, org.json.JSONObject().put("fire_wall", i > 0).put("fire_wall_sound", i == 2))
                             tick++
                         }
-                        PanelRow("Fireplace", modes[cur], "OK shows it full screen", accent,
+                        PanelRow(tr("Fireplace"), modes[cur], tr("OK shows it full screen"), accent,
                             Modifier.onPreviewKeyEvent { e ->
                                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                                 when (e.key) {
@@ -132,21 +132,21 @@ fun SettingsPanel(accent: Color, onClose: () -> Unit) {
                     }
                     item("memory") {
                         val m = remember(tick) { Memory.read(ctx) }
-                        PanelRow("Memory", if (cleaning) "Cleaning…" else Memory.line(m), if (Memory.canClean) "OK closes apps in the background" else null, accent) {
+                        PanelRow(tr("Memory"), if (cleaning) tr("Cleaning…") else Memory.line(m), if (Memory.canClean) tr("OK closes apps in the background") else null, accent) {
                             if (Memory.canClean && !cleaning) scope.launch { cleaning = true; Memory.cleanAndSay(ctx); cleaning = false; tick++ }
                         }
                     }
-                    item("picture") { PanelRow("Picture & sound", "Open", null, accent) { quickActions()["display"]?.let { a -> resolve(ctx, a)?.let { open(it) } } } }
-                    item("network") { PanelRow("Network", network, null, accent) { open(Intent(Settings.ACTION_WIFI_SETTINGS)) } }
+                    item("picture") { PanelRow(tr("Picture & sound"), tr("Open"), null, accent) { quickActions()["display"]?.let { a -> resolve(ctx, a)?.let { open(it) } } } }
+                    item("network") { PanelRow(tr("Network"), network, null, accent) { open(Intent(Settings.ACTION_WIFI_SETTINGS)) } }
                     item("bluetooth") {
-                        PanelRow("Remotes & Bluetooth", "Open", null, accent) { quickActions()["bluetooth"]?.let { a -> resolve(ctx, a)?.let { open(it) } } }
+                        PanelRow(tr("Remotes & Bluetooth"), tr("Open"), null, accent) { quickActions()["bluetooth"]?.let { a -> resolve(ctx, a)?.let { open(it) } } }
                     }
                     if (adb) item("adb") {
-                        PanelRow("Debugging", if (armOff) "Press OK again to turn it off" else "On", "CleanMyTV can't connect once it's off", accent) {
+                        PanelRow(tr("Debugging"), if (armOff) tr("Press OK again to turn it off") else tr("On"), tr("CleanMyTV can't connect once it's off"), accent) {
                             if (armOff) { TvSettings.debuggingOff(ctx); armOff = false; tick++ } else armOff = true
                         }
                     }
-                    item("all") { PanelRow("All settings", "Open", null, accent) { open(Intent(Settings.ACTION_SETTINGS)) } }
+                    item("all") { PanelRow(tr("All settings"), tr("Open"), null, accent) { open(Intent(Settings.ACTION_SETTINGS)) } }
                 }
             }
         }

@@ -160,7 +160,7 @@ class FireView(ctx: Context, private val volume: () -> Float) : TextureView(ctx)
 
 /** What shows when the files aren't on the TV yet. */
 private fun notYet(ctx: Context) = TextView(ctx).apply {
-    text = "Put the fireplace on the TV first: CleanMyTV, Home screen step, Look & wallpaper tab."
+    text = tr("Put the fireplace on the TV first: CleanMyTV, Home screen step, Look & wallpaper tab.")
     setTextColor(0xFFBBBBBB.toInt())
     textSize = 20f
     gravity = Gravity.CENTER
@@ -228,9 +228,9 @@ class FireplaceActivity : Activity() {
         if (minutes > 0) handler.postDelayed(out, minutes * 60_000L)
         if (quiet) return
         note?.text = when {
-            minutes == 0 -> "The fire burns until you close it. OK sets a timer."
-            minutes < 60 -> "The fire goes out in $minutes min, then the TV sleeps."
-            else -> "The fire goes out in ${minutes / 60} h, then the TV sleeps."
+            minutes == 0 -> tr("The fire burns until you close it. OK sets a timer.")
+            minutes < 60 -> tr("The fire goes out in {n} min, then the TV sleeps.", "n" to minutes)
+            else -> tr("The fire goes out in {n} h, then the TV sleeps.", "n" to minutes / 60)
         }
         note?.animate()?.alpha(1f)?.setDuration(200)?.start()
         handler.removeCallbacks(hideNote)

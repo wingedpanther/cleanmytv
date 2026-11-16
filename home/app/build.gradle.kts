@@ -31,6 +31,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { compose = true }
+    // The tests check Home's English text, whatever language this computer runs in.
+    testOptions { unitTests.all { it.systemProperty("user.language", "en"); it.systemProperty("user.country", "US") } }
 }
 
 dependencies {

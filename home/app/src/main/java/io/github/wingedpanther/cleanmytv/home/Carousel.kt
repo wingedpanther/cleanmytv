@@ -104,8 +104,8 @@ fun ThemeCarousel(accent: Color, onClose: () -> Unit) {
         ) {
             if (themes.isEmpty()) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("No themes on this TV yet", color = C_TEXT, fontSize = 24.sp, fontWeight = FontWeight.Medium)
-                    Text("In CleanMyTV: Home screen → Look & wallpaper → Themes → Put themes on the TV.", color = C_MUTED, fontSize = 15.sp, modifier = Modifier.padding(top = 10.dp))
+                    Text(tr("No themes on this TV yet"), color = C_TEXT, fontSize = 24.sp, fontWeight = FontWeight.Medium)
+                    Text(tr("In CleanMyTV: Home screen → Look & wallpaper → Themes → Put themes on the TV."), color = C_MUTED, fontSize = 15.sp, modifier = Modifier.padding(top = 10.dp))
                 }
                 return@Box
             }
@@ -125,7 +125,7 @@ fun ThemeCarousel(accent: Color, onClose: () -> Unit) {
                 if (cur.pictures > 1) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     repeat(cur.pictures) { Box(Modifier.size(7.dp).background(if (it == v) accent else Color.White.copy(alpha = 0.25f), CircleShape)) }
                 }
-                Text("◀ ▶ themes   ▲ ▼ pictures   OK to use it   Back to close", color = C_MUTED, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
+                Text(tr("◀ ▶ themes   ▲ ▼ pictures   OK to use it   Back to close"), color = C_MUTED, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
             }
         }
         LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }

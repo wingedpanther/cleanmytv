@@ -38,17 +38,17 @@ object Wallpapers {
         runCatching {
             val list = JSONObject(String(get("$BING/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=en-US"), Charsets.UTF_8))
             val base = list.optJSONArray("images")?.optJSONObject(0)?.optString("urlbase").orEmpty()
-            require(base.startsWith("/")) { "Bing has no picture today" }
+            require(base.startsWith("/")) { tr("Bing has no picture today") }
             val bytes = get("$BING${base}_1920x1080.jpg")
             val f = File(ctx.cacheDir, "bing.jpg").apply { writeBytes(bytes) }
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(f.path, bounds)
-            require(bounds.outWidth > 0) { "Bing sent something that isn't a picture" }
+            require(bounds.outWidth > 0) { tr("Bing sent something that isn't a picture") }
             use(ctx, f, from = "bing")
             f.delete()
             ctx.getSharedPreferences("bing", Context.MODE_PRIVATE).edit().putString("day", today()).apply()
             null
-        }.getOrElse { it.message ?: "Bing didn't answer" }
+        }.getOrElse { it.message ?: tr("Bing didn't answer") }
     }
 
     private fun today() = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(java.util.Date())
@@ -66,9 +66,9 @@ object Wallpapers {
             conn.connectTimeout = 10_000
             conn.readTimeout = 20_000
             conn.setRequestProperty("User-Agent", "CleanMyTV-Home github.com/wingedpanther/cleanmytv")
-            require(conn.responseCode == 200) { "Bing answered ${conn.responseCode}" }
+            require(conn.responseCode == 200) { tr("Bing answered {code}", "code" to conn.responseCode) }
             // Only Bing itself: a redirect to another host would put someone else's file on the TV.
-            require(conn.url.host == URL(BING).host) { "Bing sent the picture somewhere else" }
+            require(conn.url.host == URL(BING).host) { tr("Bing sent the picture somewhere else") }
             val out = java.io.ByteArrayOutputStream()
             conn.inputStream.use { input ->
                 val buf = ByteArray(16 * 1024)
@@ -76,7 +76,7 @@ object Wallpapers {
                     val n = input.read(buf)
                     if (n < 0) break
                     out.write(buf, 0, n)
-                    require(out.size() <= MAX_BYTES) { "Bing's picture is over 4 MB" }
+                    require(out.size() <= MAX_BYTES) { tr("Bing's picture is over 4 MB") }
                 }
             }
             return out.toByteArray()

@@ -18,7 +18,7 @@ fun pickInputs(rows: List<InputRow>, liveTv: Boolean = true): List<Pair<String, 
     val shown = rows.filter { (it.parentId == null || it.parentId !in ids) && !it.hidden && (liveTv || !it.tuner) }
         .sortedWith(compareBy({ !it.tuner }, { !it.hdmi }, { portNumber(it.id) }, { it.id }))
     return (shown.filter { it.tuner }.take(1) + shown.filterNot { it.tuner })
-        .map { port -> port.id to (text(port.custom) ?: devices[port.id]?.firstNotNullOfOrNull { text(it.label) } ?: text(port.label) ?: if (port.tuner) "Live TV" else "Input") }
+        .map { port -> port.id to (text(port.custom) ?: devices[port.id]?.firstNotNullOfOrNull { text(it.label) } ?: text(port.label) ?: if (port.tuner) tr("Live TV") else tr("Input")) }
 }
 
 /** Port ids end in their number on most TVs (…/HW2); others sort after them. */

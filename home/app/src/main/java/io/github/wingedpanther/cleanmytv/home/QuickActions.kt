@@ -42,7 +42,7 @@ fun appAction(app: TvApp, icon: ImageBitmap?) = QuickAction("app:${app.pkg}", ap
 private fun settings(action: String) = Intent(action)
 
 fun quickActions(): Map<String, QuickAction> = listOf(
-    QuickAction("inputs", "Inputs", Icons.Outlined.Input, emptyList()),
+    QuickAction("inputs", tr("Inputs"), Icons.Outlined.Input, emptyList()),
     QuickAction("wifi", "Wi-Fi", Icons.Outlined.Wifi, listOf(settings(Settings.ACTION_WIFI_SETTINGS))),
     // Android TV keeps Bluetooth under "Remotes & accessories"; phones have the plain settings screen.
     QuickAction("bluetooth", "Bluetooth", Icons.Outlined.Bluetooth, listOf(
@@ -52,27 +52,27 @@ fun quickActions(): Map<String, QuickAction> = listOf(
         // Android 12+ guards the pairing screen with a Bluetooth permission Home doesn't hold (#97): Settings then.
         settings(Settings.ACTION_SETTINGS),
     )),
-    QuickAction("display", "Picture & sound", Icons.Outlined.Tv, listOf(settings(Settings.ACTION_DISPLAY_SETTINGS), settings(Settings.ACTION_SOUND_SETTINGS))),
-    QuickAction("apps", "Apps", Icons.Outlined.Apps, listOf(settings(Settings.ACTION_APPLICATION_SETTINGS), settings(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))),
+    QuickAction("display", tr("Picture & sound"), Icons.Outlined.Tv, listOf(settings(Settings.ACTION_DISPLAY_SETTINGS), settings(Settings.ACTION_SOUND_SETTINGS))),
+    QuickAction("apps", tr("Apps"), Icons.Outlined.Apps, listOf(settings(Settings.ACTION_APPLICATION_SETTINGS), settings(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))),
     // The system's own "start screensaver now" activity, present on most Android TV builds.
-    QuickAction("sleep", "Screensaver", Icons.Outlined.Bedtime, listOf(Intent().setComponent(ComponentName("com.android.systemui", "com.android.systemui.Somnambulator")), settings(Settings.ACTION_DREAM_SETTINGS))),
+    QuickAction("sleep", tr("Screensaver"), Icons.Outlined.Bedtime, listOf(Intent().setComponent(ComponentName("com.android.systemui", "com.android.systemui.Somnambulator")), settings(Settings.ACTION_DREAM_SETTINGS))),
     // Needs a search app such as Google's (Katniss); a cleaned TV may have switched it off.
-    QuickAction("search", "Search", Icons.Outlined.Search, listOf(Intent(Intent.ACTION_ASSIST), Intent("android.search.action.GLOBAL_SEARCH"), Intent(Intent.ACTION_SEARCH_LONG_PRESS))),
+    QuickAction("search", tr("Search"), Icons.Outlined.Search, listOf(Intent(Intent.ACTION_ASSIST), Intent("android.search.action.GLOBAL_SEARCH"), Intent(Intent.ACTION_SEARCH_LONG_PRESS))),
     // Handled by Home itself: turns the music bars on and off.
-    QuickAction("music", "Music bars", Icons.Outlined.MusicNote, emptyList()),
-    QuickAction("settings", "Settings", Icons.Outlined.Settings, listOf(settings(Settings.ACTION_SETTINGS))),
+    QuickAction("music", tr("Music bars"), Icons.Outlined.MusicNote, emptyList()),
+    QuickAction("settings", tr("Settings"), Icons.Outlined.Settings, listOf(settings(Settings.ACTION_SETTINGS))),
     // Handled by Home itself: its own settings panel, and the theme carousel.
-    QuickAction("panel", "Quick settings", Icons.Outlined.Tune, emptyList()),
-    QuickAction("themes", "Themes", Icons.Outlined.Palette, emptyList()),
+    QuickAction("panel", tr("Quick settings"), Icons.Outlined.Tune, emptyList()),
+    QuickAction("themes", tr("Themes"), Icons.Outlined.Palette, emptyList()),
     // Handled by Home itself: the on-TV editor, while the owner has it switched on (experimental).
-    QuickAction("customize", "Customize", Icons.Outlined.DisplaySettings, emptyList()),
-    QuickAction("fireplace", "Fireplace", Icons.Outlined.LocalFireDepartment, emptyList()),
+    QuickAction("customize", tr("Customize"), Icons.Outlined.DisplaySettings, emptyList()),
+    QuickAction("fireplace", tr("Fireplace"), Icons.Outlined.LocalFireDepartment, emptyList()),
     // Handled by Home itself: picks when the TV goes to sleep.
-    QuickAction("timer", "Sleep timer", Icons.Outlined.Timer, emptyList()),
+    QuickAction("timer", tr("Sleep timer"), Icons.Outlined.Timer, emptyList()),
     // Shown by Home itself, first in the bar, only while a newer Home is on the release page.
-    QuickAction("update", "Update Home", Icons.Outlined.SystemUpdate, emptyList()),
+    QuickAction("update", tr("Update Home"), Icons.Outlined.SystemUpdate, emptyList()),
     // Handled by Home itself: closes apps in the background. Up to Android 13 (see Memory).
-    QuickAction("memory", "Clean memory", Icons.Outlined.CleaningServices, emptyList()),
+    QuickAction("memory", tr("Clean memory"), Icons.Outlined.CleaningServices, emptyList()),
 ).associateBy { it.id }
 
 /**

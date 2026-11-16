@@ -141,7 +141,7 @@ class KeyService : AccessibilityService() {
             "next_wallpaper" -> ThemePack.next(this)
             "fireplace" -> startActivity(Intent(this, FireplaceActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             "memory" -> if (Memory.canClean) scope.launch { Memory.cleanAndSay(this@KeyService) }
-            "brightness" -> android.widget.Toast.makeText(this, TvSettings.nextBrightness(this)?.let { "Brightness $it%" } ?: "Brightness needs CleanMyTV's permission", android.widget.Toast.LENGTH_SHORT).show()
+            "brightness" -> android.widget.Toast.makeText(this, TvSettings.nextBrightness(this)?.let { tr("Brightness {n}%", "n" to it) } ?: tr("Brightness needs CleanMyTV's permission"), android.widget.Toast.LENGTH_SHORT).show()
             "app" -> b.app?.let { pkg ->
                 (packageManager.getLeanbackLaunchIntentForPackage(pkg) ?: packageManager.getLaunchIntentForPackage(pkg))
                     ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)?.let { startActivity(it) }

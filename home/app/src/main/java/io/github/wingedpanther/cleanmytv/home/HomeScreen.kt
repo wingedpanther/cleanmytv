@@ -180,7 +180,7 @@ private class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<Strin
     val dock = shown.filter { it.pkg !in inFolders && it !in other }.take(cfg.dockSize)
     val grid = shown.filter { it.pkg !in inFolders && it !in dock && it !in other }
     val rows = cfg.rows.map { g -> g.name to g.apps.mapNotNull { byPkg[it] }.filter { it.pkg !in cfg.hidden } }.filter { it.second.isNotEmpty() }
-    val folders = (cfg.folders.map { g -> g.name to g.apps.mapNotNull { byPkg[it] } } + listOf("Other apps" to other)).filter { it.second.isNotEmpty() }
+    val folders = (cfg.folders.map { g -> g.name to g.apps.mapNotNull { byPkg[it] } } + listOf(tr("Other apps") to other)).filter { it.second.isNotEmpty() }
     val recent = recentPkgs.mapNotNull { byPkg[it] }.filter { it.pkg !in cfg.hidden }
     /** The tile that takes focus when Home opens, as "<section>:<package>" (an app can sit in two sections). */
     val first: String? = cfg.sections.firstNotNullOfOrNull { s ->
@@ -311,7 +311,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     val update by Updates.available.collectAsState()
     LaunchedEffect(appsVersion, cfg.updateCheck) {
         val r = Updates.check(ctx) ?: return@LaunchedEffect
-        if (Updates.announce(ctx, r)) android.widget.Toast.makeText(ctx, "CleanMyTV Home ${r.version} is out. The update icon is first in the top bar.", android.widget.Toast.LENGTH_LONG).show()
+        if (Updates.announce(ctx, r)) android.widget.Toast.makeText(ctx, tr("CleanMyTV Home {version} is out. The update icon is first in the top bar.", "version" to r.version), android.widget.Toast.LENGTH_LONG).show()
     }
     val quick = listOfNotNull(all["update"]?.takeIf { update != null }) + cfg.quick.mapNotNull { id ->
         HomeConfig.quickApp(id)?.let { p -> byPkg[p]?.let { appAction(it, quickIcons[p]) } } ?: all[id]?.let { a -> cfg.names[id]?.let { a.copy(label = it) } ?: a }
@@ -438,7 +438,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         if (shown < 1f) IdleScreen(ui, Modifier.fillMaxSize().graphicsLayer { alpha = 1f - shown })
         moving?.let { m ->
             Text(
-                "Moving ${m.label}. Use the arrows, then OK.",
+                tr("Moving {app}. Use the arrows, then OK.", "app" to m.label),
                 color = TEXT, fontSize = 16.sp,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = SAFE_Y).background(PANEL, RoundedCornerShape(12.dp)).padding(horizontal = 18.dp, vertical = 10.dp)
             )
@@ -461,10 +461,10 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     if (showTimer) TimerMenu(ui) { showTimer = false }
     if (showUpdate) update?.let { UpdateDialog(it, accent) { showUpdate = false } }
     if (panelPin) Dialog(onDismissRequest = { panelPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        PinPad("Enter the PIN for Quick settings", Lock.PANEL, accent) { panelPin = false; showPanel = true }
+        PinPad(tr("Enter the PIN for Quick settings"), Lock.PANEL, accent) { panelPin = false; showPanel = true }
     }
     if (editPin) Dialog(onDismissRequest = { editPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        PinPad("Enter the PIN to customize Home", Lock.EDITOR, accent) { editPin = false; openEditorNow(ctx) }
+        PinPad(tr("Enter the PIN to customize Home"), Lock.EDITOR, accent) { editPin = false; openEditorNow(ctx) }
     }
 }
 
@@ -664,7 +664,7 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
             for (s in cfg.sections) when (s) {
                 "nowplaying" -> ui.track?.let { t -> item("nowplaying") { NowPlayingCard(t, ui) } }
                 "recent" -> if (home.recent.isNotEmpty()) {
-                    item("recent-title") { SectionTitle(cfg.names["recent"] ?: "Recently used") }
+                    item("recent-title") { SectionTitle(cfg.names["recent"] ?: tr("Recently used")) }
                     item("recent") { TileRow("recent", home.recent, ui, 148.dp * (cfg.tileScale / 100f), big = false, rowSpec) }
                 }
                 "dock" -> if (home.dock.isNotEmpty()) item("dock") {
@@ -675,7 +675,7 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
                     item("row$i") { TileRow("row$i", list, ui, 148.dp * (cfg.tileScale / 100f), big = false, rowSpec) }
                 }
                 "folders" -> if (showFolders && home.folders.isNotEmpty()) {
-                    item("folders-title") { SectionTitle("Folders") }
+                    item("folders-title") { SectionTitle(tr("Folders")) }
                     item("folders") {
                         CompositionLocalProvider(LocalBringIntoViewSpec provides rowSpec) {
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 16.dp)) {
@@ -725,7 +725,7 @@ private fun PaddingValues.calcHorizontal(): Dp =
     calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr) + calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr)
 
 private fun LazyListScope.grid(home: Home, ui: Ui, w: Dp) {
-    val label = ui.cfg.names["all_apps"] ?: if (home.dock.isEmpty() && home.rows.isEmpty()) "Apps" else "All apps"
+    val label = ui.cfg.names["all_apps"] ?: if (home.dock.isEmpty() && home.rows.isEmpty()) tr("Apps") else tr("All apps")
     item("grid-title") { SectionTitle(label) }
     // A square tile fills the middle 72% of its slot: the rows move left by the 14% before it, so the first
     // tile lines up with the heading and the dock above instead of sitting in from them.
@@ -923,7 +923,7 @@ private val SQUIRCLE = GenericShape { size, _ ->
 @Composable
 private fun LockBadge(modifier: Modifier) {
     Box(modifier.padding(6.dp).size(20.dp).background(Color.Black.copy(alpha = 0.6f), CircleShape), contentAlignment = Alignment.Center) {
-        Image(Icons.Outlined.Lock, "Locked", Modifier.size(12.dp), colorFilter = ColorFilter.tint(TEXT))
+        Image(Icons.Outlined.Lock, tr("Locked"), Modifier.size(12.dp), colorFilter = ColorFilter.tint(TEXT))
     }
 }
 
@@ -1045,8 +1045,8 @@ private fun NowPlayingCard(t: Track, ui: Ui) {
             Text(listOf(t.artist, t.app).filter { it.isNotBlank() }.joinToString(" · "), color = MUTED, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            RoundButton(if (t.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (t.playing) "Pause" else "Play", ui) { NowPlaying.playPause() }
-            RoundButton(Icons.Outlined.SkipNext, "Next", ui) { NowPlaying.next() }
+            RoundButton(if (t.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (t.playing) tr("Pause") else tr("Play"), ui) { NowPlaying.playPause() }
+            RoundButton(Icons.Outlined.SkipNext, tr("Next"), ui) { NowPlaying.next() }
         }
     }
 }
@@ -1083,7 +1083,7 @@ private fun MemoryLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Image(Icons.Outlined.Timer, null, Modifier.size(icon), colorFilter = ColorFilter.tint(MUTED))
                 Spacer(Modifier.width(6.dp))
-                Text("Sleeps at ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))}", color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+                Text(tr("Sleeps at {time}", "time" to DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))), color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
             }
         }
     }
@@ -1177,7 +1177,7 @@ private fun RailItem(icon: ImageVector, label: String, ui: Ui, expanded: Boolean
 private fun Greeting(cfg: HomeConfig, size: androidx.compose.ui.unit.TextUnit) {
     if (cfg.greeting.isBlank()) return
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-    val part = when (hour) { in 5..11 -> "Good morning"; in 12..17 -> "Good afternoon"; else -> "Good evening" }
+    val part = when (hour) { in 5..11 -> tr("Good morning"); in 12..17 -> tr("Good afternoon"); else -> tr("Good evening") }
     // The name in a light shade of the accent, light enough to read on any wallpaper.
     val name = lerp(Color(cfg.accent), Color.White, 0.45f)
     Text(buildAnnotatedString { append("$part, "); withStyle(SpanStyle(color = name)) { append(cfg.greeting) } }, color = TEXT, fontSize = size, fontWeight = FontWeight.Medium, maxLines = 2)
@@ -1252,9 +1252,9 @@ private fun TimerMenu(ui: Ui, onClose: () -> Unit) {
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().background(scrim(ui.cfg, 0.85f)), contentAlignment = Alignment.Center) {
             Column(Modifier.width(360.dp).background(PANEL, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Sleep timer", color = TEXT, fontSize = 22.sp, fontWeight = FontWeight.Medium)
-                Text(sleepAt?.let { "The TV sleeps at ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))}" } ?: "The TV goes to sleep after", color = MUTED, fontSize = 15.sp, modifier = Modifier.padding(bottom = 6.dp))
-                val items = SleepTimer.CHOICES.map { m -> Limits.words(m) to { SleepTimer.set(ctx, m) } } + (if (sleepAt != null) listOf("Off" to { SleepTimer.set(ctx, null) }) else emptyList())
+                Text(tr("Sleep timer"), color = TEXT, fontSize = 22.sp, fontWeight = FontWeight.Medium)
+                Text(sleepAt?.let { tr("The TV sleeps at {time}", "time" to DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))) } ?: tr("The TV goes to sleep after"), color = MUTED, fontSize = 15.sp, modifier = Modifier.padding(bottom = 6.dp))
+                val items = SleepTimer.CHOICES.map { m -> Limits.words(m) to { SleepTimer.set(ctx, m) } } + (if (sleepAt != null) listOf(tr("Off") to { SleepTimer.set(ctx, null) }) else emptyList())
                 items.forEachIndexed { i, (label, act) ->
                     val shape = RoundedCornerShape(12.dp)
                     val (scale, glow, border) = focusStyle(ui, shape, zoom = 1.03f)
@@ -1319,10 +1319,10 @@ private fun AppMenu(app: TvApp, ui: Ui, onMove: (() -> Unit)?, onClose: () -> Un
     }
     val pkgUri = android.net.Uri.fromParts("package", app.pkg, null)
     val items = buildList<Pair<String, () -> Unit>> {
-        onMove?.let { add("Move" to it) }
-        add("Hide from Home" to { onClose(); ConfigStore.update(ctx, JSONObject().put("hidden", JSONArray((ui.cfg.hidden + app.pkg).distinct()))) })
-        add("App info" to { open(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkgUri)) })
-        if (installed) add("Uninstall" to { open(android.content.Intent(android.content.Intent.ACTION_DELETE, pkgUri)) })
+        onMove?.let { add(tr("Move") to it) }
+        add(tr("Hide from Home") to { onClose(); ConfigStore.update(ctx, JSONObject().put("hidden", JSONArray((ui.cfg.hidden + app.pkg).distinct()))) })
+        add(tr("App info") to { open(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkgUri)) })
+        if (installed) add(tr("Uninstall") to { open(android.content.Intent(android.content.Intent.ACTION_DELETE, pkgUri)) })
     }
     // The menu opens while OK is still held: that press's repeats and its release would pick Move. Only a
     // press that starts inside the menu counts.
@@ -1367,7 +1367,7 @@ private fun InputsOverlay(inputs: List<Pair<String, String>>, ui: Ui, onClose: (
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().background(scrim(ui.cfg, 0.9f)), contentAlignment = Alignment.Center) {
             Column(Modifier.width(400.dp).background(PANEL, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(ui.cfg.names["inputs"] ?: "Inputs", color = TEXT, fontSize = 24.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(bottom = 6.dp))
+                Text(ui.cfg.names["inputs"] ?: tr("Inputs"), color = TEXT, fontSize = 24.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(bottom = 6.dp))
                 inputs.forEachIndexed { i, (id, label) ->
                     val shape = RoundedCornerShape(12.dp)
                     val (scale, glow, border) = focusStyle(ui, shape, zoom = 1.03f)

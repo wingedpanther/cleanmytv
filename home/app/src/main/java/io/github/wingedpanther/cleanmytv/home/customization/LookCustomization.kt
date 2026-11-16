@@ -36,31 +36,32 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import io.github.wingedpanther.cleanmytv.home.ConfigStore
 import io.github.wingedpanther.cleanmytv.home.HomeConfig
+import io.github.wingedpanther.cleanmytv.home.tr
 import org.json.JSONObject
 
 @Composable
 fun LookCustomization(config: HomeConfig, ctx: Context) {
     val hexAccents = listOf(
-        0xFFFFFFFF.toInt() to "White",
-        0xFF4CAF50.toInt() to "Green",
-        0xFF2196F3.toInt() to "Blue",
-        0xFFFF9800.toInt() to "Orange",
-        0xFFE91E63.toInt() to "Pink",
-        0xFF9C27B0.toInt() to "Purple",
-        0xFF00BCD4.toInt() to "Cyan"
+        0xFFFFFFFF.toInt() to tr("White"),
+        0xFF4CAF50.toInt() to tr("Green"),
+        0xFF2196F3.toInt() to tr("Blue"),
+        0xFFFF9800.toInt() to tr("Orange"),
+        0xFFE91E63.toInt() to tr("Pink"),
+        0xFF9C27B0.toInt() to tr("Purple"),
+        0xFF00BCD4.toInt() to tr("Cyan")
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         TvRadioGroup(
-            title = "Font",
-            options = listOf("default" to "Usual", "condensed" to "Condensed", "serif" to "Serif", "casual" to "Casual"),
+            title = tr("Font"),
+            options = listOf("default" to tr("Usual"), "condensed" to tr("Condensed"), "serif" to tr("Serif"), "casual" to tr("Casual")),
             current = config.font,
             onSelect = { ConfigStore.update(ctx, JSONObject().put("font", it)) }
         )
 
         // --- 1. Wallpaper Dimming Overlay ---
         TvSlider(
-            title = "Darken the wallpaper",
+            title = tr("Darken the wallpaper"),
             value = config.wallpaperDim,
             min = 0, max = 80, unit = "%",
             onChange = { ConfigStore.update(ctx, JSONObject().put("wallpaper_dim", it)) }
@@ -69,11 +70,11 @@ fun LookCustomization(config: HomeConfig, ctx: Context) {
         // Shading, as on the desktop app's Look tab: strength and how far each shade reaches.
         val shades = buildList {
             if (config.layout == "shelf") {
-                add(Triple("Top shade", "shade_top", config.shadeTop)); add(Triple("Top shade reach", "shade_top_reach", config.shadeTopReach))
+                add(Triple(tr("Top shade"), "shade_top", config.shadeTop)); add(Triple(tr("Top shade reach"), "shade_top_reach", config.shadeTopReach))
             }
-            add(Triple("Bottom shade", "shade_bottom", config.shadeBottom)); add(Triple("Bottom shade reach", "shade_bottom_reach", config.shadeBottomReach))
+            add(Triple(tr("Bottom shade"), "shade_bottom", config.shadeBottom)); add(Triple(tr("Bottom shade reach"), "shade_bottom_reach", config.shadeBottomReach))
             if (config.followColour) {
-                add(Triple("App colour", "wash", config.wash)); add(Triple("App colour reach", "wash_reach", config.washReach))
+                add(Triple(tr("App colour"), "wash", config.wash)); add(Triple(tr("App colour reach"), "wash_reach", config.washReach))
             }
         }
         for ((title, key, value) in shades) {
@@ -87,7 +88,7 @@ fun LookCustomization(config: HomeConfig, ctx: Context) {
 
         // --- 3. Accent Color Section ---
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Accent", color = TEXT_COLOR, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(tr("Accent"), color = TEXT_COLOR, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Row(
                 modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -125,7 +126,7 @@ fun LookCustomization(config: HomeConfig, ctx: Context) {
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Check,
-                                    contentDescription = "Selected Accent",
+                                    contentDescription = tr("Selected Accent"),
                                     tint = Color.Black,
                                     modifier = Modifier.padding(6.dp)
                                 )
@@ -138,8 +139,8 @@ fun LookCustomization(config: HomeConfig, ctx: Context) {
 
         // --- 4. Icon Style & App Labels ---
         TvRadioGroup(
-            title = "App icons",
-            options = listOf("banner" to "App Banner", "colour" to "Vector Brand Color", "mono" to "Monochrome", "duo" to "Duotone"),
+            title = tr("App icons"),
+            options = listOf("banner" to tr("App Banner"), "colour" to tr("Vector Brand Color"), "mono" to tr("Monochrome"), "duo" to tr("Duotone")),
             current = config.iconStyle,
             onSelect = { ConfigStore.update(ctx, JSONObject().put("icon_style", it)) }
         )
@@ -150,16 +151,16 @@ fun LookCustomization(config: HomeConfig, ctx: Context) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             TvSwitch(
-                title = "App names",
-                subtitle = "Names under the tiles",
+                title = tr("App names"),
+                subtitle = tr("Names under the tiles"),
                 checked = config.showNames,
                 onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("show_names", it)) },
                 modifier = Modifier.weight(1f)
             )
 
             TvSwitch(
-                title = "Only the focused app's name",
-                subtitle = "The other names stay hidden",
+                title = tr("Only the focused app's name"),
+                subtitle = tr("The other names stay hidden"),
                 checked = config.nameFocus,
                 onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("name_focus", it)) },
                 modifier = Modifier.weight(1f)
@@ -168,21 +169,21 @@ fun LookCustomization(config: HomeConfig, ctx: Context) {
 
         // --- 5. Tile Shape & Sizes ---
         TvRadioGroup(
-            title = "Tile shape",
-            options = listOf("wide" to "Wide (16:9)", "square" to "Square (1:1)", "squircle" to "Squircle", "round" to "Round"),
+            title = tr("Tile shape"),
+            options = listOf("wide" to tr("Wide (16:9)"), "square" to tr("Square (1:1)"), "squircle" to tr("Squircle"), "round" to tr("Round")),
             current = config.tileShape,
             onSelect = { ConfigStore.update(ctx, JSONObject().put("tile_shape", it)) }
         )
 
         TvSlider(
-            title = "Dock tile size",
+            title = tr("Dock tile size"),
             value = config.dockScale,
             min = 60, max = 150, unit = "%",
             onChange = { ConfigStore.update(ctx, JSONObject().put("dock_scale", it)) }
         )
 
         TvSlider(
-            title = "Tile size",
+            title = tr("Tile size"),
             value = config.tileScale,
             min = 60, max = 150, unit = "%",
             onChange = { ConfigStore.update(ctx, JSONObject().put("tile_scale", it)) }
@@ -190,29 +191,29 @@ fun LookCustomization(config: HomeConfig, ctx: Context) {
 
         // --- 6. Focus & Animation Effects ---
         TvRadioGroup(
-            title = "Focus",
-            options = listOf("lift" to "3D Lift", "glow" to "Glow Effect", "border" to "Border Outline", "none" to "None"),
+            title = tr("Focus"),
+            options = listOf("lift" to tr("3D Lift"), "glow" to tr("Glow Effect"), "border" to tr("Border Outline"), "none" to tr("None")),
             current = config.focus,
             onSelect = { ConfigStore.update(ctx, JSONObject().put("focus", it)) }
         )
 
         TvSwitch(
-            title = "Tilt",
-            subtitle = "The tile leans toward the move",
+            title = tr("Tilt"),
+            subtitle = tr("The tile leans toward the move"),
             checked = config.tilt,
             onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("tilt", it)) }
         )
 
         TvSwitch(
-            title = "Keep the focused tile in place",
-            subtitle = "The row slides under it",
+            title = tr("Keep the focused tile in place"),
+            subtitle = tr("The row slides under it"),
             checked = config.pinFocus,
             onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("pin_focus", it)) }
         )
 
         TvSwitch(
-            title = "Background takes the app's colour",
-            subtitle = "A tint of the focused app's colour",
+            title = tr("Background takes the app's colour"),
+            subtitle = tr("A tint of the focused app's colour"),
             checked = config.followColour,
             onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("follow_colour", it)) }
         )

@@ -104,15 +104,15 @@ object Updates {
     suspend fun install(ctx: Context, r: HomeRelease): String? = withContext(Dispatchers.IO) {
         runCatching {
             val name = "CleanMyTV-Home-${r.version}.apk"
-            _progress.value = "Checking the release…"
+            _progress.value = tr("Checking the release…")
             val sums = String(get(r.sums, 64 * 1024), Charsets.UTF_8)
             val want = sums.lines().firstNotNullOfOrNull { l -> Regex("^([0-9a-f]{64})\\s+\\*?(\\S+)$").matchEntire(l.trim())?.takeIf { it.groupValues[2] == name }?.groupValues?.get(1) }
-                ?: error("the release has no checksum for $name")
-            _progress.value = "Downloading ${r.version}…"
+                ?: error(tr("the release has no checksum for {file}", "file" to name))
+            _progress.value = tr("Downloading {version}…", "version" to r.version)
             val bytes = get(r.apk, MAX_APK)
             val got = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
-            check(got == want) { "the download is damaged; try again" }
-            _progress.value = "Installing…"
+            check(got == want) { tr("the download is damaged; try again") }
+            _progress.value = tr("Installing…")
             val installer = ctx.packageManager.packageInstaller
             val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply { setAppPackageName(ctx.packageName) }
             val id = installer.createSession(params)
@@ -125,7 +125,7 @@ object Updates {
                 s.commit(status.intentSender)
             }
             null
-        }.getOrElse { e -> "That didn't work: ${e.message}" }.also { _progress.value = it ?: "Confirm on the screen that opens. Home starts again on its own." }
+        }.getOrElse { e -> tr("That didn't work: {why}", "why" to e.message.toString()) }.also { _progress.value = it ?: tr("Confirm on the screen that opens. Home starts again on its own.") }
     }
 
     internal fun said(text: String) { _progress.value = text }
@@ -139,13 +139,13 @@ object Updates {
         val all = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
         val target = listOf(one, all).firstOrNull { it.resolveActivity(ctx.packageManager) != null }
         if (target != null) runCatching { ctx.startActivity(target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure { Log.w(TAG, "allow installs: $it") }
-        else _progress.value = "This TV hides the setting. Find Install unknown apps under Settings → Apps → Special app access and allow CleanMyTV Home."
+        else _progress.value = tr("This TV hides the setting. Find Install unknown apps under Settings → Apps → Special app access and allow CleanMyTV Home.")
     }
 
     private fun get(url: String, max: Int): ByteArray {
         var u = URL(url)
         repeat(5) {
-            require(u.protocol == "https" && u.host in HOSTS) { "the download went somewhere unexpected (${u.host})" }
+            require(u.protocol == "https" && u.host in HOSTS) { tr("the download went somewhere unexpected ({host})", "host" to u.host) }
             val c = u.openConnection() as HttpURLConnection
             try {
                 c.instanceFollowRedirects = false
@@ -155,20 +155,20 @@ object Updates {
                 c.setRequestProperty("Accept", "application/vnd.github+json, application/octet-stream")
                 val code = c.responseCode
                 if (code in 300..399) { u = URL(u, c.getHeaderField("Location")); return@repeat }
-                require(code == 200) { "GitHub answered $code" }
+                require(code == 200) { tr("GitHub answered {code}", "code" to code) }
                 val out = java.io.ByteArrayOutputStream()
                 c.inputStream.use { input ->
                     val buf = ByteArray(64 * 1024)
                     while (true) {
                         val n = input.read(buf); if (n < 0) break
                         out.write(buf, 0, n)
-                        require(out.size() <= max) { "the file is bigger than expected" }
+                        require(out.size() <= max) { tr("the file is bigger than expected") }
                     }
                 }
                 return out.toByteArray()
             } finally { c.disconnect() }
         }
-        error("too many redirects")
+        error(tr("too many redirects"))
     }
 }
 
@@ -181,13 +181,13 @@ class UpdateReceiver : BroadcastReceiver() {
                 val confirm = i.getParcelableExtra<Intent>(Intent.EXTRA_INTENT) ?: return
                 runCatching { c.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure { Log.w(TAG, "update confirm: $it") }
             }
-            PackageInstaller.STATUS_SUCCESS -> Updates.said("Updated.")
+            PackageInstaller.STATUS_SUCCESS -> Updates.said(tr("Updated."))
             else -> {
                 val why = i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE).orEmpty()
                 Updates.said(
-                    if ("DOWNGRADE" in why) "The TV has a newer test build than this release, so Android won't go back to it."
-                    else if (i.getIntExtra(PackageInstaller.EXTRA_STATUS, 0) == PackageInstaller.STATUS_FAILURE_ABORTED) "Not installed. Press Update to try again."
-                    else "The TV didn't install it: ${why.ifEmpty { "no reason given" }}"
+                    if ("DOWNGRADE" in why) tr("The TV has a newer test build than this release, so Android won't go back to it.")
+                    else if (i.getIntExtra(PackageInstaller.EXTRA_STATUS, 0) == PackageInstaller.STATUS_FAILURE_ABORTED) tr("Not installed. Press Update to try again.")
+                    else tr("The TV didn't install it: {why}", "why" to why.ifEmpty { tr("no reason given") })
                 )
             }
         }
