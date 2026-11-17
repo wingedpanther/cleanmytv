@@ -4,6 +4,12 @@ import type { Lang } from './i18n'
 
 export type PackageState = 'enabled' | 'disabled' | 'absent'
 
+/** One of the TV's inputs, by its TvInputManager id. */
+export interface TvInput {
+  id: string
+  name: string
+}
+
 export interface Probe {
   host: string
   model: string
@@ -242,6 +248,10 @@ export interface HomeConfig {
   stock_redirect: string
   /** After power on, go back to the input that was on when the TV went to sleep (#94). */
   power_on_input: boolean
+  /** What power on opens: '' for the input the TV slept on, else one input's id from `tv_inputs`, every time. */
+  power_on_target: string
+  /** Seconds to wait after the screen comes on before opening it: 0, 3, 5 or 10. */
+  power_on_wait: number
   // Look
   /** #RRGGBB, for the focus halo, glow or outline and the music bars. */
   accent: string
@@ -359,6 +369,8 @@ export interface HomeConfig {
   viz_sensitivity: number
   /** Read only: a wallpaper is set. */
   has_wallpaper?: boolean
+  /** Read only: the TV's HDMI and other ports, as the Inputs menu names them (launchers after 1.12.0). */
+  tv_inputs?: TvInput[]
   /** Read only: the quick-settings icons this TV can open (others are hidden on the TV). */
   quick_available?: QuickId[]
   /** Read only: false on a fresh install that has no settings yet (launcher 1.1.0 and later). */

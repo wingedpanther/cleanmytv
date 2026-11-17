@@ -23,10 +23,13 @@ import io.github.wingedpanther.cleanmytv.home.ConfigStore
 import io.github.wingedpanther.cleanmytv.home.HomeConfig
 import io.github.wingedpanther.cleanmytv.home.KeyService
 import io.github.wingedpanther.cleanmytv.home.NowPlayingListener
+import io.github.wingedpanther.cleanmytv.home.PowerOn
 import io.github.wingedpanther.cleanmytv.home.TAG
 import io.github.wingedpanther.cleanmytv.home.customization.components.MUTED_COLOR
 import io.github.wingedpanther.cleanmytv.home.customization.components.TextPrompt
+import io.github.wingedpanther.cleanmytv.home.customization.components.TvRadioGroup
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSecondaryButton
+import io.github.wingedpanther.cleanmytv.home.customization.components.findable
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSwitch
 import io.github.wingedpanther.cleanmytv.home.quickActions
 import io.github.wingedpanther.cleanmytv.home.UpdateDialog
@@ -44,6 +47,7 @@ fun MoreCustomization(config: HomeConfig, ctx: Context) {
     var naming by remember { mutableStateOf<String?>(null) }
     var checking by remember { mutableStateOf("") }
     var showUpdate by remember { mutableStateOf(false) }
+    var pickInput by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
     val update by Updates.available.collectAsState()
     val scope = rememberCoroutineScope()
     val set = { k: String, v: Any -> ConfigStore.update(ctx, JSONObject().put(k, v)); KeyService.ensureOn(ctx) }
@@ -71,6 +75,22 @@ fun MoreCustomization(config: HomeConfig, ctx: Context) {
             checked = config.powerOnInput,
             onCheckedChange = { set("power_on_input", it) }
         )
+        if (config.powerOnInput) {
+            // A box with no HDMI has nothing to pick: it keeps going back to the input it slept on.
+            val inputs = remember { PowerOn.choices(ctx) }
+            if (inputs.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val name = if (config.powerOnTarget.isEmpty()) tr("The last input")
+                    else inputs.firstOrNull { it.first == config.powerOnTarget }?.second ?: tr("An input the TV no longer has")
+                Text("${tr("Open at power on")}: $name", color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                TvSecondaryButton(text = tr("Change"), onClick = { pickInput = inputs }, modifier = Modifier.findable(tr("Open at power on")))
+            }
+            TvRadioGroup(
+                title = tr("Wait after waking"),
+                options = HomeConfig.POWER_ON_WAITS.map { it.toString() to tr("{n} s", "n" to it) },
+                current = config.powerOnWait.toString(),
+                onSelect = { set("power_on_wait", it.toInt()) }
+            )
+        }
         TvSwitch(
             title = tr("Keep my keyboard"),
             subtitle = tr("If the TV switches to the phone keyboard after a restart or standby, put yours back"),
@@ -123,6 +143,14 @@ fun MoreCustomization(config: HomeConfig, ctx: Context) {
         }
     }
 
+    pickInput?.let { inputs ->
+        Choose(
+            title = tr("Open at power on"),
+            options = listOf("" to tr("The last input")) + inputs,
+            onDismiss = { pickInput = null },
+            onPick = { pickInput = null; set("power_on_target", it) }
+        )
+    }
     if (showUpdate) update?.let { UpdateDialog(it, Color(config.accent)) { showUpdate = false } }
     if (greeting) TextPrompt(
         title = tr("Your name for the greeting"),

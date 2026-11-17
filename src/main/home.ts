@@ -22,7 +22,7 @@ const HEX = /^#[0-9A-Fa-f]{6}$/
 
 export const DEFAULTS: HomeConfig = {
   layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
-  rows: [], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false,
+  rows: [], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false, power_on_target: '', power_on_wait: 0,
   accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
   edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, theme_memory: true, lock_editor: false, update_check: true, keyboard_guard: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
   order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
@@ -86,6 +86,9 @@ const MAX_KEY = 65535
 const BUTTON_ACTIONS = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'timer', 'next_wallpaper', 'brightness', 'home', 'back', 'none', 'app']
 /** A built-in theme's picture, as "<theme id>:<picture>". */
 const THEME_PICTURE = /^[a-z0-9-]{1,40}:[0-9]$/
+/** A TvInputManager input id, like com.mediatek.tvinput/.hdmi.HDMIInputService/HW5 (Config.kt INPUT_ID). */
+const INPUT_ID = /^[A-Za-z0-9_.$/:-]{1,200}$/
+export const POWER_ON_WAITS = [0, 3, 5, 10] as const
 
 function bundledVersion(): string | undefined {
   try {
@@ -288,6 +291,12 @@ export function parse(out: string): HomeConfig {
   if (typeof o.can_change_settings === 'boolean') cfg.can_change_settings = o.can_change_settings
   if (Array.isArray(o.looks_saved)) cfg.looks_saved = o.looks_saved.filter((l): l is LookSlot => l === 'day' || l === 'night')
   // Older launchers don't report this; leave it unset so the editor doesn't mark everything unavailable.
+  if (Array.isArray(o.tv_inputs)) {
+    cfg.tv_inputs = o.tv_inputs.flatMap((i) => {
+      const x = i as Record<string, unknown>
+      return typeof x.id === 'string' && INPUT_ID.test(x.id) ? [{ id: x.id, name: typeof x.name === 'string' && x.name.trim() ? x.name.slice(0, 60) : x.id }] : []
+    })
+  }
   if (Array.isArray(o.quick_available)) cfg.quick_available = o.quick_available.filter((q): q is QuickId => (QUICK as readonly unknown[]).includes(q))
   return cfg
 }
@@ -319,6 +328,14 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
   if (o.stock_redirect !== undefined) {
     if (typeof o.stock_redirect === 'string' && (o.stock_redirect === '' || T.PACKAGE_RE.test(o.stock_redirect))) out.stock_redirect = o.stock_redirect
     else bad('stock_redirect must be a package name or empty')
+  }
+  if (o.power_on_target !== undefined) {
+    if (typeof o.power_on_target === 'string' && (o.power_on_target === '' || INPUT_ID.test(o.power_on_target))) out.power_on_target = o.power_on_target
+    else bad('power_on_target must be an input id or empty')
+  }
+  if (o.power_on_wait !== undefined) {
+    if ((POWER_ON_WAITS as readonly unknown[]).includes(o.power_on_wait)) out.power_on_wait = o.power_on_wait
+    else bad(`power_on_wait must be one of ${POWER_ON_WAITS.join(', ')}`)
   }
   if (o.wallpaper_from !== undefined) {
     if (typeof o.wallpaper_from === 'string' && (o.wallpaper_from === '' || THEME_PICTURE.test(o.wallpaper_from))) out.wallpaper_from = o.wallpaper_from
@@ -684,7 +701,7 @@ function keep(cfg: HomeConfig): HomeConfig {
   if (base && cfg.configured !== false) {
     try {
       mkdirSync(paths.homeBackups, { recursive: true, mode: 0o700 })
-      const { has_wallpaper: _w, quick_available: _q, configured: _c, ...settings } = cfg
+      const { has_wallpaper: _w, quick_available: _q, configured: _c, tv_inputs: _i, ...settings } = cfg
       writeFileSync(base + '.json', JSON.stringify(settings, null, 2), { mode: 0o600 })
     } catch (e) {
       log('theme', 'info', `could not save the settings copy: ${(e as Error).message}`)

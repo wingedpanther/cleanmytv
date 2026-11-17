@@ -188,6 +188,7 @@ class ConfigProvider : ContentProvider() {
             .put("has_wallpaper", ConfigStore.wallpaper(ctx).exists())
             .put("configured", ConfigStore.configured(ctx))
             .put("quick_available", org.json.JSONArray(availableQuick(ctx)))
+            .put("tv_inputs", org.json.JSONArray(PowerOn.choices(ctx).map { (id, name) -> JSONObject().put("id", id).put("name", name) }))
             .put("lock_pin_set", Lock.hasPin(ctx))
             .put("themes_on_tv", ThemePack.list(ctx).size)
             .put("fire_on_tv", Fire.ready(ctx))
