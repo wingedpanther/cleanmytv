@@ -266,7 +266,7 @@ fun CustomizationDialog(
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(Color.White.copy(alpha = 0.05f))
                             ) {
-                                LazyColumn {
+                                LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     // Above the sections: finds a setting by name or by the words people use for it.
                                     item {
                                         var focused by remember { mutableStateOf(false) }
@@ -279,7 +279,7 @@ fun CustomizationDialog(
                                             ),
                                             scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
                                             shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
-                                            modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused }
+                                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp).onFocusChanged { focused = it.isFocused }
                                         ) {
                                             Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(Icons.Outlined.Search, contentDescription = null, tint = if (focused) CUSTOMIZATION_BG else MUTED_COLOR, modifier = Modifier.size(18.dp))
