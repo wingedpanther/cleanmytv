@@ -29,21 +29,38 @@ object PowerOn {
         uris.flatMap { u -> pm.queryIntentActivities(Intent(Intent.ACTION_VIEW, u), 0).map { it.activityInfo.packageName } }.toSet() - launchers - ctx.packageName
     }.getOrDefault(emptySet())
 
-    /** The screen went off with [front] in front. */
+    /**
+     * The screen went off with [front] in front. The log line says what was in front and whether it counted
+     * as an input, so a recorded log shows where a TV that wakes on Home lost the input (#94).
+     */
     fun asleep(ctx: Context, front: String?) {
-        val app = front?.takeIf { ConfigStore.config.value.powerOnInput && it in inputApps(ctx) }
+        val on = ConfigStore.config.value.powerOnInput
+        val inputs = if (on) inputApps(ctx) else emptySet()
+        val app = front?.takeIf { on && it in inputs }
         prefs(ctx).edit().putString("app", app).apply()
+        if (on) Log.i(TAG, "power on: screen off with $front in front, ${if (app != null) "an input" else "not an input"}; input apps: ${inputs.joinToString().ifEmpty { "none" }}")
     }
 
     /** The screen is on, or the TV started; [front] is what the TV put up. */
     fun awake(ctx: Context, front: String?) {
-        val app = prefs(ctx).getString("app", null) ?: return
+        val app = prefs(ctx).getString("app", null)
+        if (app == null) {
+            if (ConfigStore.config.value.powerOnInput) Log.i(TAG, "power on: nothing to go back to, the screen went off away from an input")
+            return
+        }
         prefs(ctx).edit().remove("app").apply()
-        if (!ConfigStore.config.value.powerOnInput || front == app) return
+        val why = when {
+            !ConfigStore.config.value.powerOnInput -> "switched off since the screen went off"
+            front == app -> "the TV is already on $app"
+            else -> null
+        }
+        if (why != null) { Log.i(TAG, "power on: $why"); return }
         val pm = ctx.packageManager
-        val open = pm.getLeanbackLaunchIntentForPackage(app) ?: pm.getLaunchIntentForPackage(app) ?: return
+        val open = pm.getLeanbackLaunchIntentForPackage(app) ?: pm.getLaunchIntentForPackage(app)
+        if (open == null) { Log.w(TAG, "power on: $app has no screen to open"); return }
         runCatching { ctx.startActivity(open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            .onSuccess { Log.i(TAG, "power on: back to $app") }
+            // Android can still drop a start from the background without an error; ActivityTaskManager logs that.
+            .onSuccess { Log.i(TAG, "power on: opening $app") }
             .onFailure { Log.w(TAG, "power on: $it") }
     }
 }
