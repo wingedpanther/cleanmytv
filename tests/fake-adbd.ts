@@ -80,6 +80,10 @@ export interface FakeTv {
   appops?: Map<string, string>
   /** appops answers with a SecurityException, as on TVs that lock it down. */
   appopsRefused?: boolean
+  /** ro.hdmi.device_type: "0" on a TV, "4" on a streaming box; unset leaves it empty. */
+  hdmiType?: string
+  /** HDMI-CEC's tv_wake_on_one_touch_play; unset means the TV has no hdmi_control service. */
+  cecWake?: string
   /** Misbehaviour for client hardening tests. */
   tokenSize?: number
   sendMalformed?: 'oversize' | 'magic'
@@ -101,6 +105,11 @@ function outranking(tv: FakeTv): string | undefined {
 function sh(tv: FakeTv, cmd: string): string {
   tv.commands.push(cmd)
   let m: RegExpExecArray | null
+  if (cmd.startsWith('getprop ro.hdmi.device_type; cmd hdmi_control cec_setting get ')) {
+    const name = cmd.split(' ').at(-2)
+    return `${tv.hdmiType ?? ''}\n` + (tv.cecWake === undefined ? "cmd: Can't find service: hdmi_control\n" : `${name} = ${tv.cecWake}\n`)
+  }
+  if ((m = /^cmd hdmi_control cec_setting set (\S+) (\S+)$/.exec(cmd))) { if (tv.cecWake !== undefined) tv.cecWake = m[2]; return '' }
   if (cmd.startsWith('getprop')) {
     const props: Record<string, string> = { 'ro.product.model': 'BRAVIA 4K VH2', 'ro.product.device': 'BRAVIA_VH2', 'ro.product.name': 'BRAVIA_VH2_EU', 'ro.product.manufacturer': tv.manufacturer ?? 'Sony', 'ro.build.version.release': tv.sdk === '24' ? '7.0' : '12', 'ro.build.version.sdk': tv.sdk ?? '31', 'sys.boot_completed': '1', 'ro.build.display.id': 'TEST', 'ro.adb.secure': tv.adbSecure }
     return cmd.split(';').map((c) => props[c.trim().split(' ')[1]] ?? '').join('\n') + '\n'

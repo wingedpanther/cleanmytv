@@ -74,7 +74,7 @@ export interface CheckItem {
 }
 
 /** One thing the check-up after Clean up looks at on the TV. */
-export type CheckupId = 'keyboard' | 'home' | 'voice' | 'screensaver'
+export type CheckupId = 'keyboard' | 'home' | 'voice' | 'screensaver' | 'hdmi_wake'
 
 export interface CheckupItem {
   id: CheckupId
