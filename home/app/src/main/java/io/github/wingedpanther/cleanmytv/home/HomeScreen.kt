@@ -758,13 +758,13 @@ private fun TileRow(section: String, list: List<TvApp>, ui: Ui, w: Dp, big: Bool
 
 // ---- Tiles ----------------------------------------------------------------------------------------
 
-/** [lifted]: the caller zooms the tile itself with [lift], so the surface doesn't. */
+/** [lifted]: the caller zooms the tile itself with [lift], so the surface doesn't. [white]: a white glow, for [blackOnWhite]. */
 @Composable
-private fun focusStyle(ui: Ui, shape: Shape, zoom: Float = 1.08f, lifted: Boolean = false) = Triple(
+private fun focusStyle(ui: Ui, shape: Shape, zoom: Float = 1.08f, lifted: Boolean = false, white: Boolean = false) = Triple(
     ClickableSurfaceDefaults.scale(focusedScale = if (ui.cfg.focus == "none" || (lifted && ui.cfg.focus == "lift")) 1f else zoom),
     ClickableSurfaceDefaults.glow(
         focusedGlow = when (ui.cfg.focus) {
-            "glow" -> Glow(ui.accent, 16.dp)
+            "glow" -> Glow(if (white) Color.White else ui.accent, 16.dp)
             "lift" -> Glow(ui.accent.copy(alpha = 0.35f), 16.dp) // a faint halo; the shadow does the lifting
             else -> Glow.None
         }
@@ -1102,31 +1102,39 @@ private fun weatherIcon(w: WeatherNow): ImageVector = when (w.code) {
     else -> Icons.Outlined.Cloud
 }
 
+/**
+ * Mono icons with the Glow focus: a focused round button turns white with a black icon, on a white glow
+ * (#119). With anything else the accent fills it, as before.
+ */
+private fun blackOnWhite(ui: Ui) = ui.cfg.iconStyle == "mono" && ui.cfg.focus == "glow"
+private fun buttonFill(ui: Ui) = if (blackOnWhite(ui)) Color.White else ui.accent.copy(alpha = 0.9f)
+private fun buttonInk(ui: Ui) = if (blackOnWhite(ui)) Color.Black else onAccent(ui.accent)
+
 @Composable
 private fun RoundButton(icon: ImageVector, label: String, ui: Ui, onClick: () -> Unit) {
-    val (scale, glow, border) = focusStyle(ui, RoundedCornerShape(50), zoom = 1.12f)
+    val (scale, glow, border) = focusStyle(ui, RoundedCornerShape(50), zoom = 1.12f, white = blackOnWhite(ui))
     var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
         modifier = Modifier.pointer(onClick = onClick).size(44.dp).onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(CircleShape), scale = scale, glow = glow, border = border,
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = ui.accent.copy(alpha = 0.9f))
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = buttonFill(ui))
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Image(icon, label, Modifier.size(24.dp), colorFilter = ColorFilter.tint(if (focused) onAccent(ui.accent) else TEXT))
+            Image(icon, label, Modifier.size(24.dp), colorFilter = ColorFilter.tint(if (focused) buttonInk(ui) else TEXT))
         }
     }
 }
 
 @Composable
 private fun QuickButton(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit) {
-    val (scale, glow, border) = focusStyle(ui, RoundedCornerShape(50), zoom = 1.12f)
+    val (scale, glow, border) = focusStyle(ui, RoundedCornerShape(50), zoom = 1.12f, white = blackOnWhite(ui))
     var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = { onQuick(a) },
         modifier = Modifier.pointer { onQuick(a) }.size(40.dp).onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(CircleShape), scale = scale, glow = glow, border = border,
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = ui.accent.copy(alpha = 0.9f))
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = buttonFill(ui))
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             QuickGlyph(a, ui, focused, 22.dp)
@@ -1142,7 +1150,7 @@ private fun QuickButton(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit) 
 private fun QuickGlyph(a: QuickAction, ui: Ui, focused: Boolean, size: Dp) {
     val art = a.art
     if (art != null) Image(art, a.label, Modifier.size(size + 4.dp).clip(CircleShape))
-    else Image(iconFor(a, ui.cfg), a.label, Modifier.size(size), colorFilter = ColorFilter.tint(if (focused) onAccent(ui.accent) else TEXT))
+    else Image(iconFor(a, ui.cfg), a.label, Modifier.size(size), colorFilter = ColorFilter.tint(if (focused) buttonInk(ui) else TEXT))
 }
 
 @Composable
@@ -1152,14 +1160,14 @@ private fun QuickRow(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit, exp
 @Composable
 private fun RailItem(icon: ImageVector, label: String, ui: Ui, expanded: Boolean, glyph: (@Composable (Boolean) -> Unit)? = null, onClick: () -> Unit) {
     val shape = RoundedCornerShape(22.dp)
-    val (_, glow, border) = focusStyle(ui, shape)
+    val (_, glow, border) = focusStyle(ui, shape, white = blackOnWhite(ui))
     var focused by remember { mutableStateOf(false) }
-    val ink = if (focused) onAccent(ui.accent) else TEXT
+    val ink = if (focused) buttonInk(ui) else TEXT
     Surface(
         onClick = onClick,
         modifier = Modifier.pointer(onClick = onClick).height(44.dp).then(if (expanded) Modifier.fillMaxWidth() else Modifier.width(44.dp)).onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(shape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f), glow = glow, border = border,
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = ui.accent.copy(alpha = 0.9f))
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = buttonFill(ui))
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 11.dp), verticalAlignment = Alignment.CenterVertically) {
             // A fixed 22 dp slot, so labels line up whether the icon is a glyph or an app's.
