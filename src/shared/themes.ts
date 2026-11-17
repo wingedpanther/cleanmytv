@@ -207,7 +207,7 @@ const THEMES: BuiltInTheme[] = [
     paint: {
       base: ['#081129', '#1A1230'],
       glows: [
-        { colour: '#FFB347', x: 0.22, y: 0.62, r: 0.45, a: 0.2 },
+        { colour: '#FFB347', x: 0.22, y: 0.62, r: 0.45, a: 0.26 },
         { colour: '#D9434B', x: 0.95, y: 0.9, r: 0.4, a: 0.14 },
         { colour: '#8FB4FF', x: 0.72, y: 0.0, r: 0.5, a: 0.1 }
       ],

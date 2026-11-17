@@ -508,15 +508,15 @@ function fairyLights(ctx: Ctx, w: number, h: number, r: Rnd, colours: string[]):
   for (let x = step / 2, i = 0; x < w; x += step, i++) {
     const y = at(x) + 7 * s
     const col = colours[i % colours.length]
-    const glow = ctx.createRadialGradient(x, y, 0, x, y, 34 * s)
-    glow.addColorStop(0, rgba(col, 0.6))
-    glow.addColorStop(0.3, rgba(col, 0.2))
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, 46 * s)
+    glow.addColorStop(0, rgba(col, 0.9))
+    glow.addColorStop(0.3, rgba(col, 0.34))
     glow.addColorStop(1, rgba(col, 0))
     ctx.fillStyle = glow
-    ctx.fillRect(x - 34 * s, y - 34 * s, 68 * s, 68 * s)
-    ctx.fillStyle = mix(col, '#FFFFFF', 0.4)
+    ctx.fillRect(x - 46 * s, y - 46 * s, 92 * s, 92 * s)
+    ctx.fillStyle = mix(col, '#FFFFFF', 0.6)
     ctx.beginPath()
-    ctx.ellipse(x, y, 4.5 * s, 6.5 * s, 0, 0, Math.PI * 2)
+    ctx.ellipse(x, y, 5.5 * s, 8 * s, 0, 0, Math.PI * 2)
     ctx.fill()
   }
 }

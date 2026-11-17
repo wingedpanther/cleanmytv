@@ -50,12 +50,12 @@ fun Snow(running: Boolean, modifier: Modifier = Modifier) {
  * Where each flake is, as fractions of the screen, so the same snow fits any TV. Near flakes are bigger,
  * brighter and faster than far ones, and each sways a little as it falls.
  */
-class Flakes(val count: Int = 48, seed: Int = 25) {
+class Flakes(val count: Int = 60, seed: Int = 25) {
     private val r = Random(seed)
     val y = FloatArray(count) { r.nextFloat() }
     private val x0 = FloatArray(count) { r.nextFloat() }
     private val near = FloatArray(count) { r.nextFloat().let { it * it } }
-    val size = FloatArray(count) { 1.2f + near[it] * 2.8f } // dp
+    val size = FloatArray(count) { 2f + near[it] * 4.6f } // dp, big enough to see across the room
     val alpha = FloatArray(count) { 0.35f + near[it] * 0.5f }
     private val fall = FloatArray(count) { 0.03f + near[it] * 0.06f + r.nextFloat() * 0.01f } // screens a second
     private val sway = FloatArray(count) { 0.004f + r.nextFloat() * 0.008f }
