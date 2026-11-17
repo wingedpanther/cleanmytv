@@ -32,6 +32,10 @@ data class HomeConfig(
     val stockRedirect: String = "",
     // Back to the input that was on when the TV went to sleep (#94)
     val powerOnInput: Boolean = false,
+    // What power on opens: "" for the input it slept on, else one input's TvInputManager id, every time
+    val powerOnTarget: String = "",
+    // Seconds to wait before opening it, on top of PowerOn.SETTLE_MS, for TVs slow to put their own screen up
+    val powerOnWait: Int = 0,
     // Look: CleanMyTV's dark green-and-earth world by default
     val accent: Long = 0xFF4CAF50,
     val focus: String = "lift", // lift, glow, outline, none
@@ -128,6 +132,8 @@ data class HomeConfig(
         .put("buttons", JSONArray(buttons.map { b -> JSONObject().put("code", b.code).put("action", b.action).apply { b.app?.let { put("app", it) } } }))
         .put("stock_redirect", stockRedirect)
         .put("power_on_input", powerOnInput)
+        .put("power_on_target", powerOnTarget)
+        .put("power_on_wait", powerOnWait)
         .put("accent", hex(accent))
         .put("focus", focus)
         .put("background", hex(background))
@@ -204,6 +210,9 @@ data class HomeConfig(
         private fun hex(c: Long) = "#%06X".format(c and 0xFFFFFF)
         val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "customize", "timer")
         private val THEME_PICTURE = Regex("^[a-z0-9-]{1,40}:[0-9]$")
+        /** A TvInputManager input id, like com.mediatek.tvinput/.hdmi.HDMIInputService/HW5. */
+        private val INPUT_ID = Regex("^[A-Za-z0-9_.\\$/:-]{1,200}$")
+        val POWER_ON_WAITS = listOf(0, 3, 5, 10)
         val SECTIONS = setOf("nowplaying", "recent", "dock", "watchnext", "rows", "folders", "grid")
         val DEFAULT_SECTIONS = listOf("nowplaying", "dock", "watchnext", "rows", "folders", "grid")
         /** The sections Home 1.12 and older knew, for settings saved before "sections_known" was. */
@@ -268,6 +277,8 @@ data class HomeConfig(
                 buttons = buttons() ?: base.buttons,
                 stockRedirect = if (o.has("stock_redirect")) o.optString("stock_redirect").takeIf { it.isEmpty() || PKG.matches(it) } ?: base.stockRedirect else base.stockRedirect,
                 powerOnInput = bool("power_on_input", base.powerOnInput),
+                powerOnTarget = if (o.has("power_on_target")) o.optString("power_on_target").takeIf { it.isEmpty() || INPUT_ID.matches(it) } ?: base.powerOnTarget else base.powerOnTarget,
+                powerOnWait = if (o.has("power_on_wait")) o.optInt("power_on_wait", -1).takeIf { it in POWER_ON_WAITS } ?: base.powerOnWait else base.powerOnWait,
                 layout = choice("layout", base.layout, setOf("shelf", "split", "rail")),
                 sections = strings("sections", SECTIONS) ?: base.sections,
                 topSpace = int("top_space", base.topSpace, 0, 40),

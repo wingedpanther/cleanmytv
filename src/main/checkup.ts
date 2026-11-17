@@ -1,6 +1,7 @@
 // The check-up after Clean up: the things people found broken afterwards, checked on the TV with a fix for
 // each. A keyboard stuck on the phone one (#98), no Home, a remote mic with half its pair switched off (the
-// phone-remote service also carries the remote's microphone), and a screensaver pointing at an app that's off.
+// phone-remote service also carries the remote's microphone), a screensaver pointing at an app that's off, and
+// a TV that won't let a device on HDMI turn it on.
 import type { CheckupId, CheckupItem } from '@shared/api'
 import * as T from './tv'
 import { HOME_PKG } from './launcher'
@@ -12,6 +13,11 @@ const TASK = 'check-up'
 const BRIDGE = 'com.google.android.tv.remote.service/'
 const REMOTE = 'com.google.android.tv.remote.service'
 const VOICE = 'com.google.android.katniss'
+/**
+ * HDMI-CEC's "TV wakes when a device starts playing". TCL's Google TVs ship it at 0, so a Shield or a console
+ * can't turn the TV on (upstream #4045). Android 12 and later have the command; older TVs fail it and get no item.
+ */
+const CEC_WAKE = 'tv_wake_on_one_touch_play'
 /** Google's speech services offer a voice "keyboard" that can't type. */
 const NOT_TYPING = ['com.google.android.tts/']
 
@@ -23,6 +29,8 @@ export interface TvState {
   disabled: Set<string>
   screensaver: string
   screensaverOn: boolean
+  /** The TV's CEC wake setting, "0" or "1"; null on a box, or a TV without the command. */
+  hdmiWake?: string | null
 }
 
 const on = (s: TvState, pkg: string): boolean => s.installed.has(pkg) && !s.disabled.has(pkg)
@@ -64,7 +72,23 @@ export function assess(s: TvState): CheckupItem[] {
   } else {
     out.push({ id: 'screensaver', label: t('Screensaver'), ok: true, detail: !s.screensaverOn ? t('The screensaver is off.') : t('The screensaver app is on.') })
   }
+  if (s.hdmiWake === '0') {
+    out.push({ id: 'hdmi_wake', label: t('Turn on from HDMI'), ok: false, detail: t("A console or box on HDMI can't turn this TV on."), fix: t('Allow it') })
+  } else if (s.hdmiWake === '1') {
+    out.push({ id: 'hdmi_wake', label: t('Turn on from HDMI'), ok: true, detail: t('A console or box on HDMI can turn this TV on.') })
+  }
   return out
+}
+
+/**
+ * The CEC wake setting, only on a TV: a streaming box is a playback device (ro.hdmi.device_type has no 0)
+ * and has no screen to wake. Null when the TV has no hdmi_control or doesn't know the setting.
+ */
+async function hdmiWake(): Promise<string | null> {
+  const out = await T.sh(TASK, `getprop ro.hdmi.device_type; cmd hdmi_control cec_setting get ${CEC_WAKE} 2>&1`, { quiet: true }).catch(() => '')
+  const [types = '', ...rest] = out.split('\n')
+  if (!types.trim().split(',').includes('0')) return null
+  return new RegExp(`^${CEC_WAKE} = ([01])\\s*$`, 'm').exec(rest.join('\n'))?.[1] ?? null
 }
 
 async function read(): Promise<TvState> {
@@ -78,7 +102,8 @@ async function read(): Promise<TvState> {
     installed,
     disabled,
     screensaver: await get('screensaver_components'),
-    screensaverOn: (await get('screensaver_enabled')) !== '0'
+    screensaverOn: (await get('screensaver_enabled')) !== '0',
+    hdmiWake: await hdmiWake()
   }
 }
 
@@ -105,5 +130,7 @@ export async function fix(id: CheckupId): Promise<void> {
     for (const p of [VOICE, REMOTE]) if (s.disabled.has(p)) await T.sh(TASK, `pm enable ${p}`)
   } else if (id === 'screensaver') {
     await T.sh(TASK, 'settings put secure screensaver_enabled 0')
+  } else if (id === 'hdmi_wake') {
+    await T.sh(TASK, `cmd hdmi_control cec_setting set ${CEC_WAKE} 1`)
   }
 }

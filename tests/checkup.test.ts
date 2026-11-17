@@ -42,6 +42,12 @@ describe('check-up after Clean up', () => {
     expect(items.find((i) => i.id === 'voice')).toMatchObject({ ok: false, fix: 'Switch both on' })
   })
 
+  it('finds a TV that devices on HDMI can\'t turn on, and leaves boxes and older TVs out', () => {
+    expect(C.assess(state({ hdmiWake: '0' })).find((i) => i.id === 'hdmi_wake')).toMatchObject({ ok: false, fix: 'Allow it' })
+    expect(C.assess(state({ hdmiWake: '1' })).find((i) => i.id === 'hdmi_wake')).toMatchObject({ ok: true })
+    expect(C.assess(state({ hdmiWake: null })).some((i) => i.id === 'hdmi_wake')).toBe(false)
+  })
+
   it('finds a screensaver whose app is switched off', () => {
     const s = state({ screensaver: 'com.google.android.apps.tv.dreamx/.service.DreamxService', installed: new Set([...state().installed, 'com.google.android.apps.tv.dreamx']), disabled: new Set(['com.google.android.apps.tv.dreamx']) })
     expect(C.assess(s).find((i) => i.id === 'screensaver')).toMatchObject({ ok: false })
@@ -72,6 +78,22 @@ describe('check-up and recording on a TV', () => {
     expect(tv.settings.get('default_input_method')).toBe(TCL)
     expect((await C.run()).find((i) => i.id === 'keyboard')?.ok).toBe(true)
     expect(tv.commands.some((c) => c.includes('--method keyboard'))).toBe(true)
+  })
+
+  it('lets devices on HDMI turn the TV on, and says nothing on a box or a TV without the command', async () => {
+    expect((await C.run()).some((i) => i.id === 'hdmi_wake')).toBe(false)
+    tv.hdmiType = '0'
+    expect((await C.run()).some((i) => i.id === 'hdmi_wake')).toBe(false)
+    tv.cecWake = '0'
+    expect((await C.run()).find((i) => i.id === 'hdmi_wake')?.ok).toBe(false)
+    await C.fix('hdmi_wake')
+    expect(tv.commands).toContain('cmd hdmi_control cec_setting set tv_wake_on_one_touch_play 1')
+    expect((await C.run()).find((i) => i.id === 'hdmi_wake')?.ok).toBe(true)
+    tv.hdmiType = '4'
+    tv.cecWake = '0'
+    expect((await C.run()).some((i) => i.id === 'hdmi_wake')).toBe(false)
+    tv.hdmiType = undefined
+    tv.cecWake = undefined
   })
 
   it('switches the remote microphone pair back on', async () => {

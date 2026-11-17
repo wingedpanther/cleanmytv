@@ -12,6 +12,13 @@ const SPEEDS: [number, string][] = [
   [1, t('Normal (1×)')]
 ]
 
+// match_content_frame_rate; unset means 1, Android's default.
+const FRAME_RATES: [number, string][] = [
+  [0, t('Never')],
+  [1, t('Only if smooth')],
+  [2, t('Always')]
+]
+
 export function Extras({ markDone }: ScreenProps): ReactNode {
   const [sys, setSys] = useState<SystemState | null>(null)
   const [result, setResult] = useState<ApplyResult | null>(null)
@@ -45,6 +52,7 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
 
   const dnsOn = sys.privateDnsMode === 'hostname' && !!sys.privateDnsHost
   const scale = Number(sys.animationScale === 'null' ? 1 : sys.animationScale)
+  const frameRate = sys.matchFrameRate === 'null' ? 1 : Number(sys.matchFrameRate)
 
   return (
     <>
@@ -117,6 +125,26 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
           </>
         )}
       </div>
+
+      {sys.sdk >= 31 && sys.matchFrameRate !== '' && (
+        <div className="card">
+          <h2>{t('Match frame rate')}</h2>
+          <p className="muted small">{t("The TV switches to the video's frame rate, so films at 24 fps don't judder.")}</p>
+          <div className="seg">
+            {FRAME_RATES.map(([v, label]) => (
+              <button
+                key={v}
+                className={frameRate === v ? 'on' : ''}
+                disabled={!!busy}
+                title={v === 2 ? t('The screen may go black for a moment when a video starts.') : undefined}
+                onClick={() => run(t('Setting the frame rate'), () => window.cytv.setMatchFrameRate(v))}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div>
         <div className="card">

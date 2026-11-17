@@ -1,19 +1,23 @@
-// TV settings outside the launcher: ad-blocking Private DNS, animation speed, storage, the remote, and a
-// screenshot of the TV.
+// TV settings outside the launcher: ad-blocking Private DNS, matching the video's frame rate, animation speed,
+// storage, the remote, and a screenshot of the TV.
 import { Socket } from 'node:net'
 import * as T from './tv'
 import type { ApplyResult, SystemState } from '@shared/api'
 import { t, UiError } from './i18n'
 
 const TASK = 'system'
+/** Android 12 brought match_content_frame_rate. */
+const FRAME_RATE_SDK = 31
 
 export async function state(): Promise<SystemState> {
   const get = async (ns: string, key: string): Promise<string> => (await T.tv().shell(`settings get ${ns} ${key}`)).trim()
+  const sdk = T.getStatus().probe?.sdk ?? 0
   return {
-    sdk: T.getStatus().probe?.sdk ?? 0,
+    sdk,
     privateDnsMode: await get('global', 'private_dns_mode'),
     privateDnsHost: await get('global', 'private_dns_specifier'),
     animationScale: await get('global', 'window_animation_scale'),
+    matchFrameRate: sdk >= FRAME_RATE_SDK ? await get('secure', 'match_content_frame_rate') : '',
     storage: await T.storage(TASK)
   }
 }
@@ -102,6 +106,21 @@ export async function animationScale(scale: number): Promise<ApplyResult> {
     await T.sh(TASK, `settings put global ${k} ${scale}`)
   }
   return { ok: true, summary: scale === 0 ? t('System animations are off.') : t('System animations run at {scale}x.', { scale }), warnings: [] }
+}
+
+/**
+ * Match content frame rate (Android 12+): the TV changes its refresh rate to the video's. 0 never, 1 only when
+ * the display can switch without going blank (Android's default), 2 always, even if the screen blanks for a moment.
+ */
+export async function matchFrameRate(mode: number): Promise<ApplyResult> {
+  if (![0, 1, 2].includes(mode)) throw new Error('mode must be 0, 1 or 2')
+  if ((T.getStatus().probe?.sdk ?? 0) < FRAME_RATE_SDK) throw new UiError('Matching the frame rate needs Android 12 or newer.')
+  await T.sh(TASK, `settings put secure match_content_frame_rate ${mode}`)
+  return {
+    ok: true,
+    summary: mode === 0 ? t('The TV keeps its refresh rate for every video.') : mode === 1 ? t("The TV matches a video's frame rate when it can switch without the screen going blank.") : t("The TV always matches a video's frame rate."),
+    warnings: []
+  }
 }
 
 export async function key(code: number): Promise<void> {

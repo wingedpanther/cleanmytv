@@ -58,7 +58,7 @@ export function installMock(): void {
   let themeSavedAt: number | null = null
   const homeConfig: HomeConfig = {
     layout: 'shelf', sections: ['nowplaying', 'dock', 'watchnext', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
-    rows: [{ name: 'Watch', apps: ['com.netflix.ninja', 'com.google.android.youtube.tv'] }], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false,
+    rows: [{ name: 'Watch', apps: ['com.netflix.ninja', 'com.google.android.youtube.tv'] }], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false, power_on_target: '', power_on_wait: 0,
     accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
     edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, theme_memory: true, lock_editor: false, update_check: true, keyboard_guard: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
     order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
@@ -67,7 +67,8 @@ export function installMock(): void {
     clock: 'time_date', greeting: '', names: {}, idle_minutes: 0,
     weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'c', memory: false, day_night: false, day_at: 420, night_at: 1140, looks_saved: [],
     visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100,
-    has_wallpaper: false
+    has_wallpaper: false,
+    tv_inputs: [{ id: 'com.mediatek.tvinput/.hdmi.HDMIInputService/HW5', name: 'PlayStation 5' }, { id: 'com.mediatek.tvinput/.hdmi.HDMIInputService/HW6', name: 'HDMI 2' }]
   }
   let tvs: KnownTv[] = [
     { host: '192.168.1.50', device: 'BRAVIA_AE3', model: 'K-65XR90M2', manufacturer: 'Sony', lastUsed: Date.now() - 3600_000 },
@@ -120,6 +121,7 @@ export function installMock(): void {
     privateDnsMode: 'opportunistic',
     privateDnsHost: '',
     animationScale: '1.0',
+    matchFrameRate: 'null',
     storage: { freeKb: 831000, totalKb: 5806884 }
   }
 
@@ -494,6 +496,10 @@ export function installMock(): void {
     async fixScreensaver() {
       await wait(900)
       return { ok: true, summary: "Google's screensaver is back: 2 apps switched on again, and it is the screensaver now.", warnings: ["Choose your albums in the TV's Settings → System → Ambient mode."] }
+    },
+    async setMatchFrameRate(mode) {
+      sys.matchFrameRate = String(mode)
+      return ok(mode === 2 ? "The TV always matches a video's frame rate." : 'Frame rate setting changed.')
     },
     async setAnimationScale(scale) {
       sys.animationScale = String(scale)

@@ -227,6 +227,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   systemState: () => system.state(),
   setPrivateDns: (host) => system.privateDns(host),
   setAnimationScale: (s) => system.animationScale(s),
+  setMatchFrameRate: (m) => system.matchFrameRate(m),
   fixScreensaver: () => system.fixScreensaver(),
   sideloadInfo: (path) => sideload.inspect(String(path)),
   sideload: (path) => sideload.install(String(path)),

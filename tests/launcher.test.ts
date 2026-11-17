@@ -59,6 +59,23 @@ describe('CleanMyTV Home', () => {
     expect(await H.status()).toMatchObject({ installed: true, isHome: true, versionName: '1.0.0', bundledVersion: '1.0.0', oldLauncher: false })
   })
 
+  it('lets Home open the input app from the background, with TCL\'s auto-start too, and installs when the TV refuses', async () => {
+    const HOME = 'io.github.wingedpanther.cleanmytv.home'
+    expect(tv.appops?.get(`${HOME} SYSTEM_ALERT_WINDOW`)).toBe('allow')
+    expect(tv.appops?.has(`${HOME} APP_AUTO_START`)).toBe(false)
+    tv.manufacturer = 'TCL'
+    tv.appops = new Map()
+    expect((await H.install()).ok).toBe(true)
+    expect(tv.appops.get(`${HOME} SYSTEM_ALERT_WINDOW`)).toBe('allow')
+    expect(tv.appops.get(`${HOME} APP_AUTO_START`)).toBe('allow')
+    tv.appopsRefused = true
+    tv.appops = new Map()
+    expect((await H.install()).ok).toBe(true)
+    expect(tv.appops.size).toBe(0)
+    tv.appopsRefused = false
+    tv.manufacturer = undefined
+  })
+
   it('gives Home back to the stock launcher, then switches to CleanMyTV Home again', async () => {
     expect((await L.useStock()).ok).toBe(true)
     expect(tv.home).toBe('com.google.android.apps.tv.launcherx/.home.HomeActivity')
@@ -416,6 +433,22 @@ describe('CleanMyTV Home', () => {
     expect(r).toMatchObject({ ok: false, reconnected: false })
     expect(T.getStatus().state).not.toBe('connected')
     expect((await T.connect(String(T.getStatus().host))).state).toBe('connected')
+  })
+
+  it('matches the frame rate on Android 12 and later, and hides it on older TVs', async () => {
+    const host = String(T.getStatus().host)
+    expect((await S.state()).matchFrameRate).toBe('null')
+    expect((await S.matchFrameRate(2)).ok).toBe(true)
+    expect(tv.commands).toContain('settings put secure match_content_frame_rate 2')
+    expect((await S.state()).matchFrameRate).toBe('2')
+    await expect(S.matchFrameRate(3)).rejects.toThrow()
+    tv.sdk = '30'
+    expect((await T.connect(host)).state).toBe('connected')
+    expect((await S.state()).matchFrameRate).toBe('')
+    await expect(S.matchFrameRate(1)).rejects.toThrow(/Android 12/)
+    tv.sdk = undefined
+    tv.settings.delete('match_content_frame_rate')
+    expect((await T.connect(host)).state).toBe('connected')
   })
 
   it('refuses to install on Android older than 9 (#30)', async () => {
@@ -806,5 +839,49 @@ describe('keyboards', () => {
   it("reads the keyboards' packages, leaving out the phone remote", () => {
     expect(keyboardPackages('com.tcl.inputmethod.international/.T_IME\ncom.google.android.tv.remote.service/.ImeBridgeService\n\ngarbage line\n'))
       .toEqual(['com.tcl.inputmethod.international'])
+  })
+})
+
+describe('a HOME entry without DEFAULT, next to a second launcher (upstream #4068)', () => {
+  let tv: FakeTv
+  let server: Server
+  const LAUNCHERX = 'com.google.android.apps.tv.launcherx/.home.HomeActivity'
+  const PROJECTIVY = 'com.spocky.projengmenu/.ui.home.MainActivity'
+  const OTA = 'com.telink.lt/.BtOtaUpdate'
+  const MAIN = 'io.github.wingedpanther.cleanmytv.home/.MainActivity'
+  beforeAll(async () => {
+    tv = newTv()
+    tv.maxData = 256 * 1024
+    for (const c of [LAUNCHERX, PROJECTIVY, OTA]) tv.packages.set(c.split('/')[0], 'enabled')
+    tv.home = LAUNCHERX
+    tv.homeClaims = [LAUNCHERX, PROJECTIVY]
+    tv.homeNonDefault = OTA
+    tv.homeOutranks = [LAUNCHERX]
+    let port: number
+    ;({ server, port } = await startFakeAdbd(tv))
+    T.init(join(home, 'data', 'adbkey'), () => {})
+    expect((await T.connect(`127.0.0.1:${port}`)).state).toBe('connected')
+  })
+  afterAll(() => { T.disconnect(); server.close() })
+
+  it('checks where Home landed without deleting the choice it just made', async () => {
+    const r = await H.install()
+    expect(r.ok).toBe(true)
+    expect(tv.home).toBe(MAIN)
+    expect(await T.homeComponent()).toBe(MAIN)
+    expect(tv.home).toBe(MAIN)
+    expect((await H.status()).isHome).toBe(true)
+  })
+
+  it('never offers the firmware updater as a launcher', async () => {
+    expect(await L.otherLaunchers()).toEqual(['com.spocky.projengmenu'])
+  })
+
+  it('falls back to the plain query on Android 9, which has no --query-flags and keeps the old behaviour', async () => {
+    const host = String(T.getStatus().host)
+    tv.sdk = '28'
+    expect((await T.connect(host)).state).toBe('connected')
+    expect(await T.homeComponent()).toBe('android/com.android.internal.app.ResolverActivity')
+    tv.sdk = undefined
   })
 })

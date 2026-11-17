@@ -67,8 +67,9 @@ class KeyService : AccessibilityService() {
     private val screen = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             when (i.action) {
-                Intent.ACTION_SCREEN_OFF -> { Lock.lockAll(); PowerOn.asleep(c, front); Limits.front(c, null) }
-                Intent.ACTION_SCREEN_ON -> timer.postDelayed({ PowerOn.awake(c, front) }, PowerOn.SETTLE_MS)
+                // A TV switched off again inside the wait opens nothing.
+                Intent.ACTION_SCREEN_OFF -> { timer.removeCallbacks(wake); Lock.lockAll(); PowerOn.asleep(c, front); Limits.front(c, null) }
+                Intent.ACTION_SCREEN_ON -> { timer.removeCallbacks(wake); timer.postDelayed(wake, PowerOn.delayMs(ConfigStore.config.value)) }
             }
         }
     }
@@ -78,6 +79,9 @@ class KeyService : AccessibilityService() {
             if (System.currentTimeMillis() >= listenUntil && needsKeys(ConfigStore.config.value, false)) pauseForVolume()
         }
     }
+
+    /** Power on's look at the screen, after the wait; it reads [front] when it runs. */
+    private val wake = Runnable { PowerOn.awake(this, front) }
 
     /** The app whose screen is in front, from window changes; the volume bar and other overlays don't count. */
     private var front: String? = null
@@ -89,7 +93,7 @@ class KeyService : AccessibilityService() {
         registerReceiver(volume, IntentFilter(VOLUME_CHANGED))
         Keyboard.watch(this)
         // A cold start: the service comes up with the TV, and the input it was on may be due back.
-        if (SystemClock.elapsedRealtime() < 5 * 60_000L) timer.postDelayed({ PowerOn.awake(this, front) }, PowerOn.SETTLE_MS * 2)
+        if (SystemClock.elapsedRealtime() < 5 * 60_000L) timer.postDelayed(wake, PowerOn.delayMs(ConfigStore.config.value) + PowerOn.SETTLE_MS)
         scope.launch { ConfigStore.config.map { needsKeys(it, false) }.distinctUntilChanged().collect { filterKeys() } }
         Log.i(TAG, "key service on")
     }

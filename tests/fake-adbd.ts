@@ -76,6 +76,19 @@ export interface FakeTv {
   logcat?: string
   /** Packages that never stay running (pidof finds nothing), like a launcher crashing at boot. */
   crashing?: string[]
+  /** App-ops set with `appops set`, as "<package> <op>" to mode. */
+  appops?: Map<string, string>
+  /** appops answers with a SecurityException, as on TVs that lock it down. */
+  appopsRefused?: boolean
+  /** ro.hdmi.device_type: "0" on a TV, "4" on a streaming box; unset leaves it empty. */
+  hdmiType?: string
+  /** HDMI-CEC's tv_wake_on_one_touch_play; unset means the TV has no hdmi_control service. */
+  cecWake?: string
+  /**
+   * A HOME entry without the DEFAULT category, as Haier's remote-firmware updater has (upstream #4068). A Home
+   * query without MATCH_DEFAULT_ONLY then drops the saved Home choice while two launchers tie.
+   */
+  homeNonDefault?: string
   /** Misbehaviour for client hardening tests. */
   tokenSize?: number
   sendMalformed?: 'oversize' | 'magic'
@@ -97,16 +110,31 @@ function outranking(tv: FakeTv): string | undefined {
 function sh(tv: FakeTv, cmd: string): string {
   tv.commands.push(cmd)
   let m: RegExpExecArray | null
+  if (cmd.startsWith('getprop ro.hdmi.device_type; cmd hdmi_control cec_setting get ')) {
+    const name = cmd.split(' ').at(-2)
+    return `${tv.hdmiType ?? ''}\n` + (tv.cecWake === undefined ? "cmd: Can't find service: hdmi_control\n" : `${name} = ${tv.cecWake}\n`)
+  }
+  if ((m = /^cmd hdmi_control cec_setting set (\S+) (\S+)$/.exec(cmd))) { if (tv.cecWake !== undefined) tv.cecWake = m[2]; return '' }
   if (cmd.startsWith('getprop')) {
     const props: Record<string, string> = { 'ro.product.model': 'BRAVIA 4K VH2', 'ro.product.device': 'BRAVIA_VH2', 'ro.product.name': 'BRAVIA_VH2_EU', 'ro.product.manufacturer': tv.manufacturer ?? 'Sony', 'ro.build.version.release': tv.sdk === '24' ? '7.0' : '12', 'ro.build.version.sdk': tv.sdk ?? '31', 'sys.boot_completed': '1', 'ro.build.display.id': 'TEST', 'ro.adb.secure': tv.adbSecure }
     return cmd.split(';').map((c) => props[c.trim().split(' ')[1]] ?? '').join('\n') + '\n'
   }
   if (cmd === 'pm list packages') return [...tv.packages.keys()].map((p) => `package:${p}`).join('\n') + '\n'
   if (cmd === 'pm list packages -d') return [...tv.packages].filter(([, s]) => s === 'disabled').map(([p]) => `package:${p}`).join('\n') + '\n'
-  if (cmd.startsWith('cmd package resolve-activity')) return `priority=0 preferredOrder=0\n${tv.home}\n`
+  if (cmd.startsWith('cmd package resolve-activity')) {
+    // --query-flags arrived in Android 10; Android 9 fails it and the shell runs the plain query after ||.
+    const defaultOnly = cmd.includes('--query-flags 65536') && Number(tv.sdk ?? 31) >= 29
+    const tied = tv.homeClaims.filter((c) => tv.packages.get(c.split('/')[0]) === 'enabled').length > 1
+    if (!defaultOnly && tv.homeNonDefault && tied && !outranking(tv)) tv.home = 'android/com.android.internal.app.ResolverActivity'
+    return `priority=0 preferredOrder=0\n${tv.home}\n`
+  }
   if (cmd.includes('LEANBACK_LAUNCHER')) return tv.leanback.map((p) => `  ${p}/.Main`).join('\n') + '\n'
   if (cmd.includes('category.LAUNCHER')) return tv.launcherApps.map((p) => `  ${p}/.Main`).join('\n') + '\n'
-  if (cmd.startsWith('cmd package query-activities')) return tv.homeClaims.filter((c) => tv.packages.get(c.split('/')[0]) === 'enabled').map((c) => `  ${c}`).join('\n') + '\n'
+  if (cmd.startsWith('cmd package query-activities')) {
+    const defaultOnly = cmd.includes('--query-flags 65536') && Number(tv.sdk ?? 31) >= 29
+    const claims = [...tv.homeClaims, ...(tv.homeNonDefault && !defaultOnly ? [tv.homeNonDefault] : [])]
+    return claims.filter((c) => tv.packages.get(c.split('/')[0]) === 'enabled').map((c) => `  ${c}`).join('\n') + '\n'
+  }
   if ((m = /^pidof (\S+)$/.exec(cmd))) return tv.packages.get(m[1]) === 'enabled' && !tv.crashing?.includes(m[1]) ? '4321\n' : ''
   if (cmd === 'reboot') return ''
   if (cmd === 'dumpsys wifi') return `WifiConfigManager ... ${tv.wifiOwners} ...\n`
@@ -165,6 +193,16 @@ function sh(tv: FakeTv, cmd: string): string {
   }
   if ((m = /^mkdir -p (\S+)\/wallpapers 2>&1; touch/.exec(cmd))) {
     return tv.appDir === 'ok' ? 'writable\n' : `mkdir: '${m[1]}': Permission denied\ntouch: '${m[1]}/.cytv': No such file or directory\n`
+  }
+  if (cmd.startsWith('appops ')) {
+    if (tv.appopsRefused) return 'Security exception: uid 2000 does not have android.permission.MANAGE_APP_OPS_MODES.\n'
+    // AUTO_START and APP_AUTO_START are TCL's own; other TVs don't know them.
+    const tcl = /tcl/i.test(tv.manufacturer ?? '')
+    for (const part of cmd.split(';')) {
+      const a = /^\s*appops set (\S+) (\w+) (\w+)/.exec(part)
+      if (a && (tcl || !/AUTO_START/.test(a[2]))) (tv.appops ??= new Map()).set(`${a[1]} ${a[2]}`, a[3])
+    }
+    return cmd.includes('echo ') ? cmd.slice(cmd.lastIndexOf('echo ') + 5) + '\n' : ''
   }
   if (cmd.startsWith('am start -W') && tv.appDir === 'missing') tv.appDir = 'ok'
   if (cmd.startsWith('am start -W')) return 'Starting: Intent { cmp=com.gathin.tvhome/.MainActivity }\nStatus: ok\nLaunchState: COLD\n'

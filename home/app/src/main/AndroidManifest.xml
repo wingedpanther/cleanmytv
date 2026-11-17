@@ -26,6 +26,10 @@
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <!-- Home updates itself from the release page; Android still asks the owner to confirm each one. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Back to the input at power on (#94): Android 10 and later only let an app open another app's screen
+         from the background when it may draw over other apps. CleanMyTV allows it over ADB; Home draws no
+         overlay. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- Recently used: the desktop app grants usage access over ADB only while that row is on. -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
     <!-- Continue watching: the TV provider's Watch Next list. The first lets Home open the provider at all;

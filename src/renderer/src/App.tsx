@@ -56,6 +56,7 @@ const JUMP_ITEMS: JumpItem[] = [
   { id: 'step:debloat', title: t('Add a package'), where: CLEAN_UP, words: 'package app missing list' },
   { id: 'step:extras', title: t('Animation speed'), where: EXTRAS, words: 'animations faster' },
   { id: 'step:extras', title: t('Block ads inside apps'), where: EXTRAS, words: 'dns private ad blocking adguard' },
+  { id: 'step:extras', title: t('Match frame rate'), where: EXTRAS, words: 'refresh rate fps hz 24p judder film' },
   { id: 'step:extras', title: t('Remote'), where: EXTRAS, words: 'buttons keys' },
   { id: 'step:extras', title: t('Storage'), where: EXTRAS, words: 'space disk free' },
   { id: 'step:finish', title: t('Restart check'), where: t('Finish'), words: 'reboot' },

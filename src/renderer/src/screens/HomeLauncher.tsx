@@ -829,6 +829,35 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
           checked={cfg.power_on_input}
           onChange={(v) => set({ power_on_input: v })}
         />
+        {cfg.power_on_input && (
+          <div className="row" style={{ marginTop: 10, gap: 16, flexWrap: 'wrap' }}>
+            {/* A box with no HDMI, or a launcher too old to list inputs, keeps going back to the input it slept on. */}
+            {!!cfg.tv_inputs?.length && (
+              <label className="field">
+                <span>{t('Open at power on')}</span>
+                <select value={cfg.power_on_target} onChange={(e) => set({ power_on_target: e.target.value })}>
+                  <option value="">{t('The last input')}</option>
+                  {cfg.tv_inputs.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name}
+                    </option>
+                  ))}
+                  {cfg.power_on_target && !cfg.tv_inputs.some((i) => i.id === cfg.power_on_target) && <option value={cfg.power_on_target}>{t('An input the TV no longer has')}</option>}
+                </select>
+              </label>
+            )}
+            <label className="field">
+              <span>{t('Wait after waking')}</span>
+              <select value={cfg.power_on_wait} onChange={(e) => set({ power_on_wait: Number(e.target.value) })}>
+                {[0, 3, 5, 10].map((n) => (
+                  <option key={n} value={n}>
+                    {t('{n} s', { n })}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
       </div>
 
       <div className="card">

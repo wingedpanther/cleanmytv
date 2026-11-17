@@ -4,6 +4,12 @@ import type { Lang } from './i18n'
 
 export type PackageState = 'enabled' | 'disabled' | 'absent'
 
+/** One of the TV's inputs, by its TvInputManager id. */
+export interface TvInput {
+  id: string
+  name: string
+}
+
 export interface Probe {
   host: string
   model: string
@@ -68,7 +74,7 @@ export interface CheckItem {
 }
 
 /** One thing the check-up after Clean up looks at on the TV. */
-export type CheckupId = 'keyboard' | 'home' | 'voice' | 'screensaver'
+export type CheckupId = 'keyboard' | 'home' | 'voice' | 'screensaver' | 'hdmi_wake'
 
 export interface CheckupItem {
   id: CheckupId
@@ -242,6 +248,10 @@ export interface HomeConfig {
   stock_redirect: string
   /** After power on, go back to the input that was on when the TV went to sleep (#94). */
   power_on_input: boolean
+  /** What power on opens: '' for the input the TV slept on, else one input's id from `tv_inputs`, every time. */
+  power_on_target: string
+  /** Seconds to wait after the screen comes on before opening it: 0, 3, 5 or 10. */
+  power_on_wait: number
   // Look
   /** #RRGGBB, for the focus halo, glow or outline and the music bars. */
   accent: string
@@ -359,6 +369,8 @@ export interface HomeConfig {
   viz_sensitivity: number
   /** Read only: a wallpaper is set. */
   has_wallpaper?: boolean
+  /** Read only: the TV's HDMI and other ports, as the Inputs menu names them (launchers after 1.12.0). */
+  tv_inputs?: TvInput[]
   /** Read only: the quick-settings icons this TV can open (others are hidden on the TV). */
   quick_available?: QuickId[]
   /** Read only: false on a fresh install that has no settings yet (launcher 1.1.0 and later). */
@@ -445,6 +457,8 @@ export interface SystemState {
   privateDnsHost: string
   /** window_animation_scale; "null" when never set. */
   animationScale: string
+  /** match_content_frame_rate, Android 12 and later: 0 never, 1 only when smooth (the default, also "null"), 2 always. "" on older TVs. */
+  matchFrameRate: string
   /** /data in KB; null when df can't tell. */
   storage: { freeKb: number; totalKb: number } | null
 }
@@ -619,6 +633,8 @@ export interface CytvApi {
   systemState(): Promise<SystemState>
   setPrivateDns(host: string | null): Promise<ApplyResult>
   setAnimationScale(scale: number): Promise<ApplyResult>
+  /** Match content frame rate: 0 never, 1 only when the switch is smooth, 2 always (Android 12+). */
+  setMatchFrameRate(mode: number): Promise<ApplyResult>
   /** Switches Google's Ambient screensaver apps back on and makes it the screensaver (#57). */
   fixScreensaver(): Promise<ApplyResult>
   /** What an .apk on this computer is, and the version the TV has. */
