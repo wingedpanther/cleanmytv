@@ -47,7 +47,6 @@ import io.github.wingedpanther.cleanmytv.home.TvApp
 import io.github.wingedpanther.cleanmytv.home.customization.components.Alert
 import io.github.wingedpanther.cleanmytv.home.customization.components.CUSTOMIZATION_BG
 import io.github.wingedpanther.cleanmytv.home.customization.components.MUTED_COLOR
-import io.github.wingedpanther.cleanmytv.home.customization.components.ServiceNote
 import io.github.wingedpanther.cleanmytv.home.customization.components.TEXT_COLOR
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvDestructiveButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvPrimaryButton
@@ -88,12 +87,12 @@ fun LockCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
         }
         TvSwitch(
             title = tr("App lock"),
-            subtitle = if (config.lockOn) tr(if (config.lockApps.size == 1) "{n} app is locked" else "{n} apps are locked", "n" to config.lockApps.size) + (if (config.lockSystem) tr(", plus Settings, the Play Store and Quick settings") else "")
+            subtitle = if (config.lockOn) (if (config.lockApps.size == 1) tr("{n} app is locked", "n" to 1) else tr("{n} apps are locked", "n" to config.lockApps.size)) + (if (config.lockSystem) tr(", plus Settings, the Play Store and Quick settings") else "")
             else tr("Your PIN and the list stay while it's off"),
             checked = config.lockOn,
             onCheckedChange = { set(JSONObject().put("lock_on", it)) }
         )
-        if (config.lockOn) ServiceNote("locked apps still open without the PIN")
+        if (config.lockOn) ServiceNote(tr("locked apps still open without the PIN"))
         TvSwitch(
             title = tr("Settings, Play Store and Quick settings"),
             subtitle = tr("Also the uninstaller, so the lock can't be switched off around it"),
@@ -248,7 +247,7 @@ fun LockCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
             }
         }
         TvSecondaryButton(text = tr("Add a daily limit"), onClick = { pickingLimit = true })
-        if (config.limits.isNotEmpty()) ServiceNote("the limits don't count")
+        if (config.limits.isNotEmpty()) ServiceNote(tr("the limits don't count"))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             TvSecondaryButton(text = tr("Change the PIN"), onClick = { settingPin = true })
             TvDestructiveButton(text = tr("Forget the PIN"), onClick = {
