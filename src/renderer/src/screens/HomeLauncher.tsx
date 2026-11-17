@@ -1317,6 +1317,14 @@ function WidgetsTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
             </button>
           ))}
         </div>
+        <div style={{ marginTop: 14 }}>
+          <Toggle
+            label={t('Hourly forecast')}
+            hint={t('The next 4 hours under the weather: the time, the sky and the temperature.')}
+            checked={cfg.weather_hours}
+            onChange={(v) => set({ weather_hours: v })}
+          />
+        </div>
       </div>
 
       <div className="card">

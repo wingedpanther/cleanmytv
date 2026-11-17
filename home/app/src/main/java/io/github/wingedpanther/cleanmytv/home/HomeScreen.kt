@@ -562,6 +562,7 @@ private fun ShelfLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (
                 Column(horizontalAlignment = Alignment.End) {
                     Clock(cfg, 26.sp, 12.sp, Alignment.End)
                     WeatherLine(ui, 13.sp, Modifier.padding(top = 4.dp))
+                    HourLine(ui, 13.sp, Modifier.padding(top = 6.dp))
                     MemoryLine(ui, 13.sp, Modifier.padding(top = 4.dp))
                     if (quick.isNotEmpty()) {
                         if (cfg.clock != "off") Spacer(Modifier.height(10.dp))
@@ -584,6 +585,8 @@ private fun SplitLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (
             // 46 sp keeps "12:51 PM" on one line in the left third; 12-hour time is the widest.
             Clock(cfg, 46.sp, 15.sp, Alignment.Start)
             WeatherLine(ui, 15.sp, Modifier.padding(top = 6.dp))
+            // 13 sp keeps four hours inside the left third.
+            HourLine(ui, 13.sp, Modifier.padding(top = 8.dp))
             MemoryLine(ui, 15.sp, Modifier.padding(top = 6.dp))
             Spacer(Modifier.height(14.dp))
             Greeting(cfg, 18.sp)
@@ -627,6 +630,7 @@ private fun RailLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Q
                 Column(horizontalAlignment = Alignment.End) {
                     Clock(cfg, 26.sp, 12.sp, Alignment.End)
                     WeatherLine(ui, 13.sp, Modifier.padding(top = 4.dp))
+                    HourLine(ui, 13.sp, Modifier.padding(top = 6.dp))
                     MemoryLine(ui, 13.sp, Modifier.padding(top = 4.dp))
                 }
             }
@@ -1059,9 +1063,37 @@ private fun NowPlayingCard(t: Track, ui: Ui) {
 private fun WeatherLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
     val w = ui.weather ?: return
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Image(weatherIcon(w), null, Modifier.size(with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.3f }), colorFilter = ColorFilter.tint(MUTED))
+        Image(weatherIcon(w.code, w.day), null, Modifier.size(with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.3f }), colorFilter = ColorFilter.tint(MUTED))
         Spacer(Modifier.width(6.dp))
         Text("${w.temp}°  ${w.high}° / ${w.low}°  ${ui.cfg.weatherPlace}${if (w.metNo) " · MET Norway" else ""}", color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/**
+ * The next few hours, when the owner turns them on: each hour's time over its sky and temperature, in the
+ * weather line's quiet style and size, so it reads from the sofa without crowding the clock.
+ */
+@Composable
+private fun HourLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
+    val hours = ui.weather?.hours?.takeIf { ui.cfg.weatherHours && it.isNotEmpty() } ?: return
+    val ctx = LocalContext.current
+    // "21:00" or "9 PM", as the TV keeps its clock.
+    val format = remember(ctx) {
+        val skeleton = if (android.text.format.DateFormat.is24HourFormat(ctx)) "Hm" else "ha"
+        java.text.SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(java.util.Locale.getDefault(), skeleton), java.util.Locale.getDefault())
+    }
+    val icon = with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.2f }
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        hours.forEach { h ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(format.format(Date.from(h.at)), color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(weatherIcon(h.code, h.day), null, Modifier.size(icon), colorFilter = ColorFilter.tint(MUTED))
+                    Spacer(Modifier.width(4.dp))
+                    Text("${h.temp}°", color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+                }
+            }
+        }
     }
 }
 
@@ -1091,9 +1123,9 @@ private fun MemoryLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier
 }
 
 /** WMO weather codes, as Open-Meteo reports them, to a drawn icon. */
-private fun weatherIcon(w: WeatherNow): ImageVector = when (w.code) {
-    0 -> if (w.day) Icons.Outlined.WbSunny else Icons.Outlined.NightsStay
-    1, 2 -> if (w.day) Icons.Outlined.WbCloudy else Icons.Outlined.NightsStay
+private fun weatherIcon(code: Int, day: Boolean): ImageVector = when (code) {
+    0 -> if (day) Icons.Outlined.WbSunny else Icons.Outlined.NightsStay
+    1, 2 -> if (day) Icons.Outlined.WbCloudy else Icons.Outlined.NightsStay
     3 -> Icons.Outlined.Cloud
     45, 48 -> Icons.Outlined.Dehaze
     in 71..77, 85, 86 -> Icons.Outlined.AcUnit
@@ -1215,12 +1247,14 @@ private fun IdleScreen(ui: Ui, modifier: Modifier) {
             "center" -> Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                 Clock(ui.cfg, 120.sp, 22.sp, Alignment.CenterHorizontally)
                 WeatherLine(ui, 18.sp, Modifier.padding(top = 12.dp))
+                HourLine(ui, 18.sp, Modifier.padding(top = 12.dp))
             }
             else -> {
                 if (ui.cfg.idleStyle == "photos") IdlePhotos()
                 Column(Modifier.align(Alignment.BottomStart).padding(start = SAFE_X, bottom = SAFE_Y + 12.dp)) {
                     Clock(ui.cfg, 64.sp, 18.sp, Alignment.Start)
                     WeatherLine(ui, 16.sp, Modifier.padding(top = 8.dp))
+                    HourLine(ui, 16.sp, Modifier.padding(top = 10.dp))
                 }
             }
         }
