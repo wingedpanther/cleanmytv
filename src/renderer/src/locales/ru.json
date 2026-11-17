@@ -212,6 +212,8 @@
   "Connecting to {host}": "Подключение к {host}",
   "Connecting…": "Подключение…",
   "connection error: {error}": "ошибка соединения: {error}",
+  "Continue watching": "Продолжить просмотр",
+  "Continue watching shows the films and episodes you're part way through. Apps that fill Google TV's row fill this one too. It hides when there's nothing to show.": "Ряд «Продолжить просмотр» показывает фильмы и серии, которые вы не досмотрели. Его заполняют те же приложения, что и такой же ряд в Google TV. Если показывать нечего, ряд скрыт.",
   "Contours": "Изолинии",
   "Copy all": "Копировать всё",
   "Copy for a bug report": "Копировать для отчёта об ошибке",

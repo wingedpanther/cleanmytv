@@ -163,6 +163,26 @@ function Sections({ apps, cfg, width, dockW, showFolders = true }: { apps: TvApp
               </div>
             </div>
           )
+        // A stand-in: on the TV it's what apps list in Android's Watch Next, and it hides while that's empty.
+        if (s === 'watchnext')
+          return (
+            <div key={s}>
+              <Title>Continue watching</Title>
+              <div style={{ display: 'flex', gap: GAP, padding: '6px 0' }}>
+                {[0.4, 0.75, 0.15, 0.6].map((done, i) => (
+                  <div key={i} style={{ width: 196 * (cfg.tile_scale / 100), flex: 'none' }}>
+                    <div style={{ height: (196 * (cfg.tile_scale / 100) * 9) / 16, borderRadius: 10, background: '#3A4A3B', position: 'relative' }}>
+                      <div style={{ position: 'absolute', left: 10, right: 10, bottom: 8, height: 4, borderRadius: 2, background: 'rgba(0,0,0,0.55)' }}>
+                        <div style={{ width: `${done * 100}%`, height: '100%', borderRadius: 2, background: cfg.accent }} />
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 7, fontSize: 14, color: '#F0EBE5' }}>Film or show</div>
+                    <div style={{ marginTop: 2, fontSize: 12, color: '#D7CFC4' }}>S1 E{i + 2}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
         if (s === 'dock' && m.dock.length)
           return (
             <div key={s} style={{ display: 'flex', gap: GAP, padding: '8px 0' }}>

@@ -169,7 +169,7 @@ private fun IntroLayer(intro: Animatable<Float, *>) {
 }
 
 /** Everything the layouts draw, worked out once from the apps on the TV and the settings. */
-private class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<String> = emptyList()) {
+private class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<String> = emptyList(), watching: List<WatchItem> = emptyList()) {
     // "Hide locked apps": they stay out of every section, and only open from elsewhere with the PIN.
     private val apps = if (cfg.lockOn && cfg.lockShow == "hide") all.filter { it.pkg !in cfg.lockApps } else all
     private val byPkg = apps.associateBy { it.pkg }
@@ -182,6 +182,8 @@ private class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<Strin
     val rows = cfg.rows.map { g -> g.name to g.apps.mapNotNull { byPkg[it] }.filter { it.pkg !in cfg.hidden } }.filter { it.second.isNotEmpty() }
     val folders = (cfg.folders.map { g -> g.name to g.apps.mapNotNull { byPkg[it] } } + listOf(tr("Other apps") to other)).filter { it.second.isNotEmpty() }
     val recent = recentPkgs.mapNotNull { byPkg[it] }.filter { it.pkg !in cfg.hidden }
+    val watch = WatchNext.pick(watching, byPkg.keys, cfg)
+    fun app(pkg: String): TvApp? = byPkg[pkg]
     /** The tile that takes focus when Home opens, as "<section>:<package>" (an app can sit in two sections). */
     val first: String? = cfg.sections.firstNotNullOfOrNull { s ->
         when (s) {
@@ -291,8 +293,24 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     LaunchedEffect(appsVersion, wantRecent, apps) {
         if (wantRecent) recentPkgs = withContext(Dispatchers.Default) { Recent.apps(ctx, apps.map { it.pkg }.toSet()) }
     }
+    // Continue watching: read when Home comes back, and when an app changes the list while Home is in front.
+    // Changes while an app plays are left for the read when Home comes back, so playback isn't disturbed.
+    val wantWatch = "watchnext" in cfg.sections
+    var watching by remember { mutableStateOf<List<WatchItem>>(emptyList()) }
+    var watchChanged by remember { mutableIntStateOf(0) }
+    DisposableEffect(wantWatch) {
+        val resumed = { (ctx as? androidx.activity.ComponentActivity)?.lifecycle?.currentState?.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) != false }
+        val stop = if (wantWatch) WatchNext.watch(ctx) { if (resumed()) watchChanged++ } else ({})
+        onDispose { stop() }
+    }
+    LaunchedEffect(appsVersion, wantWatch, watchChanged) {
+        if (!wantWatch) { watching = emptyList(); return@LaunchedEffect }
+        // An app saving its place often writes a few times in a row: one read for the lot.
+        if (watchChanged > 0) delay(300)
+        watching = withContext(Dispatchers.IO) { WatchNext.read(ctx) }
+    }
     // Worked out again only when the apps or settings change, not on every redraw.
-    val home = remember(apps, cfg, recentPkgs, wantRecent) { Home(apps, cfg, if (wantRecent) recentPkgs else emptyList()) }
+    val home = remember(apps, cfg, recentPkgs, wantRecent, watching) { Home(apps, cfg, if (wantRecent) recentPkgs else emptyList(), watching) }
     val accent = Color(cfg.accent)
     // Quick-settings icons this TV can actually open; Inputs only on TVs that have inputs.
     val all = remember { quickActions() }
@@ -670,6 +688,10 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
                 "dock" -> if (home.dock.isNotEmpty()) item("dock") {
                     TileRow("dock", home.dock, ui, dockW, big = true, rowSpec)
                 }
+                "watchnext" -> if (home.watch.isNotEmpty()) {
+                    item("watchnext-title") { SectionTitle(tr("Continue watching")) }
+                    item("watchnext") { WatchRow(home, ui, 196.dp * (cfg.tileScale / 100f), rowSpec) }
+                }
                 "rows" -> home.rows.forEachIndexed { i, (name, list) ->
                     item("row$i-title") { SectionTitle(name) }
                     item("row$i") { TileRow("row$i", list, ui, 148.dp * (cfg.tileScale / 100f), big = false, rowSpec) }
@@ -696,6 +718,7 @@ private fun sectionKeys(home: Home, ui: Ui, showFolders: Boolean): List<String> 
         "nowplaying" -> if (ui.track != null) add("nowplaying")
         "recent" -> if (home.recent.isNotEmpty()) { add("recent-title"); add("recent") }
         "dock" -> if (home.dock.isNotEmpty()) add("dock")
+        "watchnext" -> if (home.watch.isNotEmpty()) { add("watchnext-title"); add("watchnext") }
         "rows" -> home.rows.indices.forEach { add("row$it-title"); add("row$it") }
         "folders" -> if (showFolders && home.folders.isNotEmpty()) { add("folders-title"); add("folders") }
         "grid" -> if (home.grid.isNotEmpty()) { add("grid-title"); home.grid.chunked(ui.cfg.columns).indices.forEach { add("grid$it") } }
@@ -891,13 +914,84 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
 }
 
 /** Opens an app, through the PIN pad when it's locked. */
-private fun launch(ctx: android.content.Context, app: TvApp) {
-    val i = when {
-        Lock.needsPin(ctx, app.pkg) -> LockActivity.intent(ctx, app.pkg, app.launch)
-        Limits.over(ctx, app.pkg) -> LockActivity.intent(ctx, app.pkg, app.launch, limit = true)
-        else -> app.launch
+private fun launch(ctx: android.content.Context, app: TvApp) = open(ctx, app.pkg, app.launch)
+
+/** Opens [target] in [pkg], through the PIN pad when it's locked; [fallback] when [target] won't start. */
+private fun open(ctx: android.content.Context, pkg: String, target: android.content.Intent, fallback: android.content.Intent? = null) {
+    val gate = when {
+        Lock.needsPin(ctx, pkg) -> LockActivity.intent(ctx, pkg, target)
+        Limits.over(ctx, pkg) -> LockActivity.intent(ctx, pkg, target, limit = true)
+        else -> null
     }
-    runCatching { ctx.startActivity(i); Recent.note(ctx, app.pkg) }.onFailure { Log.w(TAG, "launch ${app.pkg}: $it") }
+    runCatching { ctx.startActivity(gate ?: target); Recent.note(ctx, pkg) }.onFailure { e ->
+        Log.w(TAG, "launch $pkg: $e")
+        if (gate == null && fallback != null) runCatching { ctx.startActivity(fallback); Recent.note(ctx, pkg) }.onFailure { Log.w(TAG, "launch $pkg: $it") }
+    }
+}
+
+// ---- Continue watching ----------------------------------------------------------------------------
+
+@Composable
+@OptIn(ExperimentalFoundationApi::class)
+private fun WatchRow(home: Home, ui: Ui, w: Dp, rowSpec: BringIntoViewSpec) {
+    // Something new goes in at the start; the row keeps its place by item, so it would land out of view to
+    // the left. Back to the start, unless the owner is in the row.
+    val state = rememberLazyListState()
+    var inside by remember { mutableStateOf(false) }
+    val newest = home.watch.firstOrNull()?.key
+    LaunchedEffect(newest) { if (!inside) state.scrollToItem(0) }
+    CompositionLocalProvider(LocalBringIntoViewSpec provides if (ui.cfg.pinFocus) PINNED else rowSpec) {
+        LazyRow(Modifier.onFocusChanged { inside = it.hasFocus }, state = state, horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 16.dp)) {
+            items(home.watch, key = { it.key }) { item -> WatchTile(item, home.app(item.pkg), ui, w) }
+        }
+    }
+}
+
+/**
+ * A film or episode the owner is part way through: its picture, how far they got, its name and episode. OK
+ * goes back to it in its app, or opens the app when the app's link doesn't work. A locked app asks for the
+ * PIN first, as its tile does.
+ */
+@Composable
+private fun WatchTile(item: WatchItem, app: TvApp?, ui: Ui, w: Dp) {
+    val ctx = LocalContext.current
+    val shape = RoundedCornerShape(10.dp)
+    val (scale, glow, border) = focusStyle(ui, shape, lifted = true)
+    var focused by remember { mutableStateOf(false) }
+    // Decoded at the tile's own size: an app's poster can be 2000 pixels wide.
+    val px = with(androidx.compose.ui.platform.LocalDensity.current) { w.roundToPx() }
+    // The tile stays when an app gives the same film a new picture, and so does this state: start it over.
+    val picture by androidx.compose.runtime.produceState(item.image?.let { WatchNext.cached(it) }, item.image, px) {
+        value = item.image?.let { WatchNext.cached(it) }
+        if (value == null) value = item.image?.let { WatchNext.picture(ctx, it, px) }
+    }
+    val go: () -> Unit = { (WatchNext.intent(ctx, item) ?: app?.launch)?.let { open(ctx, item.pkg, it, app?.launch) } }
+    Column(Modifier.width(w)) {
+        Surface(
+            onClick = go,
+            modifier = Modifier.pointer { go() }.fillMaxWidth().aspectRatio(16f / 9f)
+                .onFocusChanged { focused = it.isFocused; if (it.isFocused && app != null) ui.onFocusApp(app) }
+                .lift(ui, shape, focused),
+            shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
+            colors = ClickableSurfaceDefaults.colors(containerColor = TILE, focusedContainerColor = TILE_FOCUSED)
+        ) {
+            val p = picture
+            when {
+                p != null -> Image(p, item.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                app?.banner == true -> Image(app.art, item.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                app != null -> GeneratedTile(app, big = false, named = false)
+            }
+            item.progress?.let { done ->
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).height(4.dp).background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(2.dp))) {
+                    Box(Modifier.fillMaxHeight().fillMaxWidth(done).background(ui.accent, RoundedCornerShape(2.dp)))
+                }
+            }
+            LiftLight(ui, focused)
+            if (Lock.isLocked(ui.cfg, item.pkg)) LockBadge(Modifier.align(Alignment.TopEnd))
+        }
+        Text(item.title, color = TEXT, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 7.dp, start = 2.dp))
+        Text(WatchNext.episodeLine(item) ?: app?.label.orEmpty(), color = MUTED, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp, start = 2.dp))
+    }
 }
 
 /** Rounded rectangle, rounded square, squircle (a superellipse, like Samsung's and Belle UI's) or circle. */

@@ -55,6 +55,7 @@ describe('CleanMyTV Home', () => {
     const order = tv.commands.filter((c) => /pm install|am start -W|pm disable-user|set-home-activity/.test(c))
     expect(order.map((c) => c.split(' ').slice(0, 2).join(' '))).toEqual(['pm install', 'am start', 'pm disable-user', 'cmd package'])
     expect(tv.commands).toContain('pm grant io.github.wingedpanther.cleanmytv.home android.permission.RECORD_AUDIO 2>/dev/null; echo audio-granted')
+    expect(tv.commands).toContain('pm grant io.github.wingedpanther.cleanmytv.home android.permission.READ_TV_LISTINGS 2>/dev/null; echo listings-granted')
     expect(await H.status()).toMatchObject({ installed: true, isHome: true, versionName: '1.0.0', bundledVersion: '1.0.0', oldLauncher: false })
   })
 
@@ -346,6 +347,12 @@ describe('CleanMyTV Home', () => {
       // Recently used reads which apps the TV opened, so it gets usage access only while it's on.
       'appops set io.github.wingedpanther.cleanmytv.home GET_USAGE_STATS allow'
     ])
+    // Continue watching: the TV provider shows Home other apps' entries only with this. Never revoked.
+    await H.setConfig({ sections: ['dock', 'watchnext', 'grid'] })
+    expect(tv.commands.at(-1)).toBe('pm grant io.github.wingedpanther.cleanmytv.home android.permission.READ_TV_LISTINGS 2>/dev/null; echo listings-granted')
+    const grants = tv.commands.filter((c) => c.includes('READ_TV_LISTINGS')).length
+    await H.setConfig({ sections: ['dock', 'grid'] })
+    expect(tv.commands.filter((c) => c.includes('READ_TV_LISTINGS'))).toHaveLength(grants)
   })
 
   it('gives Home back to the stock launcher from CleanMyTV Home', async () => {

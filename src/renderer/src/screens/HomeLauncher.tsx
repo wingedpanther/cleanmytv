@@ -690,8 +690,8 @@ const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, num
   { id: 'rail', label: t('Rail'), hint: t('Icons down the left edge that open with labels.'), mini: [[3, 6, 6, 84, true], [70, 6, 24, 8, true], [16, 24, 78, 28, false], [16, 60, 78, 18, true]] }
 ]
 
-const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: t('Now playing'), recent: t('Recently used'), dock: t('Dock'), rows: t('Rows'), folders: t('Folders'), grid: t('All apps') }
-const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'recent', 'dock', 'rows', 'folders', 'grid']
+const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: t('Now playing'), recent: t('Recently used'), dock: t('Dock'), watchnext: t('Continue watching'), rows: t('Rows'), folders: t('Folders'), grid: t('All apps') }
+const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'recent', 'dock', 'watchnext', 'rows', 'folders', 'grid']
 const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'timer', 'customize', 'settings']
 /** As the launcher's HomeConfig.MAX_QUICK_APPS. */
 const MAX_QUICK_APPS = 6
@@ -772,6 +772,11 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
           {cfg.sections.includes('recent') && (
             <p className="small muted" style={{ marginTop: 10 }}>
               {t('Recently used shows the last 8 apps the TV opened, newest first, whichever way they were opened.')}
+            </p>
+          )}
+          {cfg.sections.includes('watchnext') && (
+            <p className="small muted" style={{ marginTop: 10 }}>
+              {t("Continue watching shows the films and episodes you're part way through. Apps that fill Google TV's row fill this one too. It hides when there's nothing to show.")}
             </p>
           )}
         </div>

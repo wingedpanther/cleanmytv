@@ -434,7 +434,7 @@
   "Layout: Shelf, Split or Rail": "Макет: полка, две колонки или боковое меню",
   "style arrangement sidebar left panel": "стиль вид расположение боковая панель слева колонки полка",
   "top space gap margin dock position": "отступ сверху поле расстояние док положение",
-  "order show hide now playing recently used dock rows folders all apps": "порядок показать скрыть сейчас играет недавние док ряды папки все приложения",
+  "order show hide now playing recently used dock continue watching rows folders all apps": "порядок показать скрыть сейчас играет недавние док продолжить просмотр ряды папки все приложения",
   "recent last apps history": "недавние последние приложения история",
   "quick settings shortcuts wifi bluetooth inputs settings icons bar sleep timer update": "быстрые настройки ярлыки вайфай wi-fi bluetooth блютуз входы настройки значки панель таймер сна обновление",
   "categories groups row new rename": "категории группы ряд новый переименовать",
@@ -500,5 +500,12 @@
   "Look": "Вид",
   "Themes and wallpaper": "Темы и обои",
   "Widgets": "Виджеты",
-  "More": "Ещё"
+  "More": "Ещё",
+  "S{season} E{episode}": "{season} сезон, {episode} серия",
+  "E{episode}": "{episode} серия",
+  "S{season}": "{season} сезон",
+  "Continue watching": "Продолжить просмотр",
+  "watch next resume films episodes series progress": "смотреть дальше продолжить фильмы серии сериалы прогресс",
+  "Continue watching needs your OK to see what you're watching in other apps.": "Продолжить просмотр: нужно ваше разрешение, чтобы Home видел, что вы смотрите в других приложениях.",
+  "Allow": "Разрешить"
 }

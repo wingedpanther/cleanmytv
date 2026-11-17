@@ -186,7 +186,7 @@ export interface HomeStatus {
 }
 
 export type HomeLayout = 'shelf' | 'split' | 'rail'
-export type HomeSection = 'nowplaying' | 'recent' | 'dock' | 'rows' | 'folders' | 'grid'
+export type HomeSection = 'nowplaying' | 'recent' | 'dock' | 'watchnext' | 'rows' | 'folders' | 'grid'
 export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes' | 'fireplace' | 'memory' | 'customize' | 'timer'
 /** A saved look for the day and night switch. */
 export type LookSlot = 'day' | 'night'
