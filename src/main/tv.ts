@@ -207,19 +207,30 @@ export function q(value: string): string {
 }
 
 export const PACKAGE_RE = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/
+/** Home within one package: `${HOME_QUERY} <package>`. A single package's answer never touches the saved choice. */
 export const HOME_QUERY = 'cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME'
-export const HOME_CLAIMS = 'cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.HOME'
+// MATCH_DEFAULT_ONLY, as the Home button resolves. Without it the answer takes in HOME entries that lack the
+// DEFAULT category, like a remote-firmware updater on Haier's Google TV; with two launchers tied, Android then
+// finds the saved Home choice's set changed and deletes it on the spot ("Result set changed, dropping preferred
+// activity", upstream #4068). So checking where Home landed undid the choice. Android 9 has no --query-flags and
+// fails it, and gets the old query.
+const DEFAULT_ONLY = '--query-flags 65536'
+const HOME_INTENT = '-a android.intent.action.MAIN -c android.intent.category.HOME'
+/** Who answers the Home button. */
+export const HOME_OWNER = `cmd package resolve-activity --brief ${DEFAULT_ONLY} ${HOME_INTENT} 2>/dev/null || ${HOME_QUERY}`
+/** The apps that can be Home: an entry without DEFAULT never answers the Home button, so it isn't one. */
+export const HOME_CLAIMS = `cmd package query-activities --brief ${DEFAULT_ONLY} ${HOME_INTENT} 2>/dev/null || cmd package query-activities --brief ${HOME_INTENT}`
 
 /** The component that owns Home, or null (Android's chooser answers "android"). */
 export async function homeComponent(): Promise<string | null> {
-  const out = await tv().shell(HOME_QUERY)
+  const out = await tv().shell(HOME_OWNER)
   const last = out.trim().split('\n').pop()?.trim() ?? ''
   return /^[A-Za-z_][\w.]*\/[\w.$]+$/.test(last) ? last : null
 }
 
 /** What resolve-activity printed last: a component, "android" for the chooser, or "". */
 export async function homeAnswer(): Promise<string> {
-  const out = await tv().shell(HOME_QUERY)
+  const out = await tv().shell(HOME_OWNER)
   return (out.trim().split('\n').pop() ?? '').trim()
 }
 

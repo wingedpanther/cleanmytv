@@ -84,6 +84,11 @@ export interface FakeTv {
   hdmiType?: string
   /** HDMI-CEC's tv_wake_on_one_touch_play; unset means the TV has no hdmi_control service. */
   cecWake?: string
+  /**
+   * A HOME entry without the DEFAULT category, as Haier's remote-firmware updater has (upstream #4068). A Home
+   * query without MATCH_DEFAULT_ONLY then drops the saved Home choice while two launchers tie.
+   */
+  homeNonDefault?: string
   /** Misbehaviour for client hardening tests. */
   tokenSize?: number
   sendMalformed?: 'oversize' | 'magic'
@@ -116,10 +121,20 @@ function sh(tv: FakeTv, cmd: string): string {
   }
   if (cmd === 'pm list packages') return [...tv.packages.keys()].map((p) => `package:${p}`).join('\n') + '\n'
   if (cmd === 'pm list packages -d') return [...tv.packages].filter(([, s]) => s === 'disabled').map(([p]) => `package:${p}`).join('\n') + '\n'
-  if (cmd.startsWith('cmd package resolve-activity')) return `priority=0 preferredOrder=0\n${tv.home}\n`
+  if (cmd.startsWith('cmd package resolve-activity')) {
+    // --query-flags arrived in Android 10; Android 9 fails it and the shell runs the plain query after ||.
+    const defaultOnly = cmd.includes('--query-flags 65536') && Number(tv.sdk ?? 31) >= 29
+    const tied = tv.homeClaims.filter((c) => tv.packages.get(c.split('/')[0]) === 'enabled').length > 1
+    if (!defaultOnly && tv.homeNonDefault && tied && !outranking(tv)) tv.home = 'android/com.android.internal.app.ResolverActivity'
+    return `priority=0 preferredOrder=0\n${tv.home}\n`
+  }
   if (cmd.includes('LEANBACK_LAUNCHER')) return tv.leanback.map((p) => `  ${p}/.Main`).join('\n') + '\n'
   if (cmd.includes('category.LAUNCHER')) return tv.launcherApps.map((p) => `  ${p}/.Main`).join('\n') + '\n'
-  if (cmd.startsWith('cmd package query-activities')) return tv.homeClaims.filter((c) => tv.packages.get(c.split('/')[0]) === 'enabled').map((c) => `  ${c}`).join('\n') + '\n'
+  if (cmd.startsWith('cmd package query-activities')) {
+    const defaultOnly = cmd.includes('--query-flags 65536') && Number(tv.sdk ?? 31) >= 29
+    const claims = [...tv.homeClaims, ...(tv.homeNonDefault && !defaultOnly ? [tv.homeNonDefault] : [])]
+    return claims.filter((c) => tv.packages.get(c.split('/')[0]) === 'enabled').map((c) => `  ${c}`).join('\n') + '\n'
+  }
   if ((m = /^pidof (\S+)$/.exec(cmd))) return tv.packages.get(m[1]) === 'enabled' && !tv.crashing?.includes(m[1]) ? '4321\n' : ''
   if (cmd === 'reboot') return ''
   if (cmd === 'dumpsys wifi') return `WifiConfigManager ... ${tv.wifiOwners} ...\n`

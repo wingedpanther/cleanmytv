@@ -834,3 +834,47 @@ describe('keyboards', () => {
       .toEqual(['com.tcl.inputmethod.international'])
   })
 })
+
+describe('a HOME entry without DEFAULT, next to a second launcher (upstream #4068)', () => {
+  let tv: FakeTv
+  let server: Server
+  const LAUNCHERX = 'com.google.android.apps.tv.launcherx/.home.HomeActivity'
+  const PROJECTIVY = 'com.spocky.projengmenu/.ui.home.MainActivity'
+  const OTA = 'com.telink.lt/.BtOtaUpdate'
+  const MAIN = 'io.github.wingedpanther.cleanmytv.home/.MainActivity'
+  beforeAll(async () => {
+    tv = newTv()
+    tv.maxData = 256 * 1024
+    for (const c of [LAUNCHERX, PROJECTIVY, OTA]) tv.packages.set(c.split('/')[0], 'enabled')
+    tv.home = LAUNCHERX
+    tv.homeClaims = [LAUNCHERX, PROJECTIVY]
+    tv.homeNonDefault = OTA
+    tv.homeOutranks = [LAUNCHERX]
+    let port: number
+    ;({ server, port } = await startFakeAdbd(tv))
+    T.init(join(home, 'data', 'adbkey'), () => {})
+    expect((await T.connect(`127.0.0.1:${port}`)).state).toBe('connected')
+  })
+  afterAll(() => { T.disconnect(); server.close() })
+
+  it('checks where Home landed without deleting the choice it just made', async () => {
+    const r = await H.install()
+    expect(r.ok).toBe(true)
+    expect(tv.home).toBe(MAIN)
+    expect(await T.homeComponent()).toBe(MAIN)
+    expect(tv.home).toBe(MAIN)
+    expect((await H.status()).isHome).toBe(true)
+  })
+
+  it('never offers the firmware updater as a launcher', async () => {
+    expect(await L.otherLaunchers()).toEqual(['com.spocky.projengmenu'])
+  })
+
+  it('falls back to the plain query on Android 9, which has no --query-flags and keeps the old behaviour', async () => {
+    const host = String(T.getStatus().host)
+    tv.sdk = '28'
+    expect((await T.connect(host)).state).toBe('connected')
+    expect(await T.homeComponent()).toBe('android/com.android.internal.app.ResolverActivity')
+    tv.sdk = undefined
+  })
+})
