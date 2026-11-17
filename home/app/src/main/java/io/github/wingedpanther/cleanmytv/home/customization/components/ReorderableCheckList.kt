@@ -56,6 +56,7 @@ fun <T : Any> ReorderableCheckList(
     activeItems: List<T>,
     getId: (T) -> String = { it.toString() },
     getLabel: (T) -> String,
+    itemLead: (@Composable (T) -> Unit)? = null,
     onUpdateActive: (List<T>) -> Unit
 ) {
     // State machine as specified in docs/Order.md
@@ -232,6 +233,9 @@ fun <T : Any> ReorderableCheckList(
                                         )
                                 )
                             }
+
+                            // Optional Leading Icon/Graphic
+                            itemLead?.invoke(item)
 
                             // Item Title (Middle)
                             Text(

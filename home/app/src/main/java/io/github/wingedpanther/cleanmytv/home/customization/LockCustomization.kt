@@ -1,10 +1,21 @@
 package io.github.wingedpanther.cleanmytv.home.customization
 
 import android.content.Context
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -12,12 +23,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Icon
+import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import io.github.wingedpanther.cleanmytv.home.ConfigStore
 import io.github.wingedpanther.cleanmytv.home.HomeConfig
@@ -27,7 +45,9 @@ import io.github.wingedpanther.cleanmytv.home.Lock
 import io.github.wingedpanther.cleanmytv.home.PinPad
 import io.github.wingedpanther.cleanmytv.home.TvApp
 import io.github.wingedpanther.cleanmytv.home.customization.components.Alert
+import io.github.wingedpanther.cleanmytv.home.customization.components.CUSTOMIZATION_BG
 import io.github.wingedpanther.cleanmytv.home.customization.components.MUTED_COLOR
+import io.github.wingedpanther.cleanmytv.home.customization.components.TEXT_COLOR
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvDestructiveButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvPrimaryButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvRadioGroup
@@ -67,11 +87,8 @@ fun LockCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
         }
         TvSwitch(
             title = tr("App lock"),
-            subtitle = if (config.lockOn) {
-                val n = config.lockApps.size
-                (if (n == 1) tr("{n} app is locked", "n" to n) else tr("{n} apps are locked", "n" to n)) +
-                    (if (config.lockSystem) tr(", plus Settings, the Play Store and Quick settings") else "")
-            } else tr("Your PIN and the list stay while it's off"),
+            subtitle = if (config.lockOn) (if (config.lockApps.size == 1) tr("{n} app is locked", "n" to 1) else tr("{n} apps are locked", "n" to config.lockApps.size)) + (if (config.lockSystem) tr(", plus Settings, the Play Store and Quick settings") else "")
+            else tr("Your PIN and the list stay while it's off"),
             checked = config.lockOn,
             onCheckedChange = { set(JSONObject().put("lock_on", it)) }
         )
@@ -100,17 +117,126 @@ fun LockCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
             current = config.lockShow,
             onSelect = { set(JSONObject().put("lock_show", it)) }
         )
-        Text(tr("Locked apps"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        apps.forEach { a ->
-            TvSwitch(
-                title = a.label,
-                checked = a.pkg in config.lockApps,
-                onCheckedChange = { on ->
-                    val next = if (on) config.lockApps + a.pkg else config.lockApps - a.pkg
-                    set(JSONObject().put("lock_apps", JSONArray(next.distinct())))
-                }
-            )
+
+        // --- Locked Apps Header & Quick Lock/Unlock Actions ---
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(tr("Select Locked Apps ({n} locked)", "n" to config.lockApps.size), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(tr("Select an app to require PIN before launching."), color = MUTED_COLOR, fontSize = 12.sp)
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TvSecondaryButton(
+                    text = tr("Lock All"),
+                    onClick = {
+                        val allPkgs = apps.map { it.pkg }
+                        set(JSONObject().put("lock_apps", JSONArray(allPkgs)))
+                    }
+                )
+
+                TvSecondaryButton(
+                    text = tr("Unlock All"),
+                    onClick = {
+                        set(JSONObject().put("lock_apps", JSONArray()))
+                    }
+                )
+            }
         }
+
+        // --- 5-Column App Cards for Lock Selection ---
+        val lockedSet = remember(config.lockApps) { config.lockApps.toSet() }
+        val appRows = remember(apps) { apps.chunked(5) }
+
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            appRows.forEach { rowApps ->
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    rowApps.forEach { app ->
+                        val isLocked = app.pkg in lockedSet
+                        var isFocused by remember { mutableStateOf(false) }
+
+                        Surface(
+                            onClick = {
+                                val nextLocked = lockedSet.toMutableSet()
+                                if (isLocked) nextLocked.remove(app.pkg) else nextLocked.add(app.pkg)
+                                set(JSONObject().put("lock_apps", JSONArray(nextLocked.toList())))
+                            },
+                            colors = ClickableSurfaceDefaults.colors(
+                                containerColor = if (isLocked) Color(0x44FFFFFF) else Color(0x11FFFFFF),
+                                focusedContainerColor = Color.White,
+                                focusedContentColor = CUSTOMIZATION_BG
+                            ),
+                            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                            shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .onFocusChanged { isFocused = it.isFocused }
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(6.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color(0x22FFFFFF)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Image(
+                                        bitmap = app.art,
+                                        contentDescription = app.label,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = if (app.banner) ContentScale.Crop else ContentScale.Fit
+                                    )
+
+                                    if (isLocked) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(Color(0x99000000)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Lock,
+                                                contentDescription = tr("Locked"),
+                                                tint = Color.White,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Text(
+                                    text = app.label,
+                                    color = if (isFocused) CUSTOMIZATION_BG else TEXT_COLOR,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                Text(
+                                    text = if (isLocked) tr("LOCKED") else tr("UNLOCKED"),
+                                    color = if (isFocused) CUSTOMIZATION_BG else if (isLocked) Color(0xFF4CAF50) else MUTED_COLOR,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                    repeat(5 - rowApps.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+
         Text(tr("Daily limits"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         Text(tr("After its minutes for the day, an app needs the PIN, which gives it the rest of the day. The count starts again at midnight."), color = MUTED_COLOR, fontSize = 13.sp)
         config.limits.forEach { (pkg, minutes) ->
