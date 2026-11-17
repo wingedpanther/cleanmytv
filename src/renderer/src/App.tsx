@@ -12,6 +12,7 @@ import { HomeLauncher } from './screens/HomeLauncher'
 import { Extras } from './screens/Extras'
 import { Sideload } from './screens/Sideload'
 import { Finish } from './screens/Finish'
+import { LANGUAGES } from '@shared/i18n'
 import { langChoice, setLangChoice, t, type LangChoice } from './lib/i18n'
 import { version } from '../../../package.json'
 
@@ -322,8 +323,11 @@ function LanguagePick({ onPick }: { onPick: (c: LangChoice) => void }): ReactNod
       <span>{t('Language')}</span>
       <select value={langChoice()} onChange={(e) => onPick(e.target.value as LangChoice)}>
         <option value="auto">{t('Auto')}</option>
-        <option value="en">English</option>
-        <option value="ru">Русский</option>
+        {Object.entries(LANGUAGES).map(([code, l]) => (
+          <option key={code} value={code}>
+            {l.name}
+          </option>
+        ))}
       </select>
     </label>
   )

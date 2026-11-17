@@ -127,7 +127,7 @@ object PhoneUpload {
 
     /** The phone's page: pick a photo, and it's cropped to 1920x1080 and sent as a JPEG under 1 MB. */
     private fun page(token: String) = """<!doctype html>
-<html lang="${if (I18n.language() == "ru") "ru" else "en"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="${I18n.language()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CleanMyTV Home</title>
 <style>
 :root{color-scheme:dark}body{margin:0;font:16px/1.45 system-ui,-apple-system,sans-serif;background:#111a14;color:#f0ebe5}

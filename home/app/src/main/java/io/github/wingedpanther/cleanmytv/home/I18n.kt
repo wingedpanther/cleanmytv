@@ -4,9 +4,10 @@ import org.json.JSONObject
 import java.util.Locale
 
 /**
- * Home's text in the TV's language. The English stays in the code and is the key; i18n/ru.json maps it to
- * Russian. A missing entry shows the English. The map is read once, the first time Russian is needed, from
- * the APK's own resources, so the lock screen, the button service and plain JVM tests need no Context.
+ * Home's text in the TV's language. The English stays in the code and is the key; i18n/<language>.json maps
+ * it to that language (ru.json, de.json). A missing entry shows the English, and so does a language with no
+ * file. Each map is read once, the first time it's needed, from the APK's own resources, so the lock screen,
+ * the button service and plain JVM tests need no Context.
  */
 object I18n {
     /** The language to show, the TV's own unless a test picks one. */
@@ -19,7 +20,7 @@ object I18n {
 
     private val tables = java.util.concurrent.ConcurrentHashMap<String, Map<String, String>>()
 
-    /** The English to Russian map, read on first use. An unreadable file counts as empty, so Home stays in English. */
+    /** The English to [lang] map, read on first use. An unreadable file counts as empty, so Home stays in English. */
     fun table(lang: String): Map<String, String> = tables.getOrPut(lang) {
         runCatching { source(lang)?.let(::parse) }.getOrNull() ?: emptyMap()
     }
@@ -35,37 +36,43 @@ object I18n {
     /** [english] in the TV's language, with each {name} filled in from [args]. */
     fun text(english: String, args: Array<out Pair<String, Any>>): String {
         val lang = language()
-        val s = if (lang == "ru") table(lang)[english] ?: english else english
+        val s = if (lang == "en") english else table(lang)[english] ?: english
         return if (args.isEmpty()) s else fill(s, args, lang)
     }
 
     // Every brace escaped: Android's regex engine rejects a bare "}", which the JVM in unit tests accepts.
     private val PLACEHOLDER = Regex("\\{(\\w+)(?:\\|([^\\{\\}]*))?\\}")
 
-    /** {name} takes the value; {n|one|few|many} picks the Russian word that goes with the number n. */
+    /** {name} takes the value; {n|one|other} or {n|one|few|many} picks the word that goes with the number n. */
     fun fill(s: String, args: Array<out Pair<String, Any>>, lang: String = language()): String {
         val values = args.toMap()
         return PLACEHOLDER.replace(s) { m ->
             val v = values[m.groupValues[1]] ?: return@replace m.value
             val forms = m.groups[2]?.value?.split('|')
-            if (forms == null || forms.size != 3) v.toString()
-            else plural((v as? Number)?.toLong() ?: v.toString().toLongOrNull() ?: 0L, forms[0], forms[1], forms[2], lang)
+            if (forms == null || forms.size < 2) v.toString()
+            else forms[pluralIndex((v as? Number)?.toLong() ?: v.toString().toLongOrNull() ?: 0L, lang).coerceAtMost(forms.size - 1)]
         }
     }
 
     /**
-     * The word for [n] things: 1, 21, 101 take [one]; 2-4, 22-24 take [few]; the rest [many]. English
-     * only has [one] and [many].
+     * Which form goes with [n] things. Russian, Ukrainian and Belarusian have three: 1, 21, 101 take the
+     * first; 2-4, 22-24 the second; the rest the third. French counts 0 and 1 as one. Most others, English
+     * and German among them, say one for 1 and the second form for the rest.
      */
-    fun plural(n: Long, one: String, few: String, many: String, lang: String = language()): String {
+    fun pluralIndex(n: Long, lang: String = language()): Int {
         val a = kotlin.math.abs(n)
-        if (lang != "ru") return if (a == 1L) one else many
-        val ten = a % 10
-        val hundred = a % 100
-        return when {
-            ten == 1L && hundred != 11L -> one
-            ten in 2..4 && hundred !in 12..14 -> few
-            else -> many
+        return when (lang) {
+            "ru", "uk", "be" -> {
+                val ten = a % 10
+                val hundred = a % 100
+                when {
+                    ten == 1L && hundred != 11L -> 0
+                    ten in 2..4 && hundred !in 12..14 -> 1
+                    else -> 2
+                }
+            }
+            "fr" -> if (a <= 1L) 0 else 1
+            else -> if (a == 1L) 0 else 1
         }
     }
 }

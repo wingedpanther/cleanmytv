@@ -1,11 +1,11 @@
 // Messages the window shows, in the window's language. The window says which one once it opens;
 // until then the computer's language counts. The log stays in English.
-import { currentLang, fill, langOf, setLang, translate, type Vars } from '@shared/i18n'
+import { currentLang, fill, isLang, langOf, setLang, translate, type Vars } from '@shared/i18n'
 
 export { t } from '@shared/i18n'
 
 export function setLanguage(l: unknown): void {
-  setLang(l === 'ru' ? 'ru' : 'en')
+  setLang(isLang(l) ? l : 'en')
 }
 
 /** From the system language, for messages sent before the window has said. */

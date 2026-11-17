@@ -67,7 +67,7 @@ data class Place(
 suspend fun findPlaces(query: String): List<Place> = withContext(Dispatchers.IO) {
     val q = query.trim()
     if (q.length < 2) return@withContext emptyList()
-    val urlStr = "https://geocoding-api.open-meteo.com/v1/search?name=${URLEncoder.encode(q, "UTF-8")}&count=6&language=${if (I18n.language() == "ru") "ru" else "en"}&format=json"
+    val urlStr = "https://geocoding-api.open-meteo.com/v1/search?name=${URLEncoder.encode(q, "UTF-8")}&count=6&language=${I18n.language()}&format=json"
     runCatching {
         val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
             connectTimeout = 8_000

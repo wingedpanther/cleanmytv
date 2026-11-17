@@ -1,7 +1,7 @@
 // The window's language: the owner's choice, or the computer's. Changing it reloads the window,
 // so every text, even the ones worked out once at start, comes out in the new language.
 import { Fragment, createElement, type ReactNode } from 'react'
-import { langOf, pieces, setLang, translated, type Lang } from '@shared/i18n'
+import { isLang, langOf, pieces, setLang, translated, type Lang } from '@shared/i18n'
 
 export { t } from '@shared/i18n'
 
@@ -14,7 +14,7 @@ export function langChoice(): LangChoice {
   if (typeof window === 'undefined') return 'auto'
   try {
     const v = localStorage.getItem(KEY)
-    return v === 'en' || v === 'ru' ? v : 'auto'
+    return isLang(v) ? v : 'auto'
   } catch {
     return 'auto'
   }

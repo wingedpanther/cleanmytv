@@ -10,7 +10,10 @@ import org.junit.Test
 import java.io.File
 
 class I18nTest {
-    private val ru: Map<String, String> = I18n.parse(File("src/main/resources/i18n/ru.json").readText())
+    /** Every language file Home ships, by language. */
+    private val languages: Map<String, Map<String, String>> = File("src/main/resources/i18n").listFiles()!!
+        .filter { it.extension == "json" }.associate { it.nameWithoutExtension to I18n.parse(it.readText()) }
+    private val ru: Map<String, String> = languages.getValue("ru")
 
     /** Every literal handed to tr() in Home's code, as Kotlin reads it. */
     private val literals: Map<String, String> = run {
@@ -44,14 +47,19 @@ class I18nTest {
         I18n.reset()
     }
 
-    @Test fun `every text in the code has its Russian`() {
-        val missing = (literals.keys + tables).filter { it !in ru }
-        assertTrue("not in ru.json: $missing", missing.isEmpty())
+    @Test fun `every text in the code has its translation in each language`() {
+        assertEquals(setOf("de", "ru"), languages.keys)
+        for ((lang, map) in languages) {
+            val missing = (literals.keys + tables).filter { it !in map }
+            assertTrue("not in $lang.json: $missing", missing.isEmpty())
+        }
     }
 
-    @Test fun `ru json has nothing the code no longer uses`() {
-        val unused = ru.keys - literals.keys - tables
-        assertTrue("unused in ru.json: $unused", unused.isEmpty())
+    @Test fun `no language file has text the code no longer uses`() {
+        for ((lang, map) in languages) {
+            val unused = map.keys - literals.keys - tables
+            assertTrue("unused in $lang.json: $unused", unused.isEmpty())
+        }
     }
 
     @Test fun `a key is plain text, never a Kotlin template`() {
@@ -59,11 +67,26 @@ class I18nTest {
         assertTrue("tr() keys with \$: $templated", templated.isEmpty())
     }
 
-    @Test fun `the Russian fills in the same placeholders as the English`() {
-        val wrong = ru.filter { (en, tr) -> placeholders(en) != placeholders(tr) }
-        assertTrue("placeholders differ: $wrong", wrong.isEmpty())
-        val blank = ru.filter { (en, tr) -> en.isNotBlank() && tr.isBlank() }
-        assertTrue("empty translations: $blank", blank.isEmpty())
+    @Test fun `each translation fills in the same placeholders as the English`() {
+        for ((lang, map) in languages) {
+            val wrong = map.filter { (en, tr) -> placeholders(en) != placeholders(tr) }
+            assertTrue("$lang placeholders differ: $wrong", wrong.isEmpty())
+            val blank = map.filter { (en, tr) -> en.isNotBlank() && tr.isBlank() }
+            assertTrue("$lang empty translations: $blank", blank.isEmpty())
+        }
+    }
+
+    @Test fun `German counts take one and other`() {
+        I18n.language = { "de" }
+        I18n.source = { """{"{n} apps":"{n} {n|App|Apps}"}""" }
+        I18n.reset()
+        assertEquals(listOf("0 Apps", "1 App", "2 Apps", "21 Apps"), listOf(0, 1, 2, 21).map { tr("{n} apps", "n" to it) })
+    }
+
+    @Test fun `a language with no file stays English`() {
+        I18n.language = { "xx" }
+        I18n.reset()
+        assertEquals("Off", tr("Off"))
     }
 
     @Test fun `the APK carries the same ru json the tests read`() {

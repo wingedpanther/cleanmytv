@@ -1,10 +1,10 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { fill, pluralIndex, translate } from '@shared/i18n'
-import ru from '../src/renderer/src/locales/ru.json'
+import { LANGUAGES, fill, langOf, pluralForms, pluralIndex, translate, type Lang } from '@shared/i18n'
 
-const dict = ru as Record<string, string>
+const dict = LANGUAGES.ru.dict
+const LOCALES = 'src/renderer/src/locales'
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
@@ -53,8 +53,9 @@ function calls(): { keys: Map<string, string>; dynamic: string[] } {
 // Each name once: a translation may add a plural form the English doesn't need.
 const tokens = (s: string): string[] => [...new Set([...s.matchAll(/\{(\w+)(?:\|[^{}]*)?\}/g)].map((m) => m[1]))].sort()
 
-describe('the Russian translation', () => {
+describe.each(Object.keys(LANGUAGES).filter((l) => l !== 'en') as Lang[])('the %s translation', (lang) => {
   const { keys, dynamic } = calls()
+  const dict = LANGUAGES[lang].dict
 
   it('is asked for with plain strings only, so these checks see every key', () => {
     expect(dynamic).toEqual([])
@@ -74,9 +75,20 @@ describe('the Russian translation', () => {
     expect(wrong).toEqual([])
   })
 
-  it('gives every plural three forms, and no empty text', () => {
-    const wrong = Object.entries(dict).filter(([, tr]) => !tr.trim() || [...tr.matchAll(/\{\w+\|([^{}]*)\}/g)].some((m) => m[1].split('|').length !== 3))
+  it("gives every plural the language's number of forms, and no empty text", () => {
+    const wrong = Object.entries(dict).filter(([, tr]) => !tr.trim() || [...tr.matchAll(/\{\w+\|([^{}]*)\}/g)].some((m) => m[1].split('|').length !== pluralForms(lang)))
     expect(wrong).toEqual([])
+  })
+})
+
+describe('the languages', () => {
+  it('list every file in locales/', () => {
+    const files = readdirSync(LOCALES).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5))
+    expect(files.sort()).toEqual(Object.keys(LANGUAGES).filter((l) => l !== 'en').sort())
+  })
+
+  it("follow the computer's language, English when the app doesn't speak it", () => {
+    expect(['ru-RU', 'de_AT', 'de', 'DE-de', 'fr-FR', '', undefined].map(langOf)).toEqual(['ru', 'de', 'de', 'de', 'en', 'en', 'en'])
   })
 })
 
@@ -104,6 +116,8 @@ describe('t', () => {
       '1 приложение', '2 приложения', '5 приложений', '11 приложений', '21 приложение', '22 приложения', '25 приложений', '112 приложений'
     ])
     expect(pluralIndex('ru', 1.5)).toBe(1)
+    const de = (n: number): string => fill('de', '{n} {n|Zeile|Zeilen}', { n })
+    expect([0, 1, 2, 21].map(de)).toEqual(['0 Zeilen', '1 Zeile', '2 Zeilen', '21 Zeilen'])
   })
 
   it('uses English plurals when the English is the fallback', () => {

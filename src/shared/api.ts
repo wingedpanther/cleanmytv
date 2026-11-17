@@ -1,5 +1,6 @@
 // The contract between the main process (talks to the TV) and the renderer (the UI).
 // Every call goes through window.cytv, which the preload script builds from this interface.
+import type { Lang } from './i18n'
 
 export type PackageState = 'enabled' | 'disabled' | 'absent'
 
@@ -485,7 +486,7 @@ export interface WebResponse {
 export interface CytvApi {
   platform: 'darwin' | 'win32' | 'linux'
   /** The window's language, for the messages the main process sends it. */
-  setLanguage(lang: 'en' | 'ru'): Promise<void>
+  setLanguage(lang: Lang): Promise<void>
 
   // Connection
   scan(): Promise<ScanHit[]>
