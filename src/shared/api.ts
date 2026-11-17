@@ -457,6 +457,8 @@ export interface SystemState {
   privateDnsHost: string
   /** window_animation_scale; "null" when never set. */
   animationScale: string
+  /** match_content_frame_rate, Android 12 and later: 0 never, 1 only when smooth (the default, also "null"), 2 always. "" on older TVs. */
+  matchFrameRate: string
   /** /data in KB; null when df can't tell. */
   storage: { freeKb: number; totalKb: number } | null
 }
@@ -631,6 +633,8 @@ export interface CytvApi {
   systemState(): Promise<SystemState>
   setPrivateDns(host: string | null): Promise<ApplyResult>
   setAnimationScale(scale: number): Promise<ApplyResult>
+  /** Match content frame rate: 0 never, 1 only when the switch is smooth, 2 always (Android 12+). */
+  setMatchFrameRate(mode: number): Promise<ApplyResult>
   /** Switches Google's Ambient screensaver apps back on and makes it the screensaver (#57). */
   fixScreensaver(): Promise<ApplyResult>
   /** What an .apk on this computer is, and the version the TV has. */

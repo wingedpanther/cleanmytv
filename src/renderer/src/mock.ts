@@ -121,6 +121,7 @@ export function installMock(): void {
     privateDnsMode: 'opportunistic',
     privateDnsHost: '',
     animationScale: '1.0',
+    matchFrameRate: 'null',
     storage: { freeKb: 831000, totalKb: 5806884 }
   }
 
@@ -495,6 +496,10 @@ export function installMock(): void {
     async fixScreensaver() {
       await wait(900)
       return { ok: true, summary: "Google's screensaver is back: 2 apps switched on again, and it is the screensaver now.", warnings: ["Choose your albums in the TV's Settings → System → Ambient mode."] }
+    },
+    async setMatchFrameRate(mode) {
+      sys.matchFrameRate = String(mode)
+      return ok(mode === 2 ? "The TV always matches a video's frame rate." : 'Frame rate setting changed.')
     },
     async setAnimationScale(scale) {
       sys.animationScale = String(scale)

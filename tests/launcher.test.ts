@@ -428,6 +428,22 @@ describe('CleanMyTV Home', () => {
     expect((await T.connect(String(T.getStatus().host))).state).toBe('connected')
   })
 
+  it('matches the frame rate on Android 12 and later, and hides it on older TVs', async () => {
+    const host = String(T.getStatus().host)
+    expect((await S.state()).matchFrameRate).toBe('null')
+    expect((await S.matchFrameRate(2)).ok).toBe(true)
+    expect(tv.commands).toContain('settings put secure match_content_frame_rate 2')
+    expect((await S.state()).matchFrameRate).toBe('2')
+    await expect(S.matchFrameRate(3)).rejects.toThrow()
+    tv.sdk = '30'
+    expect((await T.connect(host)).state).toBe('connected')
+    expect((await S.state()).matchFrameRate).toBe('')
+    await expect(S.matchFrameRate(1)).rejects.toThrow(/Android 12/)
+    tv.sdk = undefined
+    tv.settings.delete('match_content_frame_rate')
+    expect((await T.connect(host)).state).toBe('connected')
+  })
+
   it('refuses to install on Android older than 9 (#30)', async () => {
     const host = String(T.getStatus().host)
     tv.sdk = '24'

@@ -9,7 +9,7 @@ const methods = [
   'useStockLauncher', 'otherLaunchers', 'useOtherLauncher', 'keepGoogleLauncher', 'removeOldLauncher', 'homeStatus', 'installHome', 'useHome', 'homeApps', 'readHomeConfig', 'setRemoteButtons', 'setLockPin', 'setAppLock', 'clearAppLock', 'themePackBegin', 'themePackPut', 'themePackEnd', 'setSlides', 'fireplace', 'homeKeys', 'saveHomeLook', 'saveThemeOnTv', 'setHomeConfig', 'setHomeWallpaper', 'pictureToJpeg', 'applyHomeTheme', 'themeBackup', 'restoreThemeBackup', 'forgetThemeBackup', 'saveHomeTheme',
   'knownTvs', 'connectKnown', 'forgetTv', 'saveTvThumb',
   'screenshot', 'saveScreenshot', 'thumbShot', 'webGet',
-  'systemState', 'setPrivateDns', 'setAnimationScale', 'fixScreensaver', 'sideloadInfo', 'sideload', 'clearCaches', 'key', 'reboot'
+  'systemState', 'setPrivateDns', 'setAnimationScale', 'setMatchFrameRate', 'fixScreensaver', 'sideloadInfo', 'sideload', 'clearCaches', 'key', 'reboot'
 ] as const
 
 function listen<T>(channel: string, cb: (value: T) => void): () => void {
