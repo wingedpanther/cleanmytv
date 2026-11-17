@@ -23,7 +23,35 @@ class WeatherTest {
     @Test fun `MET Norway reads as the current hour with the rest of today's high and low`() {
         val w = metNoReading(forecast, Instant.parse("2026-11-11T09:20:00Z"), ZoneId.of("Asia/Yekaterinburg"), fahrenheit = false)!!
         // 09:00 is the hour under way; 21:00 UTC is already tomorrow in Surgut (UTC+5).
-        assertEquals(WeatherNow(temp = -4, code = 85, day = true, high = -1, low = -9, metNo = true), w)
+        assertEquals(WeatherNow(temp = -4, code = 85, day = true, high = -1, low = -9, metNo = true), w.copy(hours = emptyList()))
+    }
+
+    @Test fun `MET Norway's hours are the ones still to come, with their own sky`() {
+        val w = metNoReading(forecast, Instant.parse("2026-11-11T09:20:00Z"), ZoneId.of("UTC"), fahrenheit = false)!!
+        assertEquals(
+            listOf(
+                WeatherHour(Instant.parse("2026-11-11T12:00:00Z"), -1, 2, true),
+                WeatherHour(Instant.parse("2026-11-11T18:00:00Z"), -9, 0, false),
+                WeatherHour(Instant.parse("2026-11-11T21:00:00Z"), -12, 3, true),
+            ),
+            w.hours,
+        )
+    }
+
+    @Test fun `Open-Meteo's hours are in the place's own time and start after now`() {
+        // Dublin in summer is UTC+1: 14:00 there is 13:00 UTC.
+        val o = JSONObject("""{"utc_offset_seconds":3600,
+            "current":{"temperature_2m":18.4,"weather_code":2,"is_day":1},
+            "daily":{"temperature_2m_max":[21.0],"temperature_2m_min":[12.6]},
+            "hourly":{"time":["2026-07-01T14:00","2026-07-01T15:00","2026-07-01T16:00","2026-07-01T17:00","2026-07-01T18:00","2026-07-01T19:00"],
+                "temperature_2m":[18.4,19.1,19.6,18.9,17.2,15.5],"weather_code":[2,3,61,80,3,0],"is_day":[1,1,1,1,1,0]}}""")
+        val w = openMeteoReading(o, Instant.parse("2026-07-01T13:25:00Z"))
+        assertEquals(18, w.temp)
+        assertEquals(21, w.high)
+        assertEquals(13, w.low)
+        assertEquals(listOf(15, 16, 17, 18).map { Instant.parse("2026-07-01T%02d:00:00Z".format(it - 1)) }, w.hours.map { it.at })
+        assertEquals(listOf(19, 20, 19, 17), w.hours.map { it.temp })
+        assertEquals(listOf(3, 61, 80, 3), w.hours.map { it.code })
     }
 
     @Test fun `MET Norway in Fahrenheit, and night from the symbol`() {

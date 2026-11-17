@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,7 +43,7 @@ private fun clock(minute: Int) = "%02d:%02d".format(minute / 60, minute % 60)
  * computer or a USB drive still come through the desktop app, which shrinks them for the TV.
  */
 @Composable
-fun ThemesCustomization(config: HomeConfig, ctx: Context) {
+fun ThemesCustomization(config: HomeConfig, ctx: Context, preview: MutableState<Previewed?>) {
     val packVersion by ThemePack.version.collectAsState()
     val themes = remember(packVersion) { ThemePack.list(ctx) }
     val changed = remember(packVersion, config) { ThemePack.changed(ctx) }
@@ -64,9 +65,12 @@ fun ThemesCustomization(config: HomeConfig, ctx: Context) {
             themes.forEach { t ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(t.name + if (t.id in changed) tr(" (your changes)") else "", color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                    TvPrimaryButton(text = tr("Use theme"), onClick = { ThemePack.apply(ctx, t, 0) })
+                    val picture = { v: Int -> Previewed(ThemePack.picture(ctx, t.id, v), "${t.name} · ${tr("Picture {n}", "n" to v + 1)}") }
+                    TvPrimaryButton(text = tr("Use theme"), onClick = { ThemePack.apply(ctx, t, 0) }, modifier = Modifier.previews(picture(0), preview))
                     // Only the picture: the colours and icons stay as they are.
-                    for (v in 0 until t.pictures) TvSecondaryButton(text = tr("Picture {n}", "n" to v + 1), onClick = { ThemePack.apply(ctx, t, v, withLook = false) })
+                    for (v in 0 until t.pictures) {
+                        TvSecondaryButton(text = tr("Picture {n}", "n" to v + 1), onClick = { ThemePack.apply(ctx, t, v, withLook = false) }, modifier = Modifier.previews(picture(v), preview))
+                    }
                     if (t.id in changed) TvSecondaryButton(text = tr("Forget changes"), onClick = { ThemePack.forget(ctx, t.id) })
                 }
             }
@@ -106,7 +110,10 @@ fun ThemesCustomization(config: HomeConfig, ctx: Context) {
         if (slides > 0) {
             Text(tr("The slideshow's photos"), color = MUTED_COLOR, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (n in 0 until slides) TvSecondaryButton(text = "${n + 1}", onClick = { Wallpapers.use(ctx, Slides.file(ctx, n)) })
+                for (n in 0 until slides) {
+                    val photo = Previewed(Slides.file(ctx, n), "${tr("The slideshow's photos")} · ${n + 1}")
+                    TvSecondaryButton(text = "${n + 1}", onClick = { Wallpapers.use(ctx, Slides.file(ctx, n)) }, modifier = Modifier.previews(photo, preview))
+                }
             }
         }
         Alert(text = tr("From your phone sends a photo as the wallpaper or into the slideshow. Pictures on your computer go through the desktop app."), modifier = Modifier.fillMaxWidth())

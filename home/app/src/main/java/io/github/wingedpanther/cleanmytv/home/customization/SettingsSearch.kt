@@ -96,6 +96,7 @@ val SETTINGS_INDEX: List<Findable> = run {
         Findable("Clock", "time date format", W),
         Findable("Weather", "location city temperature forecast", W),
         Findable("Temperature", "celsius fahrenheit unit", W),
+        Findable("Hourly forecast", "weather hours hourly later next rain", W),
         Findable("Idle screen", "screensaver idle big clock photos ambient", W),
         Findable("Apps in the dock", "dock size favourites favorites", A),
         Findable("Apps per row", "columns grid", A),

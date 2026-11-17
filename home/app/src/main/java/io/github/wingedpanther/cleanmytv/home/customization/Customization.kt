@@ -90,6 +90,8 @@ fun CustomizationDialog(
     var searching by remember { mutableStateOf(false) }
     // A new search remounts the section, so its controls look for the setting even when the section is already open.
     var found by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    // The picture under the focus in Themes and wallpaper, shown in the room to the right of the section.
+    val preview = remember { mutableStateOf<Previewed?>(null) }
 
     val categoryFocusRequesters = remember {
         CustomizationCategory.values().associateWith { FocusRequester() }
@@ -102,6 +104,7 @@ fun CustomizationDialog(
     }
 
     LaunchedEffect(inContentPane, selectedCategory) {
+        preview.value = null
         if (inContentPane) {
             delay(150) // Ensure Right Pane is laid out and AnimatedVisibility is mounted
             runCatching {
@@ -266,7 +269,7 @@ fun CustomizationDialog(
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(Color.White.copy(alpha = 0.05f))
                             ) {
-                                LazyColumn {
+                                LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     // Above the sections: finds a setting by name or by the words people use for it.
                                     item {
                                         var focused by remember { mutableStateOf(false) }
@@ -279,7 +282,7 @@ fun CustomizationDialog(
                                             ),
                                             scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
                                             shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(8.dp)),
-                                            modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused }
+                                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp).onFocusChanged { focused = it.isFocused }
                                         ) {
                                             Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(Icons.Outlined.Search, contentDescription = null, tint = if (focused) CUSTOMIZATION_BG else MUTED_COLOR, modifier = Modifier.size(18.dp))
@@ -363,7 +366,7 @@ fun CustomizationDialog(
                                             CustomizationCategory.VISUALIZER -> VisualizerCustomization(config, ctx)
                                             CustomizationCategory.FIREPLACE -> FireplaceCustomization(config, ctx)
                                             CustomizationCategory.ROWS -> RowsCustomization(config, ctx, apps)
-                                            CustomizationCategory.THEMES -> ThemesCustomization(config, ctx)
+                                            CustomizationCategory.THEMES -> ThemesCustomization(config, ctx, preview)
                                             CustomizationCategory.BUTTONS -> ButtonsCustomization(config, ctx, apps)
                                             CustomizationCategory.LOCK -> LockCustomization(config, ctx, apps)
                                             CustomizationCategory.MORE -> MoreCustomization(config, ctx)
@@ -373,6 +376,16 @@ fun CustomizationDialog(
                             }
                         }
                     }
+                }
+
+                // The drawer's width is free while a section is open: Themes and wallpaper shows its preview there.
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = selectedCategory == CustomizationCategory.THEMES && inContentPane,
+                    enter = fadeIn(animationSpec = tween(250)),
+                    exit = fadeOut(animationSpec = tween(150)),
+                    modifier = Modifier.align(Alignment.TopEnd).width(drawerWidth).padding(start = 24.dp)
+                ) {
+                    WallpaperPreview(preview.value)
                 }
             }
         }

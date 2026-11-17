@@ -5,6 +5,12 @@ import android.content.Context
 import android.graphics.Matrix
 import android.graphics.SurfaceTexture
 import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioTrack
+import android.media.MediaCodec
+import android.media.MediaCodecList
+import android.media.MediaExtractor
+import android.media.MediaFormat
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.os.Handler
@@ -75,7 +81,7 @@ object Fire {
  */
 class FireView(ctx: Context, private val volume: () -> Float) : TextureView(ctx), TextureView.SurfaceTextureListener {
     private var video: MediaPlayer? = null
-    private var audio: MediaPlayer? = null
+    private var audio: Crackle? = null
     private var surface: Surface? = null
     private var want = false
 
@@ -85,11 +91,11 @@ class FireView(ctx: Context, private val volume: () -> Float) : TextureView(ctx)
     fun play(on: Boolean) {
         want = on
         runCatching { video?.let { if (on && !it.isPlaying) it.start() else if (!on && it.isPlaying) it.pause() } }
-        runCatching { audio?.let { if (on && volume() > 0f && !it.isPlaying) it.start() else if ((!on || volume() <= 0f) && it.isPlaying) it.pause() } }
+        audio?.play(on && volume() > 0f)
     }
 
     fun setVolume(v: Float) {
-        runCatching { audio?.setVolume(v, v) }
+        audio?.setVolume(v)
         play(want)
     }
 
@@ -97,8 +103,7 @@ class FireView(ctx: Context, private val volume: () -> Float) : TextureView(ctx)
     fun fadeOut(ms: Long, done: () -> Unit) {
         val start = volume()
         animate().alpha(0f).setDuration(ms).setUpdateListener { a ->
-            val v = start * (1f - a.animatedFraction)
-            runCatching { audio?.setVolume(v, v) }
+            audio?.setVolume(start * (1f - a.animatedFraction))
         }.withEndAction { play(false); done() }.start()
     }
 
@@ -118,17 +123,7 @@ class FireView(ctx: Context, private val volume: () -> Float) : TextureView(ctx)
             }
         }.onFailure { Log.w(TAG, "fireplace video: $it") }.getOrNull()
         val crackle = Fire.sound(context)?.takeIf { it.length() > 0 } ?: return
-        audio = runCatching {
-            MediaPlayer().apply {
-                setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MOVIE).build())
-                setDataSource(crackle.path)
-                isLooping = true
-                volume().let { setVolume(it, it) }
-                setOnPreparedListener { if (want && volume() > 0f) it.start() }
-                setOnErrorListener { _, what, extra -> Log.w(TAG, "fireplace sound: $what/$extra"); true }
-                prepareAsync()
-            }
-        }.onFailure { Log.w(TAG, "fireplace sound: $it") }.getOrNull()
+        audio = Crackle(crackle, volume()).also { it.play(want && volume() > 0f) }
     }
 
     /** Fill the view and crop the overflow, centred. */
@@ -153,8 +148,192 @@ class FireView(ctx: Context, private val volume: () -> Float) : TextureView(ctx)
 
     fun release() {
         runCatching { video?.release() }; video = null
-        runCatching { audio?.release() }; audio = null
+        audio?.release(); audio = null
         surface?.release(); surface = null
+    }
+}
+
+/**
+ * The crackle, decoded here and played as PCM through an AudioTrack, half a second at a time.
+ *
+ * MediaPlayer sends a sound with no picture, 60 s or longer, in a format the TV's audio chip takes, to the
+ * chip's offload output as it is, undecoded. On some TVs that output is silent: the 66.8 s AAC crackle never
+ * played on a TCL 65QM63K (#118). AOSP's NuPlayer skips offload when the speed isn't exactly 1.0, so a
+ * MediaPlayer at 1.001 would also do, but that rule lives in the player, and TV chip makers ship their own
+ * players. A PCM AudioTrack can't go to offload at all: offload has to be asked for when the track is built,
+ * so it goes through the TV's mixer like every other app's sound, whatever player the TV has. Decoding it
+ * here also lets the loop run with no gap: the encoder's lead-in and tail are cut at every seam ([Seam]),
+ * where MediaPlayer, looping on its own, leaves a short silence.
+ */
+private class Crackle(private val file: File, volume: Float) {
+    private val lock = Object()
+    @Volatile private var alive = true
+    private var want = false
+    private var volume = volume
+    private var track: AudioTrack? = null
+
+    init { Thread(::run, "crackle").apply { isDaemon = true }.start() }
+
+    fun play(on: Boolean) = synchronized(lock) {
+        if (want == on) return@synchronized
+        want = on
+        runCatching { track?.let { if (on) it.play() else it.pause() } }
+        lock.notifyAll()
+    }
+
+    fun setVolume(v: Float) = synchronized(lock) {
+        volume = v
+        runCatching { track?.setVolume(v) }
+    }
+
+    /** Stopping the track also wakes the decoder if it's waiting on a full buffer; it then cleans up. */
+    fun release() = synchronized(lock) {
+        alive = false
+        runCatching { track?.stop() }
+        lock.notifyAll()
+    }
+
+    private fun run() {
+        // Audio priority, as Android's own audio threads have, so a busy TV doesn't leave the track empty.
+        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO)
+        var ex: MediaExtractor? = null
+        var codec: MediaCodec? = null
+        try {
+            ex = MediaExtractor().apply { setDataSource(file.path) }
+            val index = (0 until ex.trackCount).firstOrNull { ex.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true }
+                ?: run { Log.w(TAG, "fireplace sound: no audio in ${file.name}"); return }
+            ex.selectTrack(index)
+            val format = ex.getTrackFormat(index)
+            val delay = format.intOr("encoder-delay")
+            val padding = format.intOr("encoder-padding")
+            // The decoder would cut these only once, at the very start; the loop cuts them at every seam instead.
+            format.setInteger("encoder-delay", 0)
+            format.setInteger("encoder-padding", 0)
+            codec = decoder(format.getString(MediaFormat.KEY_MIME)!!).apply { configure(format, null, null, 0); start() }
+            Log.i(TAG, "fireplace sound: ${codec.name}, encoder delay $delay, padding $padding")
+            val info = MediaCodec.BufferInfo()
+            var pass = 0L
+            var seam: Seam? = null
+            var chunk = ByteArray(0)
+            while (alive) {
+                synchronized(lock) { while (alive && !want) lock.wait() }
+                if (!alive) break
+                val i = codec.dequeueInputBuffer(10_000)
+                if (i >= 0) {
+                    val into = codec.getInputBuffer(i)!!
+                    var n = ex.readSampleData(into, 0)
+                    if (n < 0) {
+                        ex.seekTo(0, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+                        pass++
+                        n = ex.readSampleData(into, 0)
+                        if (n < 0) { Log.w(TAG, "fireplace sound: ${file.name} is empty"); return }
+                    }
+                    // Each pass gets its own stretch of time stamps, so the output says which pass it belongs to.
+                    codec.queueInputBuffer(i, 0, n, ex.sampleTime + pass * PASS_US, 0)
+                    ex.advance()
+                }
+                val o = codec.dequeueOutputBuffer(info, 10_000)
+                if (o == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED || (o >= 0 && seam == null)) seam = open(codec.outputFormat, delay, padding)
+                if (o < 0) continue
+                val out = codec.getOutputBuffer(o)
+                val s = seam
+                var n = 0
+                if (out != null && s != null && info.size > 0) {
+                    if (chunk.size < info.size) chunk = ByteArray(info.size)
+                    out.position(info.offset)
+                    out.get(chunk, 0, info.size)
+                    n = s.take(Math.floorDiv(info.presentationTimeUs + PASS_US / 2, PASS_US), chunk, info.size)
+                }
+                codec.releaseOutputBuffer(o, false)
+                val t = synchronized(lock) { track }
+                if (n > 0 && t != null && t.write(s!!.out, 0, n) < 0 && alive) {
+                    // The audio server lost the track, after an output change say: build a new one.
+                    Log.w(TAG, "fireplace sound: track lost, opening a new one")
+                    seam = open(codec.outputFormat, delay, padding)
+                }
+            }
+        } catch (e: Exception) {
+            if (alive) Log.w(TAG, "fireplace sound: $e")
+        } finally {
+            runCatching { codec?.stop() }
+            runCatching { codec?.release() }
+            runCatching { ex?.release() }
+            synchronized(lock) { runCatching { track?.release() }; track = null }
+        }
+    }
+
+    /** A track for the decoder's output, with half a second of room: 96 KB for 48 kHz stereo. */
+    private fun open(f: MediaFormat, delay: Int, padding: Int): Seam {
+        val rate = f.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+        val channels = f.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+        val encoding = f.intOr(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
+        val mask = when (channels) {
+            1 -> AudioFormat.CHANNEL_OUT_MONO
+            2 -> AudioFormat.CHANNEL_OUT_STEREO
+            4 -> AudioFormat.CHANNEL_OUT_QUAD
+            6 -> AudioFormat.CHANNEL_OUT_5POINT1
+            8 -> AudioFormat.CHANNEL_OUT_7POINT1_SURROUND
+            else -> error("$channels channels")
+        }
+        val frame = channels * if (encoding == AudioFormat.ENCODING_PCM_FLOAT) 4 else 2
+        val t = AudioTrack.Builder()
+            .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MOVIE).build())
+            .setAudioFormat(AudioFormat.Builder().setSampleRate(rate).setChannelMask(mask).setEncoding(encoding).build())
+            .setTransferMode(AudioTrack.MODE_STREAM)
+            .setBufferSizeInBytes(maxOf(AudioTrack.getMinBufferSize(rate, mask, encoding) * 2, rate / 2 * frame))
+            .build()
+        synchronized(lock) {
+            runCatching { track?.release() }
+            t.setVolume(volume)
+            if (want) t.play()
+            track = t
+        }
+        return Seam(delay, padding, frame)
+    }
+
+    /** Android's own software decoder where there is one: it acts the same on every TV, and AAC costs next to nothing. */
+    private fun decoder(mime: String): MediaCodec {
+        val own = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.firstOrNull { c ->
+            !c.isEncoder && (c.name.startsWith("c2.android.") || c.name.startsWith("OMX.google.")) && c.supportedTypes.any { it.equals(mime, ignoreCase = true) }
+        }
+        return if (own != null) MediaCodec.createByCodecName(own.name) else MediaCodec.createDecoderByType(mime)
+    }
+
+    private fun MediaFormat.intOr(key: String, or: Int = 0) = if (containsKey(key)) getInteger(key) else or
+
+    private companion object {
+        /** Four hours of time stamps for each pass: far more than any crackle is long. */
+        const val PASS_US = 4L * 3600 * 1_000_000
+    }
+}
+
+/**
+ * Cuts the encoder's lead-in ([delay] frames) and tail ([padding] frames) off every pass of a loop, so the
+ * end of the sound runs straight into its start. The last [padding] frames are held back until the next
+ * pass begins and shows they were the tail. [take] puts what's ready to play at the start of [out].
+ */
+internal class Seam(private val delay: Int, private val padding: Int, private val frameBytes: Int) {
+    var out = ByteArray(0)
+        private set
+    private val held = ByteArray(padding * frameBytes)
+    private var heldLen = 0
+    private var pass = Long.MIN_VALUE
+    private var seen = 0L
+
+    /** Takes [len] bytes of [pass] and returns how many bytes of [out] to play. */
+    fun take(pass: Long, pcm: ByteArray, len: Int): Int {
+        if (pass != this.pass) { this.pass = pass; seen = 0; heldLen = 0 }
+        val frames = len / frameBytes
+        val skip = (delay - seen).coerceIn(0, frames.toLong()).toInt() * frameBytes
+        seen += frames
+        val total = heldLen + len - skip
+        if (out.size < total) out = ByteArray(total)
+        System.arraycopy(held, 0, out, 0, heldLen)
+        System.arraycopy(pcm, skip, out, heldLen, len - skip)
+        val ready = maxOf(0, total - held.size)
+        heldLen = total - ready
+        System.arraycopy(out, ready, held, 0, heldLen)
+        return ready
     }
 }
 

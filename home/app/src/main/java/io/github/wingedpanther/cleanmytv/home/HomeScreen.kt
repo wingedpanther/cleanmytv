@@ -591,6 +591,7 @@ private fun ShelfLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (
                 Column(horizontalAlignment = Alignment.End) {
                     Clock(cfg, 26.sp, 12.sp, Alignment.End)
                     WeatherLine(ui, 13.sp, Modifier.padding(top = 4.dp))
+                    HourLine(ui, 13.sp, Modifier.padding(top = 6.dp))
                     MemoryLine(ui, 13.sp, Modifier.padding(top = 4.dp))
                     if (quick.isNotEmpty()) {
                         if (cfg.clock != "off") Spacer(Modifier.height(10.dp))
@@ -613,6 +614,8 @@ private fun SplitLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (
             // 46 sp keeps "12:51 PM" on one line in the left third; 12-hour time is the widest.
             Clock(cfg, 46.sp, 15.sp, Alignment.Start)
             WeatherLine(ui, 15.sp, Modifier.padding(top = 6.dp))
+            // 13 sp keeps four hours inside the left third.
+            HourLine(ui, 13.sp, Modifier.padding(top = 8.dp))
             MemoryLine(ui, 15.sp, Modifier.padding(top = 6.dp))
             Spacer(Modifier.height(14.dp))
             Greeting(cfg, 18.sp)
@@ -656,6 +659,7 @@ private fun RailLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Q
                 Column(horizontalAlignment = Alignment.End) {
                     Clock(cfg, 26.sp, 12.sp, Alignment.End)
                     WeatherLine(ui, 13.sp, Modifier.padding(top = 4.dp))
+                    HourLine(ui, 13.sp, Modifier.padding(top = 6.dp))
                     MemoryLine(ui, 13.sp, Modifier.padding(top = 4.dp))
                 }
             }
@@ -792,13 +796,13 @@ private fun TileRow(section: String, list: List<TvApp>, ui: Ui, w: Dp, big: Bool
 
 // ---- Tiles ----------------------------------------------------------------------------------------
 
-/** [lifted]: the caller zooms the tile itself with [lift], so the surface doesn't. */
+/** [lifted]: the caller zooms the tile itself with [lift], so the surface doesn't. [white]: a white glow, for [blackOnWhite]. */
 @Composable
-private fun focusStyle(ui: Ui, shape: Shape, zoom: Float = 1.08f, lifted: Boolean = false) = Triple(
+private fun focusStyle(ui: Ui, shape: Shape, zoom: Float = 1.08f, lifted: Boolean = false, white: Boolean = false) = Triple(
     ClickableSurfaceDefaults.scale(focusedScale = if (ui.cfg.focus == "none" || (lifted && ui.cfg.focus == "lift")) 1f else zoom),
     ClickableSurfaceDefaults.glow(
         focusedGlow = when (ui.cfg.focus) {
-            "glow" -> Glow(ui.accent, 16.dp)
+            "glow" -> Glow(if (white) Color.White else ui.accent, 16.dp)
             "lift" -> Glow(ui.accent.copy(alpha = 0.35f), 16.dp) // a faint halo; the shadow does the lifting
             else -> Glow.None
         }
@@ -1164,9 +1168,37 @@ private fun NowPlayingCard(t: Track, ui: Ui) {
 private fun WeatherLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
     val w = ui.weather ?: return
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Image(weatherIcon(w), null, Modifier.size(with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.3f }), colorFilter = ColorFilter.tint(MUTED))
+        Image(weatherIcon(w.code, w.day), null, Modifier.size(with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.3f }), colorFilter = ColorFilter.tint(MUTED))
         Spacer(Modifier.width(6.dp))
         Text("${w.temp}°  ${w.high}° / ${w.low}°  ${ui.cfg.weatherPlace}${if (w.metNo) " · MET Norway" else ""}", color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/**
+ * The next few hours, when the owner turns them on: each hour's time over its sky and temperature, in the
+ * weather line's quiet style and size, so it reads from the sofa without crowding the clock.
+ */
+@Composable
+private fun HourLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
+    val hours = ui.weather?.hours?.takeIf { ui.cfg.weatherHours && it.isNotEmpty() } ?: return
+    val ctx = LocalContext.current
+    // "21:00" or "9 PM", as the TV keeps its clock.
+    val format = remember(ctx) {
+        val skeleton = if (android.text.format.DateFormat.is24HourFormat(ctx)) "Hm" else "ha"
+        java.text.SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(java.util.Locale.getDefault(), skeleton), java.util.Locale.getDefault())
+    }
+    val icon = with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.2f }
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        hours.forEach { h ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(format.format(Date.from(h.at)), color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(weatherIcon(h.code, h.day), null, Modifier.size(icon), colorFilter = ColorFilter.tint(MUTED))
+                    Spacer(Modifier.width(4.dp))
+                    Text("${h.temp}°", color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+                }
+            }
+        }
     }
 }
 
@@ -1196,9 +1228,9 @@ private fun MemoryLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier
 }
 
 /** WMO weather codes, as Open-Meteo reports them, to a drawn icon. */
-private fun weatherIcon(w: WeatherNow): ImageVector = when (w.code) {
-    0 -> if (w.day) Icons.Outlined.WbSunny else Icons.Outlined.NightsStay
-    1, 2 -> if (w.day) Icons.Outlined.WbCloudy else Icons.Outlined.NightsStay
+private fun weatherIcon(code: Int, day: Boolean): ImageVector = when (code) {
+    0 -> if (day) Icons.Outlined.WbSunny else Icons.Outlined.NightsStay
+    1, 2 -> if (day) Icons.Outlined.WbCloudy else Icons.Outlined.NightsStay
     3 -> Icons.Outlined.Cloud
     45, 48 -> Icons.Outlined.Dehaze
     in 71..77, 85, 86 -> Icons.Outlined.AcUnit
@@ -1207,31 +1239,39 @@ private fun weatherIcon(w: WeatherNow): ImageVector = when (w.code) {
     else -> Icons.Outlined.Cloud
 }
 
+/**
+ * Mono icons with the Glow focus: a focused round button turns white with a black icon, on a white glow
+ * (#119). With anything else the accent fills it, as before.
+ */
+private fun blackOnWhite(ui: Ui) = ui.cfg.iconStyle == "mono" && ui.cfg.focus == "glow"
+private fun buttonFill(ui: Ui) = if (blackOnWhite(ui)) Color.White else ui.accent.copy(alpha = 0.9f)
+private fun buttonInk(ui: Ui) = if (blackOnWhite(ui)) Color.Black else onAccent(ui.accent)
+
 @Composable
 private fun RoundButton(icon: ImageVector, label: String, ui: Ui, onClick: () -> Unit) {
-    val (scale, glow, border) = focusStyle(ui, RoundedCornerShape(50), zoom = 1.12f)
+    val (scale, glow, border) = focusStyle(ui, RoundedCornerShape(50), zoom = 1.12f, white = blackOnWhite(ui))
     var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
         modifier = Modifier.pointer(onClick = onClick).size(44.dp).onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(CircleShape), scale = scale, glow = glow, border = border,
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = ui.accent.copy(alpha = 0.9f))
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = buttonFill(ui))
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Image(icon, label, Modifier.size(24.dp), colorFilter = ColorFilter.tint(if (focused) onAccent(ui.accent) else TEXT))
+            Image(icon, label, Modifier.size(24.dp), colorFilter = ColorFilter.tint(if (focused) buttonInk(ui) else TEXT))
         }
     }
 }
 
 @Composable
 private fun QuickButton(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit) {
-    val (scale, glow, border) = focusStyle(ui, RoundedCornerShape(50), zoom = 1.12f)
+    val (scale, glow, border) = focusStyle(ui, RoundedCornerShape(50), zoom = 1.12f, white = blackOnWhite(ui))
     var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = { onQuick(a) },
         modifier = Modifier.pointer { onQuick(a) }.size(40.dp).onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(CircleShape), scale = scale, glow = glow, border = border,
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = ui.accent.copy(alpha = 0.9f))
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = buttonFill(ui))
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             QuickGlyph(a, ui, focused, 22.dp)
@@ -1247,7 +1287,7 @@ private fun QuickButton(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit) 
 private fun QuickGlyph(a: QuickAction, ui: Ui, focused: Boolean, size: Dp) {
     val art = a.art
     if (art != null) Image(art, a.label, Modifier.size(size + 4.dp).clip(CircleShape))
-    else Image(iconFor(a, ui.cfg), a.label, Modifier.size(size), colorFilter = ColorFilter.tint(if (focused) onAccent(ui.accent) else TEXT))
+    else Image(iconFor(a, ui.cfg), a.label, Modifier.size(size), colorFilter = ColorFilter.tint(if (focused) buttonInk(ui) else TEXT))
 }
 
 @Composable
@@ -1257,14 +1297,14 @@ private fun QuickRow(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit, exp
 @Composable
 private fun RailItem(icon: ImageVector, label: String, ui: Ui, expanded: Boolean, glyph: (@Composable (Boolean) -> Unit)? = null, onClick: () -> Unit) {
     val shape = RoundedCornerShape(22.dp)
-    val (_, glow, border) = focusStyle(ui, shape)
+    val (_, glow, border) = focusStyle(ui, shape, white = blackOnWhite(ui))
     var focused by remember { mutableStateOf(false) }
-    val ink = if (focused) onAccent(ui.accent) else TEXT
+    val ink = if (focused) buttonInk(ui) else TEXT
     Surface(
         onClick = onClick,
         modifier = Modifier.pointer(onClick = onClick).height(44.dp).then(if (expanded) Modifier.fillMaxWidth() else Modifier.width(44.dp)).onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(shape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f), glow = glow, border = border,
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = ui.accent.copy(alpha = 0.9f))
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = buttonFill(ui))
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 11.dp), verticalAlignment = Alignment.CenterVertically) {
             // A fixed 22 dp slot, so labels line up whether the icon is a glyph or an app's.
@@ -1312,12 +1352,14 @@ private fun IdleScreen(ui: Ui, modifier: Modifier) {
             "center" -> Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                 Clock(ui.cfg, 120.sp, 22.sp, Alignment.CenterHorizontally)
                 WeatherLine(ui, 18.sp, Modifier.padding(top = 12.dp))
+                HourLine(ui, 18.sp, Modifier.padding(top = 12.dp))
             }
             else -> {
                 if (ui.cfg.idleStyle == "photos") IdlePhotos()
                 Column(Modifier.align(Alignment.BottomStart).padding(start = SAFE_X, bottom = SAFE_Y + 12.dp)) {
                     Clock(ui.cfg, 64.sp, 18.sp, Alignment.Start)
                     WeatherLine(ui, 16.sp, Modifier.padding(top = 8.dp))
+                    HourLine(ui, 16.sp, Modifier.padding(top = 10.dp))
                 }
             }
         }

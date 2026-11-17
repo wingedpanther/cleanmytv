@@ -352,6 +352,8 @@ export interface HomeConfig {
   weather_lat: number
   weather_lon: number
   weather_unit: 'c' | 'f'
+  /** The next four hours under the weather: time, sky and temperature. */
+  weather_hours: boolean
   /** Free memory under the clock (launcher 1.7.5). */
   memory: boolean
   /** Day and night looks take turns at day_at and night_at, minutes past midnight (launcher 1.7.5). */

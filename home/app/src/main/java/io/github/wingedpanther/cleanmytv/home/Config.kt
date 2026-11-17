@@ -103,6 +103,7 @@ data class HomeConfig(
     val weatherLat: Double = 0.0,
     val weatherLon: Double = 0.0,
     val weatherUnit: String = "c", // c, f
+    val weatherHours: Boolean = false, // the next few hours under the weather
     val memory: Boolean = false, // free memory under the clock
     // Day and night: the looks the owner saved as "day" and "night" take turns at these minutes past midnight
     val dayNight: Boolean = false,
@@ -190,6 +191,7 @@ data class HomeConfig(
         .put("weather_lat", weatherLat)
         .put("weather_lon", weatherLon)
         .put("weather_unit", weatherUnit)
+        .put("weather_hours", weatherHours)
         .put("memory", memory)
         .put("day_night", dayNight)
         .put("day_at", dayAt)
@@ -352,6 +354,7 @@ data class HomeConfig(
                 weatherLat = real("weather_lat", base.weatherLat, 90.0),
                 weatherLon = real("weather_lon", base.weatherLon, 180.0),
                 weatherUnit = choice("weather_unit", base.weatherUnit, setOf("c", "f")),
+                weatherHours = bool("weather_hours", base.weatherHours),
                 memory = bool("memory", base.memory),
                 dayNight = bool("day_night", base.dayNight),
                 dayAt = int("day_at", base.dayAt, 0, 24 * 60 - 1),
