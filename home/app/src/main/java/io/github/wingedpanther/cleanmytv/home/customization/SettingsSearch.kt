@@ -89,6 +89,7 @@ val SETTINGS_INDEX: List<Findable> = run {
         Findable("From your phone", "photo upload phone qr camera picture send", T),
         Findable("Bing picture of the day", "bing daily picture", T),
         Findable("Bing every day", "bing daily automatic wallpaper change", T),
+        Findable("Snow", "snowflakes falling winter christmas december", T),
         Findable("Slideshow photos", "slides slideshow photo", T),
         Findable("Day and night", "schedule evening night morning time swap", T),
         Findable("Clock", "time date format", W),

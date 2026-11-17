@@ -7,7 +7,7 @@ import { t } from './i18n'
 export const THEME_KEYS = [
   'accent', 'focus', 'background', 'wallpaper_dim', 'top_space', 'dock_scale', 'tile_scale', 'show_names', 'clock',
   'visualiser', 'viz_style', 'viz_bars', 'viz_height', 'viz_opacity', 'viz_colour', 'viz_peaks', 'viz_sensitivity',
-  'icon_style', 'tile_shape', 'shade_top', 'shade_top_reach', 'shade_bottom', 'shade_bottom_reach', 'wash', 'wash_reach', 'font'
+  'icon_style', 'tile_shape', 'shade_top', 'shade_top_reach', 'shade_bottom', 'shade_bottom_reach', 'wash', 'wash_reach', 'font', 'snow'
 ] as const satisfies readonly (keyof HomeConfig)[]
 
 export const THEME_EXT = 'cmtvtheme'
@@ -55,7 +55,7 @@ export function parseTheme(text: string): HomeTheme {
 
 /** Pictures the app draws over a theme's base, in the theme's colours (src/renderer/src/lib/themes.ts). */
 export interface ThemeArt {
-  kind: 'aurora' | 'ridges' | 'dunes' | 'flow' | 'stars' | 'contours' | 'bokeh' | 'horizon' | 'rings'
+  kind: 'aurora' | 'ridges' | 'dunes' | 'flow' | 'stars' | 'contours' | 'bokeh' | 'horizon' | 'rings' | 'winter'
   colours: string[]
   /** The same seed draws the same picture. */
   seed: number
@@ -134,7 +134,7 @@ function omarchy(): BuiltInTheme[] {
   })
 }
 
-export const BUILT_IN_THEMES: BuiltInTheme[] = [
+const THEMES: BuiltInTheme[] = [
   {
     id: 'aurora',
     name: 'Aurora',
@@ -197,6 +197,21 @@ export const BUILT_IN_THEMES: BuiltInTheme[] = [
       base: ['#0D0E10', '#1D1F23'],
       glows: [{ colour: '#FFFFFF', x: 0.5, y: -0.25, r: 0.7, a: 0.07 }],
       art: { kind: 'contours', colours: ['#FFFFFF', '#9AA0A6'], seed: 15 }
+    }
+  },
+  // For December: a snowy night with warm lights, a gold glow on the focused app, and snow falling on Home.
+  {
+    id: 'christmas',
+    name: 'Christmas',
+    look: { accent: '#F2C14E', focus: 'glow', background: '#0B1222', wallpaper_dim: 0, shade_top: 35, viz_style: 'bars', viz_colour: 'accent', viz_peaks: true, snow: true },
+    paint: {
+      base: ['#081129', '#1A1230'],
+      glows: [
+        { colour: '#FFB347', x: 0.22, y: 0.62, r: 0.45, a: 0.2 },
+        { colour: '#D9434B', x: 0.95, y: 0.9, r: 0.4, a: 0.14 },
+        { colour: '#8FB4FF', x: 0.72, y: 0.0, r: 0.5, a: 0.1 }
+      ],
+      art: { kind: 'winter', colours: ['#F2C14E', '#D9434B', '#4FB37A'], seed: 25 }
     }
   },
   // Gruvbox dark (github.com/morhetz/gruvbox). Only the dark palette: Home's text is white.
@@ -280,6 +295,9 @@ export const BUILT_IN_THEMES: BuiltInTheme[] = [
   },
   ...omarchy()
 ]
+
+// Snow is on only where a theme asks for it, so moving on from Christmas stops it.
+export const BUILT_IN_THEMES: BuiltInTheme[] = THEMES.map((b) => ({ ...b, look: { snow: false, ...b.look } }))
 
 /** Pictures per theme on the TV's carousel and behind "Another picture". */
 export const THEME_PICTURES = 3

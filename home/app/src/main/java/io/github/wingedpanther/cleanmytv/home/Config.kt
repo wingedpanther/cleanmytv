@@ -37,6 +37,7 @@ data class HomeConfig(
     val focus: String = "lift", // lift, glow, outline, none
     val background: Long = 0xFF1C2A1F,
     val wallpaperDim: Int = 35, // percent of black over the wallpaper
+    val snow: Boolean = false, // snow falling over the wallpaper, behind the apps; the Christmas theme turns it on
     // Shading over the wallpaper, each a strength and how far it reaches, in percent of the screen's height
     val shadeTop: Int = 60, // behind the top bar (Shelf layout)
     val shadeTopReach: Int = 40,
@@ -131,6 +132,7 @@ data class HomeConfig(
         .put("focus", focus)
         .put("background", hex(background))
         .put("wallpaper_dim", wallpaperDim)
+        .put("snow", snow)
         .put("shade_top", shadeTop)
         .put("shade_top_reach", shadeTopReach)
         .put("shade_bottom", shadeBottom)
@@ -266,6 +268,7 @@ data class HomeConfig(
                 focus = choice("focus", base.focus, setOf("lift", "glow", "outline", "none")),
                 background = colour("background", base.background),
                 wallpaperDim = int("wallpaper_dim", base.wallpaperDim, 0, 80),
+                snow = bool("snow", base.snow),
                 shadeTop = int("shade_top", base.shadeTop, 0, 100),
                 shadeTopReach = int("shade_top_reach", base.shadeTopReach, 0, 100),
                 shadeBottom = int("shade_bottom", base.shadeBottom, 0, 100),

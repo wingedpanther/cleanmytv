@@ -251,6 +251,8 @@ export interface HomeConfig {
   background: string
   /** Percent of black over the wallpaper, 0 to 80. */
   wallpaper_dim: number
+  /** Snow falling over the wallpaper, behind the apps (launcher 1.13.0 and newer). Themes carry it. */
+  snow: boolean
   /** Shading over the wallpaper: strength and reach (percent of the screen's height). The top one is the Shelf layout's. */
   /** The on-TV editor (experimental): its Customize icon shows in the top bar only while this is on. */
   edit_on_tv: boolean

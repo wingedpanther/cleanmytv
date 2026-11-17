@@ -130,6 +130,27 @@ class ExtrasTest {
         assertTrue("timer" in HomeConfig.BUTTON_ACTIONS)
     }
 
+    @Test fun `snow is off until asked for, round-trips, and a theme carries it`() {
+        assertFalse(HomeConfig().snow)
+        val c = HomeConfig.fromJson(JSONObject("""{"snow":true}"""))
+        assertTrue(c.snow)
+        assertEquals(c, HomeConfig.fromJson(c.toJson()))
+        assertTrue("snow" in ThemePack.MEMORY_KEYS)
+        assertTrue(io.github.wingedpanther.cleanmytv.home.customization.searchSettings("snow").isNotEmpty())
+    }
+
+    @Test fun `snowflakes keep falling on the screen, and a long pause doesn't throw them`() {
+        val f = Flakes(count = 30)
+        repeat(5_000) { f.step(0.04f) }
+        for (i in 0 until f.count) {
+            assertTrue(f.y[i] in -0.02f..1.02f)
+            assertTrue(f.x(i) in -0.02f..1.02f)
+        }
+        val before = f.y.copyOf()
+        f.step(60f)
+        for (i in 0 until f.count) assertTrue(kotlin.math.abs(f.y[i] - before[i]) < 0.02f || f.y[i] < before[i])
+    }
+
     @Test fun `time reads the way people say it`() {
         assertEquals("45 min", Limits.words(45))
         assertEquals("2 h", Limits.words(120))

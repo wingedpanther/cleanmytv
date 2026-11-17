@@ -48,7 +48,7 @@ export function drawWallpaper(p: ThemePaint, w: number, h: number): HTMLCanvasEl
 }
 
 const ART: Record<ThemeArt['kind'], (ctx: Ctx, w: number, h: number, a: ThemeArt, r: Rnd, dark: string) => void> = {
-  aurora, ridges, dunes, flow, stars, contours, bokeh, horizon, rings
+  aurora, ridges, dunes, flow, stars, contours, bokeh, horizon, rings, winter
 }
 
 /** Curtains of light across the top third, softened so they read as light, not stripes. */
@@ -385,6 +385,139 @@ function rings(ctx: Ctx, w: number, h: number, a: ThemeArt, r: Rnd): void {
       ctx.arc(cx, cy, rad, start, start + Math.PI * (0.3 + r() * 0.5))
     } else ctx.arc(cx, cy, rad, 0, Math.PI * 2)
     ctx.stroke()
+  }
+}
+
+/**
+ * A snowy night: a few stars, soft lights out of focus, a string of fairy lights along the top, and snowy
+ * hills with pines. The hills stay dark, so the rows of apps in front of them stay readable.
+ */
+function winter(ctx: Ctx, w: number, h: number, a: ThemeArt, r: Rnd, dark: string): void {
+  const s = w / TV_W
+  const snow = '#C9D6EE'
+  const warm = '#FFE2A8'
+  const lights = [...a.colours, warm]
+  for (let i = 0, n = Math.round(260 * s * s); i < n; i++) {
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.12 + 0.45 * r()})`
+    ctx.beginPath()
+    ctx.arc(r() * w, Math.pow(r(), 1.6) * h * 0.55, (Math.pow(r(), 5) * 1.6 + 0.4) * s, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  // Lights out of focus, kept to the sides and the sky, softer the further they are.
+  for (const [count, blur, big, alpha] of [[14, 18, 0.05, 0.13], [16, 3, 0.018, 0.26]] as const) {
+    const off = layer(w, h)
+    const o = off.getContext('2d') as Ctx
+    for (let i = 0; i < count; i++) {
+      const side = r() < 0.5 ? r() * 0.3 : 0.7 + r() * 0.3
+      const x = side * w
+      const y = h * (0.14 + r() * 0.42)
+      const rad = w * (0.006 + Math.pow(r(), 2) * big)
+      const col = lights[i % lights.length]
+      o.fillStyle = rgba(col, alpha * (0.6 + 0.4 * r()))
+      o.beginPath()
+      o.arc(x, y, rad, 0, Math.PI * 2)
+      o.fill()
+    }
+    ctx.globalCompositeOperation = 'screen'
+    ctx.filter = `blur(${Math.max(1, Math.round(blur * s))}px)`
+    ctx.drawImage(off, 0, 0)
+    ctx.filter = 'none'
+    ctx.globalCompositeOperation = 'source-over'
+  }
+  hills(ctx, w, h, r, dark, snow)
+  fairyLights(ctx, w, h, r, lights)
+}
+
+/** Three snowy hills, nearest at the bottom and darkest, with pines on the two further ones. */
+function hills(ctx: Ctx, w: number, h: number, r: Rnd, dark: string, snow: string): void {
+  const s = w / TV_W
+  const layers = [[0.6, 0.08, 0.7], [0.7, 0.06, 0.8], [0.82, 0.045, 0.9]] as const
+  layers.forEach(([top, amp, deep], i) => {
+    const noise = fbm(r, 3)
+    const freq = 1.1 + i * 0.5
+    const y = (x: number): number => h * (top - amp * (noise((x / w) * freq + i * 3) * 3 - 1.2))
+    const body = mix(snow, dark, deep)
+    const path = new Path2D()
+    path.moveTo(0, h)
+    for (let x = 0; x <= w; x += Math.max(2, 4 * s)) path.lineTo(x, y(x))
+    path.lineTo(w, h)
+    path.closePath()
+    const fill = ctx.createLinearGradient(0, h * (top - amp), 0, h)
+    fill.addColorStop(0, body)
+    fill.addColorStop(0.35, mix(body, dark, 0.35))
+    fill.addColorStop(1, mix(body, dark, 0.7))
+    ctx.fillStyle = fill
+    ctx.fill(path)
+    // Moonlight on the crest.
+    ctx.strokeStyle = rgba(snow, 0.3 - i * 0.08)
+    ctx.lineWidth = 2 * s
+    ctx.beginPath()
+    for (let x = 0; x <= w; x += Math.max(2, 4 * s)) ctx.lineTo(x, y(x))
+    ctx.stroke()
+    if (i === 2) return
+    const tree = mix(dark, '#000000', 0.35)
+    for (let k = 0, n = 9 + Math.round(r() * 6); k < n; k++) {
+      // In small groups, as pines grow.
+      const x = (Math.floor(r() * 5) / 5 + 0.03 + r() * 0.14) * w
+      const tall = h * (0.03 + Math.pow(r(), 2) * 0.06) * (i === 0 ? 0.75 : 1.2)
+      pine(ctx, x, y(x) + tall * 0.08, tall, tree, snow)
+    }
+  })
+}
+
+function pine(ctx: Ctx, x: number, base: number, tall: number, fill: string, snow: string): void {
+  const half = tall * 0.32
+  for (let k = 0; k < 3; k++) {
+    const bottom = base - tall * k * 0.27
+    const wide = half * (1 - k * 0.24)
+    const top = bottom - tall * 0.48
+    ctx.fillStyle = fill
+    ctx.beginPath()
+    ctx.moveTo(x - wide, bottom)
+    ctx.lineTo(x, top)
+    ctx.lineTo(x + wide, bottom)
+    ctx.closePath()
+    ctx.fill()
+    // A little snow along each layer of branches.
+    ctx.strokeStyle = rgba(snow, 0.28)
+    ctx.lineWidth = Math.max(1, tall * 0.025)
+    ctx.beginPath()
+    ctx.moveTo(x - wide * 0.9, bottom - tall * 0.02)
+    ctx.quadraticCurveTo(x, bottom - tall * 0.09, x + wide * 0.9, bottom - tall * 0.02)
+    ctx.stroke()
+  }
+}
+
+/** A string of small lights hanging in loops across the top, each with a soft glow. */
+function fairyLights(ctx: Ctx, w: number, h: number, r: Rnd, colours: string[]): void {
+  const s = w / TV_W
+  const loops = 3
+  const span = w / loops
+  const top = h * 0.004
+  const sag = h * (0.032 + r() * 0.01)
+  const at = (x: number): number => {
+    const t = (x % span) / span
+    return top + sag * 4 * t * (1 - t)
+  }
+  ctx.strokeStyle = 'rgba(10, 14, 22, 0.75)'
+  ctx.lineWidth = 1.6 * s
+  ctx.beginPath()
+  for (let x = 0; x <= w; x += Math.max(2, 4 * s)) ctx.lineTo(x, at(x))
+  ctx.stroke()
+  const step = span / 9
+  for (let x = step / 2, i = 0; x < w; x += step, i++) {
+    const y = at(x) + 7 * s
+    const col = colours[i % colours.length]
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, 34 * s)
+    glow.addColorStop(0, rgba(col, 0.6))
+    glow.addColorStop(0.3, rgba(col, 0.2))
+    glow.addColorStop(1, rgba(col, 0))
+    ctx.fillStyle = glow
+    ctx.fillRect(x - 34 * s, y - 34 * s, 68 * s, 68 * s)
+    ctx.fillStyle = mix(col, '#FFFFFF', 0.4)
+    ctx.beginPath()
+    ctx.ellipse(x, y, 4.5 * s, 6.5 * s, 0, 0, Math.PI * 2)
+    ctx.fill()
   }
 }
 
