@@ -191,6 +191,11 @@ export async function install(chosen?: string): Promise<InstallResult> {
   // The Quick settings panel changes screensaver, sleep, DNS, animations and clock settings. Some TVs refuse
   // one or both; the panel then opens the TV's own screens for those rows.
   await T.sh(TASK, `pm grant ${HOME_PKG} android.permission.WRITE_SECURE_SETTINGS 2>/dev/null; appops set ${HOME_PKG} WRITE_SETTINGS allow 2>/dev/null; echo settings-granted`)
+  // Going back to the input at power on (#94) opens the TV's input app from the background, which Android 10
+  // and later only allow an app that may draw over other apps. TCL's boot manager also stops apps starting at
+  // boot without its auto-start op (AUTO_START on older boards, APP_AUTO_START on newer); other TVs don't have
+  // that op, as upstream's wake-app found. A TV that refuses any of it still gets Home.
+  await T.sh(TASK, `appops set ${HOME_PKG} SYSTEM_ALERT_WINDOW allow 2>/dev/null; appops set ${HOME_PKG} AUTO_START allow 2>/dev/null; appops set ${HOME_PKG} APP_AUTO_START allow 2>/dev/null; appops write-settings 2>/dev/null; echo appops-granted`).catch(() => '')
   const start = await T.sh(TASK, `am start -W -n ${MAIN}`)
   if (!start.includes('Status: ok') || /^Error/im.test(start)) {
     return { ok: false, summary: t('CleanMyTV Home did not start, so Home was left as it was.'), warnings: [start.trim()] }

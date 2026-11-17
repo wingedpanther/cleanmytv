@@ -58,6 +58,23 @@ describe('CleanMyTV Home', () => {
     expect(await H.status()).toMatchObject({ installed: true, isHome: true, versionName: '1.0.0', bundledVersion: '1.0.0', oldLauncher: false })
   })
 
+  it('lets Home open the input app from the background, with TCL\'s auto-start too, and installs when the TV refuses', async () => {
+    const HOME = 'io.github.wingedpanther.cleanmytv.home'
+    expect(tv.appops?.get(`${HOME} SYSTEM_ALERT_WINDOW`)).toBe('allow')
+    expect(tv.appops?.has(`${HOME} APP_AUTO_START`)).toBe(false)
+    tv.manufacturer = 'TCL'
+    tv.appops = new Map()
+    expect((await H.install()).ok).toBe(true)
+    expect(tv.appops.get(`${HOME} SYSTEM_ALERT_WINDOW`)).toBe('allow')
+    expect(tv.appops.get(`${HOME} APP_AUTO_START`)).toBe('allow')
+    tv.appopsRefused = true
+    tv.appops = new Map()
+    expect((await H.install()).ok).toBe(true)
+    expect(tv.appops.size).toBe(0)
+    tv.appopsRefused = false
+    tv.manufacturer = undefined
+  })
+
   it('gives Home back to the stock launcher, then switches to CleanMyTV Home again', async () => {
     expect((await L.useStock()).ok).toBe(true)
     expect(tv.home).toBe('com.google.android.apps.tv.launcherx/.home.HomeActivity')

@@ -76,6 +76,10 @@ export interface FakeTv {
   logcat?: string
   /** Packages that never stay running (pidof finds nothing), like a launcher crashing at boot. */
   crashing?: string[]
+  /** App-ops set with `appops set`, as "<package> <op>" to mode. */
+  appops?: Map<string, string>
+  /** appops answers with a SecurityException, as on TVs that lock it down. */
+  appopsRefused?: boolean
   /** Misbehaviour for client hardening tests. */
   tokenSize?: number
   sendMalformed?: 'oversize' | 'magic'
@@ -165,6 +169,16 @@ function sh(tv: FakeTv, cmd: string): string {
   }
   if ((m = /^mkdir -p (\S+)\/wallpapers 2>&1; touch/.exec(cmd))) {
     return tv.appDir === 'ok' ? 'writable\n' : `mkdir: '${m[1]}': Permission denied\ntouch: '${m[1]}/.cytv': No such file or directory\n`
+  }
+  if (cmd.startsWith('appops ')) {
+    if (tv.appopsRefused) return 'Security exception: uid 2000 does not have android.permission.MANAGE_APP_OPS_MODES.\n'
+    // AUTO_START and APP_AUTO_START are TCL's own; other TVs don't know them.
+    const tcl = /tcl/i.test(tv.manufacturer ?? '')
+    for (const part of cmd.split(';')) {
+      const a = /^\s*appops set (\S+) (\w+) (\w+)/.exec(part)
+      if (a && (tcl || !/AUTO_START/.test(a[2]))) (tv.appops ??= new Map()).set(`${a[1]} ${a[2]}`, a[3])
+    }
+    return cmd.includes('echo ') ? cmd.slice(cmd.lastIndexOf('echo ') + 5) + '\n' : ''
   }
   if (cmd.startsWith('am start -W') && tv.appDir === 'missing') tv.appDir = 'ok'
   if (cmd.startsWith('am start -W')) return 'Starting: Intent { cmp=com.gathin.tvhome/.MainActivity }\nStatus: ok\nLaunchState: COLD\n'
