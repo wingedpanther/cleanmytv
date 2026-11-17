@@ -92,6 +92,12 @@ fun ThemesCustomization(config: HomeConfig, ctx: Context) {
         }
         if (bing.isNotEmpty()) Text(bing, color = MUTED_COLOR, fontSize = 13.sp)
         TvSwitch(
+            title = tr("Snow"),
+            subtitle = tr("Gentle snow over the wallpaper, behind the apps. The Christmas theme turns it on."),
+            checked = config.snow,
+            onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("snow", it)) }
+        )
+        TvSwitch(
             title = tr("Bing every day"),
             subtitle = tr("Bing's new picture becomes the wallpaper each day. Picking another wallpaper doesn't stop it; this switch does."),
             checked = config.bingDaily,

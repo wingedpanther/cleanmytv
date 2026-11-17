@@ -1220,6 +1220,7 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
         </div>
         <Slider label={t('Darken the wallpaper')} hint={t('Keeps names and the clock readable on bright pictures.')} value={cfg.wallpaper_dim} min={0} max={80} unit="%" onChange={(v) => set({ wallpaper_dim: v }, 300)} />
         <Toggle label={t('Bing every day')} hint={t("Bing's new picture becomes the wallpaper each day, while Home is on screen. Picking another wallpaper doesn't stop it; this switch does.")} checked={cfg.bing_daily} onChange={(v) => set({ bing_daily: v })} />
+        <Toggle label={t('Snow')} hint={t("Gentle snow over the wallpaper, behind the apps. It holds still while an app is open or the TV's animations are off. The Christmas theme turns it on.")} checked={cfg.snow} onChange={(v) => set({ snow: v })} />
         <Shading cfg={cfg} set={set} />
         <Toggle label={t('Sunrise when it changes')} hint={t("A new wallpaper starts dim and the light comes in from the top. Off when the TV's animations are off.")} checked={cfg.intro} onChange={(v) => set({ intro: v })} />
         <Colour label={t('Background colour')} hint={t("Behind everything when there's no wallpaper. Keep it dark: text is white.")} value={cfg.background} onChange={(c, w) => set({ background: c }, w)} />
@@ -2042,7 +2043,7 @@ function SlideshowCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: S
 
 const ART_KINDS: [ThemeArt['kind'], string][] = [
   ['aurora', t('Aurora')], ['ridges', t('Ridges')], ['dunes', t('Dunes')], ['flow', t('Flow')], ['stars', t('Stars')],
-  ['contours', t('Contours')], ['bokeh', t('Bokeh')], ['horizon', t('Horizon')], ['rings', t('Rings')]
+  ['contours', t('Contours')], ['bokeh', t('Bokeh')], ['horizon', t('Horizon')], ['rings', t('Rings')], ['winter', t('Winter night')]
 ]
 
 /** A colour mixed toward black by [k] (0 to 1), as #RRGGBB. */

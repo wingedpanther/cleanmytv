@@ -441,6 +441,11 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         if (cfg.followColour && cfg.wash > 0) Box(Modifier.fillMaxSize().drawBehind {
             drawRect(Brush.verticalGradient(0f to tint.copy(alpha = tint.alpha * cfg.wash / 100f), cfg.washReach / 100f to Color.Transparent))
         })
+        if (cfg.snow) {
+            // Still while anything is open over Home, and with the TV's animations off.
+            val menus = openFolder != null || menuFor != null || showInputs || showPanel || showThemes || showTimer || showUpdate || panelPin || editPin
+            Snow(running = resumed() && motion && !menus)
+        }
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = shown }) {
             // Rows sit over the lower half of the photo; a ground-tinted shade keeps their names readable.
             if (cfg.shadeBottom > 0 && cfg.shadeBottomReach > 0) {
@@ -497,8 +502,20 @@ private fun openEditorNow(ctx: android.content.Context) {
  */
 @Composable
 private fun FireWallpaper(cfg: HomeConfig, motion: Boolean) {
-    val ctx = LocalContext.current
-    val owner = ctx as? androidx.activity.ComponentActivity
+    val resumed = resumed()
+    val volume = if (cfg.fireWallSound) cfg.fireVolume / 100f else 0f
+    androidx.compose.ui.viewinterop.AndroidView(
+        factory = { FireView(it) { if (ConfigStore.config.value.fireWallSound) ConfigStore.config.value.fireVolume / 100f else 0f } },
+        modifier = Modifier.fillMaxSize(),
+        update = { v -> v.setVolume(volume); v.play(resumed && motion) },
+        onRelease = { it.release() },
+    )
+}
+
+/** True while Home is in front: false once an app or the editor opens over it, or the screen goes off. */
+@Composable
+private fun resumed(): Boolean {
+    val owner = LocalContext.current as? androidx.activity.ComponentActivity
     var resumed by remember { mutableStateOf(owner?.lifecycle?.currentState?.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) ?: true) }
     DisposableEffect(owner) {
         val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
@@ -508,13 +525,7 @@ private fun FireWallpaper(cfg: HomeConfig, motion: Boolean) {
         owner?.lifecycle?.addObserver(obs)
         onDispose { owner?.lifecycle?.removeObserver(obs) }
     }
-    val volume = if (cfg.fireWallSound) cfg.fireVolume / 100f else 0f
-    androidx.compose.ui.viewinterop.AndroidView(
-        factory = { FireView(it) { if (ConfigStore.config.value.fireWallSound) ConfigStore.config.value.fireVolume / 100f else 0f } },
-        modifier = Modifier.fillMaxSize(),
-        update = { v -> v.setVolume(volume); v.play(resumed && motion) },
-        onRelease = { it.release() },
-    )
+    return resumed
 }
 
 /**
