@@ -17,7 +17,7 @@ data class Group(val name: String, val apps: List<String>)
 data class HomeConfig(
     // Arrangement
     val layout: String = "shelf", // shelf, split, rail
-    val sections: List<String> = listOf("nowplaying", "dock", "rows", "folders", "grid"), // top to bottom; absent = hidden
+    val sections: List<String> = DEFAULT_SECTIONS, // top to bottom; absent = hidden
     val topSpace: Int = 25, // percent of the screen left open above the apps (shelf)
     val quick: List<String> = listOf("inputs", "wifi", "settings"), // quick-settings icons and "app:<package>" shortcuts, in order
     val rows: List<Group> = emptyList(),
@@ -117,6 +117,7 @@ data class HomeConfig(
     fun toJson(): JSONObject = JSONObject()
         .put("layout", layout)
         .put("sections", JSONArray(sections))
+        .put("sections_known", JSONArray(SECTIONS.toList()))
         .put("top_space", topSpace)
         .put("quick", JSONArray(quick))
         .put("rows", groupsJson(rows))
@@ -203,7 +204,24 @@ data class HomeConfig(
         private fun hex(c: Long) = "#%06X".format(c and 0xFFFFFF)
         val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "customize", "timer")
         private val THEME_PICTURE = Regex("^[a-z0-9-]{1,40}:[0-9]$")
-        private val SECTIONS = setOf("nowplaying", "recent", "dock", "rows", "folders", "grid")
+        val SECTIONS = setOf("nowplaying", "recent", "dock", "watchnext", "rows", "folders", "grid")
+        val DEFAULT_SECTIONS = listOf("nowplaying", "dock", "watchnext", "rows", "folders", "grid")
+        /** The sections Home 1.12 and older knew, for settings saved before "sections_known" was. */
+        private val SECTIONS_BEFORE = setOf("nowplaying", "recent", "dock", "rows", "folders", "grid")
+
+        /**
+         * Settings saved by an older Home: a section that's on for a new TV and that Home didn't know then goes
+         * in once, after the one it follows by default, or first. Turned off after that, it stays off.
+         */
+        fun addNewSections(sections: List<String>, known: Set<String>?): List<String> {
+            val out = sections.toMutableList()
+            for ((i, s) in DEFAULT_SECTIONS.withIndex()) {
+                if (s in (known ?: SECTIONS_BEFORE) || s in out) continue
+                val after = DEFAULT_SECTIONS.take(i).lastOrNull { it in out }
+                out.add(if (after == null) 0 else out.indexOf(after) + 1, s)
+            }
+            return out
+        }
         val BUTTON_ACTIONS = QUICK - "inputs" + setOf("inputs", "home", "back", "none", "app", "next_wallpaper", "brightness")
         /** App shortcuts in the top bar, after the quick-settings icons that fit. */
         const val MAX_QUICK_APPS = 6
@@ -361,7 +379,14 @@ object ConfigStore {
         if (loaded) return
         loaded = true
         val f = file(ctx)
-        if (f.exists()) runCatching { _config.value = HomeConfig.fromJson(JSONObject(f.readText())) }
+        if (!f.exists()) return
+        runCatching {
+            val saved = JSONObject(f.readText())
+            _config.value = HomeConfig.fromJson(saved)
+            val known = saved.optJSONArray("sections_known")?.let { a -> (0 until a.length()).map { a.optString(it) }.toSet() }
+            val sections = HomeConfig.addNewSections(_config.value.sections, known)
+            if (sections != _config.value.sections) update(ctx, JSONObject().put("sections", JSONArray(sections)), remember = false)
+        }
     }
 
     /** Merges a partial update, saves it atomically, and the UI follows through the flow. */

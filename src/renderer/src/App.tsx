@@ -61,6 +61,7 @@ const JUMP_ITEMS: JumpItem[] = [
   { id: 'step:finish', title: t('Restart check'), where: t('Finish'), words: 'reboot' },
   { id: 'home:overview', title: t('Install or update CleanMyTV Home'), where: HOME, words: 'launcher stock give back' },
   { id: 'home:layout', title: t('Layout'), where: HOME, words: 'sections quick settings sizes clock greeting idle screensaver' },
+  { id: 'home:layout', title: t('Continue watching'), where: HOME, words: 'watch next resume films episodes series progress' },
   { id: 'home:apps', title: t('Apps, rows & folders'), where: HOME, words: 'dock order hide rename folder row' },
   { id: 'home:look', title: t('Look & wallpaper'), where: HOME, words: 'themes accent colour color focus app icons tile shape wallpaper sunrise picture' },
   { id: 'home:widgets', title: t('Widgets'), where: HOME, words: 'weather' },

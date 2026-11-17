@@ -57,7 +57,7 @@ export function installMock(): void {
   let keySeq = 0
   let themeSavedAt: number | null = null
   const homeConfig: HomeConfig = {
-    layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
+    layout: 'shelf', sections: ['nowplaying', 'dock', 'watchnext', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
     rows: [{ name: 'Watch', apps: ['com.netflix.ninja', 'com.google.android.youtube.tv'] }], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false,
     accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
     edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, theme_memory: true, lock_editor: false, update_check: true, keyboard_guard: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,

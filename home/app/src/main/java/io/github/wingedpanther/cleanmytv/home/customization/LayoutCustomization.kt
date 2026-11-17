@@ -15,6 +15,7 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +34,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import io.github.wingedpanther.cleanmytv.home.ConfigStore
 import io.github.wingedpanther.cleanmytv.home.HomeConfig
+import io.github.wingedpanther.cleanmytv.home.WatchNext
 import io.github.wingedpanther.cleanmytv.home.canOpen
 import io.github.wingedpanther.cleanmytv.home.quickActions
 import io.github.wingedpanther.cleanmytv.home.tr
@@ -40,13 +42,21 @@ import io.github.wingedpanther.cleanmytv.home.tvInputs
 import org.json.JSONArray
 import org.json.JSONObject
 
-private val SECTIONS_ALL = listOf("nowplaying", "recent", "dock", "rows", "folders", "grid")
+private val SECTIONS_ALL = listOf("nowplaying", "recent", "dock", "watchnext", "rows", "folders", "grid")
 private val QUICK_ALL = listOf("inputs", "wifi", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "timer", "customize", "settings")
 
 @Composable
 fun LayoutCustomization(config: HomeConfig, ctx: Context) {
     var activeSectionsExpanded by remember { mutableStateOf(true) }
     var quickShortcutsExpanded by remember { mutableStateOf(true) }
+    // Looked at again when the editor comes back from Android's permission question.
+    var watchAllowed by remember { mutableStateOf(WatchNext.allowed(ctx)) }
+    val owner = ctx as? androidx.activity.ComponentActivity
+    DisposableEffect(owner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) watchAllowed = WatchNext.allowed(ctx) }
+        owner?.lifecycle?.addObserver(obs)
+        onDispose { owner?.lifecycle?.removeObserver(obs) }
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         // --- Layout Mode & Top Space ---
@@ -93,6 +103,7 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
                             "nowplaying" -> tr("Now playing")
                             "recent" -> tr("Recently used")
                             "dock" -> tr("Dock")
+                            "watchnext" -> tr("Continue watching")
                             "rows" -> tr("Rows")
                             "folders" -> tr("Folders")
                             "grid" -> config.names["all_apps"] ?: tr("All apps")
@@ -100,10 +111,19 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
                         }
                     },
                     onUpdateActive = { newList ->
+                        val turnedOn = "watchnext" in newList && "watchnext" !in config.sections
                         ConfigStore.update(ctx, JSONObject().put("sections", JSONArray(newList)))
                         nowPlayingAccess(ctx, "nowplaying" in newList)
+                        if (turnedOn && !watchAllowed) askWatchNext(ctx)
                     }
                 )
+                // The desktop app grants this when it installs Home; a Home that updated itself asks here.
+                if ("watchnext" in config.sections && !watchAllowed) {
+                    Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Alert(tr("Continue watching needs your OK to see what you're watching in other apps."), Modifier.fillMaxWidth(), AlertType.WARNING)
+                        TvPrimaryButton(tr("Allow"), onClick = { askWatchNext(ctx) })
+                    }
+                }
             }
 
             // Right Column: Quick Settings Shortcuts
@@ -127,6 +147,11 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
             }
         }
     }
+}
+
+/** Android's own question for Continue watching's permission, over the editor. */
+private fun askWatchNext(ctx: Context) {
+    (ctx as? android.app.Activity)?.requestPermissions(arrayOf(WatchNext.PERMISSION), 1)
 }
 
 /** Home's own names for the top bar icons, or the app's name for an app shortcut. */

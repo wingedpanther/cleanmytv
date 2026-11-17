@@ -275,7 +275,7 @@ tabs have a live preview of the TV screen at the top.
 | Tab | What you set |
 |---|---|
 | **Overview** | Install or update Home, and how to use it. Give Home back to the stock launcher. Remove the old CleanYourTV launcher in one click if it's still on the TV. Take a snapshot of the TV screen. |
-| **Layout** | Three layouts: Shelf (the default), Split and Rail. Space above the apps. The now playing, dock, rows, folders and all apps sections, in any order, each one can be hidden. Quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars, Quick settings, Themes, Fireplace and Settings. Icons the TV can't open are marked "not on this TV". Up to 6 apps as round icons in the same row, like a VPN. Dock and row tile sizes, apps per row, app names (always, focused app only, or off), clock and greeting. An idle screen: after a set time with no button pressed, only the wallpaper and a large clock show. |
+| **Layout** | Three layouts: Shelf (the default), Split and Rail. Space above the apps. The now playing, dock, continue watching, rows, folders and all apps sections, in any order, each one can be hidden. Quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars, Quick settings, Themes, Fireplace and Settings. Icons the TV can't open are marked "not on this TV". Up to 6 apps as round icons in the same row, like a VPN. Dock and row tile sizes, apps per row, app names (always, focused app only, or off), clock and greeting. An idle screen: after a set time with no button pressed, only the wallpaper and a large clock show. |
 | **Apps, rows & folders** | Dock size, drag to reorder, hide apps, named rows and folders. |
 | **Look & wallpaper** | Themes: 28 looks with their own wallpaper art, three pictures each, saved to and loaded from `.cmtvtheme` files, and Put it back to undo them. Put the themes on the TV to switch them with the remote. App icons: banners, or every logo redrawn in Colour, Mono or Duotone, on wide, square, squircle or round tiles. Accent colour. Focus style (lift, glow, outline or none), with options to lean the tile toward the move, keep it in place while the row slides, and tint the background in the focused app's colour. Your own picture or Bing's picture of the day, darken, background colour, and the sunrise when it changes. A slideshow of up to 12 pictures. Make your own theme from a built-in one. The fireplace: put it on the TV, show it, make it the screensaver or put it behind Home, with its crackle and a turn-off timer. |
 | **Widgets** | Now playing: what any music or video app plays, with play, pause and next. Weather next to the clock for a town you pick, in °C or °F. |
@@ -324,6 +324,9 @@ itself.
   - Now playing reads other apps' media sessions. Android only allows that for a notification listener,
     so the app switches one on over ADB while the section is on, and off without it. It reads no
     notifications.
+  - Continue watching reads Android's Watch Next list, the one Google TV's launcher shows. Android only
+    shows Home other apps' entries with `READ_TV_LISTINGS`, which the app grants over ADB at install. A
+    Home that updated itself asks on the TV, in the editor's Layout section.
   - Remote buttons and the app lock use an accessibility service. It sees key presses and which app is
     in front, and can't read what's on screen. It is off until you turn on either, only acts on the
     buttons you map, and only covers the apps you lock.
@@ -338,7 +341,8 @@ itself.
     Home reads them without a storage permission.
   - What it fetches from the internet: the weather, every 30 minutes while the place is set
     (api.open-meteo.com, and api.met.no when Open-Meteo doesn't answer); Bing's picture of the day
-    (www.bing.com), only when you pick it or turn on Bing every day; and, once a day while "Look for
+    (www.bing.com), only when you pick it or turn on Bing every day; the pictures in Continue watching, from
+    wherever the app that listed them keeps them; and, once a day while "Look for
     updates" is on, the latest release from api.github.com. An update is checked against the release's
     SHA256SUMS.txt before Android's installer asks you to confirm it. Home needs "Install unknown apps"
     for that, which you allow on the TV the first time.

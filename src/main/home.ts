@@ -21,7 +21,7 @@ const URI = `content://${HOME_PKG}.config`
 const HEX = /^#[0-9A-Fa-f]{6}$/
 
 export const DEFAULTS: HomeConfig = {
-  layout: 'shelf', sections: ['nowplaying', 'dock', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
+  layout: 'shelf', sections: ['nowplaying', 'dock', 'watchnext', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
   rows: [], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false,
   accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35,
   edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, theme_memory: true, lock_editor: false, update_check: true, keyboard_guard: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
@@ -53,7 +53,7 @@ const CHOICES = {
 } as const
 
 const LISTS = {
-  sections: ['nowplaying', 'recent', 'dock', 'rows', 'folders', 'grid']
+  sections: ['nowplaying', 'recent', 'dock', 'watchnext', 'rows', 'folders', 'grid']
 } as const
 
 const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'customize', 'timer'] as const
@@ -188,6 +188,8 @@ export async function install(chosen?: string): Promise<InstallResult> {
   }
   // The music bars read the TV's sound output. Granted here so the TV never asks.
   await T.sh(TASK, `pm grant ${HOME_PKG} android.permission.RECORD_AUDIO 2>/dev/null; echo audio-granted`)
+  // Continue watching reads the TV's Watch Next list, which shows Home only its own entries without this.
+  await watchNextAccess(TASK)
   // The Quick settings panel changes screensaver, sleep, DNS, animations and clock settings. Some TVs refuse
   // one or both; the panel then opens the TV's own screens for those rows.
   await T.sh(TASK, `pm grant ${HOME_PKG} android.permission.WRITE_SECURE_SETTINGS 2>/dev/null; appops set ${HOME_PKG} WRITE_SETTINGS allow 2>/dev/null; echo settings-granted`)
@@ -653,6 +655,8 @@ export async function setConfig(change: Partial<HomeConfig>): Promise<HomeConfig
   const cfg = keep(parse(await call('set64', Buffer.from(json).toString('base64'))))
   if (change.sections) await nowPlayingAccess(cfg.sections.includes('nowplaying'))
   if (change.sections) await usageAccess(cfg.sections.includes('recent'))
+  // A Home that updated itself never had the install's grant. Never taken back: Android stops Home to do that.
+  if (change.sections && cfg.sections.includes('watchnext')) await watchNextAccess('theme')
   // Going back to the input at power on (#94) is the remote-button service's job too.
   if (checked.power_on_input === true) await addService(KEY_SERVICE)
   else if (checked.power_on_input === false && !needsService(cfg)) await dropServices(HOME_PKG)
@@ -777,6 +781,11 @@ async function nowPlayingAccess(on: boolean): Promise<void> {
 /** Lets the launcher see which apps the TV opened, for Recently used; on only while that row is. */
 async function usageAccess(on: boolean): Promise<void> {
   await T.sh('theme', `appops set ${HOME_PKG} GET_USAGE_STATS ${on ? 'allow' : 'default'}`).catch(() => '')
+}
+
+/** Lets the launcher read other apps' entries in the TV's Watch Next list, for Continue watching. */
+async function watchNextAccess(task: string): Promise<void> {
+  await T.sh(task, `pm grant ${HOME_PKG} android.permission.READ_TV_LISTINGS 2>/dev/null; echo listings-granted`).catch(() => '')
 }
 
 /** Uploads a JPEG in base64 pieces, then has the launcher check its MD5 and swap it in. */

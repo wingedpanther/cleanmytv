@@ -65,8 +65,9 @@ val SETTINGS_INDEX: List<Findable> = run {
     listOf(
         Findable("Layout: Shelf, Split or Rail", "style arrangement sidebar left panel", L),
         Findable("Space above the apps", "top space gap margin dock position", L),
-        Findable("Sections", "order show hide now playing recently used dock rows folders all apps", L),
+        Findable("Sections", "order show hide now playing recently used dock continue watching rows folders all apps", L),
         Findable("Recently used", "recent last apps history", L),
+        Findable("Continue watching", "watch next resume films episodes series progress", L),
         Findable("Top bar icons", "quick settings shortcuts wifi bluetooth inputs settings icons bar sleep timer update", L),
         Findable("Rows", "categories groups row new rename", R),
         Findable("Folders", "group collection new rename", R),

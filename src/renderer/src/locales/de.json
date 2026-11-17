@@ -212,6 +212,8 @@
   "Connecting to {host}": "Verbindung zu {host} wird hergestellt",
   "Connecting…": "Verbindung wird hergestellt…",
   "connection error: {error}": "Verbindungsfehler: {error}",
+  "Continue watching": "Weiterschauen",
+  "Continue watching shows the films and episodes you're part way through. Apps that fill Google TV's row fill this one too. It hides when there's nothing to show.": "Weiterschauen zeigt Filme und Folgen, die du angefangen hast. Apps, die die Reihe von Google TV füllen, füllen auch diese. Ist nichts da, bleibt sie weg.",
   "Contours": "Konturen",
   "Copy all": "Alles kopieren",
   "Copy for a bug report": "Für Fehlerbericht kopieren",
