@@ -14,6 +14,24 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
+### New in 0.13.0
+
+- **German:** the app and CleanMyTV Home now come in German, translated by WiesoBistnSuus from our Discord.
+  Want CleanMyTV in your language? Ask on Discord: it's a spreadsheet, no coding.
+- **Continue watching:** a row on Home with what you were part-way through, from Android's Watch Next list.
+  It's a section, so you can move it or turn it off. Hidden apps stay out, and locked apps ask for the PIN.
+- **Christmas theme:** a winter night with fairy lights and falling snow. **Snow** has its own switch under
+  Wallpaper, so it works with any theme.
+- **Power on (#94):** choose the input the TV opens when it comes on, and how long to wait first. The
+  check-up also finds TVs that HDMI devices can't turn on, and fixes them.
+- **Match frame rate** in TV extras, so films at 24 fps don't judder (Android 12 and later).
+- **Hourly forecast** under the weather, off unless you turn it on in Widgets.
+- **Grids for App lock and the app order (#117):** pick and move apps on a grid with the remote, plus Lock
+  All and Unlock All. Thanks to harikrishna-salver.
+- **Fixes:** the fireplace crackle plays on TCL TVs where it was silent (#118). Mono icons with the Glow
+  focus show black on white (#119). The TV's wallpaper picker shows a preview. Home stays the Home app on
+  Google TV 14 and Haier TVs that carry a hidden launcher entry.
+
 ### New in 0.12.0
 
 - **Russian:** the app follows your computer's language and CleanMyTV Home follows the TV's. You can
