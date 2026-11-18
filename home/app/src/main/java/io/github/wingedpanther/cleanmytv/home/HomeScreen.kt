@@ -109,6 +109,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -678,6 +679,14 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
     val rowSpec = LocalBringIntoViewSpec.current
     BoxWithConstraints(modifier) {
         val inner = maxWidth - padding.calcHorizontal() - BLEED * 2
+        // Rows scroll out to the screen's edges (#124): the layout's side inset goes into each row's own
+        // padding, so at rest a row still starts in line with its title, but a tile scrolling past slides off
+        // the edge of the screen instead of being cut off in mid-air short of it. Titles, Now playing and the
+        // grid don't scroll sideways and keep the inset as plain padding.
+        val start = padding.calculateLeftPadding(LayoutDirection.Ltr)
+        val end = padding.calculateRightPadding(LayoutDirection.Ltr)
+        val rowPad = PaddingValues(start = start + BLEED, end = end + BLEED, top = 16.dp, bottom = 16.dp)
+        val still = Modifier.padding(start = start, end = end)
         val gridW: Dp = (inner - GAP * (cfg.columns - 1)) / cfg.columns
         // At 100% the dock fits the screen; the size slider scales that, and a bigger dock scrolls sideways (#89).
         val n = home.dock.size.coerceIn(1, 5)
@@ -693,35 +702,35 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
                 if (at >= 0) list.scrollToItem(at)
             }
         }
-        CompositionLocalProvider(LocalBringIntoViewSpec provides STAY) { LazyColumn(Modifier.fillMaxSize().fadeTop(), state = list, contentPadding = padding) {
+        CompositionLocalProvider(LocalBringIntoViewSpec provides STAY) { LazyColumn(Modifier.fillMaxSize().fadeTop(), state = list, contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())) {
             for (s in cfg.sections) when (s) {
-                "nowplaying" -> ui.track?.let { t -> item("nowplaying") { NowPlayingCard(t, ui) } }
+                "nowplaying" -> ui.track?.let { t -> item("nowplaying") { Box(still) { NowPlayingCard(t, ui) } } }
                 "recent" -> if (home.recent.isNotEmpty()) {
-                    item("recent-title") { SectionTitle(cfg.names["recent"] ?: tr("Recently used")) }
-                    item("recent") { TileRow("recent", home.recent, ui, 148.dp * (cfg.tileScale / 100f), big = false, rowSpec) }
+                    item("recent-title") { SectionTitle(cfg.names["recent"] ?: tr("Recently used"), still) }
+                    item("recent") { TileRow("recent", home.recent, ui, 148.dp * (cfg.tileScale / 100f), big = false, rowSpec, rowPad) }
                 }
                 "dock" -> if (home.dock.isNotEmpty()) item("dock") {
-                    TileRow("dock", home.dock, ui, dockW, big = true, rowSpec)
+                    TileRow("dock", home.dock, ui, dockW, big = true, rowSpec, rowPad)
                 }
                 "watchnext" -> if (home.watch.isNotEmpty()) {
-                    item("watchnext-title") { SectionTitle(tr("Continue watching")) }
-                    item("watchnext") { WatchRow(home, ui, 196.dp * (cfg.tileScale / 100f), rowSpec) }
+                    item("watchnext-title") { SectionTitle(tr("Continue watching"), still) }
+                    item("watchnext") { WatchRow(home, ui, 196.dp * (cfg.tileScale / 100f), rowSpec, rowPad) }
                 }
                 "rows" -> home.rows.forEachIndexed { i, (name, list) ->
-                    item("row$i-title") { SectionTitle(name) }
-                    item("row$i") { TileRow("row$i", list, ui, 148.dp * (cfg.tileScale / 100f), big = false, rowSpec) }
+                    item("row$i-title") { SectionTitle(name, still) }
+                    item("row$i") { TileRow("row$i", list, ui, 148.dp * (cfg.tileScale / 100f), big = false, rowSpec, rowPad) }
                 }
                 "folders" -> if (showFolders && home.folders.isNotEmpty()) {
-                    item("folders-title") { SectionTitle(tr("Folders")) }
+                    item("folders-title") { SectionTitle(tr("Folders"), still) }
                     item("folders") {
                         CompositionLocalProvider(LocalBringIntoViewSpec provides rowSpec) {
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 16.dp)) {
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = rowPad) {
                                 items(home.folders, key = { it.first }) { f -> FolderTile(f, ui, Modifier.width(148.dp * (cfg.tileScale / 100f))) }
                             }
                         }
                     }
                 }
-                "grid" -> if (home.grid.isNotEmpty()) grid(home, ui, gridW)
+                "grid" -> if (home.grid.isNotEmpty()) grid(home, ui, gridW, still)
             }
         } }
     }
@@ -759,18 +768,17 @@ private fun Modifier.fadeTop(): Modifier = graphicsLayer(compositingStrategy = C
     drawRect(Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black, endY = 28.dp.toPx()), blendMode = BlendMode.DstIn)
 }
 
-private fun PaddingValues.calcHorizontal(): Dp =
-    calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr) + calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr)
+private fun PaddingValues.calcHorizontal(): Dp = calculateLeftPadding(LayoutDirection.Ltr) + calculateRightPadding(LayoutDirection.Ltr)
 
-private fun LazyListScope.grid(home: Home, ui: Ui, w: Dp) {
+private fun LazyListScope.grid(home: Home, ui: Ui, w: Dp, still: Modifier) {
     val label = ui.cfg.names["all_apps"] ?: if (home.dock.isEmpty() && home.rows.isEmpty()) tr("Apps") else tr("All apps")
-    item("grid-title") { SectionTitle(label) }
+    item("grid-title") { SectionTitle(label, still) }
     // A square tile fills the middle 72% of its slot: the rows move left by the 14% before it, so the first
     // tile lines up with the heading and the dock above instead of sitting in from them.
     val inset = if (ui.shape == "wide") 0.dp else w * 0.14f
     home.grid.chunked(ui.cfg.columns).forEachIndexed { i, row ->
         item("grid$i") {
-            Row(Modifier.padding(start = BLEED - inset, end = BLEED + inset, top = 10.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(GAP)) {
+            Row(still.padding(start = BLEED - inset, end = BLEED + inset, top = 10.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(GAP)) {
                 for (app in row) Tile("grid", app, ui, Modifier.width(w), big = false)
             }
         }
@@ -778,15 +786,15 @@ private fun LazyListScope.grid(home: Home, ui: Ui, w: Dp) {
 }
 
 @Composable
-private fun SectionTitle(text: String) {
-    Text(text, color = TEXT, fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = BLEED, top = 12.dp))
+private fun SectionTitle(text: String, still: Modifier) {
+    Text(text, color = TEXT, fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = still.padding(start = BLEED, top = 12.dp))
 }
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
-private fun TileRow(section: String, list: List<TvApp>, ui: Ui, w: Dp, big: Boolean, rowSpec: BringIntoViewSpec) {
+private fun TileRow(section: String, list: List<TvApp>, ui: Ui, w: Dp, big: Boolean, rowSpec: BringIntoViewSpec, pad: PaddingValues) {
     val row = @Composable {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 16.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = pad) {
             val tw = if (ui.shape == "wide") w else w * 0.72f
             items(list, key = { it.pkg }) { app -> Tile(section, app, ui, Modifier.width(tw), big) }
         }
@@ -948,7 +956,7 @@ private fun open(ctx: android.content.Context, pkg: String, target: android.cont
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
-private fun WatchRow(home: Home, ui: Ui, w: Dp, rowSpec: BringIntoViewSpec) {
+private fun WatchRow(home: Home, ui: Ui, w: Dp, rowSpec: BringIntoViewSpec, pad: PaddingValues) {
     // Something new goes in at the start; the row keeps its place by item, so it would land out of view to
     // the left. Back to the start, unless the owner is in the row.
     val state = rememberLazyListState()
@@ -956,7 +964,7 @@ private fun WatchRow(home: Home, ui: Ui, w: Dp, rowSpec: BringIntoViewSpec) {
     val newest = home.watch.firstOrNull()?.key
     LaunchedEffect(newest) { if (!inside) state.scrollToItem(0) }
     CompositionLocalProvider(LocalBringIntoViewSpec provides if (ui.cfg.pinFocus) PINNED else rowSpec) {
-        LazyRow(Modifier.onFocusChanged { inside = it.hasFocus }, state = state, horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 16.dp)) {
+        LazyRow(Modifier.onFocusChanged { inside = it.hasFocus }, state = state, horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = pad) {
             items(home.watch, key = { it.key }) { item -> WatchTile(item, home.app(item.pkg), ui, w) }
         }
     }
