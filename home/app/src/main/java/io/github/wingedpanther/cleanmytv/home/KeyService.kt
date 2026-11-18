@@ -156,23 +156,43 @@ class KeyService : AccessibilityService() {
 
     /** A locked app came to the front, however it was opened: cover it with the PIN pad. */
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        val pkg = event.packageName?.toString() ?: return
+        val pkg = event?.packageName?.toString() ?: return
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            // Fire TV moves between its Settings grid and Home without changing activities.
+            // Coalesce frequent content/focus events; unrelated apps never trigger a layout read.
+            if (pkg == LauncherRedirect.AMAZON && amazonHomeWindow &&
+                ConfigStore.config.value.stockRedirect == pkg && !amazonCheckPending) {
+                amazonCheckPending = true
+                redirect.postDelayed({
+                    amazonCheckPending = false
+                    if (amazonHomeWindow && mayRedirect(pkg)) bringHome()
+                }, 300)
+            }
+            return
+        }
         val cls = event.className?.toString()
         val activity = cls != null && isActivity(pkg, cls)
-        if (activity) { front = pkg; Limits.front(this, pkg) }
+        if (activity) {
+            front = pkg
+            Limits.front(this, pkg)
+            amazonHomeWindow = pkg == LauncherRedirect.AMAZON && cls in homeActivities(pkg)
+        }
         // Fire OS won't let the Amazon launcher be disabled or replaced as Home, and Google TV's launcher may
         // be left on for apps that need it (#99), so it opens at boot and on every Home press. Bring CleanMyTV
         // Home back in front of its home screen, but not of its other screens: Fire TV's Settings live in
         // Amazon's launcher. Android blocks app starts for about 5 s after a Home press, hence the retry.
         if (pkg == ConfigStore.config.value.stockRedirect) {
             if (sendsBack(cls, homeActivities(pkg), activity)) {
-                redirect.removeCallbacksAndMessages(null)
-                for (d in longArrayOf(300, 1200, 5300)) redirect.postDelayed({ runCatching { startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }.onFailure { Log.w(TAG, "home back: $it") } }, d)
+                cancelRedirect()
+                for (d in longArrayOf(300, 1200, 5300)) redirect.postDelayed({
+                    // Settings can be a panel inside Amazon's HOME activity. Check at execution time,
+                    // after that panel has appeared, and again for each retry (the user may have moved).
+                    if (mayRedirect(pkg)) bringHome()
+                }, d)
                 return
             }
-            if (activity) redirect.removeCallbacksAndMessages(null)
-        } else redirect.removeCallbacksAndMessages(null)
+            if (activity) cancelRedirect()
+        } else cancelRedirect()
         Lock.seen(pkg, lockScreen = event.className?.toString()?.endsWith("LockActivity") == true)
         if (pkg == packageName || pkg == LockActivity.showing || Lock.justBackedOut(pkg)) return
         if (Lock.needsPin(this, pkg)) runCatching { startActivity(LockActivity.intent(this, pkg)) }.onFailure { Log.w(TAG, "lock $pkg: $it") }
@@ -187,6 +207,38 @@ class KeyService : AccessibilityService() {
         runCatching { startActivity(LockActivity.intent(this, pkg, limit = true)) }.onFailure { Log.w(TAG, "limit $pkg: $it") }
     }
     private var limitCheck = Runnable {}
+
+    private var amazonHomeWindow = false
+    private var amazonCheckPending = false
+
+    private fun cancelRedirect() {
+        redirect.removeCallbacksAndMessages(null)
+        amazonCheckPending = false
+    }
+
+    private fun bringHome() {
+        runCatching {
+            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+        }.onFailure { Log.w(TAG, "home back: $it") }
+    }
+
+    /** No text is read: only Amazon's Settings control IDs and visibility, while redirecting Amazon. */
+    private fun mayRedirect(pkg: String): Boolean {
+        if (ConfigStore.config.value.stockRedirect != pkg) return false
+        if (pkg != LauncherRedirect.AMAZON) return true
+        val root = rootInActiveWindow ?: return false
+        return try {
+            if (root.packageName?.toString() != pkg) false
+            else {
+                val visibleSettings = LauncherRedirect.SETTINGS_IDS.any { id ->
+                    val nodes = root.findAccessibilityNodeInfosByViewId(id).orEmpty()
+                    try { nodes.any { it.isVisibleToUser } }
+                    finally { nodes.forEach { it.recycle() } }
+                }
+                LauncherRedirect.mayReturn(pkg, root.packageName?.toString(), visibleSettings)
+            }
+        } finally { root.recycle() }
+    }
 
     private val activities = HashMap<String, Boolean>()
     private val homes = HashMap<String, Set<String>>()
@@ -211,7 +263,7 @@ class KeyService : AccessibilityService() {
     @Volatile private var pausedUntil = 0L
 
     override fun onDestroy() {
-        redirect.removeCallbacksAndMessages(null)
+        cancelRedirect()
         timer.removeCallbacksAndMessages(null)
         scope.cancel()
         if (running === this) running = null

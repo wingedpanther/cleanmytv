@@ -2,9 +2,10 @@
 <!-- Sees remote buttons before apps do, so a mapped button works everywhere. Unmapped buttons pass through.
      KeyService turns key filtering on only while a button is mapped (#87). -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewFocused"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:canRequestFilterKeyEvents="true"
-    android:canRetrieveWindowContent="false"
+    android:canRetrieveWindowContent="true"
+    android:accessibilityFlags="flagReportViewIds"
     android:description="@string/key_service_description"
     android:notificationTimeout="100" />
