@@ -89,6 +89,15 @@ export interface FakeTv {
    * query without MATCH_DEFAULT_ONLY then drops the saved Home choice while two launchers tie.
    */
   homeNonDefault?: string
+  /** The file CleanMyTV Home's process is taking in, between a *_file_begin and its end. It goes when the process dies. */
+  homeHeld?: string
+  /** Home before #121: once its process has died, a piece fails ("fire_file_begin first") instead of finding the file on disk. */
+  homeForgets?: boolean
+  /** Upload calls, counting from 1, before which the TV kills Home to free memory. */
+  homeDiesAt?: number[]
+  /** Home dies during those calls rather than between them: the call fails and its piece is lost. */
+  homeDiesInCall?: boolean
+  homeUploadCalls?: number
   /** Misbehaviour for client hardening tests. */
   tokenSize?: number
   sendMalformed?: 'oversize' | 'magic'
@@ -171,6 +180,36 @@ function sh(tv: FakeTv, cmd: string): string {
   if ((m = /^content call --uri content:\/\/io\.github\.wingedpanther\.cleanmytv\.home\.config --method (\w+)(?: --arg (\S+))?$/.exec(cmd))) {
     if (!tv.packages.has('io.github.wingedpanther.cleanmytv.home')) return 'Error while accessing provider\n'
     const up = '/data/data/home/wallpaper.upload'
+    const u = /^(fire|pack|slide)_file_(begin|chunk|end)$/.exec(m[1])
+    if (u) {
+      const failed = (e: string): string => `Error while accessing provider:io.github.wingedpanther.cleanmytv.home.config\n${e}\n`
+      const n = tv.homeUploadCalls = (tv.homeUploadCalls ?? 0) + 1
+      if (tv.homeDiesAt?.includes(n)) {
+        tv.homeHeld = undefined
+        if (tv.homeDiesInCall) return failed('android.os.DeadObjectException')
+      }
+      const dir = `/data/data/home/${u[1]}/`
+      const open = [...tv.files.keys()].filter((f) => f.startsWith(dir) && f.endsWith('.upload'))
+      if (u[2] === 'begin') {
+        const arg = u[1] === 'slide' ? m[2] : Buffer.from(m[2], 'base64').toString('utf8')
+        for (const f of open) tv.files.delete(f)
+        tv.homeHeld = dir + (u[1] === 'fire' ? arg : `${arg.replace(':', '/')}.jpg`) + '.upload'
+        tv.files.set(tv.homeHeld, Buffer.alloc(0))
+      } else {
+        const f = tv.homeHeld ?? (!tv.homeForgets && open.length === 1 ? open[0] : undefined)
+        if (!f) return failed(`java.lang.IllegalStateException: ${u[1]}_file_begin first`)
+        tv.homeHeld = f
+        if (u[2] === 'chunk') tv.files.set(f, Buffer.concat([tv.files.get(f) ?? Buffer.alloc(0), Buffer.from(m[2], 'base64')]))
+        else {
+          tv.homeHeld = undefined
+          const data = tv.files.get(f) ?? Buffer.alloc(0)
+          tv.files.delete(f)
+          const got = createHash('md5').update(data).digest('hex')
+          if (got !== m[2]) return failed(`java.lang.IllegalArgumentException: ${u[1] === 'fire' ? 'fireplace' : 'picture'} upload is damaged (md5 ${got})`)
+          tv.files.set(f.replace(/\.upload$/, ''), data)
+        }
+      }
+    }
     if (m[1] === 'set64') { Object.assign(tv.homeConfig, JSON.parse(Buffer.from(m[2], 'base64').toString('utf8'))); tv.homeFresh = false }
     else if (m[1] === 'wallpaper_begin') tv.files.set(up, Buffer.alloc(0))
     else if (m[1] === 'wallpaper_chunk') tv.files.set(up, Buffer.concat([tv.files.get(up) ?? Buffer.alloc(0), Buffer.from(m[2], 'base64')]))
@@ -188,7 +227,7 @@ function sh(tv: FakeTv, cmd: string): string {
     else if (m[1] === 'keyboard') tv.homeKeyboard = Buffer.from(m[2], 'base64').toString('utf8')
     else if (m[1] === 'keys') return `Result: Bundle[{keys=${JSON.stringify([{ seq: 7, code: 83, name: 'KEYCODE_NOTIFICATION' }, { seq: 'x', code: 1 }])}}]\n`
     else if (m[1] === 'apps') return `Result: Bundle[{apps=${JSON.stringify([...tv.leanback.map((p) => ({ pkg: p, label: p.split('.').pop(), tv: true })), { pkg: 'bad;pkg', label: 'x', tv: true }])}}]\n`
-    else if (m[1] !== 'get') return `Error: unknown method: ${m[1]}\n`
+    else if (!u && !['get', 'pack_begin', 'pack_meta', 'slides_begin', 'slides_end', 'fire_ready'].includes(m[1])) return `Error: unknown method: ${m[1]}\n`
     return `Result: Bundle[{config=${JSON.stringify({ ...tv.homeConfig, has_wallpaper: tv.files.has('/data/data/home/wallpaper.jpg'), configured: !tv.homeFresh })}}]\n`
   }
   if ((m = /^mkdir -p (\S+)\/wallpapers 2>&1; touch/.exec(cmd))) {

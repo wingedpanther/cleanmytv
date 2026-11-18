@@ -23,7 +23,7 @@ object ThemePack {
     val version: StateFlow<Int> = _version
 
     private fun dir(ctx: Context) = File(ctx.filesDir, "themes")
-    private fun upload(ctx: Context) = File(ctx.filesDir, "themes.upload")
+    fun upload(ctx: Context) = File(ctx.filesDir, "themes.upload")
     fun picture(ctx: Context, id: String, v: Int) = File(File(dir(ctx), id), "$v.jpg")
 
     fun list(ctx: Context): List<PackTheme> {

@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { Server } from 'node:net'
 import { configurePaths } from '../src/main/paths'
 import { setSinks } from '../src/main/log'
@@ -16,6 +16,7 @@ import * as S from '../src/main/system'
 import * as Th from '../src/main/themes'
 import { BUILT_IN_THEMES, THEME_KEYS, parseTheme, themeFileName, themeToFile } from '../src/shared/themes'
 import { bootCheck } from '../src/main/bootcheck'
+import { englishOf, UiError } from '../src/main/i18n'
 import { FakeTv, newTv, startFakeAdbd } from './fake-adbd'
 
 const TV_COPY = '/data/local/tmp/cleanmytv-wallpaper.jpg'
@@ -180,6 +181,68 @@ describe('CleanMyTV Home', () => {
     expect(tv.commands.filter((c) => c.includes('wallpaper_chunk')).length).toBeGreaterThan(1)
     await expect(H.setWallpaper(Buffer.from('not a jpeg').toString('base64'))).rejects.toThrow(/JPEG/)
     expect((await H.setWallpaper(null)).has_wallpaper).toBe(false)
+  })
+
+  describe('when the TV kills Home in the middle of an upload (#121)', () => {
+    const FIRE = Buffer.from('fireplace.mp4').toString('base64')
+    const video = randomBytes(300 * 1024)
+    const begins = (): number => tv.commands.filter((c) => /--method \w+_file_begin/.test(c)).length
+    let before = 0
+    beforeEach(() => {
+      before = begins()
+      tv.homeUploadCalls = 0
+      tv.homeHeld = undefined
+    })
+    afterEach(() => {
+      tv.homeDiesAt = undefined
+      tv.homeDiesInCall = undefined
+      tv.homeForgets = undefined
+    })
+
+    it('a Home that picks the file up from disk needs no second go', async () => {
+      tv.homeDiesAt = [3]
+      await H.sendFile('fire_file', FIRE, video, 'fireplace')
+      expect(tv.files.get('/data/data/home/fire/fireplace.mp4')?.equals(video)).toBe(true)
+      expect(begins() - before).toBe(1)
+    })
+
+    it('an older Home that says "fire_file_begin first" gets the file again from the start', async () => {
+      tv.homeForgets = true
+      tv.homeDiesAt = [3]
+      await H.sendFile('fire_file', FIRE, video, 'fireplace')
+      expect(tv.files.get('/data/data/home/fire/fireplace.mp4')?.equals(video)).toBe(true)
+      expect(begins() - before).toBe(2)
+    })
+
+    it('a call that dies with the process sends the file again', async () => {
+      tv.homeDiesInCall = true
+      tv.homeDiesAt = [4]
+      await H.sendFile('fire_file', FIRE, video, 'fireplace')
+      expect(tv.files.get('/data/data/home/fire/fireplace.mp4')?.equals(video)).toBe(true)
+      expect(begins() - before).toBe(2)
+    })
+
+    it('gives up after the second go, with the error it always gave', async () => {
+      tv.homeForgets = true
+      tv.homeDiesAt = [3, 5]
+      const e = await H.sendFile('fire_file', FIRE, video, 'fireplace').catch((x: unknown) => x)
+      expect(e).toBeInstanceOf(UiError)
+      expect(englishOf(e)).toMatch(/^CleanMyTV Home didn't answer: .*fire_file_begin first/s)
+      expect(begins() - before).toBe(2)
+    })
+
+    it('theme and slideshow pictures go again too', async () => {
+      const pic = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), randomBytes(120 * 1024)])
+      tv.homeForgets = true
+      tv.homeDiesAt = [2]
+      await H.themePackPut({ id: 'aurora', name: 'Aurora', look: {}, picture: 1, jpeg: pic.toString('base64') })
+      expect(tv.files.get('/data/data/home/pack/aurora/1.jpg')?.equals(pic)).toBe(true)
+      tv.homeUploadCalls = 0
+      tv.homeDiesAt = [2]
+      await H.setSlides([pic.toString('base64')])
+      expect(tv.files.get('/data/data/home/slide/0.jpg')?.equals(pic)).toBe(true)
+      expect(begins() - before).toBe(4)
+    })
   })
 
   it('puts the settings and wallpaper back when a fresh install starts empty', async () => {
