@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
@@ -62,6 +63,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -92,10 +94,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.withStyle
@@ -163,6 +167,8 @@ private val SAFE_Y = 27.dp
 private val GAP = 16.dp
 // Room on each side of a row so a focused tile's glow, shadow and zoom aren't clipped.
 private val BLEED = 22.dp
+// The strip at the bottom kept for the Bing caption: the safe edge, its one line, and a gap above it.
+private val CAPTION_STRIP = SAFE_Y + 24.dp
 
 /** The sunrise after a new wallpaper, in its own scope so its frames don't recompose the screen. */
 @Composable
@@ -218,11 +224,16 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var wallpaper by remember { mutableStateOf<ImageBitmap?>(null) }
     val intro = remember { Animatable(1f) }
     var wallSeen by remember { mutableStateOf<Int?>(null) }
+    var caption by remember { mutableStateOf<Wallpapers.Caption?>(null) }
     LaunchedEffect(wallVersion) {
-        wallpaper = withContext(Dispatchers.IO) {
+        // The picture and its caption land together, so a new picture never shows the last one's caption.
+        val (pic, line) = withContext(Dispatchers.IO) {
             val f = ConfigStore.wallpaper(ctx)
-            if (f.exists()) runCatching { BitmapFactory.decodeFile(f.path)?.asImageBitmap() }.getOrNull() else null
+            val pic = if (f.exists()) runCatching { BitmapFactory.decodeFile(f.path)?.asImageBitmap() }.getOrNull() else null
+            pic to Wallpapers.caption(ctx)
         }
+        wallpaper = pic
+        caption = line
         // A new wallpaper, not the one Home opened with, comes in like a sunrise.
         val fresh = wallSeen != null && wallSeen != wallVersion
         wallSeen = wallVersion
@@ -404,8 +415,11 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     }
     var focusColour by remember { mutableStateOf<Color?>(null) }
     val tint by animateColorAsState(focusColour ?: Color.Transparent, tween(600), label = "tint")
+    // The Bing caption, while the picture it belongs to is the one on screen.
+    val shownCaption = caption?.takeIf { cfg.bingCaption && !fireWall && wallpaper != null }
     val ui = Ui(cfg, accent, first, movingKey ?: home.first, onFolder = { openFolder = it }, track = track, weather = weather, memory = memory,
-        onFocusApp = { a -> focusColour = a.colour?.let { Color(it) } }, motion = motion, onAppMenu = { s, a -> menuFor = s to a }, movingKey = movingKey)
+        onFocusApp = { a -> focusColour = a.colour?.let { Color(it) } }, motion = motion, onAppMenu = { s, a -> menuFor = s to a }, movingKey = movingKey,
+        captioned = shownCaption != null)
 
     Box(
         Modifier.fillMaxSize().background(Color(cfg.background)).onPreviewKeyEvent { e ->
@@ -458,6 +472,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
                 "rail" -> RailLayout(home, ui, quick, onQuick)
                 else -> ShelfLayout(home, ui, quick, onQuick)
             }
+            shownCaption?.let { BingCaption(it, visualiser, cfg, Modifier.align(Alignment.BottomEnd).padding(start = SAFE_X, end = SAFE_X, bottom = SAFE_Y)) }
             if (cfg.visualiser) Bars(visualiser, cfg, accent, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
         }
         if (shown < 1f) IdleScreen(ui, Modifier.fillMaxSize().graphicsLayer { alpha = 1f - shown })
@@ -511,6 +526,26 @@ private fun FireWallpaper(cfg: HomeConfig, motion: Boolean) {
         modifier = Modifier.fillMaxSize(),
         update = { v -> v.setVolume(volume); v.play(resumed && motion) },
         onRelease = { it.release() },
+    )
+}
+
+/**
+ * Where the Bing picture was taken, and who took it, small and quiet in the bottom corner (#123). The rows
+ * stop above it. The music bars cover the same strip, so it steps aside while they play and comes back after.
+ */
+@Composable
+private fun BingCaption(c: Wallpapers.Caption, visualiser: Visualiser, cfg: HomeConfig, modifier: Modifier) {
+    val levels = visualiser.levels.collectAsState()
+    val playing by remember(cfg.visualiser) { derivedStateOf { cfg.visualiser && levels.value.any { it > 0.01f } } }
+    val alpha by animateFloatAsState(if (playing) 0f else 1f, if (playing) tween(200) else tween(800, delayMillis = 1500), label = "caption")
+    Text(
+        buildAnnotatedString {
+            append(c.place)
+            if (c.credit.isNotEmpty()) withStyle(SpanStyle(color = TEXT.copy(alpha = 0.45f))) { append("   © ${c.credit}") }
+        },
+        color = TEXT.copy(alpha = 0.72f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 6f)),
+        modifier = modifier.widthIn(max = 640.dp).graphicsLayer { this.alpha = alpha }
     )
 }
 
@@ -568,6 +603,8 @@ private class Ui(
     val onAppMenu: (String, TvApp) -> Unit = { _, _ -> },
     /** "<section>:<package>" of the app being moved, drawn with an outline. */
     val movingKey: String? = null,
+    /** Where the Bing picture was taken shows in the bottom corner: the rows stop above it. */
+    val captioned: Boolean = false,
 ) {
     /** Banners are always wide; the icon styles take the chosen shape. */
     val shape: String = if (cfg.iconStyle == "banner") "wide" else cfg.tileShape
@@ -703,7 +740,7 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
                 if (at >= 0) list.scrollToItem(at)
             }
         }
-        CompositionLocalProvider(LocalBringIntoViewSpec provides STAY) { LazyColumn(Modifier.fillMaxSize().fadeTop(), state = list, contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())) {
+        CompositionLocalProvider(LocalBringIntoViewSpec provides STAY) { LazyColumn(Modifier.fillMaxSize().padding(bottom = if (ui.captioned) CAPTION_STRIP else 0.dp).fadeEdges(bottom = ui.captioned), state = list, contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())) {
             for (s in cfg.sections) when (s) {
                 "nowplaying" -> ui.track?.let { t -> item("nowplaying") { Box(still) { NowPlayingCard(t, ui) } } }
                 "recent" -> if (home.recent.isNotEmpty()) {
@@ -763,10 +800,14 @@ private val STAY = object : BringIntoViewSpec {
     }
 }
 
-/** Rows scrolling up fade out over the top 28 dp instead of being sliced by a hard edge. */
-private fun Modifier.fadeTop(): Modifier = graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen).drawWithContent {
+/**
+ * Rows scrolling up fade out over the top 28 dp instead of being sliced by a hard edge. With [bottom], rows
+ * scrolling down fade out over the last 16 dp too, above the Bing caption.
+ */
+private fun Modifier.fadeEdges(bottom: Boolean): Modifier = graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen).drawWithContent {
     drawContent()
     drawRect(Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black, endY = 28.dp.toPx()), blendMode = BlendMode.DstIn)
+    if (bottom) drawRect(Brush.verticalGradient(0f to Color.Black, 1f to Color.Transparent, startY = size.height - 16.dp.toPx(), endY = size.height), blendMode = BlendMode.DstIn)
 }
 
 private fun PaddingValues.calcHorizontal(): Dp = calculateLeftPadding(LayoutDirection.Ltr) + calculateRightPadding(LayoutDirection.Ltr)

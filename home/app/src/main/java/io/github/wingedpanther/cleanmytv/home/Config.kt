@@ -94,6 +94,7 @@ data class HomeConfig(
     val idleStyle: String = "corner", // corner, center, photos: what the idle screen shows
     val font: String = "default", // default, condensed, serif, casual: Home's text (the clock keeps its own)
     val bingDaily: Boolean = false, // Bing's picture of the day becomes the wallpaper each day
+    val bingCaption: Boolean = true, // where Bing's picture was taken, small in a bottom corner of Home
     val themeMemory: Boolean = true, // each theme keeps the look changes made while it's on
     val updateCheck: Boolean = true, // look for a newer Home on the release page once a day
     val keyboardGuard: Boolean = true, // put the owner's keyboard back when the TV switches it at a restart or wake (#98)
@@ -183,6 +184,7 @@ data class HomeConfig(
         .put("idle_style", idleStyle)
         .put("font", font)
         .put("bing_daily", bingDaily)
+        .put("bing_caption", bingCaption)
         .put("theme_memory", themeMemory)
         .put("update_check", updateCheck)
         .put("keyboard_guard", keyboardGuard)
@@ -340,6 +342,7 @@ data class HomeConfig(
                 idleStyle = choice("idle_style", base.idleStyle, setOf("corner", "center", "photos")),
                 font = choice("font", base.font, FONTS),
                 bingDaily = bool("bing_daily", base.bingDaily),
+                bingCaption = bool("bing_caption", base.bingCaption),
                 themeMemory = bool("theme_memory", base.themeMemory),
                 updateCheck = bool("update_check", base.updateCheck),
                 keyboardGuard = bool("keyboard_guard", base.keyboardGuard),
