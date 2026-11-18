@@ -14,6 +14,17 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
+### New in 0.13.1
+
+- **Uploads that pick up where they stopped (#121):** if the TV closes Home while the fireplace, a theme
+  or a slideshow picture is going over, Home carries on with the part it already has. The app also tries
+  a failed file once more before it gives up.
+- **Rows run to the screen edge (#124):** apps slide off the side of the screen instead of being cut off
+  short of it.
+- **Mono icons with the Glow focus (#119):** the focused app is white with a black logo, like the top bar.
+- **Where the Bing picture was taken (#123):** Bing's caption shows small in the bottom corner. Turn it
+  off with **Show where it was taken**.
+
 ### New in 0.13.0
 
 - **German:** the app and CleanMyTV Home now come in German, translated by WiesoBistnSuus from our Discord.
