@@ -93,6 +93,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -899,7 +900,9 @@ private val PINNED = object : BringIntoViewSpec {
 private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boolean) {
     val ctx = LocalContext.current
     val shape = tileShape(ui.shape, big)
-    val (scale, glow, border) = focusStyle(ui, shape, lifted = true)
+    // Mono icons with the Glow focus: the focused tile goes white with a black logo, as the top-bar icons do (#119).
+    val inverted = blackOnWhite(ui)
+    val (scale, glow, border) = focusStyle(ui, shape, lifted = true, white = inverted)
     var focused by remember { mutableStateOf(false) }
     // With names on focus, the name keeps its room so the rows don't jump.
     val nameAlpha by animateFloatAsState(if (!ui.cfg.nameFocus || focused) 1f else 0f, tween(if (ui.motion) 200 else 0), label = "name")
@@ -918,10 +921,10 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
                 .onFocusChanged { focused = it.isFocused; if (it.isFocused) ui.onFocusApp(app) }
                 .lift(ui, shape, focused),
             shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
-            colors = ClickableSurfaceDefaults.colors(containerColor = if (banner) TILE else Color.Transparent, focusedContainerColor = if (banner) TILE_FOCUSED else if (solid) Color(ui.cfg.background) else Color.Transparent)
+            colors = ClickableSurfaceDefaults.colors(containerColor = if (banner) TILE else Color.Transparent, focusedContainerColor = if (banner) TILE_FOCUSED else if (inverted) Color.White else if (solid) Color(ui.cfg.background) else Color.Transparent)
         ) {
             when {
-                !banner -> IconTile(app, ui)
+                !banner -> IconTile(app, ui, inverted = inverted && focused)
                 app.banner -> Image(app.art, app.label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 else -> GeneratedTile(app, big, named = !ui.cfg.showNames)
             }
@@ -1052,7 +1055,7 @@ private fun LockBadge(modifier: Modifier) {
  * An app with no usable logo gets its first letter, in the same style.
  */
 @Composable
-private fun IconTile(app: TvApp, ui: Ui) {
+private fun IconTile(app: TvApp, ui: Ui, inverted: Boolean = false) {
     val accent = ui.accent
     val ground = Color(ui.cfg.background)
     // A picture icon has no logo to recolour: Mono and Duotone use the letter instead.
@@ -1060,7 +1063,9 @@ private fun IconTile(app: TvApp, ui: Ui) {
     val ink = lerp(accent, Color.White, 0.35f)
     val back: Brush; val filter: ColorFilter?; val letterInk: Color
     when (ui.cfg.iconStyle) {
-        "mono" -> {
+        "mono" -> if (inverted) {
+            back = SolidColor(Color.White); filter = ColorFilter.tint(Color.Black); letterInk = Color.Black
+        } else {
             val glass = ui.cfg.tileGlass / 100f
             back = Brush.linearGradient(listOf(Color.White.copy(alpha = glass * 1.3f), Color.White.copy(alpha = glass * 0.7f))); filter = ColorFilter.tint(ink); letterInk = ink
         }
@@ -1248,8 +1253,8 @@ private fun weatherIcon(code: Int, day: Boolean): ImageVector = when (code) {
 }
 
 /**
- * Mono icons with the Glow focus: a focused round button turns white with a black icon, on a white glow
- * (#119). With anything else the accent fills it, as before.
+ * Mono icons with the Glow focus: a focused round button, or app tile, turns white with a black icon, on a
+ * white glow (#119). With anything else the accent fills a button, as before.
  */
 private fun blackOnWhite(ui: Ui) = ui.cfg.iconStyle == "mono" && ui.cfg.focus == "glow"
 private fun buttonFill(ui: Ui) = if (blackOnWhite(ui)) Color.White else ui.accent.copy(alpha = 0.9f)
