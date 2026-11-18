@@ -11,7 +11,7 @@ object Slides {
     const val MAX = 12
 
     private fun dir(ctx: Context) = File(ctx.filesDir, "slides")
-    private fun upload(ctx: Context) = File(ctx.filesDir, "slides.upload")
+    fun upload(ctx: Context) = File(ctx.filesDir, "slides.upload")
 
     fun count(ctx: Context): Int = (0 until MAX).count { File(dir(ctx), "$it.jpg").exists() }
 

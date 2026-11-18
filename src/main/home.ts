@@ -552,21 +552,17 @@ export async function fireplace(action: 'put' | 'show' | 'saver' | 'remove'): Pr
   for (const { f, data } of files) {
     // Through Home's settings channel into its own storage, as the wallpaper goes: Fire OS won't let ADB
     // write to Android/data (#70). Home before 1.7.3 doesn't know these calls; it gets the old folder.
+    let shown = 0
     try {
-      parse(await call('fire_file_begin', Buffer.from(f.name).toString('base64'), 'fireplace'))
+      await sendFile('fire_file', Buffer.from(f.name).toString('base64'), data, 'fireplace', (done, of) => {
+        const pct = Math.floor((done / of) * 10) * 10
+        if (pct > shown) { shown = pct; log('fireplace', 'info', `${f.name}: ${pct}%`) }
+      })
     } catch (e) {
       if (!/unknown method/.test(englishOf(e))) throw e
       await fireToSharedFolder(files)
       break
     }
-    const parts = pieces(data)
-    let shown = 0
-    for (const [i, piece] of parts.entries()) {
-      parse(await call('fire_file_chunk', piece, 'fireplace'))
-      const pct = Math.floor(((i + 1) / parts.length) * 10) * 10
-      if (pct > shown) { shown = pct; log('fireplace', 'info', `${f.name}: ${pct}%`) }
-    }
-    parse(await call('fire_file_end', createHash('md5').update(data).digest('hex'), 'fireplace'))
   }
   await call('fire_ready')
   return { ok: true, summary: t('The fireplace is on the TV. Show it, make it the screensaver, or put it behind Home.'), warnings: [] }
@@ -590,9 +586,7 @@ export async function themePackPut(item: ThemePackItem): Promise<void> {
     await call('pack_meta', Buffer.from(JSON.stringify(meta)).toString('base64'))
   }
   const data = jpeg(item.jpeg)
-  await call('pack_file_begin', Buffer.from(`${item.id}:${item.picture}`).toString('base64'))
-  for (const piece of pieces(data)) await call('pack_file_chunk', piece)
-  await call('pack_file_end', createHash('md5').update(data).digest('hex'))
+  await sendFile('pack_file', Buffer.from(`${item.id}:${item.picture}`).toString('base64'), data, 'theme')
 }
 
 /**
@@ -630,9 +624,7 @@ export async function setSlides(jpegs: string[]): Promise<HomeConfig> {
   log('theme', 'cmd', `put ${datas.length} slideshow pictures on the TV`)
   await call('slides_begin')
   for (const [n, data] of datas.entries()) {
-    await call('slide_file_begin', String(n))
-    for (const piece of pieces(data)) await call('slide_file_chunk', piece)
-    await call('slide_file_end', createHash('md5').update(data).digest('hex'))
+    await sendFile('slide_file', String(n), data, 'theme')
   }
   return parse(await call('slides_end'))
 }
@@ -653,6 +645,32 @@ function jpeg(b64: unknown): Buffer {
   if (data.length > 4 * 1024 * 1024) throw new Error('the picture is over 4 MB')
   if (data[0] !== 0xff || data[1] !== 0xd8) throw new Error('the picture must be a JPEG')
   return data
+}
+
+/**
+ * One file up to Home in pieces: begin, a chunk per piece, then end with its MD5. The TV may kill Home
+ * between two calls to free memory (Sony, 2 GB boxes: #121). Home now picks the file up again from disk,
+ * but older ones forget it, and a piece in flight dies with the process. So a file that fails anywhere
+ * starts over from begin, once.
+ */
+export async function sendFile(kind: 'fire_file' | 'pack_file' | 'slide_file', name: string, data: Buffer, task: string,
+  onPiece?: (done: number, of: number) => void): Promise<HomeConfig> {
+  const parts = pieces(data)
+  const md5 = createHash('md5').update(data).digest('hex')
+  for (let attempt = 1; ; attempt++) {
+    try {
+      parse(await call(`${kind}_begin`, name, task))
+      for (const [i, piece] of parts.entries()) {
+        parse(await call(`${kind}_chunk`, piece, task))
+        onPiece?.(i + 1, parts.length)
+      }
+      return parse(await call(`${kind}_end`, md5, task))
+    } catch (e) {
+      // A Home that doesn't know the calls won't learn them on a second go.
+      if (attempt > 1 || /unknown method/.test(englishOf(e))) throw e
+      log(task, 'warn', `${kind} failed, sending it again: ${englishOf(e).slice(0, 300)}`)
+    }
+  }
 }
 
 /** Base64 pieces that fit one ADB payload with the command; a multiple of 3 keeps '=' padding at the end. */

@@ -112,40 +112,25 @@ class ConfigProvider : ContentProvider() {
             "pack_begin" -> ThemePack.begin(ctx)
             "pack_meta" -> ThemePack.meta(ctx, json(String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8)))
             "pack_file_begin" -> {
-                packFile = ThemePack.target(ctx, String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8))
-                packFile!!.writeBytes(ByteArray(0))
+                val target = ThemePack.target(ctx, String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8))
+                packFile = Upload.start(ThemePack.upload(ctx), target)
             }
-            "pack_file_chunk" -> {
-                val f = packFile ?: throw IllegalStateException("pack_file_begin first")
-                val bytes = Base64.decode(arg ?: "", Base64.DEFAULT)
-                if (f.length() + bytes.size > MAX_WALLPAPER) throw IllegalArgumentException("picture is over 4 MB")
-                f.appendBytes(bytes)
-            }
+            "pack_file_chunk" -> Upload.append(themeUpload(ctx), Base64.decode(arg ?: "", Base64.DEFAULT), MAX_WALLPAPER, "picture is over 4 MB")
             "pack_file_end" -> {
-                val f = packFile ?: throw IllegalStateException("pack_file_begin first")
-                val got = MessageDigest.getInstance("MD5").digest(f.readBytes()).joinToString("") { "%02x".format(it) }
-                if (got != arg?.lowercase()) { f.delete(); throw IllegalArgumentException("picture upload is damaged (md5 $got)") }
+                val f = themeUpload(ctx)
                 packFile = null
+                Upload.finish(f, arg, "picture")
             }
             "pack_end" -> ThemePack.end(ctx, runCatching { org.json.JSONArray(String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8)) }
                 .getOrElse { throw IllegalArgumentException("arg must be a JSON list of theme ids") })
             "pack_clear" -> ThemePack.clear(ctx)
             "slides_begin" -> Slides.begin(ctx)
-            "slide_file_begin" -> {
-                packFile = Slides.target(ctx, arg?.toIntOrNull() ?: -1)
-                packFile!!.writeBytes(ByteArray(0))
-            }
-            "slide_file_chunk" -> {
-                val f = packFile ?: throw IllegalStateException("slide_file_begin first")
-                val bytes = Base64.decode(arg ?: "", Base64.DEFAULT)
-                if (f.length() + bytes.size > MAX_WALLPAPER) throw IllegalArgumentException("picture is over 4 MB")
-                f.appendBytes(bytes)
-            }
+            "slide_file_begin" -> packFile = Upload.start(Slides.upload(ctx), Slides.target(ctx, arg?.toIntOrNull() ?: -1))
+            "slide_file_chunk" -> Upload.append(slideUpload(ctx), Base64.decode(arg ?: "", Base64.DEFAULT), MAX_WALLPAPER, "picture is over 4 MB")
             "slide_file_end" -> {
-                val f = packFile ?: throw IllegalStateException("slide_file_begin first")
-                val got = MessageDigest.getInstance("MD5").digest(f.readBytes()).joinToString("") { "%02x".format(it) }
-                if (got != arg?.lowercase()) { f.delete(); throw IllegalArgumentException("picture upload is damaged (md5 $got)") }
+                val f = slideUpload(ctx)
                 packFile = null
+                Upload.finish(f, arg, "picture")
             }
             "slides_end" -> Slides.end(ctx)
             "slides_clear" -> {
@@ -155,23 +140,13 @@ class ConfigProvider : ContentProvider() {
             "fire_file_begin" -> {
                 val name = String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8)
                 require(name in Fire.NAMES) { "bad fireplace file $name" }
-                fireFile = java.io.File(Fire.dir(ctx), "$name.upload").also { it.writeBytes(ByteArray(0)) }
+                fireFile = Upload.start(Fire.dir(ctx), java.io.File(Fire.dir(ctx), name))
             }
-            "fire_file_chunk" -> {
-                val f = fireFile ?: throw IllegalStateException("fire_file_begin first")
-                val bytes = Base64.decode(arg ?: "", Base64.DEFAULT)
-                if (f.length() + bytes.size > MAX_FIRE) throw IllegalArgumentException("fireplace file is over 64 MB")
-                f.appendBytes(bytes)
-            }
+            "fire_file_chunk" -> Upload.append(fireUpload(ctx), Base64.decode(arg ?: "", Base64.DEFAULT), MAX_FIRE, "fireplace file is over 64 MB")
             "fire_file_end" -> {
-                val f = fireFile ?: throw IllegalStateException("fire_file_begin first")
+                val f = fireUpload(ctx)
                 fireFile = null
-                val got = java.security.DigestInputStream(f.inputStream(), MessageDigest.getInstance("MD5")).use { s ->
-                    s.readBytes(); s.messageDigest.digest().joinToString("") { "%02x".format(it) }
-                }
-                if (got != arg?.lowercase()) { f.delete(); throw IllegalArgumentException("fireplace upload is damaged (md5 $got)") }
-                // Swapped in whole, so a broken upload never leaves half a video.
-                f.renameTo(java.io.File(f.parentFile, f.name.removeSuffix(".upload")))
+                Upload.finish(f, arg, "fireplace")
             }
             "fire_ready" -> Fire.changed(ctx)
             "look_save" -> DayNight.save(ctx, arg.orEmpty())
@@ -199,6 +174,23 @@ class ConfigProvider : ContentProvider() {
         return out
     }
 
+    // The file between begin and end: the one this process noted, or the one a killed Home left on disk (#121).
+    private fun fireUpload(ctx: android.content.Context): java.io.File {
+        val dir = Fire.dir(ctx)
+        return (fireFile ?: Upload.resume(dir) { it.parentFile == dir && it.name in Fire.NAMES }?.also { fireFile = it })
+            ?: throw IllegalStateException("fire_file_begin first")
+    }
+
+    private fun themeUpload(ctx: android.content.Context): java.io.File =
+        (packFile ?: Upload.resume(ThemePack.upload(ctx)) { f ->
+            runCatching { ThemePack.target(ctx, "${f.parentFile?.name}:${f.name.removeSuffix(".jpg")}") }.getOrNull() == f
+        }?.also { packFile = it }) ?: throw IllegalStateException("pack_file_begin first")
+
+    private fun slideUpload(ctx: android.content.Context): java.io.File =
+        (packFile ?: Upload.resume(Slides.upload(ctx)) { f ->
+            f.name.removeSuffix(".jpg").toIntOrNull()?.let { runCatching { Slides.target(ctx, it) }.getOrNull() } == f
+        }?.also { packFile = it }) ?: throw IllegalStateException("slide_file_begin first")
+
     private fun json(s: String?): JSONObject =
         runCatching { JSONObject(s ?: "") }.getOrElse { throw IllegalArgumentException("arg must be a JSON object") }
 
@@ -214,7 +206,7 @@ class ConfigProvider : ContentProvider() {
         const val MAX_WALLPAPER = 4 * 1024 * 1024
         const val READ_PIECE = 192 * 1024
         const val MAX_FIRE = 64 * 1024 * 1024
-        /** The fireplace file being uploaded, between fire_file_begin and fire_file_end. */
+        /** The fireplace file being uploaded, between fire_file_begin and fire_file_end, while this process lives. */
         @Volatile var fireFile: java.io.File? = null
         /** The picture being uploaded for the theme pack, between pack_file_begin and pack_file_end. */
         @Volatile var packFile: java.io.File? = null
