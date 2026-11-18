@@ -272,6 +272,8 @@ export interface HomeConfig {
   font: 'default' | 'condensed' | 'serif' | 'casual'
   /** Bing's picture of the day becomes the wallpaper each day. */
   bing_daily: boolean
+  /** Where Bing's picture was taken, small in a bottom corner of Home, for pictures the TV fetched itself (launcher 1.13.1). */
+  bing_caption: boolean
   /** Each theme on the TV keeps the look changes made on the TV while it's on (launcher 1.11.0). */
   theme_memory: boolean
   /** The TV looks for a newer CleanMyTV Home once a day and offers it (set on the TV). */

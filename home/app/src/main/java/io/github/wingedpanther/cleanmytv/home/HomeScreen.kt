@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
@@ -62,6 +63,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -92,9 +94,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.withStyle
@@ -109,6 +114,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -161,6 +167,8 @@ private val SAFE_Y = 27.dp
 private val GAP = 16.dp
 // Room on each side of a row so a focused tile's glow, shadow and zoom aren't clipped.
 private val BLEED = 22.dp
+// The strip at the bottom kept for the Bing caption: the safe edge, its one line, and a gap above it.
+private val CAPTION_STRIP = SAFE_Y + 24.dp
 
 /** The sunrise after a new wallpaper, in its own scope so its frames don't recompose the screen. */
 @Composable
@@ -216,11 +224,16 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var wallpaper by remember { mutableStateOf<ImageBitmap?>(null) }
     val intro = remember { Animatable(1f) }
     var wallSeen by remember { mutableStateOf<Int?>(null) }
+    var caption by remember { mutableStateOf<Wallpapers.Caption?>(null) }
     LaunchedEffect(wallVersion) {
-        wallpaper = withContext(Dispatchers.IO) {
+        // The picture and its caption land together, so a new picture never shows the last one's caption.
+        val (pic, line) = withContext(Dispatchers.IO) {
             val f = ConfigStore.wallpaper(ctx)
-            if (f.exists()) runCatching { BitmapFactory.decodeFile(f.path)?.asImageBitmap() }.getOrNull() else null
+            val pic = if (f.exists()) runCatching { BitmapFactory.decodeFile(f.path)?.asImageBitmap() }.getOrNull() else null
+            pic to Wallpapers.caption(ctx)
         }
+        wallpaper = pic
+        caption = line
         // A new wallpaper, not the one Home opened with, comes in like a sunrise.
         val fresh = wallSeen != null && wallSeen != wallVersion
         wallSeen = wallVersion
@@ -402,8 +415,11 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     }
     var focusColour by remember { mutableStateOf<Color?>(null) }
     val tint by animateColorAsState(focusColour ?: Color.Transparent, tween(600), label = "tint")
+    // The Bing caption, while the picture it belongs to is the one on screen.
+    val shownCaption = caption?.takeIf { cfg.bingCaption && !fireWall && wallpaper != null }
     val ui = Ui(cfg, accent, first, movingKey ?: home.first, onFolder = { openFolder = it }, track = track, weather = weather, memory = memory,
-        onFocusApp = { a -> focusColour = a.colour?.let { Color(it) } }, motion = motion, onAppMenu = { s, a -> menuFor = s to a }, movingKey = movingKey)
+        onFocusApp = { a -> focusColour = a.colour?.let { Color(it) } }, motion = motion, onAppMenu = { s, a -> menuFor = s to a }, movingKey = movingKey,
+        captioned = shownCaption != null)
 
     Box(
         Modifier.fillMaxSize().background(Color(cfg.background)).onPreviewKeyEvent { e ->
@@ -456,6 +472,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
                 "rail" -> RailLayout(home, ui, quick, onQuick)
                 else -> ShelfLayout(home, ui, quick, onQuick)
             }
+            shownCaption?.let { BingCaption(it, visualiser, cfg, Modifier.align(Alignment.BottomEnd).padding(start = SAFE_X, end = SAFE_X, bottom = SAFE_Y)) }
             if (cfg.visualiser) Bars(visualiser, cfg, accent, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
         }
         if (shown < 1f) IdleScreen(ui, Modifier.fillMaxSize().graphicsLayer { alpha = 1f - shown })
@@ -509,6 +526,26 @@ private fun FireWallpaper(cfg: HomeConfig, motion: Boolean) {
         modifier = Modifier.fillMaxSize(),
         update = { v -> v.setVolume(volume); v.play(resumed && motion) },
         onRelease = { it.release() },
+    )
+}
+
+/**
+ * Where the Bing picture was taken, and who took it, small and quiet in the bottom corner (#123). The rows
+ * stop above it. The music bars cover the same strip, so it steps aside while they play and comes back after.
+ */
+@Composable
+private fun BingCaption(c: Wallpapers.Caption, visualiser: Visualiser, cfg: HomeConfig, modifier: Modifier) {
+    val levels = visualiser.levels.collectAsState()
+    val playing by remember(cfg.visualiser) { derivedStateOf { cfg.visualiser && levels.value.any { it > 0.01f } } }
+    val alpha by animateFloatAsState(if (playing) 0f else 1f, if (playing) tween(200) else tween(800, delayMillis = 1500), label = "caption")
+    Text(
+        buildAnnotatedString {
+            append(c.place)
+            if (c.credit.isNotEmpty()) withStyle(SpanStyle(color = TEXT.copy(alpha = 0.45f))) { append("   © ${c.credit}") }
+        },
+        color = TEXT.copy(alpha = 0.72f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 6f)),
+        modifier = modifier.widthIn(max = 640.dp).graphicsLayer { this.alpha = alpha }
     )
 }
 
@@ -566,6 +603,8 @@ private class Ui(
     val onAppMenu: (String, TvApp) -> Unit = { _, _ -> },
     /** "<section>:<package>" of the app being moved, drawn with an outline. */
     val movingKey: String? = null,
+    /** Where the Bing picture was taken shows in the bottom corner: the rows stop above it. */
+    val captioned: Boolean = false,
 ) {
     /** Banners are always wide; the icon styles take the chosen shape. */
     val shape: String = if (cfg.iconStyle == "banner") "wide" else cfg.tileShape
@@ -678,6 +717,14 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
     val rowSpec = LocalBringIntoViewSpec.current
     BoxWithConstraints(modifier) {
         val inner = maxWidth - padding.calcHorizontal() - BLEED * 2
+        // Rows scroll out to the screen's edges (#124): the layout's side inset goes into each row's own
+        // padding, so at rest a row still starts in line with its title, but a tile scrolling past slides off
+        // the edge of the screen instead of being cut off in mid-air short of it. Titles, Now playing and the
+        // grid don't scroll sideways and keep the inset as plain padding.
+        val start = padding.calculateLeftPadding(LayoutDirection.Ltr)
+        val end = padding.calculateRightPadding(LayoutDirection.Ltr)
+        val rowPad = PaddingValues(start = start + BLEED, end = end + BLEED, top = 16.dp, bottom = 16.dp)
+        val still = Modifier.padding(start = start, end = end)
         val gridW: Dp = (inner - GAP * (cfg.columns - 1)) / cfg.columns
         // At 100% the dock fits the screen; the size slider scales that, and a bigger dock scrolls sideways (#89).
         val n = home.dock.size.coerceIn(1, 5)
@@ -693,35 +740,35 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
                 if (at >= 0) list.scrollToItem(at)
             }
         }
-        CompositionLocalProvider(LocalBringIntoViewSpec provides STAY) { LazyColumn(Modifier.fillMaxSize().fadeTop(), state = list, contentPadding = padding) {
+        CompositionLocalProvider(LocalBringIntoViewSpec provides STAY) { LazyColumn(Modifier.fillMaxSize().padding(bottom = if (ui.captioned) CAPTION_STRIP else 0.dp).fadeEdges(bottom = ui.captioned), state = list, contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())) {
             for (s in cfg.sections) when (s) {
-                "nowplaying" -> ui.track?.let { t -> item("nowplaying") { NowPlayingCard(t, ui) } }
+                "nowplaying" -> ui.track?.let { t -> item("nowplaying") { Box(still) { NowPlayingCard(t, ui) } } }
                 "recent" -> if (home.recent.isNotEmpty()) {
-                    item("recent-title") { SectionTitle(cfg.names["recent"] ?: tr("Recently used")) }
-                    item("recent") { TileRow("recent", home.recent, ui, 148.dp * (cfg.tileScale / 100f), big = false, rowSpec) }
+                    item("recent-title") { SectionTitle(cfg.names["recent"] ?: tr("Recently used"), still) }
+                    item("recent") { TileRow("recent", home.recent, ui, 148.dp * (cfg.tileScale / 100f), big = false, rowSpec, rowPad) }
                 }
                 "dock" -> if (home.dock.isNotEmpty()) item("dock") {
-                    TileRow("dock", home.dock, ui, dockW, big = true, rowSpec)
+                    TileRow("dock", home.dock, ui, dockW, big = true, rowSpec, rowPad)
                 }
                 "watchnext" -> if (home.watch.isNotEmpty()) {
-                    item("watchnext-title") { SectionTitle(tr("Continue watching")) }
-                    item("watchnext") { WatchRow(home, ui, 196.dp * (cfg.tileScale / 100f), rowSpec) }
+                    item("watchnext-title") { SectionTitle(tr("Continue watching"), still) }
+                    item("watchnext") { WatchRow(home, ui, 196.dp * (cfg.tileScale / 100f), rowSpec, rowPad) }
                 }
                 "rows" -> home.rows.forEachIndexed { i, (name, list) ->
-                    item("row$i-title") { SectionTitle(name) }
-                    item("row$i") { TileRow("row$i", list, ui, 148.dp * (cfg.tileScale / 100f), big = false, rowSpec) }
+                    item("row$i-title") { SectionTitle(name, still) }
+                    item("row$i") { TileRow("row$i", list, ui, 148.dp * (cfg.tileScale / 100f), big = false, rowSpec, rowPad) }
                 }
                 "folders" -> if (showFolders && home.folders.isNotEmpty()) {
-                    item("folders-title") { SectionTitle(tr("Folders")) }
+                    item("folders-title") { SectionTitle(tr("Folders"), still) }
                     item("folders") {
                         CompositionLocalProvider(LocalBringIntoViewSpec provides rowSpec) {
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 16.dp)) {
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = rowPad) {
                                 items(home.folders, key = { it.first }) { f -> FolderTile(f, ui, Modifier.width(148.dp * (cfg.tileScale / 100f))) }
                             }
                         }
                     }
                 }
-                "grid" -> if (home.grid.isNotEmpty()) grid(home, ui, gridW)
+                "grid" -> if (home.grid.isNotEmpty()) grid(home, ui, gridW, still)
             }
         } }
     }
@@ -753,24 +800,27 @@ private val STAY = object : BringIntoViewSpec {
     }
 }
 
-/** Rows scrolling up fade out over the top 28 dp instead of being sliced by a hard edge. */
-private fun Modifier.fadeTop(): Modifier = graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen).drawWithContent {
+/**
+ * Rows scrolling up fade out over the top 28 dp instead of being sliced by a hard edge. With [bottom], rows
+ * scrolling down fade out over the last 16 dp too, above the Bing caption.
+ */
+private fun Modifier.fadeEdges(bottom: Boolean): Modifier = graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen).drawWithContent {
     drawContent()
     drawRect(Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black, endY = 28.dp.toPx()), blendMode = BlendMode.DstIn)
+    if (bottom) drawRect(Brush.verticalGradient(0f to Color.Black, 1f to Color.Transparent, startY = size.height - 16.dp.toPx(), endY = size.height), blendMode = BlendMode.DstIn)
 }
 
-private fun PaddingValues.calcHorizontal(): Dp =
-    calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr) + calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr)
+private fun PaddingValues.calcHorizontal(): Dp = calculateLeftPadding(LayoutDirection.Ltr) + calculateRightPadding(LayoutDirection.Ltr)
 
-private fun LazyListScope.grid(home: Home, ui: Ui, w: Dp) {
+private fun LazyListScope.grid(home: Home, ui: Ui, w: Dp, still: Modifier) {
     val label = ui.cfg.names["all_apps"] ?: if (home.dock.isEmpty() && home.rows.isEmpty()) tr("Apps") else tr("All apps")
-    item("grid-title") { SectionTitle(label) }
+    item("grid-title") { SectionTitle(label, still) }
     // A square tile fills the middle 72% of its slot: the rows move left by the 14% before it, so the first
     // tile lines up with the heading and the dock above instead of sitting in from them.
     val inset = if (ui.shape == "wide") 0.dp else w * 0.14f
     home.grid.chunked(ui.cfg.columns).forEachIndexed { i, row ->
         item("grid$i") {
-            Row(Modifier.padding(start = BLEED - inset, end = BLEED + inset, top = 10.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(GAP)) {
+            Row(still.padding(start = BLEED - inset, end = BLEED + inset, top = 10.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(GAP)) {
                 for (app in row) Tile("grid", app, ui, Modifier.width(w), big = false)
             }
         }
@@ -778,15 +828,15 @@ private fun LazyListScope.grid(home: Home, ui: Ui, w: Dp) {
 }
 
 @Composable
-private fun SectionTitle(text: String) {
-    Text(text, color = TEXT, fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = BLEED, top = 12.dp))
+private fun SectionTitle(text: String, still: Modifier) {
+    Text(text, color = TEXT, fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = still.padding(start = BLEED, top = 12.dp))
 }
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
-private fun TileRow(section: String, list: List<TvApp>, ui: Ui, w: Dp, big: Boolean, rowSpec: BringIntoViewSpec) {
+private fun TileRow(section: String, list: List<TvApp>, ui: Ui, w: Dp, big: Boolean, rowSpec: BringIntoViewSpec, pad: PaddingValues) {
     val row = @Composable {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 16.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = pad) {
             val tw = if (ui.shape == "wide") w else w * 0.72f
             items(list, key = { it.pkg }) { app -> Tile(section, app, ui, Modifier.width(tw), big) }
         }
@@ -891,7 +941,9 @@ private val PINNED = object : BringIntoViewSpec {
 private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boolean) {
     val ctx = LocalContext.current
     val shape = tileShape(ui.shape, big)
-    val (scale, glow, border) = focusStyle(ui, shape, lifted = true)
+    // Mono icons with the Glow focus: the focused tile goes white with a black logo, as the top-bar icons do (#119).
+    val inverted = blackOnWhite(ui)
+    val (scale, glow, border) = focusStyle(ui, shape, lifted = true, white = inverted)
     var focused by remember { mutableStateOf(false) }
     // With names on focus, the name keeps its room so the rows don't jump.
     val nameAlpha by animateFloatAsState(if (!ui.cfg.nameFocus || focused) 1f else 0f, tween(if (ui.motion) 200 else 0), label = "name")
@@ -910,10 +962,10 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
                 .onFocusChanged { focused = it.isFocused; if (it.isFocused) ui.onFocusApp(app) }
                 .lift(ui, shape, focused),
             shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
-            colors = ClickableSurfaceDefaults.colors(containerColor = if (banner) TILE else Color.Transparent, focusedContainerColor = if (banner) TILE_FOCUSED else if (solid) Color(ui.cfg.background) else Color.Transparent)
+            colors = ClickableSurfaceDefaults.colors(containerColor = if (banner) TILE else Color.Transparent, focusedContainerColor = if (banner) TILE_FOCUSED else if (inverted) Color.White else if (solid) Color(ui.cfg.background) else Color.Transparent)
         ) {
             when {
-                !banner -> IconTile(app, ui)
+                !banner -> IconTile(app, ui, inverted = inverted && focused)
                 app.banner -> Image(app.art, app.label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 else -> GeneratedTile(app, big, named = !ui.cfg.showNames)
             }
@@ -948,7 +1000,7 @@ private fun open(ctx: android.content.Context, pkg: String, target: android.cont
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
-private fun WatchRow(home: Home, ui: Ui, w: Dp, rowSpec: BringIntoViewSpec) {
+private fun WatchRow(home: Home, ui: Ui, w: Dp, rowSpec: BringIntoViewSpec, pad: PaddingValues) {
     // Something new goes in at the start; the row keeps its place by item, so it would land out of view to
     // the left. Back to the start, unless the owner is in the row.
     val state = rememberLazyListState()
@@ -956,7 +1008,7 @@ private fun WatchRow(home: Home, ui: Ui, w: Dp, rowSpec: BringIntoViewSpec) {
     val newest = home.watch.firstOrNull()?.key
     LaunchedEffect(newest) { if (!inside) state.scrollToItem(0) }
     CompositionLocalProvider(LocalBringIntoViewSpec provides if (ui.cfg.pinFocus) PINNED else rowSpec) {
-        LazyRow(Modifier.onFocusChanged { inside = it.hasFocus }, state = state, horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = PaddingValues(horizontal = BLEED, vertical = 16.dp)) {
+        LazyRow(Modifier.onFocusChanged { inside = it.hasFocus }, state = state, horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = pad) {
             items(home.watch, key = { it.key }) { item -> WatchTile(item, home.app(item.pkg), ui, w) }
         }
     }
@@ -1044,7 +1096,7 @@ private fun LockBadge(modifier: Modifier) {
  * An app with no usable logo gets its first letter, in the same style.
  */
 @Composable
-private fun IconTile(app: TvApp, ui: Ui) {
+private fun IconTile(app: TvApp, ui: Ui, inverted: Boolean = false) {
     val accent = ui.accent
     val ground = Color(ui.cfg.background)
     // A picture icon has no logo to recolour: Mono and Duotone use the letter instead.
@@ -1052,7 +1104,9 @@ private fun IconTile(app: TvApp, ui: Ui) {
     val ink = lerp(accent, Color.White, 0.35f)
     val back: Brush; val filter: ColorFilter?; val letterInk: Color
     when (ui.cfg.iconStyle) {
-        "mono" -> {
+        "mono" -> if (inverted) {
+            back = SolidColor(Color.White); filter = ColorFilter.tint(Color.Black); letterInk = Color.Black
+        } else {
             val glass = ui.cfg.tileGlass / 100f
             back = Brush.linearGradient(listOf(Color.White.copy(alpha = glass * 1.3f), Color.White.copy(alpha = glass * 0.7f))); filter = ColorFilter.tint(ink); letterInk = ink
         }
@@ -1240,8 +1294,8 @@ private fun weatherIcon(code: Int, day: Boolean): ImageVector = when (code) {
 }
 
 /**
- * Mono icons with the Glow focus: a focused round button turns white with a black icon, on a white glow
- * (#119). With anything else the accent fills it, as before.
+ * Mono icons with the Glow focus: a focused round button, or app tile, turns white with a black icon, on a
+ * white glow (#119). With anything else the accent fills a button, as before.
  */
 private fun blackOnWhite(ui: Ui) = ui.cfg.iconStyle == "mono" && ui.cfg.focus == "glow"
 private fun buttonFill(ui: Ui) = if (blackOnWhite(ui)) Color.White else ui.accent.copy(alpha = 0.9f)

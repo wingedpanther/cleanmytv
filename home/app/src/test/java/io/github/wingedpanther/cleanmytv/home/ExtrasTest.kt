@@ -130,6 +130,20 @@ class ExtrasTest {
         assertTrue("timer" in HomeConfig.BUTTON_ACTIONS)
     }
 
+    @Test fun `Bing's caption is the place without the credit's brackets, on unless turned off`() {
+        val c = Wallpapers.captionFrom("Boardwalk through the forest, Mount Revelstoke National Park, British Columbia, Canada (© Jane Doe/Getty Images)")
+        assertEquals("Boardwalk through the forest, Mount Revelstoke National Park, British Columbia, Canada", c?.place)
+        assertEquals("Jane Doe/Getty Images", c?.credit)
+        assertEquals(Wallpapers.Caption("Lake Bled, Slovenia", ""), Wallpapers.captionFrom(" Lake Bled, Slovenia\n"))
+        assertEquals(null, Wallpapers.captionFrom(""))
+        assertEquals(null, Wallpapers.captionFrom("(© Someone)"))
+        assertTrue(HomeConfig().bingCaption)
+        val off = HomeConfig.fromJson(JSONObject("""{"bing_caption":false}"""))
+        assertFalse(off.bingCaption)
+        assertEquals(off, HomeConfig.fromJson(off.toJson()))
+        assertEquals("Show where it was taken", io.github.wingedpanther.cleanmytv.home.customization.searchSettings("bing caption").firstOrNull()?.name)
+    }
+
     @Test fun `snow is off until asked for, round-trips, and a theme carries it`() {
         assertFalse(HomeConfig().snow)
         val c = HomeConfig.fromJson(JSONObject("""{"snow":true}"""))

@@ -107,6 +107,12 @@ fun ThemesCustomization(config: HomeConfig, ctx: Context, preview: MutableState<
             checked = config.bingDaily,
             onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("bing_daily", it)) }
         )
+        TvSwitch(
+            title = tr("Show where it was taken"),
+            subtitle = tr("A small line in the bottom corner of Home says where Bing's picture was taken, and who took it."),
+            checked = config.bingCaption,
+            onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("bing_caption", it)) }
+        )
         if (slides > 0) {
             Text(tr("The slideshow's photos"), color = MUTED_COLOR, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
