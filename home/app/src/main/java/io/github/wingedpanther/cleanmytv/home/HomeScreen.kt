@@ -530,7 +530,7 @@ private fun FireWallpaper(cfg: HomeConfig, motion: Boolean) {
 }
 
 /**
- * Where the Bing picture was taken, and who took it, small and quiet in the bottom corner (#123). The rows
+ * Where the Bing picture was taken, small and quiet in the bottom corner (#123). The rows
  * stop above it. The music bars cover the same strip, so it steps aside while they play and comes back after.
  */
 @Composable
@@ -539,10 +539,7 @@ private fun BingCaption(c: Wallpapers.Caption, visualiser: Visualiser, cfg: Home
     val playing by remember(cfg.visualiser) { derivedStateOf { cfg.visualiser && levels.value.any { it > 0.01f } } }
     val alpha by animateFloatAsState(if (playing) 0f else 1f, if (playing) tween(200) else tween(800, delayMillis = 1500), label = "caption")
     Text(
-        buildAnnotatedString {
-            append(c.place)
-            if (c.credit.isNotEmpty()) withStyle(SpanStyle(color = TEXT.copy(alpha = 0.45f))) { append("   © ${c.credit}") }
-        },
+        c.place,
         color = TEXT.copy(alpha = 0.72f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
         style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 6f)),
         modifier = modifier.widthIn(max = 640.dp).graphicsLayer { this.alpha = alpha }

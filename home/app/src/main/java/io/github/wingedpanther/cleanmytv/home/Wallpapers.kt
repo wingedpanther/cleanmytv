@@ -55,19 +55,18 @@ object Wallpapers {
         }.getOrElse { it.message ?: tr("Bing didn't answer") }
     }
 
-    /** Where Bing's picture was taken, and the photographer's credit, as Bing words them. */
-    data class Caption(val place: String, val credit: String)
+    /** Where Bing's picture was taken, as Bing words it. */
+    data class Caption(val place: String)
 
     /**
      * Bing's "copyright" line, like "Boardwalk through the forest, Mount Revelstoke National Park, British
-     * Columbia, Canada (© Photographer/Agency)", split into the place and the credit. Null when it's empty.
+     * Columbia, Canada (© Photographer/Agency)", without the credit. Null when it's empty.
      */
     fun captionFrom(copyright: String): Caption? {
         val line = copyright.replace(Regex("\\p{Cntrl}"), " ").trim()
         val at = line.lastIndexOf("(©")
         val place = (if (at < 0) line else line.substring(0, at)).trim().trimEnd(',').trim().take(160)
-        val credit = if (at < 0) "" else line.substring(at + 2).substringBeforeLast(')').trim().take(80)
-        return if (place.isEmpty()) null else Caption(place, credit)
+        return if (place.isEmpty()) null else Caption(place)
     }
 
     /**
@@ -80,7 +79,7 @@ object Wallpapers {
     private fun saveCaption(ctx: Context, c: Caption?, picture: ByteArray) {
         if (c == null) { captionFile(ctx).delete(); return }
         runCatching {
-            captionFile(ctx).writeText(JSONObject().put("place", c.place).put("credit", c.credit).put("crc", crc(picture)).toString())
+            captionFile(ctx).writeText(JSONObject().put("place", c.place).put("crc", crc(picture)).toString())
         }
     }
 
@@ -92,7 +91,7 @@ object Wallpapers {
         return runCatching {
             val o = JSONObject(f.readText())
             val place = o.optString("place").trim()
-            if (place.isEmpty() || o.optLong("crc", -1) != crc(pic.readBytes())) null else Caption(place, o.optString("credit").trim())
+            if (place.isEmpty() || o.optLong("crc", -1) != crc(pic.readBytes())) null else Caption(place)
         }.getOrNull()
     }
 

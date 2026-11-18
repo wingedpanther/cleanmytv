@@ -130,11 +130,10 @@ class ExtrasTest {
         assertTrue("timer" in HomeConfig.BUTTON_ACTIONS)
     }
 
-    @Test fun `Bing's caption is the place without the credit's brackets, on unless turned off`() {
+    @Test fun `Bing's caption is the place without the photographer's credit, on unless turned off`() {
         val c = Wallpapers.captionFrom("Boardwalk through the forest, Mount Revelstoke National Park, British Columbia, Canada (© Jane Doe/Getty Images)")
         assertEquals("Boardwalk through the forest, Mount Revelstoke National Park, British Columbia, Canada", c?.place)
-        assertEquals("Jane Doe/Getty Images", c?.credit)
-        assertEquals(Wallpapers.Caption("Lake Bled, Slovenia", ""), Wallpapers.captionFrom(" Lake Bled, Slovenia\n"))
+        assertEquals(Wallpapers.Caption("Lake Bled, Slovenia"), Wallpapers.captionFrom(" Lake Bled, Slovenia\n"))
         assertEquals(null, Wallpapers.captionFrom(""))
         assertEquals(null, Wallpapers.captionFrom("(© Someone)"))
         assertTrue(HomeConfig().bingCaption)
