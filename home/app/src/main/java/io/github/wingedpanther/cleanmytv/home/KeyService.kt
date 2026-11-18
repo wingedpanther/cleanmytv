@@ -94,21 +94,28 @@ class KeyService : AccessibilityService() {
         Keyboard.watch(this)
         // A cold start: the service comes up with the TV, and the input it was on may be due back.
         if (SystemClock.elapsedRealtime() < 5 * 60_000L) timer.postDelayed(wake, PowerOn.delayMs(ConfigStore.config.value) + PowerOn.SETTLE_MS)
-        scope.launch { ConfigStore.config.map { needsKeys(it, false) }.distinctUntilChanged().collect { filterKeys() } }
+        scope.launch {
+            ConfigStore.config.map { needsKeys(it, false) to (it.stockRedirect == LauncherRedirect.AMAZON) }
+                .distinctUntilChanged().collect { updateServiceInfo() }
+        }
         Log.i(TAG, "key service on")
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    /** Asks Android for buttons only while something here wants them. */
-    private fun filterKeys() {
+    /** Request buttons and Amazon layout events independently, only while each is needed. */
+    private fun updateServiceInfo() {
         val now = System.currentTimeMillis()
-        val on = needsKeys(ConfigStore.config.value, now < listenUntil, now < pausedUntil)
+        val cfg = ConfigStore.config.value
+        val on = needsKeys(cfg, now < listenUntil, now < pausedUntil)
+        val watchAmazon = cfg.stockRedirect == LauncherRedirect.AMAZON
         runCatching {
             serviceInfo = serviceInfo.apply {
+                eventTypes = if (watchAmazon) eventTypes or AMAZON_EVENTS else eventTypes and AMAZON_EVENTS.inv()
+                flags = if (watchAmazon) flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS else flags and AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS.inv()
                 flags = if (on) flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS else flags and AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS.inv()
             }
-        }.onFailure { Log.w(TAG, "key filter: $it") }
+        }.onFailure { Log.w(TAG, "service info: $it") }
         Log.i(TAG, "key filter ${if (on) "on" else "off"}")
     }
 
@@ -128,7 +135,7 @@ class KeyService : AccessibilityService() {
     private fun pauseForVolume() {
         val first = System.currentTimeMillis() >= pausedUntil
         pausedUntil = System.currentTimeMillis() + VOLUME_PAUSE_MS
-        if (first) filterKeys()
+        if (first) updateServiceInfo()
         timer.removeCallbacks(endPause)
         timer.postDelayed(endPause, VOLUME_PAUSE_MS + 100)
     }
@@ -184,11 +191,7 @@ class KeyService : AccessibilityService() {
         if (pkg == ConfigStore.config.value.stockRedirect) {
             if (sendsBack(cls, homeActivities(pkg), activity)) {
                 cancelRedirect()
-                for (d in longArrayOf(300, 1200, 5300)) redirect.postDelayed({
-                    // Settings can be a panel inside Amazon's HOME activity. Check at execution time,
-                    // after that panel has appeared, and again for each retry (the user may have moved).
-                    if (mayRedirect(pkg)) bringHome()
-                }, d)
+                LauncherRedirect.scheduleRetries(redirect::postDelayed, { mayRedirect(pkg) }, ::bringHome)
                 return
             }
             if (activity) cancelRedirect()
@@ -258,8 +261,8 @@ class KeyService : AccessibilityService() {
     private val redirect = android.os.Handler(android.os.Looper.getMainLooper())
     // Its own handler: window changes clear `redirect`'s queue.
     private val timer = android.os.Handler(android.os.Looper.getMainLooper())
-    private val stopListening = Runnable { filterKeys() }
-    private val endPause = Runnable { filterKeys() }
+    private val stopListening = Runnable { updateServiceInfo() }
+    private val endPause = Runnable { updateServiceInfo() }
     @Volatile private var pausedUntil = 0L
 
     override fun onDestroy() {
@@ -280,6 +283,8 @@ class KeyService : AccessibilityService() {
 
         /** Until when the button finder wants every button, whether or not one is mapped. */
         @Volatile private var listenUntil = 0L
+
+        private const val AMAZON_EVENTS = AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or AccessibilityEvent.TYPE_VIEW_FOCUSED
 
         /** AudioManager's own broadcast when a stream's volume changes; not in the public API, sent on every TV. */
         private const val VOLUME_CHANGED = "android.media.VOLUME_CHANGED_ACTION"
@@ -307,7 +312,7 @@ class KeyService : AccessibilityService() {
             listenUntil = System.currentTimeMillis() + 2 * 60_000L
             val s = running ?: return
             // Called on a binder thread; the service's info changes on the main one.
-            if (first) s.timer.post { s.filterKeys() }
+            if (first) s.timer.post { s.updateServiceInfo() }
             s.timer.removeCallbacks(s.stopListening)
             s.timer.postDelayed(s.stopListening, 2 * 60_000L + 500)
         }

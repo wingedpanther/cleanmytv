@@ -347,9 +347,10 @@ itself.
     Home that updated itself asks on the TV, in the editor's Layout section.
   - Remote buttons and the app lock use an accessibility service. It sees key presses and which app is
     in front. To keep Fire TV Settings open when Amazon displays them inside its Home activity, the
-    service can access window layouts. The redirect checks only Amazon launcher control IDs and their
-    visibility; it does not read or log their text. The service runs when features such as remote buttons,
-    app lock or Home redirection are enabled. It only handles buttons you map and locks apps you choose.
+    service can access window layouts. It requests content changes, focus events and view IDs only while
+    Amazon Home redirection is enabled. It checks the visibility of Amazon Settings controls without
+    reading or logging their text. The service runs when features such as remote buttons, app lock or
+    Home redirection are enabled. It only handles buttons you map and locks apps you choose.
   - The app lock's PIN is stored on the TV salted and hashed (PBKDF2), in Home's private storage. The
     app can set it but never read it back. It's a family lock: anyone with ADB access or a factory reset
     gets past it.
