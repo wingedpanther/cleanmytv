@@ -12,8 +12,8 @@ import android.util.Log
  * when the screen went off, and if it was the app that shows the TV's inputs, opens that app again when the
  * screen comes on. The TV's input app opens on the last input it showed.
  *
- * The owner can pick one input instead ([HomeConfig.powerOnTarget]), for a TV used as a monitor: that input
- * opens at every power on, through its passthrough channel, whatever the TV slept on.
+ * The owner can pick one input instead ([HomeConfig.powerOnTarget]), for a TV used as a monitor or one that
+ * should start on its channels: that input opens at every power on, whatever the TV slept on.
  */
 object PowerOn {
     /** How long after the screen comes on to look: the TV puts its own screen up first. */
@@ -61,8 +61,12 @@ object PowerOn {
         (ctx.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager)?.tvInputList?.map { it.id }?.toSet()
     }.getOrNull() ?: emptySet()
 
-    /** The inputs the owner can pick: HDMI and the other ports, named as the Inputs menu names them. */
-    fun choices(ctx: Context): List<Pair<String, String>> = tvInputs(ctx, liveTv = false)
+    /**
+     * The inputs the owner can pick: the TV's own tuner, HDMI and the other ports, named as the Inputs menu
+     * names them. The tuner is there whatever the Live TV switch says, for a TV that should start on its
+     * channels (#128).
+     */
+    fun choices(ctx: Context): List<Pair<String, String>> = tvInputs(ctx, liveTv = true)
 
     /**
      * The screen went off with [front] in front. The log line says what was in front and whether it counted
