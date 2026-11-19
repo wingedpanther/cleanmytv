@@ -737,7 +737,21 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
                 if (at >= 0) list.scrollToItem(at)
             }
         }
-        CompositionLocalProvider(LocalBringIntoViewSpec provides STAY) { LazyColumn(Modifier.fillMaxSize().padding(bottom = if (ui.captioned) CAPTION_STRIP else 0.dp).fadeEdges(bottom = ui.captioned), state = list, contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())) {
+        // Near the top, the list goes all the way back when the focused row still fits on screen. STAY alone
+        // stops the first row at 30% from the top on the way up, above where Top space put it (#129).
+        val column = remember(list) {
+            object : BringIntoViewSpec {
+                override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+                    val d = STAY.calculateScrollDistance(offset, size, containerSize)
+                    // How far the list is from its top: the first item sits at 0 there. Asked again as the list
+                    // moves, so this keeps going until the top, past the 30% line where STAY alone would stop.
+                    val top = list.layoutInfo.visibleItemsInfo.firstOrNull { it.index == 0 } ?: return d
+                    val back = -top.offset.toFloat()
+                    return if (back > 0 && offset + back + size <= containerSize) -back else d
+                }
+            }
+        }
+        CompositionLocalProvider(LocalBringIntoViewSpec provides column) { LazyColumn(Modifier.fillMaxSize().padding(bottom = if (ui.captioned) CAPTION_STRIP else 0.dp).fadeEdges(bottom = ui.captioned), state = list, contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())) {
             for (s in cfg.sections) when (s) {
                 "nowplaying" -> ui.track?.let { t -> item("nowplaying") { Box(still) { NowPlayingCard(t, ui) } } }
                 "recent" -> if (home.recent.isNotEmpty()) {
