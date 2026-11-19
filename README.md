@@ -14,6 +14,14 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
+### New in 0.13.2
+
+- **Fire TV Settings stay open (#126):** on the Fire TV Stick 4K Max, Settings opened from Home no longer
+  jumps straight back to Home. Thanks to humun.
+- **Top space holds (#129):** after scrolling down the page and back up, the first row is back where you put it.
+- **Start on the TV's channels (#128):** the TV's own tuner is in the list of inputs to open at power on.
+- **Pairing** takes the TV address with the port after it, the way the TV's Wireless debugging screen shows it.
+
 ### New in 0.13.1
 
 - **Uploads that pick up where they stopped (#121):** if the TV closes Home while the fireplace, a theme
