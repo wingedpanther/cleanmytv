@@ -42,6 +42,11 @@ describe.skipIf(process.platform === 'win32')('pair', () => {
     expect(made().slice(0, 3)).toEqual(['pair 192.168.1.50:37000', 'kill-server', 'pair 192.168.1.50:37000'])
   })
 
+  it('takes the TV address with the port the TV shows after it', async () => {
+    await pair(' 192.168.1.50:41000 ', 37000, '123456', 41000, async () => 'open')
+    expect(made()[0]).toBe('pair 192.168.1.50:37000')
+  })
+
   it("doesn't restart anything for a wrong code", async () => {
     fakeAdb('error: Failed: wrong password')
     const r = await pair('192.168.1.50', 37000, '123456', 41000, async () => 'open')

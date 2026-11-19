@@ -299,8 +299,11 @@ export async function whyPairFailed(host: string, pairPort: number, connectPort:
   return t("The TV isn't accepting pairing on port {port}. The pairing window probably closed: open Pair device with pairing code again, keep it on screen, and use the new code and port.", { port: pairPort })
 }
 
-export async function pair(host: string, pairPort: number, code: string, connectPort: number, knockAt: typeof knock = knock): Promise<ApplyResult> {
+export async function pair(typed: string, pairPort: number, code: string, connectPort: number, knockAt: typeof knock = knock): Promise<ApplyResult> {
   const port = (p: unknown): boolean => Number.isInteger(p) && (p as number) >= 1 && (p as number) <= 65535
+  // The TV's Wireless debugging screen shows "192.168.1.23:37123", and that often gets pasted whole into the
+  // TV address box. The address is the part before the colon; the connect port has its own box.
+  const host = typed.trim().replace(/:\d*$/, '')
   if (!/^[A-Za-z0-9.-]+$/.test(host) || !/^\d{6}$/.test(code) || !port(pairPort) || !port(connectPort)) {
     return { ok: false, summary: t('Enter the IP address, both ports and the 6-digit code shown on the TV.'), warnings: [] }
   }
