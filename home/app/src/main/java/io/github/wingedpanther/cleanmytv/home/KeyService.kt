@@ -94,21 +94,28 @@ class KeyService : AccessibilityService() {
         Keyboard.watch(this)
         // A cold start: the service comes up with the TV, and the input it was on may be due back.
         if (SystemClock.elapsedRealtime() < 5 * 60_000L) timer.postDelayed(wake, PowerOn.delayMs(ConfigStore.config.value) + PowerOn.SETTLE_MS)
-        scope.launch { ConfigStore.config.map { needsKeys(it, false) }.distinctUntilChanged().collect { filterKeys() } }
+        scope.launch {
+            ConfigStore.config.map { needsKeys(it, false) to (it.stockRedirect == LauncherRedirect.AMAZON) }
+                .distinctUntilChanged().collect { updateServiceInfo() }
+        }
         Log.i(TAG, "key service on")
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    /** Asks Android for buttons only while something here wants them. */
-    private fun filterKeys() {
+    /** Request buttons and Amazon layout events independently, only while each is needed. */
+    private fun updateServiceInfo() {
         val now = System.currentTimeMillis()
-        val on = needsKeys(ConfigStore.config.value, now < listenUntil, now < pausedUntil)
+        val cfg = ConfigStore.config.value
+        val on = needsKeys(cfg, now < listenUntil, now < pausedUntil)
+        val watchAmazon = cfg.stockRedirect == LauncherRedirect.AMAZON
         runCatching {
             serviceInfo = serviceInfo.apply {
+                eventTypes = if (watchAmazon) eventTypes or AMAZON_EVENTS else eventTypes and AMAZON_EVENTS.inv()
+                flags = if (watchAmazon) flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS else flags and AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS.inv()
                 flags = if (on) flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS else flags and AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS.inv()
             }
-        }.onFailure { Log.w(TAG, "key filter: $it") }
+        }.onFailure { Log.w(TAG, "service info: $it") }
         Log.i(TAG, "key filter ${if (on) "on" else "off"}")
     }
 
@@ -128,7 +135,7 @@ class KeyService : AccessibilityService() {
     private fun pauseForVolume() {
         val first = System.currentTimeMillis() >= pausedUntil
         pausedUntil = System.currentTimeMillis() + VOLUME_PAUSE_MS
-        if (first) filterKeys()
+        if (first) updateServiceInfo()
         timer.removeCallbacks(endPause)
         timer.postDelayed(endPause, VOLUME_PAUSE_MS + 100)
     }
@@ -156,23 +163,39 @@ class KeyService : AccessibilityService() {
 
     /** A locked app came to the front, however it was opened: cover it with the PIN pad. */
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        val pkg = event.packageName?.toString() ?: return
+        val pkg = event?.packageName?.toString() ?: return
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            // Fire TV moves between its Settings grid and Home without changing activities.
+            // Coalesce frequent content/focus events; unrelated apps never trigger a layout read.
+            if (pkg == LauncherRedirect.AMAZON && amazonHomeWindow &&
+                ConfigStore.config.value.stockRedirect == pkg && !amazonCheckPending) {
+                amazonCheckPending = true
+                redirect.postDelayed({
+                    amazonCheckPending = false
+                    if (amazonHomeWindow && mayRedirect(pkg)) bringHome()
+                }, 300)
+            }
+            return
+        }
         val cls = event.className?.toString()
         val activity = cls != null && isActivity(pkg, cls)
-        if (activity) { front = pkg; Limits.front(this, pkg) }
+        if (activity) {
+            front = pkg
+            Limits.front(this, pkg)
+            amazonHomeWindow = pkg == LauncherRedirect.AMAZON && cls in homeActivities(pkg)
+        }
         // Fire OS won't let the Amazon launcher be disabled or replaced as Home, and Google TV's launcher may
         // be left on for apps that need it (#99), so it opens at boot and on every Home press. Bring CleanMyTV
         // Home back in front of its home screen, but not of its other screens: Fire TV's Settings live in
         // Amazon's launcher. Android blocks app starts for about 5 s after a Home press, hence the retry.
         if (pkg == ConfigStore.config.value.stockRedirect) {
             if (sendsBack(cls, homeActivities(pkg), activity)) {
-                redirect.removeCallbacksAndMessages(null)
-                for (d in longArrayOf(300, 1200, 5300)) redirect.postDelayed({ runCatching { startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }.onFailure { Log.w(TAG, "home back: $it") } }, d)
+                cancelRedirect()
+                LauncherRedirect.scheduleRetries(redirect::postDelayed, { mayRedirect(pkg) }, ::bringHome)
                 return
             }
-            if (activity) redirect.removeCallbacksAndMessages(null)
-        } else redirect.removeCallbacksAndMessages(null)
+            if (activity) cancelRedirect()
+        } else cancelRedirect()
         Lock.seen(pkg, lockScreen = event.className?.toString()?.endsWith("LockActivity") == true)
         if (pkg == packageName || pkg == LockActivity.showing || Lock.justBackedOut(pkg)) return
         if (Lock.needsPin(this, pkg)) runCatching { startActivity(LockActivity.intent(this, pkg)) }.onFailure { Log.w(TAG, "lock $pkg: $it") }
@@ -187,6 +210,38 @@ class KeyService : AccessibilityService() {
         runCatching { startActivity(LockActivity.intent(this, pkg, limit = true)) }.onFailure { Log.w(TAG, "limit $pkg: $it") }
     }
     private var limitCheck = Runnable {}
+
+    private var amazonHomeWindow = false
+    private var amazonCheckPending = false
+
+    private fun cancelRedirect() {
+        redirect.removeCallbacksAndMessages(null)
+        amazonCheckPending = false
+    }
+
+    private fun bringHome() {
+        runCatching {
+            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+        }.onFailure { Log.w(TAG, "home back: $it") }
+    }
+
+    /** No text is read: only Amazon's Settings control IDs and visibility, while redirecting Amazon. */
+    private fun mayRedirect(pkg: String): Boolean {
+        if (ConfigStore.config.value.stockRedirect != pkg) return false
+        if (pkg != LauncherRedirect.AMAZON) return true
+        val root = rootInActiveWindow ?: return false
+        return try {
+            if (root.packageName?.toString() != pkg) false
+            else {
+                val visibleSettings = LauncherRedirect.SETTINGS_IDS.any { id ->
+                    val nodes = root.findAccessibilityNodeInfosByViewId(id).orEmpty()
+                    try { nodes.any { it.isVisibleToUser } }
+                    finally { nodes.forEach { it.recycle() } }
+                }
+                LauncherRedirect.mayReturn(pkg, root.packageName?.toString(), visibleSettings)
+            }
+        } finally { root.recycle() }
+    }
 
     private val activities = HashMap<String, Boolean>()
     private val homes = HashMap<String, Set<String>>()
@@ -206,12 +261,12 @@ class KeyService : AccessibilityService() {
     private val redirect = android.os.Handler(android.os.Looper.getMainLooper())
     // Its own handler: window changes clear `redirect`'s queue.
     private val timer = android.os.Handler(android.os.Looper.getMainLooper())
-    private val stopListening = Runnable { filterKeys() }
-    private val endPause = Runnable { filterKeys() }
+    private val stopListening = Runnable { updateServiceInfo() }
+    private val endPause = Runnable { updateServiceInfo() }
     @Volatile private var pausedUntil = 0L
 
     override fun onDestroy() {
-        redirect.removeCallbacksAndMessages(null)
+        cancelRedirect()
         timer.removeCallbacksAndMessages(null)
         scope.cancel()
         if (running === this) running = null
@@ -228,6 +283,8 @@ class KeyService : AccessibilityService() {
 
         /** Until when the button finder wants every button, whether or not one is mapped. */
         @Volatile private var listenUntil = 0L
+
+        private const val AMAZON_EVENTS = AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or AccessibilityEvent.TYPE_VIEW_FOCUSED
 
         /** AudioManager's own broadcast when a stream's volume changes; not in the public API, sent on every TV. */
         private const val VOLUME_CHANGED = "android.media.VOLUME_CHANGED_ACTION"
@@ -255,7 +312,7 @@ class KeyService : AccessibilityService() {
             listenUntil = System.currentTimeMillis() + 2 * 60_000L
             val s = running ?: return
             // Called on a binder thread; the service's info changes on the main one.
-            if (first) s.timer.post { s.filterKeys() }
+            if (first) s.timer.post { s.updateServiceInfo() }
             s.timer.removeCallbacks(s.stopListening)
             s.timer.postDelayed(s.stopListening, 2 * 60_000L + 500)
         }
