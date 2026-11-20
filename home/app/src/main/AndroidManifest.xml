@@ -63,6 +63,10 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="content" android:host="android.media.tv" />
         </intent>
+        <!-- XGIMI's HDMI switcher, for a projector that opens no port's picture from its link (#127). -->
+        <intent>
+            <action android:name="com.xgimi.action.hdmiPlayer" />
+        </intent>
     </queries>
 
     <application

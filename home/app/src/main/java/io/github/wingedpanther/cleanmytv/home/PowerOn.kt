@@ -46,7 +46,7 @@ object PowerOn {
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("power_on", Context.MODE_PRIVATE)
 
-    /** The apps that open an HDMI port's picture or the tuner's channels, minus launchers. */
+    /** The apps that open an HDMI port's picture, XGIMI's HDMI switcher or the tuner's channels, minus launchers. */
     fun inputApps(ctx: Context): Set<String> = runCatching {
         val tim = ctx.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager ?: return emptySet()
         val uris = tim.tvInputList.map {
@@ -54,7 +54,8 @@ object PowerOn {
         } + TvContract.Channels.CONTENT_URI
         val pm = ctx.packageManager
         val launchers = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0).map { it.activityInfo.packageName }.toSet()
-        uris.flatMap { u -> pm.queryIntentActivities(Intent(Intent.ACTION_VIEW, u), 0).map { it.activityInfo.packageName } }.toSet() - launchers - ctx.packageName
+        val views = uris.map { Intent(Intent.ACTION_VIEW, it) } + Intent(XGIMI_HDMI)
+        views.flatMap { i -> pm.queryIntentActivities(i, 0).map { it.activityInfo.packageName } }.toSet() - launchers - ctx.packageName
     }.getOrDefault(emptySet())
 
     private fun inputIds(ctx: Context): Set<String> = runCatching {
