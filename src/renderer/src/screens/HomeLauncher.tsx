@@ -754,7 +754,7 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
         </div>
         {cfg.layout === 'shelf' && (
           <div style={{ marginTop: 14 }}>
-            <Slider label={t('Space above the apps')} hint={t('Open wallpaper between the top bar and the first row.')} value={cfg.top_space} min={0} max={40} unit="%" onChange={(v) => set({ top_space: v }, 250)} />
+            <Slider label={t('Space above the apps')} hint={t('Open wallpaper between the top bar and the first row.')} value={cfg.top_space} min={0} max={80} unit="%" onChange={(v) => set({ top_space: v }, 250)} />
           </div>
         )}
       </div>

@@ -132,7 +132,7 @@ describe('CleanMyTV Home', () => {
       rows: [{ name: '  Watch\n', apps: ['com.netflix.ninja', 'com.netflix.ninja'] }],
       folders: [{ name: "Kids' stuff", apps: ['com.google.android.youtube.tv'] }]
     })
-    expect(cfg).toMatchObject({ layout: 'rail', quick: ['settings', 'wifi'], sections: ['grid', 'dock'], top_space: 40 })
+    expect(cfg).toMatchObject({ layout: 'rail', quick: ['settings', 'wifi'], sections: ['grid', 'dock'], top_space: 80 })
     expect(cfg.rows).toEqual([{ name: 'Watch', apps: ['com.netflix.ninja'] }])
     expect(cfg.folders[0].name).toBe("Kids' stuff")
     await expect(H.setConfig({ layout: 'grid' as never })).rejects.toThrow(/layout/)

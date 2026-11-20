@@ -67,7 +67,7 @@ const GROUPS = { rows: 8, folders: 12 } as const
 const plain = (s: string, max: number): string => s.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max)
 
 const RANGES = {
-  top_space: [0, 40], dock_scale: [60, 150], tile_scale: [60, 150],
+  top_space: [0, 80], dock_scale: [60, 150], tile_scale: [60, 150],
   wallpaper_dim: [0, 80], dock_size: [0, 8], columns: [3, 8], idle_minutes: [0, 60],
   viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300],
   fire_volume: [0, 100], fire_timer: [0, 240], slide_minutes: [0, 240], tile_glass: [0, 60],

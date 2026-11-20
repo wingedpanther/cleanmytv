@@ -70,7 +70,7 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
         TvSlider(
             title = tr("Space above the apps"),
             value = config.topSpace,
-            min = 0, max = 40, unit = "%",
+            min = 0, max = 80, unit = "%",
             onChange = { ConfigStore.update(ctx, JSONObject().put("top_space", it)) }
         )
 

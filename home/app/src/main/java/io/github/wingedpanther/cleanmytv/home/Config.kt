@@ -287,7 +287,7 @@ data class HomeConfig(
                 powerOnWait = if (o.has("power_on_wait")) o.optInt("power_on_wait", -1).takeIf { it in POWER_ON_WAITS } ?: base.powerOnWait else base.powerOnWait,
                 layout = choice("layout", base.layout, setOf("shelf", "split", "rail")),
                 sections = strings("sections", SECTIONS) ?: base.sections,
-                topSpace = int("top_space", base.topSpace, 0, 40),
+                topSpace = int("top_space", base.topSpace, 0, 80),
                 quick = o.optJSONArray("quick")?.let { a ->
                     val all = (0 until minOf(a.length(), 30)).map { a.optString(it) }.filter { it in QUICK || quickApp(it) != null }.distinct()
                     val apps = all.filter { quickApp(it) != null }.take(MAX_QUICK_APPS).toSet()

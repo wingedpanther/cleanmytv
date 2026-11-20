@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { HomeConfig, QuickEntry, QuickId, TvApp } from '@shared/api'
 import { t } from '../lib/i18n'
 
@@ -262,6 +262,16 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+  // As on the TV, Top space stops where the first row still fits on screen (#134).
+  const head = useRef<HTMLDivElement>(null)
+  const secs = useRef<HTMLDivElement>(null)
+  const [room, setRoom] = useState(H)
+  useLayoutEffect(() => {
+    const first = secs.current?.firstElementChild?.firstElementChild
+    if (!head.current || !(first instanceof HTMLElement)) return
+    const r = Math.max(0, H - SAFE_Y - head.current.offsetHeight - first.offsetHeight - (SAFE_Y - 16))
+    if (r !== room) setRoom(r)
+  })
   const greet = greetingText(cfg)
   // As on the TV: icons it can't open, and shortcuts to apps that aren't installed, are left out.
   const quick = cfg.quick.filter((q) => {
@@ -325,7 +335,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
   } else {
     body = (
       <div style={{ height: '100%', padding: `${SAFE_Y}px ${SAFE_X}px 0`, overflow: 'hidden', background: `linear-gradient(${shade(cfg, cfg.shade_top)}, transparent ${cfg.shade_top_reach}%)` }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+        <div ref={head} style={{ display: 'flex', alignItems: 'flex-start' }}>
           <div style={{ fontSize: 20, fontWeight: 500, flex: 1, paddingTop: 4 }}>{greet}</div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
             <Clock cfg={cfg} size={26} dateSize={12} align="right" />
@@ -340,8 +350,10 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
             )}
           </div>
         </div>
-        <div style={{ height: (H * cfg.top_space) / 100 }} />
-        <Sections apps={apps} cfg={cfg} width={W - SAFE_X * 2} dockW={200} />
+        <div style={{ height: Math.min((H * cfg.top_space) / 100, room) }} />
+        <div ref={secs}>
+          <Sections apps={apps} cfg={cfg} width={W - SAFE_X * 2} dockW={200} />
+        </div>
       </div>
     )
   }

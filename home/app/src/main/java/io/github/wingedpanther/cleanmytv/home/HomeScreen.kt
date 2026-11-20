@@ -71,6 +71,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -751,7 +752,21 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
                 }
             }
         }
-        CompositionLocalProvider(LocalBringIntoViewSpec provides column) { LazyColumn(Modifier.fillMaxSize().padding(bottom = if (ui.captioned) CAPTION_STRIP else 0.dp).fadeEdges(bottom = ui.captioned), state = list, contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())) {
+        // Top space can push the first row down to the bottom edge, never past it (#134): the rest waits below
+        // until Down. The first row is measured on screen, its title included; the 16 dp under its tiles
+        // counts toward the safe area, so the next title stays out of sight.
+        var lead by remember { mutableIntStateOf(0) }
+        LaunchedEffect(list) {
+            snapshotFlow {
+                val items = list.layoutInfo.visibleItemsInfo
+                val first = items.firstOrNull { it.index == 0 } ?: return@snapshotFlow null
+                val row = items.firstOrNull { !(it.key as? String).orEmpty().endsWith("-title") } ?: items.last()
+                row.offset + row.size - first.offset
+            }.collect { if (it != null) lead = it }
+        }
+        val room = maxHeight - (if (ui.captioned) CAPTION_STRIP else 0.dp) - (SAFE_Y - 16.dp) - with(androidx.compose.ui.platform.LocalDensity.current) { lead.toDp() }
+        val top = padding.calculateTopPadding().coerceAtMost(room.coerceAtLeast(0.dp))
+        CompositionLocalProvider(LocalBringIntoViewSpec provides column) { LazyColumn(Modifier.fillMaxSize().padding(bottom = if (ui.captioned) CAPTION_STRIP else 0.dp).fadeEdges(bottom = ui.captioned), state = list, contentPadding = PaddingValues(top = top, bottom = padding.calculateBottomPadding())) {
             for (s in cfg.sections) when (s) {
                 "nowplaying" -> ui.track?.let { t -> item("nowplaying") { Box(still) { NowPlayingCard(t, ui) } } }
                 "recent" -> if (home.recent.isNotEmpty()) {
