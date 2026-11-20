@@ -898,6 +898,37 @@ describe("Google TV's launcher kept on (#99)", () => {
   })
 })
 
+describe("a stick that restarts when Google TV's launcher goes off (#132)", () => {
+  let tv: FakeTv
+  let server: Server
+  const LX = 'com.google.android.apps.tv.launcherx'
+  beforeAll(async () => {
+    tv = newTv()
+    tv.maxData = 256 * 1024
+    tv.manufacturer = 'SkyworthDigital'
+    tv.device = 'CXR'
+    tv.packages.set(LX, 'enabled')
+    tv.home = `${LX}/.home.HomeActivity`
+    tv.homeClaims = [`${LX}/.home.HomeActivity`]
+    let port: number
+    ;({ server, port } = await startFakeAdbd(tv))
+    expect((await T.connect(`127.0.0.1:${port}`)).state).toBe('connected')
+  })
+  afterAll(() => { T.disconnect(); server.close() })
+
+  it('installs with the launcher left on, and nothing switches it off later', async () => {
+    const r = await H.install()
+    expect(r.ok).toBe(true)
+    expect(r.summary).toContain('This TV restarts')
+    expect(tv.homeConfig.stock_redirect).toBe(LX)
+    expect((await H.keepGoogleLauncher(false)).ok).toBe(false)
+    await D.apply({ listId: 'custom', disable: [LX], enable: [] })
+    expect((await L.switchTo('io.github.wingedpanther.cleanmytv.home/.MainActivity')).ok).toBe(true)
+    expect(tv.commands.some((c) => c.includes(`disable-user --user 0 ${LX}`))).toBe(false)
+    expect(tv.packages.get(LX)).toBe('enabled')
+  })
+})
+
 describe('keyboards', () => {
   it("reads the keyboards' packages, leaving out the phone remote", () => {
     expect(keyboardPackages('com.tcl.inputmethod.international/.T_IME\ncom.google.android.tv.remote.service/.ImeBridgeService\n\ngarbage line\n'))

@@ -20,11 +20,24 @@ function all(): Record<string, string> {
   }
 }
 
-/** The launcher kept on for the connected TV, if any. */
+// TVs that must keep Google TV's launcher on: switching it off brings the system down, and the Home key opens
+// it whatever the Home setting says. CleanMyTV Home comes back in front of it instead, as on Fire TV. The
+// Strong LEAP-NOVA stick (device CXR) restarts with system_server crashed (#132).
+const MUST_KEEP: { device: string; manufacturer: string; pkg: string }[] = [
+  { device: 'CXR', manufacturer: 'SkyworthDigital', pkg: 'com.google.android.apps.tv.launcherx' }
+]
+
+/** The launcher the connected TV can't do without, if it's one of those. */
+export function mustKeep(): string | undefined {
+  const p = T.getStatus().probe
+  return p ? MUST_KEEP.find((m) => m.device === p.device && m.manufacturer === p.manufacturer)?.pkg : undefined
+}
+
+/** The launcher kept on for the connected TV, if any: by the owner's choice, or because the TV needs it. */
 export function keptLauncher(): string | undefined {
   const k = tvKey()
   const pkg = k ? all()[k] : undefined
-  return pkg && T.PACKAGE_RE.test(pkg) ? pkg : undefined
+  return mustKeep() ?? (pkg && T.PACKAGE_RE.test(pkg) ? pkg : undefined)
 }
 
 /** Remembers `pkg` as kept on for the connected TV, or forgets it with null. */

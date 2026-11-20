@@ -9,6 +9,7 @@ import { paths } from './paths'
 import { GOOGLE_LAUNCHERS, NOT_LAUNCHERS, SETUPWRAITH, lostNetworks, stockLaunchers, wifiOwner } from './debloat'
 import type { ApplyResult, InstallResult } from '@shared/api'
 import { t, UiError } from './i18n'
+import { mustKeep } from './kept'
 
 const TASK = 'install'
 /** CleanMyTV Home, built from home/. */
@@ -80,12 +81,12 @@ export async function detectStock(chosen?: string): Promise<string> {
 }
 
 /**
- * What the handover switches off. Google's launchers take Home back, so they go. Vendor launchers stay on,
- * as upstream's STOCK_LAUNCHER=none does: on many TVs they also run the remote's buttons or the inputs,
- * and lists say to keep them.
+ * What the handover switches off. Google's launchers take Home back, so they go, except on a TV that falls
+ * over without its launcher (#132). Vendor launchers stay on, as upstream's STOCK_LAUNCHER=none does: on
+ * many TVs they also run the remote's buttons or the inputs, and lists say to keep them.
  */
 export function toSwitchOff(stock: string): string {
-  return GOOGLE_LAUNCHERS.includes(stock) ? stock : 'none'
+  return GOOGLE_LAUNCHERS.includes(stock) && stock !== mustKeep() ? stock : 'none'
 }
 
 // ---- the stock launcher of each TV, so Undo and the restart check find a vendor launcher again ----

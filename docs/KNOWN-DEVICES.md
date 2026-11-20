@@ -493,6 +493,7 @@ section when it's regenerated.
 
 | Model | OS | Board | What to pick | Notes |
 |---|---|---|---|---|
+| Strong LEAP-NOVA stick (UHD Google TV Stick, device CXR, SkyworthDigital) | Google TV 14 | Amlogic S905X5M | a Google TV family list | Switching `launcherx` off crashes the system and the stick restarts, and the Home key opens `launcherx` whatever the Home setting says. From CleanMyTV 0.13.3 the app keeps it on here, and CleanMyTV Home comes back in front of it after a Home press ([#132](https://github.com/wingedpanther/cleanmytv/issues/132)). Don't switch `launcherx` off by hand. |
 | Tuvio EcoTV1 Plus | Google TV 14 | elliniko (MediaTek MT5896) | the JVC 4K Smart TV (elliniko) list | setupwraith takes Home here: CleanMyTV 0.4.0 and later switch it off during the install. If the saved Wi-Fi belongs to setupwraith, forget and re-join it first. Pairing needs Wireless debugging ([#40](https://github.com/wingedpanther/cleanmytv/issues/40)). |
 
 ## Reporting back

@@ -9,7 +9,7 @@ import { log } from './log'
 import * as T from './tv'
 import { FIRE_LAUNCHER, HOME_PKG, OLD_PKG, StockUnknown, addService, detectStock, dropServices, handOver, rememberStock, toSwitchOff, wraithBack } from './launcher'
 import { GOOGLE_LAUNCHERS } from './debloat'
-import { keepLauncher, keptLauncher } from './kept'
+import { keepLauncher, keptLauncher, mustKeep } from './kept'
 import { themeName } from '@shared/themes'
 import { noteKeyboard } from './keyboard'
 import { englishOf, t, UiError } from './i18n'
@@ -229,7 +229,9 @@ export async function install(chosen?: string): Promise<InstallResult> {
     ok: true,
     summary: (fire
       ? t("CleanMyTV Home is installed. Fire TV always opens Amazon's home screen first, so CleanMyTV Home comes back in front a moment after you press Home, up to 5 seconds on some models.")
-      : redirect
+      : redirect && redirect === mustKeep()
+        ? t("CleanMyTV Home is Home now. This TV restarts when Google TV's launcher is switched off, so it stays on, and after a Home press CleanMyTV Home comes back in front a moment later.")
+        : redirect
         ? t("CleanMyTV Home is Home now. Google TV's launcher stays on, as you chose, so after a Home press CleanMyTV Home comes back in front a moment later.")
         : t('CleanMyTV Home is Home now. Press Home on the remote to see it.')) + again,
     warnings: notes
@@ -259,6 +261,7 @@ export async function keepGoogleLauncher(on: boolean): Promise<ApplyResult> {
     await addService(KEY_SERVICE)
     return { ok: true, summary: t('{pkg} is on again, and Clean up leaves it on. After a Home press, CleanMyTV Home comes back in front a moment later.', { pkg: google }), warnings: [] }
   }
+  if (google === mustKeep()) return { ok: false, summary: t("This TV restarts when Google TV's launcher is switched off, so it stays on."), warnings: [] }
   const { failed, notes } = await handOver(google, MAIN)
   if (failed) return failed
   keepLauncher(null)
