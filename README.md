@@ -14,6 +14,18 @@ bundled lists cover per model. This README is the technical overview.
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 
+### New in 0.13.3
+
+- **Remote buttons and the Customize menu (#133):** with a button job set, the focus no longer jumps past
+  Themes and wallpaper.
+- **More space above the apps (#134):** it goes up to 80% now, and the first row always stays on screen.
+  At the most, the dock sits at the bottom and the rest waits below until you press Down.
+- **XGIMI projectors (#127):** Inputs opens XGIMI's own HDMI switcher.
+- **Strong LEAP-NOVA stick (#132):** Google TV's launcher stays on there, since the stick restarts without
+  it. CleanMyTV Home comes back in front after a Home press, as on Fire TV.
+- **App order on the TV (#135):** the header above the grid is back to its normal height, so the apps
+  show without scrolling. Thanks to harikrishna-salver.
+
 ### New in 0.13.2
 
 - **Fire TV Settings stay open (#126):** on the Fire TV Stick 4K Max, Settings opened from Home no longer
