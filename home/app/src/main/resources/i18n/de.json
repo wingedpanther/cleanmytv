@@ -415,8 +415,6 @@
   " apps (off)": " Apps (aus)",
   " apps": " Apps",
   "Apps per row": "Apps pro Zeile",
-  "App Actions": "App-Aktionen",
-  "Reset ordering or reveal hidden apps.": "Reihenfolge zurücksetzen oder ausgeblendete Apps wieder anzeigen.",
   "App Order & Visibility ({n} apps)": "App-Reihenfolge & Sichtbarkeit ({n} Apps)",
   "MOVING ACTIVE: Use ← → ↑ ↓ to shift app position · OK to confirm": "VERSCHIEBEN: Mit ← → ↑ ↓ die App bewegen · OK zum Bestätigen",
   "Select Move to activate D-pad grid movement · Select Hide to toggle visibility": "„Verschieben“ wählen, um die App mit den Pfeiltasten zu bewegen · „Ausblenden“ blendet sie aus oder ein",
