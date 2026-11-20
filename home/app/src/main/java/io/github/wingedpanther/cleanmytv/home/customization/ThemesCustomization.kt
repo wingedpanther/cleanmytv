@@ -10,6 +10,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -23,6 +24,7 @@ import androidx.tv.material3.Text
 import io.github.wingedpanther.cleanmytv.home.ConfigStore
 import io.github.wingedpanther.cleanmytv.home.DayNight
 import io.github.wingedpanther.cleanmytv.home.HomeConfig
+import io.github.wingedpanther.cleanmytv.home.PackTheme
 import io.github.wingedpanther.cleanmytv.home.Slides
 import io.github.wingedpanther.cleanmytv.home.ThemePack
 import io.github.wingedpanther.cleanmytv.home.Wallpapers
@@ -33,7 +35,9 @@ import io.github.wingedpanther.cleanmytv.home.customization.components.TvPrimary
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSecondaryButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSwitch
 import io.github.wingedpanther.cleanmytv.home.tr
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 private fun clock(minute: Int) = "%02d:%02d".format(minute / 60, minute % 60)
@@ -45,8 +49,11 @@ private fun clock(minute: Int) = "%02d:%02d".format(minute / 60, minute % 60)
 @Composable
 fun ThemesCustomization(config: HomeConfig, ctx: Context, preview: MutableState<Previewed?>) {
     val packVersion by ThemePack.version.collectAsState()
-    val themes = remember(packVersion) { ThemePack.list(ctx) }
-    val changed = remember(packVersion, config) { ThemePack.changed(ctx) }
+    // Read off the main thread, so drawing the section doesn't hold up the remote (#133).
+    val pack by produceState<Pair<List<PackTheme>, Set<String>>?>(null, packVersion, config) {
+        value = withContext(Dispatchers.IO) { ThemePack.list(ctx).let { it to ThemePack.changed(ctx, it) } }
+    }
+    val (themes, changed) = pack ?: return
     var naming by remember { mutableStateOf(false) }
     var saveNote by remember { mutableStateOf("") }
     val slides = remember { Slides.count(ctx) }
@@ -109,7 +116,7 @@ fun ThemesCustomization(config: HomeConfig, ctx: Context, preview: MutableState<
         )
         TvSwitch(
             title = tr("Show where it was taken"),
-            subtitle = tr("A small line in the bottom corner of Home says where Bing's picture was taken, and who took it."),
+            subtitle = tr("A small line in the bottom corner of Home says where Bing's picture was taken."),
             checked = config.bingCaption,
             onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("bing_caption", it)) }
         )

@@ -116,7 +116,7 @@ object ThemePack {
     /** Theme [id] goes back to its own look next time. */
     fun forget(ctx: Context, id: String) { memory(ctx, id).delete(); _version.value++ }
 
-    fun changed(ctx: Context): Set<String> = list(ctx).filter { memory(ctx, it.id).exists() }.map { it.id }.toSet()
+    fun changed(ctx: Context, themes: List<PackTheme>): Set<String> = themes.filter { memory(ctx, it.id).exists() }.map { it.id }.toSet()
 
     private fun snapshot(): JSONObject {
         val now = ConfigStore.config.value.toJson()

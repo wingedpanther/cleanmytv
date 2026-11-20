@@ -86,6 +86,15 @@ fun CustomizationDialog(
     val focusManager = LocalFocusManager.current
     var selectedCategory by remember { mutableStateOf(CustomizationCategory.LAYOUT) }
     var inContentPane by remember { mutableStateOf(false) }
+    // The section drawn on the right. Moving through the menu draws it once the remote's button is up again,
+    // or the focus has rested a moment. A big section takes a while to draw, and with a button job set the
+    // button service waits on that to pass the release on: Android then repeats the press, and the focus
+    // jumps past the row (#133).
+    var shownCategory by remember { mutableStateOf(CustomizationCategory.LAYOUT) }
+    LaunchedEffect(selectedCategory, inContentPane) {
+        if (!inContentPane) delay(400)
+        shownCategory = selectedCategory
+    }
     var statusMessage by remember { mutableStateOf("") }
     var searching by remember { mutableStateOf(false) }
     // A new search remounts the section, so its controls look for the setting even when the section is already open.
@@ -312,11 +321,14 @@ fun CustomizationDialog(
                                                 .onFocusChanged { state ->
                                                     isFocused = state.isFocused
                                                     if (state.isFocused) {
-                                                        selectedCategory = cat // Instant live preview on focus!
+                                                        selectedCategory = cat // drawn on the right once the button is up
                                                     }
                                                 }
                                                 .onPreviewKeyEvent { e ->
-                                                    if (e.type == KeyEventType.KeyDown && 
+                                                    if (e.type == KeyEventType.KeyUp && (e.key == Key.DirectionUp || e.key == Key.DirectionDown)) {
+                                                        shownCategory = cat
+                                                        false
+                                                    } else if (e.type == KeyEventType.KeyDown &&
                                                         (e.key == Key.DirectionRight || e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter)) {
                                                         selectedCategory = cat
                                                         inContentPane = true
@@ -351,14 +363,14 @@ fun CustomizationDialog(
                     ) {
                         // Use key(selectedCategory) instead of AnimatedContent!
                         // This forcefully destroys the old view and scroll state, resolving random focus jumps!
-                        key(selectedCategory, found) {
+                        key(shownCategory, found) {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 item {
                                     Box(modifier = Modifier.focusGroup().focusRequester(contentFocusRequester)) {
-                                        when (selectedCategory) {
+                                        when (shownCategory) {
                                             CustomizationCategory.LAYOUT -> LayoutCustomization(config, ctx)
                                             CustomizationCategory.LOOK -> LookCustomization(config, ctx)
                                             CustomizationCategory.WIDGETS -> WidgetCustomization(config, ctx)
