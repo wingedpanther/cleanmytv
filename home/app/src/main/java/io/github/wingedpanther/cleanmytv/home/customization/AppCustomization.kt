@@ -155,16 +155,6 @@ fun AppCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
                 )
             }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(tr("App Actions"), color = TEXT_COLOR, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                Text(tr("Reset ordering or reveal hidden apps."), color = MUTED_COLOR, fontSize = 12.sp)
-            }
-
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TvSecondaryButton(
                     text = tr("Reset Order"),
@@ -176,7 +166,6 @@ fun AppCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
                     onClick = { withPin { ConfigStore.update(ctx, JSONObject().put("hidden", JSONArray())) } }
                 )
             }
-        }
         }
 
         // --- 5-Column App Cards Grid with 2-Button Controls (Hide & Move) ---

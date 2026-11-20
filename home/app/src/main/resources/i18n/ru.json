@@ -417,8 +417,6 @@
   " apps (off)": " прил. (выкл.)",
   " apps": " прил.",
   "Apps per row": "Приложений в ряду",
-  "App Actions": "Действия с приложениями",
-  "Reset ordering or reveal hidden apps.": "Сбросить порядок или вернуть скрытые приложения.",
   "App Order & Visibility ({n} apps)": "Порядок и видимость ({n} прил.)",
   "MOVING ACTIVE: Use ← → ↑ ↓ to shift app position · OK to confirm": "ПЕРЕМЕЩЕНИЕ: Используйте ← → ↑ ↓ для сдвига · OK для подтверждения",
   "Select Move to activate D-pad grid movement · Select Hide to toggle visibility": "Нажмите Переместить для сдвига D-pad · Нажмите Скрыть для смены видимости",
