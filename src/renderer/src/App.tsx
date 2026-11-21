@@ -17,6 +17,7 @@ import { langChoice, setLangChoice, t, type LangChoice } from './lib/i18n'
 import { version } from '../../../package.json'
 
 const REPO_URL = 'https://github.com/wingedpanther/cleanmytv'
+const COFFEE_URL = 'https://buymeacoffee.com/wingedpanther'
 
 export type StepId = 'guided' | 'setup' | 'debloat' | 'home' | 'extras' | 'sideload' | 'finish'
 
@@ -238,6 +239,7 @@ export default function App(): ReactNode {
             <span>wingedpanther/cleanmytv</span>
           </a>
           <div className="gh-ver">CleanMyTV v{version} · MIT</div>
+          <a className="coffee-link" href={COFFEE_URL} target="_blank" rel="noreferrer">{t('Buy me a coffee')}</a>
         </div>
       </aside>
       <main className="main">
