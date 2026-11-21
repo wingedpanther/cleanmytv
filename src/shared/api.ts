@@ -545,6 +545,8 @@ export interface CytvApi {
 
   /** App, computer and TV details for a bug report: no address, serial or settings. */
   bugReport(): Promise<string>
+  /** One file for a GitHub issue: computer, TV, packages, Home's settings, this session's log and the TV's log. The path, or null if cancelled. */
+  saveReport(): Promise<string | null>
   /** Record a problem: notes the TV's clock, so Stop gets the TV's log from here on. */
   recordStart(): Promise<void>
   /** The TV's log since recordStart with the bug report details, saved where the person picks. Null if they cancel. */

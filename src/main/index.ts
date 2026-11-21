@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, session, shell, type SaveDialogOptions } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -22,7 +22,7 @@ import * as web from './web'
 import * as home from './home'
 import * as themes from './themes'
 import { THEME_EXT, themeFileName } from '@shared/themes'
-import { bugReport } from './report'
+import { bugReport, fullReport } from './report'
 import { tellHome } from './switchedoff'
 import * as record from './record'
 import * as checkup from './checkup'
@@ -59,6 +59,18 @@ const knownTvs = (): KnownTv[] => listTvs(readSettings())
 const remember = (host: string, st: ConnStatus): void => {
   writeSettings(rememberTv(readSettings(), host, st))
   void tellHome()
+}
+
+/** The save dialog over the window, or on its own when the window is gone. */
+async function saveDialog(opts: SaveDialogOptions): Promise<string | null> {
+  const r = win && !win.isDestroyed() ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
+  return r.canceled || !r.filePath ? null : r.filePath
+}
+
+/** The connected TV's model and today's date, for file names. */
+function fileTag(): string {
+  const model = (T.getStatus().probe?.model ?? 'no-tv').replace(/[^\w-]+/g, '-').toLowerCase()
+  return `${model}-${new Date().toISOString().slice(0, 10)}`
 }
 
 async function checks(): Promise<CheckItem[]> {
@@ -154,6 +166,14 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   // The pairing form connects once this returns. Connecting here too would do it twice.
   pair: (host, pairPort, code, connectPort) => tools.pair(host, pairPort, code, connectPort),
   bugReport: () => bugReport(app.getVersion()),
+  saveReport: async () => {
+    const text = await fullReport(app.getVersion())
+    const path = await saveDialog({ title: t('Save the report'), defaultPath: join(app.getPath('downloads'), `cleanmytv-report-${fileTag()}.txt`), filters: [{ name: t('Text'), extensions: ['txt'] }] })
+    if (!path) return null
+    writeFileSync(path, text)
+    shell.showItemInFolder(path)
+    return path
+  },
   recordStart: () => record.start(),
   recordStop: async () => {
     const text = await record.stop(await bugReport(app.getVersion()))

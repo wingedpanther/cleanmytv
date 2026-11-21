@@ -4,6 +4,9 @@ import type { DownloadProgress, LogLine } from '@shared/api'
 
 let sink: (line: LogLine) => void = (l) => console.log(`[${l.task}] ${l.level === 'cmd' ? '$ ' : ''}${l.text}`)
 let progressSink: (p: DownloadProgress) => void = () => {}
+/** This session's lines for Send a report, which the window's drawer may have cleared. */
+const session: LogLine[] = []
+const SESSION_MAX = 3000
 
 export function setSinks(onLog: (line: LogLine) => void, onProgress: (p: DownloadProgress) => void): void {
   sink = onLog
@@ -20,7 +23,15 @@ export function noHomeFolder(text: string): string {
 }
 
 export function log(task: string, level: LogLine['level'], text: string): void {
-  sink({ task, level, text: noHomeFolder(text), time: Date.now() })
+  const line = { task, level, text: noHomeFolder(text), time: Date.now() }
+  session.push(line)
+  if (session.length > SESSION_MAX) session.splice(0, session.length - SESSION_MAX)
+  sink(line)
+}
+
+/** This session's log as text, one line each, as the drawer's Copy all writes it. */
+export function sessionLog(): string {
+  return session.map((l) => `${new Date(l.time).toISOString()} [${l.task}] ${l.level === 'cmd' ? '$ ' : ''}${l.text}`).join('\n')
 }
 
 export function progress(p: DownloadProgress): void {
