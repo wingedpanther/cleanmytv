@@ -606,6 +606,9 @@ export function cameBack(active: string[], installed: Set<string>, disabled: Set
   return keptOff(active, homePackage, keep).filter((p) => installed.has(p) && !disabled.has(p))
 }
 
+/** Written by Restore next to a TV's record and removed by the next apply: the list keeps nothing off meanwhile. */
+const restoredMark = (record: string): string => `${record}.restored`
+
 /** The lists this app applied on the connected TV: a saved list with a restore point for this TV. */
 export function appliedLists(): { listId: string; active: string[] }[] {
   const probe = T.getStatus().probe
@@ -615,7 +618,8 @@ export function appliedLists(): { listId: string; active: string[] }[] {
     const file = savedListPath(listId, probe)
     if (!existsSync(file)) continue
     try {
-      if (findRecord(file, probe.host, probe.device || undefined).record) out.push({ listId, active: savedActive(file) })
+      const { path, record } = findRecord(file, probe.host, probe.device || undefined)
+      if (record && !existsSync(restoredMark(path))) out.push({ listId, active: savedActive(file) })
     } catch {
       // another device's record at this address: not this TV's clean-up
     }
@@ -864,6 +868,7 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   writeSavedList(file, title, parsed.header, active, parsed.entries)
   log(TASK, 'info', `list saved to ${file}`)
   await saveRecord(file, host, active, probe.device || undefined)
+  rmSync(restoredMark(recordPath(file, host)), { force: true })
 
   let done = 0
   // Fire OS and some other firmware refuse their own apps outright; that is the TV's rule, not a failure.
@@ -930,20 +935,16 @@ export async function restore(listId: string): Promise<ApplyResult> {
   const probe = T.getStatus().probe
   if (!probe) throw new UiError('Connect to a TV first.')
   const file = savedListPath(listId, probe)
-  const { record } = findRecord(file, probe.host, probe.device || undefined)
+  const { path, record } = findRecord(file, probe.host, probe.device || undefined)
   const listPkgs = existsSync(file) ? savedActive(file) : sourceList(listId).parsed.entries.filter((e) => e.suggested).map((e) => e.pkg)
   const notes: string[] = []
   const stock = await stockFallback()
   const cmds = restoreCommands(listPkgs, record, stock, notes)
   for (const n of inEnglish(() => { const en: string[] = []; restoreCommands(listPkgs, record, stock, en); return en })) log('restore', 'info', n)
   await T.batch('restore', cmds)
-  // Nothing is kept off with this list now, so nothing can "come back on". Packages added by hand stay as kept lines.
-  if (existsSync(file)) {
-    const { title, parsed } = sourceList(listId)
-    const known = new Set(parsed.entries.map((e) => e.pkg))
-    const added = savedEntries(file).filter((e) => !known.has(e.pkg)).map((e) => ({ ...e, suggested: false }))
-    writeSavedList(file, title, parsed.header, [], [...parsed.entries, ...added])
-  }
+  // Nothing is kept off with this list now, so nothing can "come back on" until the next apply. The saved
+  // list keeps the owner's picks, as upstream's recovery.py expects.
+  if (record) writeFileSync(restoredMark(path), new Date().toISOString())
   const home = await T.homeComponent()
   const say = (): string => record
     ? home ? t('Restored the state recorded on {date}. Home is {home}.', { date: record.created, home }) : t('Restored the state recorded on {date}. Home is not set.', { date: record.created })
