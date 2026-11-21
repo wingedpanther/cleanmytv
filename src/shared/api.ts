@@ -127,8 +127,12 @@ export interface DebloatPlan {
   record?: { path: string; created: string }
   /** Package that owns Home right now. */
   homePackage: string | null
-  /** Packages this app switched off on this TV that are on again, like after a firmware update. */
-  cameBack?: string[]
+}
+
+/** Packages this app switched off on the connected TV with one list that are on again, like after a system update. */
+export interface CameBack {
+  listId: string
+  packages: string[]
 }
 
 export interface DebloatApplyRequest {
@@ -395,6 +399,8 @@ export interface HomeConfig {
   can_change_settings?: boolean
   /** Read only: which looks are saved for the day and night switch. */
   looks_saved?: LookSlot[]
+  /** Packages CleanMyTV keeps switched off, set by the app, so the TV can tell when a system update brings them back. */
+  switched_off?: string[]
 }
 
 /** One picture of a built-in theme, for the TV's own theme carousel. */
@@ -560,6 +566,8 @@ export interface CytvApi {
   tvPackages(): Promise<DebloatEntry[]>
   applyDebloat(req: DebloatApplyRequest): Promise<ApplyResult>
   restore(listId: string): Promise<ApplyResult>
+  /** Packages this app switched off on the connected TV that are on again, by list. */
+  cameBack(): Promise<CameBack[]>
 
   // CleanMyTV Home
   /** Give Home back to the stock launcher, leaving CleanMyTV Home installed. */

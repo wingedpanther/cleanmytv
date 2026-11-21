@@ -346,7 +346,7 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
     if (typeof o.wallpaper_from === 'string' && (o.wallpaper_from === '' || THEME_PICTURE.test(o.wallpaper_from))) out.wallpaper_from = o.wallpaper_from
     else bad('wallpaper_from must be "<theme id>:<picture>" or empty')
   }
-  for (const k of ['order', 'hidden', 'lock_apps'] as const) {
+  for (const k of ['order', 'hidden', 'lock_apps', 'switched_off'] as const) {
     if (o[k] === undefined) continue
     if (Array.isArray(o[k]) && (o[k] as unknown[]).length <= 500 && (o[k] as unknown[]).every((p) => typeof p === 'string' && T.PACKAGE_RE.test(p))) out[k] = [...new Set(o[k] as string[])]
     else bad(`${k} must be a list of package names`)

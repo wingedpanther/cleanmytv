@@ -23,6 +23,7 @@ import * as home from './home'
 import * as themes from './themes'
 import { THEME_EXT, themeFileName } from '@shared/themes'
 import { bugReport } from './report'
+import { tellHome } from './switchedoff'
 import * as record from './record'
 import * as checkup from './checkup'
 import { englishOf, languageFromLocale, setLanguage, t, UiError } from './i18n'
@@ -54,7 +55,11 @@ function writeSettings(s: Settings): void {
 }
 
 const knownTvs = (): KnownTv[] => listTvs(readSettings())
-const remember = (host: string, st: ConnStatus): void => writeSettings(rememberTv(readSettings(), host, st))
+/** A TV that connected: remembered, and CleanMyTV Home told what stays switched off, in the background. */
+const remember = (host: string, st: ConnStatus): void => {
+  writeSettings(rememberTv(readSettings(), host, st))
+  void tellHome()
+}
 
 async function checks(): Promise<CheckItem[]> {
   const st = T.getStatus()
@@ -169,15 +174,28 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   lists: async () => debloat.lists(T.getStatus().probe),
   plan: (id) => debloat.plan(id),
   tvPackages: () => debloat.tvPackages(),
-  applyDebloat: (req) => debloat.apply(req),
-  restore: (id) => debloat.restore(id),
+  applyDebloat: async (req) => {
+    const r = await debloat.apply(req)
+    await tellHome()
+    return r
+  },
+  restore: async (id) => {
+    const r = await debloat.restore(id)
+    await tellHome()
+    return r
+  },
+  cameBack: async () => (await debloat.switchedOff()).back,
   useStockLauncher: async () => home.leftHome(await launcher.useStock()),
   otherLaunchers: () => launcher.otherLaunchers(),
   useOtherLauncher: async (pkg) => home.leftHome(await launcher.useOther(String(pkg ?? ''))),
   keepGoogleLauncher: (on) => home.keepGoogleLauncher(on === true),
   removeOldLauncher: () => launcher.removeOld(),
   homeStatus: () => home.status(),
-  installHome: (stock) => home.install(typeof stock === 'string' ? stock : undefined),
+  installHome: async (stock) => {
+    const r = await home.install(typeof stock === 'string' ? stock : undefined)
+    if (r.ok) await tellHome()
+    return r
+  },
   useHome: async (stock) => {
     const st = await home.status()
     if (!st.installed) return { ok: false, summary: t('CleanMyTV Home is not installed yet.'), warnings: [] }

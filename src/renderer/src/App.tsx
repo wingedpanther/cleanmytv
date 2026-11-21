@@ -86,6 +86,8 @@ export default function App(): ReactNode {
   const [update, setUpdate] = useState<UpdateInfo | null>(null)
   // The TV runs an older CleanMyTV Home than this app carries.
   const [homeBehind, setHomeBehind] = useState(false)
+  /** How many packages Clean up switched off are on again, for a note under that step. */
+  const [cameBack, setCameBack] = useState(0)
   const [jumping, setJumping] = useState(false)
   /** A Home tab asked for from ⌘K; n changes each time, so the same tab can be asked for twice. */
   const [homeTab, setHomeTab] = useState<{ tab: string; n: number } | null>(null)
@@ -146,6 +148,14 @@ export default function App(): ReactNode {
     if (status.state !== 'connected') return setHomeBehind(false)
     let stale = false
     window.cytv.homeStatus().then((hs) => { if (!stale) homeSeen(hs) }, () => null)
+    return () => { stale = true }
+  }, [status.state, status.host, step])
+
+  // Checked on connecting and on every step change, so the note goes once Clean up has switched them off.
+  useEffect(() => {
+    if (status.state !== 'connected') return setCameBack(0)
+    let stale = false
+    window.cytv.cameBack().then((b) => { if (!stale) setCameBack(b.reduce((n, x) => n + x.packages.length, 0)) }, () => null)
     return () => { stale = true }
   }, [status.state, status.host, step])
 
@@ -216,7 +226,13 @@ export default function App(): ReactNode {
                     <span className="step-num">{isDone ? '✓' : i + 1}</span>
                     <span className="step-label">
                       {s.label}
-                      <span className="step-sub">{s.id === 'home' && connected && homeBehind ? t('Update ready for this TV') : s.sub}</span>
+                      <span className="step-sub">
+                        {s.id === 'home' && connected && homeBehind
+                          ? t('Update ready for this TV')
+                          : s.id === 'debloat' && connected && cameBack > 0
+                            ? t('{n} {n|app|apps} came back on', { n: cameBack })
+                            : s.sub}
+                      </span>
                     </span>
                   </button>
                 </li>

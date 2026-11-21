@@ -298,6 +298,9 @@ export function installMock(): void {
       log('restore', 'ok', 'Restored the recorded state')
       return ok('Put back the state recorded before the first change.')
     },
+    async cameBack() {
+      return []
+    },
     async useStockLauncher() {
       launcherHome = false
       homeIsHome = false
