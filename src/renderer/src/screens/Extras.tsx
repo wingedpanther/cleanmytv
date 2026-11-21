@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { AppSize, AppSizes, ApplyResult, SystemState } from '@shared/api'
+import type { AppSize, AppSizes, ApplyResult, BackupPreview, SystemState } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { Busy, Confirm, ResultNotice, Skeleton, errorText } from '../components/ui'
 import { t } from '../lib/i18n'
@@ -145,6 +145,8 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
           </div>
         </div>
       )}
+
+      <Backup busy={!!busy} run={run} onResult={setResult} />
 
       <div>
         <div className="card">
@@ -344,6 +346,77 @@ function AppList(props: { sizes: AppSizes; labels: Map<string, string>; all: boo
         <button className="btn small ghost" style={{ marginTop: 8 }} onClick={props.onAll}>
           {t('Show all {n}', { n: sizes.apps.length })}
         </button>
+      )}
+    </div>
+  )
+}
+
+/** Saves the clean-up and CleanMyTV Home's settings to a file, and puts a file's back after a look at what it does. */
+function Backup({ busy, run, onResult }: { busy: boolean; run: Run; onResult: (r: ApplyResult) => void }): ReactNode {
+  const [preview, setPreview] = useState<BackupPreview | null>(null)
+
+  async function save(): Promise<void> {
+    try {
+      const path = await window.cytv.saveBackup()
+      if (path) onResult({ ok: true, summary: t('Saved the backup to {path}.', { path }), warnings: [] })
+    } catch (e) {
+      onResult({ ok: false, summary: errorText(e), warnings: [] })
+    }
+  }
+
+  async function open(): Promise<void> {
+    try {
+      setPreview(await window.cytv.openBackup())
+    } catch (e) {
+      onResult({ ok: false, summary: errorText(e), warnings: [] })
+    }
+  }
+
+  const when = (iso: string): string => {
+    const d = new Date(iso)
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+  }
+
+  return (
+    <div className="card">
+      <h2>{t('Back up this TV')}</h2>
+      <p className="muted small">
+        {t("One file with what Clean up switched off and CleanMyTV Home's settings and app order.")}{' '}
+        {t('Restore puts them back after a reset, or on another TV. The PIN and wallpaper stay out.')}
+      </p>
+      <div className="row">
+        <button className="btn" disabled={busy} onClick={() => void save()}>
+          {t('Save a backup')}
+        </button>
+        <button className="btn ghost" disabled={busy} onClick={() => void open()}>
+          {t('Restore a backup')}
+        </button>
+      </div>
+
+      {preview && (
+        <Confirm
+          title={t('Restore this backup?')}
+          confirmLabel={t('Restore')}
+          onCancel={() => setPreview(null)}
+          onConfirm={() => {
+            setPreview(null)
+            void run(t('Restoring the backup'), () => window.cytv.restoreBackup())
+          }}
+        >
+          <p>{t('From {tv}, saved {date}.', { tv: preview.tv || preview.file, date: when(preview.savedAt) })}</p>
+          {preview.otherModel && <div className="notice warn">{t('This backup comes from another TV model. Check the apps it switches off.')}</div>}
+          <ul>
+            <li>
+              {preview.switchOff.length
+                ? t('Switches off {n} {n|app|apps} that {n|is|are} on now.', { n: preview.switchOff.length })
+                : t('Switches nothing off: everything in it is off already.')}
+            </li>
+            {preview.missing.length > 0 && <li>{t("Skips {n} {n|app|apps} this TV doesn't have.", { n: preview.missing.length })}</li>}
+            {preview.home === 'apply' && <li>{t("Puts CleanMyTV Home's settings and app order back.")}</li>}
+            {preview.home === 'not-installed' && <li>{t("Leaves out CleanMyTV Home's settings, as this TV doesn't have it.")}</li>}
+          </ul>
+          {preview.switchOff.length > 0 && <p className="small mono muted">{preview.switchOff.join(', ')}</p>}
+        </Confirm>
       )}
     </div>
   )

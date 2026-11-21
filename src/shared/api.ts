@@ -498,6 +498,22 @@ export interface AppSizes {
   source: 'diskstats' | 'code'
 }
 
+/** What a backup file holds and what restoring it on the connected TV would do. */
+export interface BackupPreview {
+  file: string
+  savedAt: string
+  /** The TV it was saved from, as "manufacturer model". */
+  tv: string
+  /** It was saved from another model than the connected TV. */
+  otherModel: boolean
+  /** Packages it switches off that are on now. */
+  switchOff: string[]
+  /** Packages in the backup that this TV doesn't have. */
+  missing: string[]
+  /** CleanMyTV Home settings: put on the TV, none in the file, or the TV has no CleanMyTV Home. */
+  home: 'apply' | 'none' | 'not-installed'
+}
+
 /** An .apk the owner picked, read before it goes to the TV. */
 export interface SideloadInfo {
   file: string
@@ -591,6 +607,12 @@ export interface CytvApi {
   restore(listId: string): Promise<ApplyResult>
   /** Packages this app switched off on the connected TV that are on again, by list. */
   cameBack(): Promise<CameBack[]>
+  /** Saves the TV's clean-up and CleanMyTV Home settings to a JSON file the owner picks. The path, or null if cancelled. */
+  saveBackup(): Promise<string | null>
+  /** Opens a backup file the owner picks and says what restoring it would do. Null if cancelled. */
+  openBackup(): Promise<BackupPreview | null>
+  /** Restores the backup opened last: the clean-up through Clean up's own path, then Home's settings. */
+  restoreBackup(): Promise<ApplyResult>
 
   // CleanMyTV Home
   /** Give Home back to the stock launcher, leaving CleanMyTV Home installed. */

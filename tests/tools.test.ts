@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -8,6 +8,7 @@ import * as T from '../src/main/tv'
 import * as D from '../src/main/debloat'
 import * as H from '../src/main/home'
 import * as S from '../src/main/storage'
+import * as B from '../src/main/backup'
 import { fullReport, reportConfig, uninstalledForUser } from '../src/main/report'
 import { tellHome } from '../src/main/switchedoff'
 import { FakeTv, newTv, startFakeAdbd } from './fake-adbd'
@@ -111,6 +112,43 @@ describe('on a TV', () => {
   it('accepts switched_off as package names only', () => {
     expect(H.clean({ switched_off: ['a.b', 'a.b', 'c.d'] })).toEqual({ switched_off: ['a.b', 'c.d'] })
     expect(() => H.clean({ switched_off: ['rm -rf'] })).toThrow(/switched_off/)
+  })
+
+  it('backs up the clean-up and Home settings, and restores them on a reset TV', async () => {
+    const data = await B.make('9.9.9')
+    expect(data.tv).toEqual({ manufacturer: 'Sony', model: 'BRAVIA 4K VH2', device: 'BRAVIA_VH2', android: '12' })
+    expect(data.cleanup).toEqual([{ list: 'custom', switched_off: ['com.sony.dtv.promos', 'com.sony.dtv.analytics', 'com.acme.bloat'] }])
+    expect(data.home).toMatchObject({ accent: '#FF3000', order: ['com.netflix.ninja'], lock_on: true })
+    for (const k of ['stock_redirect', 'switched_off', 'has_wallpaper', 'configured', 'lock_pin_set']) expect(data.home).not.toHaveProperty(k)
+
+    // A factory reset: everything on again and Home back to its defaults.
+    tv.packages.set('com.sony.dtv.analytics', 'enabled')
+    tv.homeConfig = { accent: '#4CAF50' }
+    const file = join(home, 'backup.json')
+    writeFileSync(file, JSON.stringify(data))
+    const preview = await B.open(file)
+    expect(preview).toMatchObject({ file: 'backup.json', tv: 'Sony BRAVIA 4K VH2', otherModel: false, home: 'apply', missing: ['com.acme.bloat'] })
+    expect(preview.switchOff.sort()).toEqual(['com.sony.dtv.analytics', 'com.sony.dtv.promos'])
+
+    const r = await B.restore()
+    expect(r.ok).toBe(true)
+    expect(tv.packages.get('com.sony.dtv.promos')).toBe('disabled')
+    expect(tv.packages.get('com.sony.dtv.analytics')).toBe('disabled')
+    expect(tv.homeConfig).toMatchObject({ accent: '#FF3000', order: ['com.netflix.ninja'] })
+    // The PIN never leaves a TV, so the lock stays off on one that has none.
+    expect(tv.homeConfig.lock_on).toBeUndefined()
+    expect(r.warnings.join(' ')).toMatch(/app lock stays off/)
+  })
+
+  it('warns about a backup from another model and refuses files that are not backups', async () => {
+    const file = join(home, 'other.json')
+    writeFileSync(file, JSON.stringify({ ...(await B.make('9.9.9')), tv: { manufacturer: 'TCL', model: '55C755', device: 'G10', android: '11' } }))
+    expect((await B.open(file)).otherModel).toBe(true)
+    expect(() => B.parseBackup('{"kind":"something"}')).toThrow(/not a CleanMyTV backup/)
+    expect(() => B.parseBackup('nope')).toThrow(/not a CleanMyTV backup/)
+    const odd = B.parseBackup(JSON.stringify({ kind: 'cleanmytv-tv-backup', version: 1, cleanup: [{ list: '../x', switched_off: ['a.b'] }, { list: 'custom', switched_off: ['a.b', 'x;reboot'] }], home: { accent: 'red', columns: 5 } }))
+    expect(odd.cleanup).toEqual([{ list: 'custom', switched_off: ['a.b'] }])
+    expect(odd.home).toEqual({ columns: 5 })
   })
 
   it('saves a report with the TV, Home settings and logs, without addresses or the greeting', async () => {

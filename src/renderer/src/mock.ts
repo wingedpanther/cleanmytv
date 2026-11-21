@@ -306,6 +306,18 @@ export function installMock(): void {
     async cameBack() {
       return []
     },
+    async saveBackup() {
+      await wait(300)
+      return '/Users/you/Documents/cleanmytv-backup-k-65xr90m2-2026-11-21.json'
+    },
+    async openBackup() {
+      await wait(300)
+      return { file: 'cleanmytv-backup-k-65xr90m2-2026-11-21.json', savedAt: new Date().toISOString(), tv: 'Sony K-65XR90M2', otherModel: false, switchOff: ['com.sony.dtv.promos', 'com.sony.dtv.discovery'], missing: [], home: homeInstalled ? 'apply' : 'not-installed' }
+    },
+    async restoreBackup() {
+      await wait(900)
+      return ok('Restored the backup. Disabled 2 of 2 packages.')
+    },
     async useStockLauncher() {
       launcherHome = false
       homeIsHome = false

@@ -24,6 +24,7 @@ import * as themes from './themes'
 import { THEME_EXT, themeFileName } from '@shared/themes'
 import { bugReport, fullReport } from './report'
 import * as storage from './storage'
+import * as backup from './backup'
 import { tellHome } from './switchedoff'
 import * as record from './record'
 import * as checkup from './checkup'
@@ -206,6 +207,23 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
     return r
   },
   cameBack: async () => (await debloat.switchedOff()).back,
+  saveBackup: async () => {
+    const data = await backup.make(app.getVersion())
+    const path = await saveDialog({ title: t('Save the backup'), defaultPath: join(app.getPath('documents'), `cleanmytv-backup-${fileTag()}.json`), filters: [{ name: t('CleanMyTV backup'), extensions: ['json'] }] })
+    if (!path) return null
+    writeFileSync(path, JSON.stringify(data, null, 2) + '\n')
+    return path
+  },
+  openBackup: async () => {
+    const opts = { title: t('Open a backup'), defaultPath: app.getPath('documents'), filters: [{ name: t('CleanMyTV backup'), extensions: ['json'] }], properties: ['openFile' as const] }
+    const r = win && !win.isDestroyed() ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
+    return r.canceled || !r.filePaths[0] ? null : backup.open(r.filePaths[0])
+  },
+  restoreBackup: async () => {
+    const r = await backup.restore()
+    await tellHome()
+    return r
+  },
   useStockLauncher: async () => home.leftHome(await launcher.useStock()),
   otherLaunchers: () => launcher.otherLaunchers(),
   useOtherLauncher: async (pkg) => home.leftHome(await launcher.useOther(String(pkg ?? ''))),

@@ -690,6 +690,29 @@ export async function readConfig(): Promise<HomeConfig> {
   return keep(parse(await T.tv().shell(`content call --uri ${URI} --method get`)))
 }
 
+// Settings that only make sense on the TV they came from, or that the app sets itself.
+const TV_ONLY = ['stock_redirect', 'wallpaper_from', 'power_on_target', 'switched_off'] as const
+
+/** The settings worth carrying to another TV or a reset one: valid ones only, no PIN and no wallpaper. */
+export function portable(o: Record<string, unknown>): Partial<HomeConfig> {
+  const out: Record<string, unknown> = { ...clean(o, true) }
+  for (const k of TV_ONLY) delete out[k]
+  return out as Partial<HomeConfig>
+}
+
+/**
+ * Puts settings from a backup on the TV. The lock stays off on a TV without a PIN, as the PIN never leaves
+ * a TV. True when that happened.
+ */
+export async function putSettings(saved: Record<string, unknown>): Promise<boolean> {
+  const change = portable(saved)
+  const noPin = change.lock_on === true && !(await readConfig()).lock_pin_set
+  if (noPin) delete change.lock_on
+  const cfg = await setConfig(change)
+  if (needsService(cfg)) await addService(KEY_SERVICE)
+  return noPin
+}
+
 export async function setConfig(change: Partial<HomeConfig>): Promise<HomeConfig> {
   const checked = clean(change as Record<string, unknown>)
   const json = JSON.stringify(checked)
