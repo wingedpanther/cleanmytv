@@ -13,6 +13,7 @@ bundled lists cover per model. This README is the technical overview.
 
 Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://discord.gg/6hZeQkDYf9)**.
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
+If CleanMyTV made your TV nicer to use, you can [buy me a coffee](https://buymeacoffee.com/wingedpanther).
 
 ### New in 0.13.3
 
@@ -499,6 +500,7 @@ The tag has to match the version in `package.json`, or the release step stops.
 - **Bugs and feature requests:** [open a GitHub issue](https://github.com/wingedpanther/cleanmytv/issues/new)
   with your TV model, Android version and what happened. Issues are where fixes get tracked, so please
   don't report bugs only in Discord.
+- **Support:** CleanMyTV is free. If you'd like to chip in, [buy me a coffee](https://buymeacoffee.com/wingedpanther).
 
 ## Known limits
 
