@@ -19,6 +19,9 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
     <!-- Puts the remote-button service back after a restart when the TV has dropped it (#78). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Bedtime turns the TV off on the minute: Android 12 grants the first, 13 and later the second. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- Clean memory: closes apps left in the background, up to Android 13. Apps with a launcher icon are
          the ones the queries below already let Home see. -->
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
@@ -108,7 +111,17 @@
             android:screenOrientation="landscape" />
 
         <!-- The sleep timer's alarm. -->
+        <!-- Input tiles open through this: it switches to the input and closes without showing anything. -->
+        <activity
+            android:name=".InputActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay" />
+
         <receiver android:name=".SleepReceiver" android:exported="false" />
+        <receiver android:name=".BedtimeReceiver" android:exported="false" />
         <!-- Android's installer reports on an update here. -->
         <receiver android:name=".UpdateReceiver" android:exported="false" />
 

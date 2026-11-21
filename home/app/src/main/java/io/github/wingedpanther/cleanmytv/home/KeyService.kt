@@ -98,6 +98,10 @@ class KeyService : AccessibilityService() {
             ConfigStore.config.map { needsKeys(it, false) to (it.stockRedirect == LauncherRedirect.AMAZON) }
                 .distinctUntilChanged().collect { updateServiceInfo() }
         }
+        scope.launch {
+            ConfigStore.config.map { Triple(it.bedtimeOn, it.bedtimeAt, it.bedtimeDays) }
+                .distinctUntilChanged().collect { Bedtime.schedule(this@KeyService) }
+        }
         Log.i(TAG, "key service on")
     }
 
@@ -121,13 +125,33 @@ class KeyService : AccessibilityService() {
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) KeyLog.add(event.keyCode)
+        // The bedtime note is up: any button keeps the TV on, and does nothing else.
+        if (Bedtime.warning && event.action == KeyEvent.ACTION_DOWN) { keepAwake(); swallowUp = event.keyCode; return true }
+        if (event.action == KeyEvent.ACTION_UP && event.keyCode == swallowUp) { swallowUp = -1; return true }
         val cfg = ConfigStore.config.value
         val map = if (cfg.buttonsOn) cfg.buttons.firstOrNull { it.code == event.keyCode } else null
         if (map == null) {
             if (event.keyCode in VOLUME_KEYS && System.currentTimeMillis() >= listenUntil) pauseForVolume()
             return false
         }
-        if (event.action == KeyEvent.ACTION_UP && event.repeatCount == 0) runCatching { perform(map) }.onFailure { Log.w(TAG, "button ${map.code}: $it") }
+        // A button with a hold job waits to see which it is: held past HOLD_MS runs the hold job at once,
+        // let go sooner runs the press job. Without one, the press job runs on release as before.
+        when {
+            event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 -> {
+                timer.removeCallbacks(holdJob)
+                held = false
+                val hold = map.hold
+                if (hold != null) {
+                    holdJob = Runnable { held = true; run(map.code, hold, map.holdApp) }
+                    timer.postDelayed(holdJob, HOLD_MS)
+                }
+            }
+            event.action == KeyEvent.ACTION_UP -> {
+                timer.removeCallbacks(holdJob)
+                if (!held) run(map.code, map.action, map.app)
+                held = false
+            }
+        }
         return true
     }
 
@@ -140,24 +164,86 @@ class KeyService : AccessibilityService() {
         timer.postDelayed(endPause, VOLUME_PAUSE_MS + 100)
     }
 
-    private fun perform(b: ButtonMap) {
-        when (b.action) {
+    private var swallowUp = -1
+    private var note: android.view.View? = null
+
+    private val bedtimeSleep = Runnable {
+        hideNote()
+        Bedtime.warningUntil = 0L
+        updateServiceInfo()
+        if (!sleep()) Log.w(TAG, "bedtime: sleep didn't go through")
+        Bedtime.schedule(this)
+    }
+
+    /** A minute before bedtime: say so over whatever is on, and listen for any button. */
+    fun bedtimeNote() {
+        Bedtime.warningUntil = System.currentTimeMillis() + Bedtime.WARN_MS + 5_000L
+        updateServiceInfo()
+        showNote(tr("The TV turns off in a minute for bedtime. Press any button to keep it on."))
+        timer.removeCallbacks(bedtimeSleep)
+        timer.postDelayed(bedtimeSleep, Bedtime.WARN_MS)
+    }
+
+    private fun keepAwake() {
+        Bedtime.warningUntil = 0L
+        timer.removeCallbacks(bedtimeSleep)
+        hideNote()
+        android.widget.Toast.makeText(this, tr("Bedtime skipped for tonight"), android.widget.Toast.LENGTH_SHORT).show()
+        // Later, so the button's release is still caught.
+        timer.postDelayed({ updateServiceInfo() }, 1_000L)
+        Bedtime.schedule(this)
+    }
+
+    /** A note above every app: an accessibility overlay needs no extra permission. */
+    private fun showNote(text: String) {
+        hideNote()
+        val wm = getSystemService(android.view.WindowManager::class.java) ?: return
+        val d = resources.displayMetrics.density
+        val view = android.widget.TextView(this).apply {
+            this.text = text
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 18f
+            setPadding((24 * d).toInt(), (14 * d).toInt(), (24 * d).toInt(), (14 * d).toInt())
+            background = android.graphics.drawable.GradientDrawable().apply { setColor(0xE6202020.toInt()); cornerRadius = 14 * d }
+        }
+        val lp = android.view.WindowManager.LayoutParams(
+            android.view.WindowManager.LayoutParams.WRAP_CONTENT, android.view.WindowManager.LayoutParams.WRAP_CONTENT,
+            android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            android.graphics.PixelFormat.TRANSLUCENT
+        ).apply { gravity = android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL; y = (40 * d).toInt() }
+        runCatching { wm.addView(view, lp); note = view }.onFailure { Log.w(TAG, "bedtime note: $it") }
+    }
+
+    private fun hideNote() {
+        note?.let { v -> runCatching { getSystemService(android.view.WindowManager::class.java)?.removeView(v) } }
+        note = null
+    }
+
+    private var holdJob = Runnable {}
+    private var held = false
+
+    private fun run(code: Int, action: String, app: String?) =
+        runCatching { perform(action, app) }.onFailure { Log.w(TAG, "button $code: $it") }
+
+    private fun perform(action: String, app: String?) {
+        when (action) {
             "home" -> performGlobalAction(GLOBAL_ACTION_HOME)
             "back" -> performGlobalAction(GLOBAL_ACTION_BACK)
             "none" -> Unit
             "inputs" -> startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN, "inputs").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             "music" -> ConfigStore.update(this, JSONObject().put("visualiser", !ConfigStore.config.value.visualiser))
             "timer" -> SleepTimer.next(this)
-            "panel", "themes", "customize" -> startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN, b.action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            "panel", "themes", "customize" -> startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN, action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             "next_wallpaper" -> ThemePack.next(this)
             "fireplace" -> startActivity(Intent(this, FireplaceActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             "memory" -> if (Memory.canClean) scope.launch { Memory.cleanAndSay(this@KeyService) }
             "brightness" -> android.widget.Toast.makeText(this, TvSettings.nextBrightness(this)?.let { tr("Brightness {n}%", "n" to it) } ?: tr("Brightness needs CleanMyTV's permission"), android.widget.Toast.LENGTH_SHORT).show()
-            "app" -> b.app?.let { pkg ->
+            "app" -> if (InputTiles.isInput(app)) InputTiles.open(this, app!!) else app?.let { pkg ->
                 (packageManager.getLeanbackLaunchIntentForPackage(pkg) ?: packageManager.getLaunchIntentForPackage(pkg))
                     ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)?.let { startActivity(it) }
             }
-            else -> quickActions()[b.action]?.let { a -> resolve(this, a)?.let { startActivity(it) } }
+            else -> quickActions()[action]?.let { a -> resolve(this, a)?.let { startActivity(it) } }
         }
     }
 
@@ -266,6 +352,7 @@ class KeyService : AccessibilityService() {
     @Volatile private var pausedUntil = 0L
 
     override fun onDestroy() {
+        hideNote()
         cancelRedirect()
         timer.removeCallbacksAndMessages(null)
         scope.cancel()
@@ -291,13 +378,15 @@ class KeyService : AccessibilityService() {
         private val VOLUME_KEYS = setOf(KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.KEYCODE_VOLUME_MUTE)
         /** How long an unmapped volume press stops the filtering: long enough to hold it, short enough not to miss a mapped button. */
         const val VOLUME_PAUSE_MS = 4000L
+        /** How long a button is held before its hold job runs instead of its press job. */
+        const val HOLD_MS = 600L
 
         /** Mapped buttons need the TV's buttons, except just after a volume press; the finder needs them while it listens. */
         fun needsKeys(cfg: HomeConfig, listening: Boolean, volumePaused: Boolean = false) =
-            listening || (!volumePaused && cfg.buttonsOn && cfg.buttons.isNotEmpty())
+            listening || Bedtime.warning || (!volumePaused && cfg.buttonsOn && cfg.buttons.isNotEmpty())
 
         /** The service has work while any of these is on. */
-        fun needsService(cfg: HomeConfig) = cfg.buttonsOn || cfg.lockOn || cfg.stockRedirect.isNotEmpty() || cfg.powerOnInput || cfg.limits.isNotEmpty()
+        fun needsService(cfg: HomeConfig) = cfg.buttonsOn || cfg.lockOn || cfg.stockRedirect.isNotEmpty() || cfg.powerOnInput || cfg.limits.isNotEmpty() || cfg.bedtimeOn
 
         /**
          * Whether a window of such a launcher is its home screen. Only another of its own activities says no;

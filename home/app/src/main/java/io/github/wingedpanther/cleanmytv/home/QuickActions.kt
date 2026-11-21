@@ -122,19 +122,29 @@ fun tvInputs(ctx: Context, liveTv: Boolean = ConfigStore.config.value.liveTv): L
 private fun builtInTuner(i: TvInputInfo): Boolean =
     i.type == TvInputInfo.TYPE_TUNER && (i.serviceInfo.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
 
-/** XGIMI projectors don't open a port's picture from its link; this opens their own HDMI switcher (#127). */
+/** XGIMI projectors don't open a port's picture from its link; their own HDMI player does (#127). */
 const val XGIMI_HDMI = "com.xgimi.action.hdmiPlayer"
 
 /**
- * A port opens its own picture, or on an XGIMI projector the projector's HDMI switcher. The tuner opens its
- * channels in the TV's Live TV app, which otherwise comes back on whichever source was used last.
+ * The port name XGIMI's player looks for in its "sw" extra: it matches it inside the input's id, so
+ * `…Hdmi2TvInputService/HW2` gives "HDMI2", and an id without one gives its last part, like "HW2".
+ */
+fun xgimiPort(id: String): String =
+    Regex("hdmi(\\d+)", RegexOption.IGNORE_CASE).find(id)?.let { "HDMI" + it.groupValues[1] }
+        ?: id.substringAfterLast('/').uppercase()
+
+/**
+ * A port opens its own picture, or on an XGIMI projector the projector's player tuned to that port. The tuner
+ * opens its channels in the TV's Live TV app, which otherwise comes back on whichever source was used last.
  */
 fun openInput(ctx: Context, id: String) {
     val tim = ctx.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
     val passthrough = runCatching { tim?.getTvInputInfo(id)?.isPassthroughInput }.getOrNull() ?: true
     val tries = if (passthrough) listOf(TvContract.buildChannelUriForPassthroughInput(id))
         else listOf(TvContract.buildChannelsUriForInput(id), TvContract.Channels.CONTENT_URI)
-    val intent = (tries.map { Intent(Intent.ACTION_VIEW, it) } + listOfNotNull(Intent(XGIMI_HDMI).takeIf { passthrough }))
+    // XGIMI's player also answers the port's link but ignores it, so it goes first, told the port by name.
+    val xgimi = Intent(XGIMI_HDMI).putExtra("sw", xgimiPort(id)).putExtra("launcher_start_source", xgimiPort(id)).takeIf { passthrough }
+    val intent = (listOfNotNull(xgimi) + tries.map { Intent(Intent.ACTION_VIEW, it) })
         .map { it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
         .firstOrNull { it.resolveActivity(ctx.packageManager) != null }
     runCatching { ctx.startActivity(intent ?: Intent(Intent.ACTION_VIEW, tries.first()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }

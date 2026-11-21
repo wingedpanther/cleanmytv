@@ -40,7 +40,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
-private fun clock(minute: Int) = "%02d:%02d".format(minute / 60, minute % 60)
+internal fun clock(minute: Int) = "%02d:%02d".format(minute / 60, minute % 60)
 
 /**
  * Themes, wallpaper and the day and night looks, as the desktop app's Look tab has them. Pictures from the

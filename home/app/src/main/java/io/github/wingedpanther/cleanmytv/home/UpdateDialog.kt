@@ -98,7 +98,7 @@ fun UpdateDialog(release: HomeRelease, accent: Color, onClose: () -> Unit) {
 }
 
 @Composable
-private fun UpdateButton(text: String, accent: Color, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun UpdateButton(text: String, accent: Color, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
     Surface(
         onClick = { if (enabled) onClick() },
         modifier = modifier,

@@ -213,7 +213,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var apps by remember { mutableStateOf<List<TvApp>>(emptyList()) }
     var inputs by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     val glyphs = cfg.iconStyle != "banner"
-    LaunchedEffect(appsVersion, glyphs, cfg.liveTv) {
+    LaunchedEffect(appsVersion, glyphs, cfg.liveTv, cfg.inputTiles) {
         apps = withContext(Dispatchers.Default) { loadApps(ctx, glyphs) }
         inputs = withContext(Dispatchers.Default) { tvInputs(ctx, cfg.liveTv) }
     }
@@ -341,6 +341,13 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     val byPkg = apps.associateBy { it.pkg }
     // A newer Home on the release page: its icon goes first in the bar until it's installed, skipped or put off.
     val update by Updates.available.collectAsState()
+    // Switched-off apps a system update turned back on: all of them, and the ones the owner hasn't heard about.
+    var back by remember { mutableStateOf<List<String>>(emptyList()) }
+    var backNews by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(appsVersion, cfg.switchedOff, cfg.cameBackSeen) {
+        back = withContext(Dispatchers.Default) { CameBack.check(ctx, cfg.switchedOff) }
+        backNews = CameBack.news(back, cfg.cameBackSeen)
+    }
     LaunchedEffect(appsVersion, cfg.updateCheck) {
         val r = Updates.check(ctx) ?: return@LaunchedEffect
         if (Updates.announce(ctx, r)) android.widget.Toast.makeText(ctx, tr("CleanMyTV Home {version} is out. The update icon is first in the top bar.", "version" to r.version), android.widget.Toast.LENGTH_LONG).show()
@@ -501,6 +508,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     if (showThemes) ThemeCarousel(accent) { showThemes = false }
     if (showTimer) TimerMenu(ui) { showTimer = false }
     if (showUpdate) update?.let { UpdateDialog(it, accent) { showUpdate = false } }
+    if (backNews.isNotEmpty() && !showUpdate) CameBackDialog(backNews, accent) { CameBack.seen(ctx, back); backNews = emptyList() }
     if (panelPin) Dialog(onDismissRequest = { panelPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         PinPad(tr("Enter the PIN for Quick settings"), Lock.PANEL, accent) { panelPin = false; showPanel = true }
     }

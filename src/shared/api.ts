@@ -208,6 +208,10 @@ export interface HomeButton {
   action: ButtonAction
   /** Package to open when action is 'app'. */
   app?: string
+  /** A second job for holding the button down (launcher 1.13.4); left out for none. */
+  hold?: ButtonAction
+  /** Package to open when hold is 'app'. */
+  hold_app?: string
 }
 
 /** A button the TV received, from the launcher's button finder. */
@@ -362,6 +366,12 @@ export interface HomeConfig {
   day_night: boolean
   day_at: number
   night_at: number
+  /** Bedtime: the TV turns off at bedtime_at, minutes past midnight, on bedtime_days, 1 Monday to 7 Sunday (launcher 1.13.4). */
+  bedtime_on: boolean
+  bedtime_at: number
+  bedtime_days: number[]
+  /** HDMI and the other inputs as tiles, listed with the apps (launcher 1.13.4). */
+  input_tiles: boolean
   // Music bars
   visualiser: boolean
   viz_style: 'bars' | 'mirror' | 'wave'

@@ -57,7 +57,12 @@ class ConfigProvider : ContentProvider() {
             return out
         }
         if (method == "apps") {
-            out.putString("apps", listApps(ctx.packageManager, ctx.packageName).toString())
+            val apps = listApps(ctx.packageManager, ctx.packageName)
+            ConfigStore.load(ctx)
+            if (ConfigStore.config.value.inputTiles) InputTiles.list(ctx).forEach { (pkg, name) ->
+                apps.put(org.json.JSONObject().put("pkg", pkg).put("label", name).put("tv", true))
+            }
+            out.putString("apps", apps.toString())
             return out
         }
         if (method == "wallpaper_read") {

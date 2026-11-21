@@ -40,6 +40,14 @@ import io.github.wingedpanther.cleanmytv.home.tr
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
+/** Bedtime's choices of days, 1 Monday to 7 Sunday. */
+private fun bedtimeDays() = listOf(
+    (1..7).toList() to tr("Every day"),
+    listOf(1, 2, 3, 4, 7) to tr("Sunday to Thursday"),
+    (1..5).toList() to tr("Monday to Friday"),
+    listOf(5, 6) to tr("Friday and Saturday"),
+)
+
 /** The greeting, the names Home shows, and the switches for the TV itself, as the desktop app has them. */
 @Composable
 fun MoreCustomization(config: HomeConfig, ctx: Context) {
@@ -70,6 +78,12 @@ fun MoreCustomization(config: HomeConfig, ctx: Context) {
             onCheckedChange = { set("live_tv", it) }
         )
         TvSwitch(
+            title = tr("Inputs as tiles"),
+            subtitle = tr("Each HDMI port becomes a tile you can put in the dock or a row"),
+            checked = config.inputTiles,
+            onCheckedChange = { set("input_tiles", it) }
+        )
+        TvSwitch(
             title = tr("Back to the input at power on"),
             subtitle = tr("If the TV slept on HDMI or TV channels, it wakes up there"),
             checked = config.powerOnInput,
@@ -98,6 +112,27 @@ fun MoreCustomization(config: HomeConfig, ctx: Context) {
             onCheckedChange = { set("keyboard_guard", it) }
         )
         if (config.powerOnInput) ServiceNote(tr("the TV starts on Home instead"))
+        TvSwitch(
+            title = tr("Bedtime"),
+            subtitle = tr("The TV turns off at this time. A minute before, a note says so, and any button keeps it on."),
+            checked = config.bedtimeOn,
+            onCheckedChange = { set("bedtime_on", it) }
+        )
+        if (config.bedtimeOn) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("${tr("Turn off at")} ${clock(config.bedtimeAt)}", color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                TvSecondaryButton(text = tr("Earlier"), onClick = { set("bedtime_at", Math.floorMod(config.bedtimeAt - 15, 24 * 60)) })
+                TvSecondaryButton(text = tr("Later"), onClick = { set("bedtime_at", Math.floorMod(config.bedtimeAt + 15, 24 * 60)) })
+            }
+            val days = bedtimeDays()
+            val picked = days.indexOfFirst { it.first == config.bedtimeDays }
+            TvRadioGroup(
+                title = tr("Days"),
+                options = days.mapIndexed { i, (_, name) -> i.toString() to name } + (if (picked < 0) listOf("custom" to tr("The days picked in the desktop app")) else emptyList()),
+                current = if (picked < 0) "custom" else picked.toString(),
+                onSelect = { i -> i.toIntOrNull()?.let { set("bedtime_days", org.json.JSONArray(days[it].first)) } }
+            )
+        }
         TvSwitch(
             title = tr("Phone apps in their own folder"),
             subtitle = tr("Apps with no TV banner go into an Other apps folder"),

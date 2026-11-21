@@ -72,6 +72,13 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
   useEffect(() => {
     load()
   }, [])
+  // Input tiles join the TV's app list once the launcher has the setting.
+  const tiles = cfg?.input_tiles
+  useEffect(() => {
+    if (tiles === undefined) return
+    const id = setTimeout(() => window.cytv.homeApps().then(setApps).catch(() => undefined), 1000)
+    return () => clearTimeout(id)
+  }, [tiles])
 
   async function flush(): Promise<void> {
     const change = { ...pending.current }
@@ -573,6 +580,7 @@ function AppsTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetF
       <div className="card">
         <h2>{t('Dock and order')}</h2>
         <Slider label={t('Apps in the dock')} hint={t('The first apps sit in a row of large tiles. 0 for no dock.')} value={cfg.dock_size} min={0} max={8} onChange={(v) => set({ dock_size: v }, 300)} />
+        <Toggle label={t('Inputs as tiles')} hint={t('Each HDMI port becomes a tile with the name the Inputs menu shows, like PS5. Put it in the dock or a row, and one press switches to it.')} checked={cfg.input_tiles} onChange={(v) => set({ input_tiles: v })} />
         <Toggle label={t('Phone apps in an Other apps folder')} hint={t('Apps made for phones, with no TV picture, move out of the dock and the grid into one folder. Apps you put in rows or folders stay where they are.')} checked={cfg.other_apps} onChange={(v) => set({ other_apps: v })} />
         <div className="row" style={{ margin: '6px 0 10px' }}>
           <span className="muted small">{t('Drag to reorder, or use the arrows. Highlighted tiles are the dock. Apps in a folder show only in the folder.')}</span>
@@ -858,6 +866,36 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
             </label>
           </div>
         )}
+      </div>
+
+      <div className="card">
+        <Toggle
+          label={t('Bedtime')}
+          hint={t('The TV turns off at this time on the days you pick. A minute before, a note says so, and any button on the remote keeps it on for the night. This uses the same accessibility service as Remote buttons.')}
+          checked={cfg.bedtime_on}
+          onChange={(v) => set({ bedtime_on: v })}
+        />
+        {cfg.bedtime_on && (
+          <div className="row" style={{ marginTop: 10, gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <label className="field">
+              <span>{t('Turn off at')}</span>
+              <input type="time" value={hhmm(cfg.bedtime_at)} onChange={(e) => { const m = minutesOf(e.target.value); if (m !== null) set({ bedtime_at: m }, 600) }} />
+            </label>
+            <div className="chips" role="group" aria-label={t('Days')}>
+              {WEEKDAYS().map(([d, name]) => (
+                <label key={d} className="chip-app" style={{ paddingRight: 10 }}>
+                  <input
+                    type="checkbox"
+                    checked={cfg.bedtime_days.includes(d)}
+                    onChange={(e) => set({ bedtime_days: e.target.checked ? [...cfg.bedtime_days, d].sort() : cfg.bedtime_days.filter((x) => x !== d) })}
+                  />
+                  {name}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+        {cfg.bedtime_on && cfg.bedtime_days.length === 0 && <p className="small muted" style={{ marginTop: 8 }}>{t('Pick at least one day.')}</p>}
       </div>
 
       <div className="card">
@@ -1574,7 +1612,7 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
         {cfg.buttons.length === 0 ? (
           <p className="muted small">{t('None yet. Find a button above and give it a job.')}</p>
         ) : (
-          <ul className="order-list">
+          <ul className="order-list button-list">
             {cfg.buttons.map((b, i) => (
               <li key={b.code}>
                 <span className="grow">
@@ -1585,7 +1623,7 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
                   aria-label={t('Job for {button}', { button: label(b.code) })}
                   onChange={(e) => {
                     const action = e.target.value as ButtonAction
-                    update(cfg.buttons.map((x, j) => (j === i ? { code: x.code, action, ...(action === 'app' ? { app: apps[0]?.pkg } : {}) } : x)))
+                    update(cfg.buttons.map((x, j) => (j === i ? { ...x, action, app: action === 'app' ? (x.app ?? apps[0]?.pkg) : undefined } : x)))
                   }}
                 >
                   {ACTIONS.map(([id, text]) => (
@@ -1596,6 +1634,30 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
                 </select>
                 {b.action === 'app' && (
                   <select value={b.app ?? ''} aria-label={t('App to open')} onChange={(e) => update(cfg.buttons.map((x, j) => (j === i ? { ...x, app: e.target.value } : x)))}>
+                    {apps.map((a) => (
+                      <option key={a.pkg} value={a.pkg}>
+                        {a.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <select
+                  value={b.hold ?? 'none'}
+                  aria-label={t('Job for holding {button} down', { button: label(b.code) })}
+                  title={t('Held down')}
+                  onChange={(e) => {
+                    const hold = e.target.value as ButtonAction
+                    update(cfg.buttons.map((x, j) => (j === i ? { ...x, hold: hold === 'none' ? undefined : hold, hold_app: hold === 'app' ? (x.hold_app ?? apps[0]?.pkg) : undefined } : x)))
+                  }}
+                >
+                  {ACTIONS.map(([id, text]) => (
+                    <option key={id} value={id}>
+                      {id === 'none' ? t('Held down: nothing extra') : t('Held down: {job}', { job: text })}
+                    </option>
+                  ))}
+                </select>
+                {b.hold === 'app' && (
+                  <select value={b.hold_app ?? ''} aria-label={t('App to open when held')} onChange={(e) => update(cfg.buttons.map((x, j) => (j === i ? { ...x, hold_app: e.target.value } : x)))}>
                     {apps.map((a) => (
                       <option key={a.pkg} value={a.pkg}>
                         {a.label}
@@ -1919,6 +1981,8 @@ const SLIDE_TIMES: [number, string][] = [[0, t('Off')], [5, t('{n} min', { n: 5 
 
 /** Slideshow (#56): a new wallpaper every few minutes, from pictures picked here or the current theme's own. */
 /** "07:00" for minutes past midnight, and back, for the time fields. */
+/** Bedtime's days, 1 Monday to 7 Sunday, as the launcher counts them. */
+const WEEKDAYS = (): [number, string][] => [[1, t('Mon')], [2, t('Tue')], [3, t('Wed')], [4, t('Thu')], [5, t('Fri')], [6, t('Sat')], [7, t('Sun')]]
 const hhmm = (m: number): string => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 const minutesOf = (v: string): number | null => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(v)

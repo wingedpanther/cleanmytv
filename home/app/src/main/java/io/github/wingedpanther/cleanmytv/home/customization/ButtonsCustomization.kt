@@ -51,7 +51,7 @@ import io.github.wingedpanther.cleanmytv.home.customization.components.TvSeconda
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSwitch
 import io.github.wingedpanther.cleanmytv.home.tr
 import kotlinx.coroutines.delay
-import org.json.JSONArray
+import io.github.wingedpanther.cleanmytv.home.buttonsJson
 import org.json.JSONObject
 
 /** What a button can do, worded as the desktop app's Remote buttons tab, in the TV's language. */
@@ -87,15 +87,26 @@ fun ButtonsCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
     // A found button waiting for its job, and the job waiting for its app.
     var code by remember { mutableStateOf<Int?>(null) }
     var pickApp by remember { mutableStateOf(false) }
+    // Whether the job being picked is the one for holding the button down.
+    var forHold by remember { mutableStateOf(false) }
     val save = { next: List<ButtonMap> ->
-        ConfigStore.update(ctx, JSONObject().put("buttons", JSONArray(next.map { b ->
-            JSONObject().put("code", b.code).put("action", b.action).apply { b.app?.let { put("app", it) } }
-        })))
+        ConfigStore.update(ctx, JSONObject().put("buttons", buttonsJson(next)))
         KeyService.ensureOn(ctx)
     }
-    val label = { b: ButtonMap ->
-        if (b.action == "app") tr("Open {app}", "app" to (apps.firstOrNull { it.pkg == b.app }?.label ?: b.app.toString()))
-        else actions().firstOrNull { it.first == b.action }?.second ?: b.action
+    val label = { action: String, app: String? ->
+        if (action == "app") tr("Open {app}", "app" to (apps.firstOrNull { it.pkg == app }?.label ?: app.toString()))
+        else actions().firstOrNull { it.first == action }?.second ?: action
+    }
+    // A new press job keeps the hold job, and a new hold job keeps the press job.
+    val pick = { c: Int, action: String, app: String? ->
+        val old = config.buttons.firstOrNull { it.code == c }
+        val next = when {
+            !forHold -> ButtonMap(c, action, app, old?.hold, old?.holdApp)
+            action == "none" -> ButtonMap(c, old?.action ?: "none", old?.app)
+            else -> ButtonMap(c, old?.action ?: "none", old?.app, action, app)
+        }
+        save(config.buttons.filter { it.code != c } + next)
+        pickApp = false; code = null; forHold = false
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -117,9 +128,11 @@ fun ButtonsCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(keyName(b.code), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                        Text(label(b), color = MUTED_COLOR, fontSize = 13.sp)
+                        Text(label(b.action, b.app), color = MUTED_COLOR, fontSize = 13.sp)
+                        b.hold?.let { Text(tr("Held down: {job}", "job" to label(it, b.holdApp)), color = MUTED_COLOR, fontSize = 13.sp) }
                     }
-                    TvSecondaryButton(text = tr("Change"), onClick = { code = b.code })
+                    TvSecondaryButton(text = tr("Change"), onClick = { forHold = false; code = b.code })
+                    TvSecondaryButton(text = tr("When held"), onClick = { forHold = true; code = b.code })
                     TvDestructiveButton(text = tr("Remove"), onClick = { save(config.buttons.filter { it.code != b.code }) })
                 }
             }
@@ -132,14 +145,13 @@ fun ButtonsCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
     if (finding) FindButton(onDismiss = { finding = false }) { found -> finding = false; code = found }
     code?.let { c ->
         if (pickApp) {
-            Choose(tr("Which app should {button} open?", "button" to keyName(c)), apps.map { it.pkg to it.label }, onDismiss = { pickApp = false; code = null }) { pkg ->
-                save(config.buttons.filter { it.code != c } + ButtonMap(c, "app", pkg))
-                pickApp = false; code = null
+            Choose(tr("Which app should {button} open?", "button" to keyName(c)), apps.map { it.pkg to it.label }, onDismiss = { pickApp = false; code = null; forHold = false }) { pkg ->
+                pick(c, "app", pkg)
             }
         } else {
-            Choose(tr("What should {button} do?", "button" to keyName(c)), actions().filter { it.first != "memory" || Memory.canClean }, onDismiss = { code = null }) { action ->
-                if (action == "app") pickApp = true
-                else { save(config.buttons.filter { it.code != c } + ButtonMap(c, action)); code = null }
+            val title = if (forHold) tr("What should holding {button} down do?", "button" to keyName(c)) else tr("What should {button} do?", "button" to keyName(c))
+            Choose(title, actions().filter { it.first != "memory" || Memory.canClean }, onDismiss = { code = null; forHold = false }) { action ->
+                if (action == "app") pickApp = true else pick(c, action, null)
             }
         }
     }

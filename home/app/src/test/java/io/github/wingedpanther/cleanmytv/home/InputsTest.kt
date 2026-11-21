@@ -54,4 +54,10 @@ class InputsTest {
         val rows = listOf(device(4, "Xbox"), port(1, custom = "  "))
         assertEquals(listOf("HDMI 1", "Xbox"), pickInputs(rows).map { it.second })
     }
+
+    @Test fun `XGIMI's player is told the port by name (#127)`() {
+        assertEquals("HDMI1", xgimiPort("com.xgimi.tvinput/.inputservice.Hdmi1TvInputService/HW1"))
+        assertEquals("HDMI2", xgimiPort("com.xgimi.tvinput/.inputservice.Hdmi2TvInputService/HW2"))
+        assertEquals("HW3", xgimiPort("com.xgimi.tvinput/.inputservice.ArcInputService/hw3"))
+    }
 }

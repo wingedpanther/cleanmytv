@@ -8,7 +8,15 @@ import org.json.JSONObject
 import java.io.File
 
 /** A remote button and what it does: an action id, or "app" with a package. */
-data class ButtonMap(val code: Int, val action: String, val app: String? = null)
+/** Buttons as the config file and the desktop app write them. */
+fun buttonsJson(buttons: List<ButtonMap>) = JSONArray(buttons.map { b ->
+    JSONObject().put("code", b.code).put("action", b.action).apply {
+        b.app?.let { put("app", it) }; b.hold?.let { put("hold", it) }; b.holdApp?.let { put("hold_app", it) }
+    }
+})
+
+/** A remote button's job when pressed, and optionally a second one when held down ([hold], [holdApp]). */
+data class ButtonMap(val code: Int, val action: String, val app: String? = null, val hold: String? = null, val holdApp: String? = null)
 
 /** A named group of apps: a row on the home screen, or a folder. */
 data class Group(val name: String, val apps: List<String>)
@@ -110,6 +118,15 @@ data class HomeConfig(
     val dayNight: Boolean = false,
     val dayAt: Int = 7 * 60,
     val nightAt: Int = 19 * 60,
+    // Bedtime: on these days (1 Monday to 7 Sunday) the TV goes to sleep at this many minutes past midnight
+    val bedtimeOn: Boolean = false,
+    val bedtimeAt: Int = 23 * 60 + 30,
+    val bedtimeDays: List<Int> = (1..7).toList(),
+    val inputTiles: Boolean = false, // HDMI and the other inputs as tiles, to put in the dock or a row like apps
+    // Apps CleanMyTV switched off, from the desktop app, so Home can say when a system update brings some back;
+    // the ones the owner already heard about stay quiet
+    val switchedOff: List<String> = emptyList(),
+    val cameBackSeen: List<String> = emptyList(),
     // Music bars
     val visualiser: Boolean = true,
     val vizStyle: String = "bars", // bars, mirror, wave
@@ -132,7 +149,7 @@ data class HomeConfig(
         .put("dock_scale", dockScale)
         .put("tile_scale", tileScale)
         .put("buttons_on", buttonsOn)
-        .put("buttons", JSONArray(buttons.map { b -> JSONObject().put("code", b.code).put("action", b.action).apply { b.app?.let { put("app", it) } } }))
+        .put("buttons", buttonsJson(buttons))
         .put("stock_redirect", stockRedirect)
         .put("power_on_input", powerOnInput)
         .put("power_on_target", powerOnTarget)
@@ -198,6 +215,12 @@ data class HomeConfig(
         .put("day_night", dayNight)
         .put("day_at", dayAt)
         .put("night_at", nightAt)
+        .put("bedtime_on", bedtimeOn)
+        .put("bedtime_at", bedtimeAt)
+        .put("bedtime_days", JSONArray(bedtimeDays))
+        .put("input_tiles", inputTiles)
+        .put("switched_off", JSONArray(switchedOff))
+        .put("came_back_seen", JSONArray(cameBackSeen))
         .put("visualiser", visualiser)
         .put("viz_style", vizStyle)
         .put("viz_bars", vizBars)
@@ -274,8 +297,13 @@ data class HomeConfig(
                     val code = b.optInt("code", -1)
                     val action = b.optString("action")
                     val app = b.optString("app").takeIf { PKG.matches(it) }
+                    // A hold job is optional; one that can't run is dropped and the press job stays.
+                    val hold = b.optString("hold").takeIf { it in BUTTON_ACTIONS && it != "none" }
+                    val holdApp = b.optString("hold_app").takeIf { PKG.matches(it) }
+                    val holdOk = hold != null && (hold != "app" || holdApp != null)
                     if (code !in 1..65535 || action !in BUTTON_ACTIONS || (action == "app" && app == null)) null
-                    else ButtonMap(code, action, if (action == "app") app else null)
+                    else ButtonMap(code, action, if (action == "app") app else null,
+                        hold.takeIf { holdOk }, holdApp.takeIf { holdOk && hold == "app" })
                 }.distinctBy { it.code }
             }
             return base.copy(
@@ -362,6 +390,12 @@ data class HomeConfig(
                 dayNight = bool("day_night", base.dayNight),
                 dayAt = int("day_at", base.dayAt, 0, 24 * 60 - 1),
                 nightAt = int("night_at", base.nightAt, 0, 24 * 60 - 1),
+                bedtimeOn = bool("bedtime_on", base.bedtimeOn),
+                bedtimeAt = int("bedtime_at", base.bedtimeAt, 0, 24 * 60 - 1),
+                bedtimeDays = o.optJSONArray("bedtime_days")?.let { a -> (0 until minOf(a.length(), 7)).map { a.optInt(it) }.filter { it in 1..7 }.distinct().sorted() } ?: base.bedtimeDays,
+                inputTiles = bool("input_tiles", base.inputTiles),
+                switchedOff = pkgs("switched_off") ?: base.switchedOff,
+                cameBackSeen = pkgs("came_back_seen") ?: base.cameBackSeen,
                 visualiser = bool("visualiser", base.visualiser),
                 vizStyle = choice("viz_style", base.vizStyle, setOf("bars", "mirror", "wave")),
                 vizBars = int("viz_bars", base.vizBars, 8, 64),

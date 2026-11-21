@@ -123,6 +123,7 @@ fun loadApps(ctx: Context, glyphs: Boolean): List<TvApp> {
             out += TvApp(ai.packageName, ri.loadLabel(pm).toString(), art.asImageBitmap(), banner != null, launch, if (banner == null) colour else null, colour, glyph)
         }
     }
+    if (ConfigStore.config.value.inputTiles) out += InputTiles.apps(ctx)
     return out
 }
 

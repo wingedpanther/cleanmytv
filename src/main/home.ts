@@ -33,6 +33,7 @@ export const DEFAULTS: HomeConfig = {
   clock: 'time_date', greeting: '', names: {}, idle_minutes: 0,
   weather_place: '', weather_lat: 0, weather_lon: 0, weather_unit: 'c', weather_hours: false, memory: false,
   day_night: false, day_at: 7 * 60, night_at: 19 * 60,
+  bedtime_on: false, bedtime_at: 23 * 60 + 30, bedtime_days: [1, 2, 3, 4, 5, 6, 7], input_tiles: false,
   visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
 }
 
@@ -71,11 +72,11 @@ const RANGES = {
   wallpaper_dim: [0, 80], dock_size: [0, 8], columns: [3, 8], idle_minutes: [0, 60],
   viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300],
   fire_volume: [0, 100], fire_timer: [0, 240], slide_minutes: [0, 240], tile_glass: [0, 60],
-  day_at: [0, 24 * 60 - 1], night_at: [0, 24 * 60 - 1],
+  day_at: [0, 24 * 60 - 1], night_at: [0, 24 * 60 - 1], bedtime_at: [0, 24 * 60 - 1],
   shade_top: [0, 100], shade_top_reach: [0, 100], shade_bottom: [0, 100], shade_bottom_reach: [0, 100], wash: [0, 100], wash_reach: [10, 100]
 } as const
 
-const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night', 'power_on_input', 'edit_on_tv', 'bing_daily', 'bing_caption', 'theme_memory', 'lock_editor', 'update_check', 'keyboard_guard', 'snow', 'weather_hours'] as const
+const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night', 'power_on_input', 'edit_on_tv', 'bing_daily', 'bing_caption', 'theme_memory', 'lock_editor', 'update_check', 'keyboard_guard', 'snow', 'weather_hours', 'bedtime_on', 'input_tiles'] as const
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 /** Lets the launcher see other apps' media sessions; on only while the Now playing section is. */
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
@@ -239,8 +240,8 @@ export async function install(chosen?: string): Promise<InstallResult> {
 }
 
 /** The remote-button service has work: buttons, the app lock, the Home redirect or the power-on input. */
-export const needsService = (c: Pick<HomeConfig, 'buttons_on' | 'lock_on' | 'stock_redirect' | 'power_on_input'>): boolean =>
-  c.buttons_on || c.lock_on || !!c.stock_redirect || c.power_on_input
+export const needsService = (c: Pick<HomeConfig, 'buttons_on' | 'lock_on' | 'stock_redirect' | 'power_on_input' | 'bedtime_on'>): boolean =>
+  c.buttons_on || c.lock_on || !!c.stock_redirect || c.power_on_input || !!c.bedtime_on
 
 /**
  * Keeps Google TV's own launcher on beside CleanMyTV Home (#99, #88). Some apps need it: Apple TV and Netflix
@@ -371,14 +372,23 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
     if (ok) out[k] = (v as HomeGroup[]).map((g) => ({ name: plain(g.name, 30), apps: [...new Set(g.apps)] }))
     else bad(`${k} must be up to ${max} named groups of package names`)
   }
+  if (o.bedtime_days !== undefined) {
+    const v = o.bedtime_days
+    if (Array.isArray(v) && v.length <= 7 && v.every((d) => Number.isInteger(d) && d >= 1 && d <= 7)) out.bedtime_days = [...new Set(v as number[])].sort()
+    else bad('bedtime_days must be days 1 (Monday) to 7 (Sunday)')
+  }
   if (o.buttons !== undefined) {
     const v = o.buttons
     const ok = Array.isArray(v) && v.length <= 30 && v.every((b) =>
       b && typeof b === 'object' && Number.isInteger(b.code) && b.code >= 1 && b.code <= MAX_KEY && BUTTON_ACTIONS.includes(b.action) &&
-      (b.action !== 'app' || (typeof b.app === 'string' && T.PACKAGE_RE.test(b.app))))
+      (b.action !== 'app' || (typeof b.app === 'string' && T.PACKAGE_RE.test(b.app))) &&
+      (b.hold === undefined || (BUTTON_ACTIONS.includes(b.hold) && (b.hold !== 'app' || (typeof b.hold_app === 'string' && T.PACKAGE_RE.test(b.hold_app))))))
     if (ok) {
       const seen = new Set<number>()
-      out.buttons = (v as HomeButton[]).filter((b) => !seen.has(b.code) && seen.add(b.code)).map((b) => ({ code: b.code, action: b.action, ...(b.action === 'app' ? { app: b.app } : {}) }))
+      out.buttons = (v as HomeButton[]).filter((b) => !seen.has(b.code) && seen.add(b.code)).map((b) => ({
+        code: b.code, action: b.action, ...(b.action === 'app' ? { app: b.app } : {}),
+        ...(b.hold && b.hold !== 'none' ? { hold: b.hold, ...(b.hold === 'app' ? { hold_app: b.hold_app } : {}) } : {})
+      }))
     } else bad('buttons must be up to 30 key codes (1 to 65535), each with a known action')
   }
   if (o.greeting !== undefined) {
@@ -701,8 +711,9 @@ export async function setConfig(change: Partial<HomeConfig>): Promise<HomeConfig
   // A Home that updated itself never had the install's grant. Never taken back: Android stops Home to do that.
   if (change.sections && cfg.sections.includes('watchnext')) await watchNextAccess('theme')
   // Going back to the input at power on (#94) is the remote-button service's job too.
-  if (checked.power_on_input === true) await addService(KEY_SERVICE)
-  else if (checked.power_on_input === false && !needsService(cfg)) await dropServices(HOME_PKG)
+  // So is bedtime: the service shows the note and puts the TV to sleep.
+  if (checked.power_on_input === true || checked.bedtime_on === true) await addService(KEY_SERVICE)
+  else if ((checked.power_on_input === false || checked.bedtime_on === false) && !needsService(cfg)) await dropServices(HOME_PKG)
   return cfg
 }
 
