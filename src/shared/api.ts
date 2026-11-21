@@ -477,6 +477,27 @@ export interface SystemState {
   storage: { freeKb: number; totalKb: number } | null
 }
 
+/** One app's share of the TV's storage, in bytes. */
+export interface AppSize {
+  pkg: string
+  /** The app's code: the APK and its updates. */
+  app: number
+  /** Unknown (undefined) when the TV hasn't measured its apps' data yet. */
+  data?: number
+  cache?: number
+  state: PackageState
+  /** A system app carrying an update from the Play Store, which Remove update takes off again. */
+  updated: boolean
+}
+
+export interface AppSizes {
+  storage: { freeKb: number; totalKb: number } | null
+  /** Biggest first. */
+  apps: AppSize[]
+  /** diskstats: Android's own measurement of code, data and cache. code: only the code of apps outside the system image. */
+  source: 'diskstats' | 'code'
+}
+
 /** An .apk the owner picked, read before it goes to the TV. */
 export interface SideloadInfo {
   file: string
@@ -663,6 +684,10 @@ export interface CytvApi {
   pathForFile(file: File): string
   /** Clears every app's cache on the TV. */
   clearCaches(): Promise<ApplyResult>
+  /** Free space and what each app takes, biggest first. */
+  appSizes(): Promise<AppSizes>
+  /** Takes the Play Store update off a switched-off system app; the version the TV came with stays, switched off. */
+  removeUpdate(pkg: string): Promise<ApplyResult>
   key(keycode: number): Promise<void>
   reboot(): Promise<void>
 

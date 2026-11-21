@@ -23,6 +23,7 @@ import * as home from './home'
 import * as themes from './themes'
 import { THEME_EXT, themeFileName } from '@shared/themes'
 import { bugReport, fullReport } from './report'
+import * as storage from './storage'
 import { tellHome } from './switchedoff'
 import * as record from './record'
 import * as checkup from './checkup'
@@ -273,6 +274,8 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   sideloadInfo: (path) => sideload.inspect(String(path)),
   sideload: (path) => sideload.install(String(path)),
   clearCaches: () => system.clearCaches(),
+  appSizes: () => storage.sizes(),
+  removeUpdate: (pkg) => storage.removeUpdate(String(pkg ?? '')),
   key: (code) => system.key(code),
   reboot: () => system.reboot()
 }

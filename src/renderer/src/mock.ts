@@ -1,6 +1,7 @@
 // A fake TV for viewing the UI in a plain browser (npm run dev without Electron, or vite preview).
 // Installed only when the preload script did not provide window.cytv.
 import type {
+  AppSize,
   ApplyResult,
   CheckItem,
   ConnStatus,
@@ -489,6 +490,22 @@ export function installMock(): void {
     async clearCaches() {
       if (sys.storage) sys.storage = { ...sys.storage, freeKb: sys.storage.freeKb + 412000 }
       return ok("Cleared every app's cache: 402 MB back, 1210 MB free now.")
+    },
+    async appSizes() {
+      await wait(600)
+      const mb = 1024 * 1024
+      const apps: AppSize[] = [
+        { pkg: 'com.google.android.youtube.tv', app: 182 * mb, data: 96 * mb, cache: 140 * mb, state: 'enabled', updated: true },
+        { pkg: 'com.netflix.ninja', app: 120 * mb, data: 210 * mb, cache: 35 * mb, state: 'enabled', updated: false },
+        { pkg: 'com.sony.dtv.promos', app: 88 * mb, data: 12 * mb, cache: 4 * mb, state: 'disabled', updated: true },
+        { pkg: 'com.amazon.amazonvideo.livingroom', app: 64 * mb, data: 40 * mb, cache: 22 * mb, state: 'enabled', updated: false },
+        { pkg: 'com.google.android.apps.tv.dreamx', app: 30 * mb, data: 2 * mb, cache: 1 * mb, state: 'enabled', updated: true }
+      ]
+      return { storage: sys.storage, apps, source: 'diskstats' }
+    },
+    async removeUpdate(pkg) {
+      await wait(700)
+      return ok(`Removed the update to ${pkg}: 88 MB back. It stays switched off.`)
     },
     async sideloadInfo(path) {
       await wait(400)
