@@ -224,7 +224,7 @@ export default function App(): ReactNode {
           </ol>
         </nav>
         <div className="sidebar-foot">
-          {update?.available && <UpdateNote update={update} />}
+          {update?.available ? <UpdateNote update={update} /> : <UpdateCheck onNewer={setUpdate} />}
           {t("Nothing is uninstalled. Every change can be undone from this app or the TV's Settings → Apps.")}
           <LanguagePick onPick={(c) => {
             // The window reloads in the new language and opens this step again.
@@ -265,6 +265,33 @@ function ConnPill({ status }: { status: ConnStatus }): ReactNode {
     <div className="conn-pill" title={status.error ?? status.host}>
       <span className={`dot ${dot}`} />
       <span>{text}</span>
+    </div>
+  )
+}
+
+/** Asks GitHub now, past the cache: says this is the latest version, or hands a newer one to UpdateNote. */
+function UpdateCheck({ onNewer }: { onNewer: (u: UpdateInfo) => void }): ReactNode {
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState<string | null>(null)
+  async function check(): Promise<void> {
+    setBusy(true)
+    setNote(null)
+    try {
+      const u = await window.cytv.checkUpdate(true)
+      if (u.available) onNewer(u)
+      else setNote(u.failed ? t("Couldn't reach GitHub. Try again later.") : t('You have the latest version, {v}.', { v: u.current }))
+    } catch (e) {
+      setNote(errorText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="update-check">
+      <button className="update-check-btn" disabled={busy} onClick={() => void check()}>
+        {busy ? t('Checking…') : t('Check for updates')}
+      </button>
+      {note && <span className="update-state" role="status">{note}</span>}
     </div>
   )
 }

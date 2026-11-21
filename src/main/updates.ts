@@ -1,10 +1,11 @@
-// Is there a newer CleanMyTV? One request to GitHub's latest-release API, at most every 12 hours,
-// with the answer cached in the settings file. Nothing is downloaded: the app links to the release page.
+// Is there a newer CleanMyTV? One request to GitHub's latest-release API, with the answer cached in the
+// settings file. Each launch asks again, and so does Check for updates; the cache only spares GitHub the
+// repeat checks within an hour, like a window reload. Nothing is downloaded here: updater.ts does that.
 import type { UpdateInfo } from '@shared/api'
 
 const URL_LATEST = 'https://api.github.com/repos/wingedpanther/cleanmytv/releases/latest'
 const RELEASES = 'https://github.com/wingedpanther/cleanmytv/releases/'
-const EVERY_MS = 12 * 60 * 60 * 1000
+const EVERY_MS = 60 * 60 * 1000
 
 export interface UpdateCache {
   checkedAt?: number
@@ -26,26 +27,32 @@ export function isNewer(candidate: string, current: string): boolean {
 }
 
 /**
- * The newest release, from the cache when it is fresh. Returns the cache to store. A failed check keeps
- * the old answer and is retried next launch: being offline is not an error worth showing.
+ * The newest release, from the cache when it is fresh, or from GitHub when `force` is set or the cache is
+ * old. Returns the cache to store. A failed check keeps the old answer and says so in `failed`: the
+ * sidebar stays quiet about it, and Check for updates shows it.
  */
-export async function check(current: string, cache: UpdateCache, now = Date.now(), fetchImpl: typeof fetch = fetch): Promise<{ info: UpdateInfo; cache: UpdateCache }> {
+export async function check(current: string, cache: UpdateCache, now = Date.now(), fetchImpl: typeof fetch = fetch, force = false): Promise<{ info: UpdateInfo; cache: UpdateCache }> {
   let next = cache
-  if (!cache.checkedAt || now - cache.checkedAt > EVERY_MS || now < cache.checkedAt) {
+  let failed = false
+  if (force || !cache.checkedAt || now - cache.checkedAt > EVERY_MS || now < cache.checkedAt) {
+    failed = true
     try {
       const res = await fetchImpl(URL_LATEST, { headers: { accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(10000) })
       if (res.ok) {
         const tag = String(((await res.json()) as { tag_name?: unknown }).tag_name ?? '')
-        if (parseVersion(tag)) next = { checkedAt: now, latest: tag.replace(/^v/, '') }
+        if (parseVersion(tag)) {
+          next = { checkedAt: now, latest: tag.replace(/^v/, '') }
+          failed = false
+        }
       }
     } catch {
-      // offline, or GitHub is slow: try again next launch
+      // offline, or GitHub is slow: the next launch or button press tries again
     }
   }
   const latest = next.latest
   const available = !!latest && isNewer(latest, current)
   return {
-    info: { current, latest, available, url: available ? `${RELEASES}tag/v${latest}` : undefined },
+    info: { current, latest, available, url: available ? `${RELEASES}tag/v${latest}` : undefined, ...(failed ? { failed } : {}) },
     cache: next
   }
 }

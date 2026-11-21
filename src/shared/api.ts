@@ -161,6 +161,8 @@ export interface UpdateInfo {
   url?: string
   /** This copy can download and install it itself (Mac and Windows builds). */
   canInstall?: boolean
+  /** This check asked GitHub and got no answer; `latest` is from an earlier check, if any. */
+  failed?: boolean
 }
 
 export interface BootCheckResult {
@@ -524,8 +526,8 @@ export interface CytvApi {
   reconnect(): Promise<ConnStatus | null>
   /** Port 5555 refuses or ignores connections (after debugging was switched off). */
   checkAdbClosed(host: string): Promise<{ closed: boolean; message: string }>
-  /** Asks GitHub for a newer CleanMyTV, at most every 12 hours. */
-  checkUpdate(): Promise<UpdateInfo>
+  /** Asks GitHub for a newer CleanMyTV: on the first call each launch, and whenever `force` is set; else from the last hour's answer. */
+  checkUpdate(force?: boolean): Promise<UpdateInfo>
   /** Downloads the new version for this computer and checks it against the release's SHA256SUMS.txt. */
   downloadUpdate(): Promise<ApplyResult>
   /** Installs the downloaded version; the app quits and opens again. */

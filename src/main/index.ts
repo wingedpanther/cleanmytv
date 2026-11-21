@@ -31,6 +31,8 @@ import type { CheckItem, ConnStatus, CytvApi, KnownTv } from '@shared/api'
 let win: BrowserWindow | null = null
 /** The new version's installer once it is downloaded and checked. */
 let updateFile: string | null = null
+/** The first update check of each launch asks GitHub, whatever the cache says. */
+let askedGitHub = false
 
 interface Settings {
   lastHost?: string
@@ -127,9 +129,10 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   lastHost: async () => readSettings().lastHost ?? null,
   checkAdbClosed: (host) => system.adbClosed(host),
   bootCheck: () => bootCheck(),
-  checkUpdate: async () => {
+  checkUpdate: async (force) => {
     const s = readSettings()
-    const { info, cache } = await checkUpdate(app.getVersion(), s.update ?? {})
+    const { info, cache } = await checkUpdate(app.getVersion(), s.update ?? {}, Date.now(), fetch, force === true || !askedGitHub)
+    askedGitHub = true
     if (cache !== s.update) writeSettings({ ...readSettings(), update: cache })
     return { ...info, canInstall: app.isPackaged && !!updater.assetName(info.latest ?? '', process.platform, process.arch) }
   },
