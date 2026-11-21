@@ -12,7 +12,7 @@ import { keptLauncher } from './kept'
 import { keyboardPackages, noteKeyboard } from './keyboard'
 import { t, UiError } from './i18n'
 import { inEnglish } from './english'
-import type { ApplyResult, DebloatApplyRequest, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState, Probe } from '@shared/api'
+import type { ApplyResult, CameBack, DebloatApplyRequest, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState, Probe } from '@shared/api'
 
 const TASK = 'debloat'
 export const SETUPWRAITH = 'com.google.android.tungsten.setupwraith'
@@ -534,14 +534,19 @@ function sourceList(listId: string): { title: string; parsed: ParsedList } {
   return { title: titleOf(l), parsed: l.parsed }
 }
 
-/** Active package lines of the list this app saved earlier for this TV, if any. */
-function savedActive(file: string): string[] {
+/** Every package line of the list this app saved earlier for this TV, if any: active ones and kept ones. */
+function savedEntries(file: string): ListEntry[] {
   if (!existsSync(file)) return []
   try {
-    return parseList(readFileSync(file, 'utf8'), file).entries.filter((e) => e.suggested).map((e) => e.pkg)
+    return parseList(readFileSync(file, 'utf8'), file).entries
   } catch {
     return []
   }
+}
+
+/** Active package lines of that list: what this app keeps switched off with it. */
+function savedActive(file: string): string[] {
+  return savedEntries(file).filter((e) => e.suggested).map((e) => e.pkg)
 }
 
 export async function plan(listId: string): Promise<DebloatPlan> {
@@ -563,10 +568,11 @@ export async function plan(listId: string): Promise<DebloatPlan> {
   }))
   // The custom list is every package other TVs disable: only the ones on this TV are worth showing.
   if (listId === 'custom') entries = entries.filter((e) => e.state !== 'absent')
-  // Packages the owner added by hand (#39) live only in the saved list.
-  const inList = new Set(entries.map((e) => e.pkg))
-  for (const pkg of savedActive(file)) {
+  // Packages the owner added by hand (#39) live only in the saved list; after a Restore, as kept lines.
+  const inList = new Set(parsed.entries.map((e) => e.pkg))
+  for (const { pkg } of savedEntries(file)) {
     if (inList.has(pkg)) continue
+    inList.add(pkg)
     entries.push(addedEntry(pkg, stateOf(pkg, installed, disabled), common, record?.packages[pkg]))
   }
   // Lists name core packages as lines their authors kept, so don't offer them. One already off stays visible.
@@ -579,21 +585,60 @@ export async function plan(listId: string): Promise<DebloatPlan> {
     header: parsed.header,
     entries,
     record: record ? { path: rpath, created: record.created } : undefined,
-    homePackage,
-    cameBack: record ? cameBack(savedActive(file), installed, disabled, homePackage, await screensaverApps()) : []
+    homePackage
   }
 }
 
 /**
- * Packages this app switched off on this TV that are on again, usually after a firmware update. The
- * stock launcher and setupwraith only count once CleanMyTV Home owns Home: until then apply keeps them on.
+ * Of a saved list's active packages, the ones this app keeps off. The stock launcher and setupwraith only
+ * count once CleanMyTV Home owns Home: until then apply keeps them on.
  */
-export function cameBack(active: string[], installed: Set<string>, disabled: Set<string>, homePackage: string | null, keep: string[] = []): string[] {
+export function keptOff(active: string[], homePackage: string | null, keep: string[] = []): string[] {
   const held = homePackage === OUR_HOME ? [] : [...stockLaunchers(), SETUPWRAITH]
   // Google's launcher kept on for apps that need it is on by choice, and setupwraith with it (#99, #88).
   const kept = keptLauncher()
   if (kept) held.push(kept, SETUPWRAITH)
-  return active.filter((p) => installed.has(p) && !disabled.has(p) && !isCore(p) && !held.includes(p) && !keep.includes(p))
+  return active.filter((p) => !isCore(p) && !held.includes(p) && !keep.includes(p))
+}
+
+/** Packages this app switched off on this TV that are on again, usually after a system update. */
+export function cameBack(active: string[], installed: Set<string>, disabled: Set<string>, homePackage: string | null, keep: string[] = []): string[] {
+  return keptOff(active, homePackage, keep).filter((p) => installed.has(p) && !disabled.has(p))
+}
+
+/** The lists this app applied on the connected TV: a saved list with a restore point for this TV. */
+export function appliedLists(): { listId: string; active: string[] }[] {
+  const probe = T.getStatus().probe
+  if (!probe) return []
+  const out: { listId: string; active: string[] }[] = []
+  for (const listId of ['custom', ...upstreamLists().map((l) => l.id)]) {
+    const file = savedListPath(listId, probe)
+    if (!existsSync(file)) continue
+    try {
+      if (findRecord(file, probe.host, probe.device || undefined).record) out.push({ listId, active: savedActive(file) })
+    } catch {
+      // another device's record at this address: not this TV's clean-up
+    }
+  }
+  return out
+}
+
+/** What this app keeps switched off on the connected TV, and which of those are on again. */
+export async function switchedOff(): Promise<{ off: string[]; back: CameBack[] }> {
+  const lists = appliedLists()
+  if (!lists.length) return { off: [], back: [] }
+  const { installed, disabled } = await T.packageSets()
+  const home = await T.homeComponent()
+  const homePackage = home ? home.split('/')[0] : null
+  const keep = await screensaverApps()
+  const off = new Set<string>()
+  const back: CameBack[] = []
+  for (const l of lists) {
+    for (const p of keptOff(l.active, homePackage, keep)) off.add(p)
+    const on = cameBack(l.active, installed, disabled, homePackage, keep)
+    if (on.length) back.push({ listId: l.listId, packages: on })
+  }
+  return { off: [...off].sort(), back }
 }
 
 /** The screensaver in use, and the backdrop app Google's needs with it: on by choice, not by an update (#57). */
@@ -892,6 +937,13 @@ export async function restore(listId: string): Promise<ApplyResult> {
   const cmds = restoreCommands(listPkgs, record, stock, notes)
   for (const n of inEnglish(() => { const en: string[] = []; restoreCommands(listPkgs, record, stock, en); return en })) log('restore', 'info', n)
   await T.batch('restore', cmds)
+  // Nothing is kept off with this list now, so nothing can "come back on". Packages added by hand stay as kept lines.
+  if (existsSync(file)) {
+    const { title, parsed } = sourceList(listId)
+    const known = new Set(parsed.entries.map((e) => e.pkg))
+    const added = savedEntries(file).filter((e) => !known.has(e.pkg)).map((e) => ({ ...e, suggested: false }))
+    writeSavedList(file, title, parsed.header, [], [...parsed.entries, ...added])
+  }
   const home = await T.homeComponent()
   const say = (): string => record
     ? home ? t('Restored the state recorded on {date}. Home is {home}.', { date: record.created, home }) : t('Restored the state recorded on {date}. Home is not set.', { date: record.created })

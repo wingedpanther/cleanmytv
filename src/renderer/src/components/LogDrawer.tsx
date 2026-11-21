@@ -3,6 +3,7 @@ import type { LogLine } from '@shared/api'
 import { t } from '../lib/i18n'
 
 const MAX_LINES = 500
+const NEW_ISSUE = 'https://github.com/wingedpanther/cleanmytv/issues/new'
 
 const line = (l: LogLine): string => `${new Date(l.time).toISOString()} [${l.task}] ${l.level === 'cmd' ? '$ ' : ''}${l.text}`
 /** IPv4 addresses, which say nothing a bug report needs. */
@@ -15,6 +16,24 @@ export function LogDrawer(): ReactNode {
   /** Record a problem: idle, recording, saving, or what happened last. */
   const [rec, setRec] = useState<'idle' | 'on' | 'saving'>('idle')
   const [recNote, setRecNote] = useState('')
+  /** Send a report: saving, or where the last one went and whether a TV was in it. */
+  const [reportBusy, setReportBusy] = useState(false)
+  const [report, setReport] = useState<{ path: string; noTv: boolean } | null>(null)
+  const [reportError, setReportError] = useState('')
+  const saveReport = async (): Promise<void> => {
+    setReportBusy(true)
+    setReport(null)
+    setReportError('')
+    try {
+      const noTv = (await window.cytv.status()).state !== 'connected'
+      const path = await window.cytv.saveReport()
+      if (path) setReport({ path, noTv })
+    } catch (e) {
+      setReportError(t("Couldn't save the report: {error}", { error: (e as Error).message }))
+    } finally {
+      setReportBusy(false)
+    }
+  }
   const record = async (): Promise<void> => {
     setRecNote('')
     try {
@@ -69,6 +88,14 @@ export function LogDrawer(): ReactNode {
             </div>
           ))}
           <div className="row" style={{ marginTop: 8 }}>
+            <button
+              className="btn small"
+              disabled={reportBusy}
+              title={t("Saves one text file for a GitHub issue: this computer, the TV, its apps, Home's settings and both logs.")}
+              onClick={() => void saveReport()}
+            >
+              {reportBusy ? t('Saving') : t('Send a report')}
+            </button>
             {lines.length > 0 && (
               <>
                 <button className="btn small ghost" onClick={() => setLines([])}>
@@ -105,6 +132,17 @@ export function LogDrawer(): ReactNode {
           </div>
           {rec === 'on' && <p className="small">{t('Recording. Now make the problem happen on the TV, then press Stop and save.')}</p>}
           {recNote && <p className="small muted">{recNote}</p>}
+          {report && (
+            <div className="small" role="status">
+              <p style={{ margin: '8px 0 4px' }}>
+                {t('Saved to {path}.', { path: report.path })}{' '}
+                <a href={NEW_ISSUE} target="_blank" rel="noreferrer">{t('Open a GitHub issue')}</a>
+              </p>
+              {report.noTv && <p className="muted" style={{ margin: '0 0 4px' }}>{t("No TV was connected, so it has this computer's details only.")}</p>}
+              <p className="muted" style={{ margin: 0 }}>{t('Look through the file before you share it. Logs can name your apps and networks.')}</p>
+            </div>
+          )}
+          {reportError && <p className="small muted">{reportError}</p>}
         </div>
       )}
     </div>

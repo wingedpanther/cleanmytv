@@ -1,6 +1,7 @@
 // A fake TV for viewing the UI in a plain browser (npm run dev without Electron, or vite preview).
 // Installed only when the preload script did not provide window.cytv.
 import type {
+  AppSize,
   ApplyResult,
   CheckItem,
   ConnStatus,
@@ -219,6 +220,10 @@ export function installMock(): void {
     async bugReport() {
       return 'CleanMyTV 0.0.0-dev, darwin 25.0.0 arm64\nTV: Sony BRAVIA 4K VH2 (device BRAVIA_VH2, product BRAVIA_VH2_EU), Android 12 (SDK 31), build mock'
     },
+    async saveReport() {
+      await wait(800)
+      return '/Users/you/Downloads/cleanmytv-report-k-65xr90m2-2026-11-21.txt'
+    },
     async recordStart() {},
     async recordStop() {
       await wait(500)
@@ -297,6 +302,21 @@ export function installMock(): void {
       })
       log('restore', 'ok', 'Restored the recorded state')
       return ok('Put back the state recorded before the first change.')
+    },
+    async cameBack() {
+      return []
+    },
+    async saveBackup() {
+      await wait(300)
+      return '/Users/you/Documents/cleanmytv-backup-k-65xr90m2-2026-11-21.json'
+    },
+    async openBackup() {
+      await wait(300)
+      return { file: 'cleanmytv-backup-k-65xr90m2-2026-11-21.json', savedAt: new Date().toISOString(), tv: 'Sony K-65XR90M2', otherModel: false, switchOff: ['com.sony.dtv.promos', 'com.sony.dtv.discovery'], missing: [], home: homeInstalled ? 'apply' : 'not-installed' }
+    },
+    async restoreBackup() {
+      await wait(900)
+      return ok('Restored the backup. Disabled 2 of 2 packages.')
     },
     async useStockLauncher() {
       launcherHome = false
@@ -482,6 +502,22 @@ export function installMock(): void {
     async clearCaches() {
       if (sys.storage) sys.storage = { ...sys.storage, freeKb: sys.storage.freeKb + 412000 }
       return ok("Cleared every app's cache: 402 MB back, 1210 MB free now.")
+    },
+    async appSizes() {
+      await wait(600)
+      const mb = 1024 * 1024
+      const apps: AppSize[] = [
+        { pkg: 'com.google.android.youtube.tv', app: 182 * mb, data: 96 * mb, cache: 140 * mb, state: 'enabled', updated: true },
+        { pkg: 'com.netflix.ninja', app: 120 * mb, data: 210 * mb, cache: 35 * mb, state: 'enabled', updated: false },
+        { pkg: 'com.sony.dtv.promos', app: 88 * mb, data: 12 * mb, cache: 4 * mb, state: 'disabled', updated: true },
+        { pkg: 'com.amazon.amazonvideo.livingroom', app: 64 * mb, data: 40 * mb, cache: 22 * mb, state: 'enabled', updated: false },
+        { pkg: 'com.google.android.apps.tv.dreamx', app: 30 * mb, data: 2 * mb, cache: 1 * mb, state: 'enabled', updated: true }
+      ]
+      return { storage: sys.storage, apps, source: 'diskstats' }
+    },
+    async removeUpdate(pkg) {
+      await wait(700)
+      return ok(`Removed the update to ${pkg}: 88 MB back. It stays switched off.`)
     },
     async sideloadInfo(path) {
       await wait(400)

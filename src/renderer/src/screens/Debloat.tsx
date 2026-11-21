@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { ApplyResult, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState } from '@shared/api'
+import type { ApplyResult, CameBack, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { ActionButton, CheckupCard, Confirm, ResultNotice, Skeleton, Toggle, UndoToast, errorText, usePhase } from '../components/ui'
 import { defaultTick } from '../lib/ticks'
@@ -30,6 +30,14 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
   const [forceHome, setForceHome] = useState(false)
   const [forceSetup, setForceSetup] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  /** Packages this app switched off on this TV, with any list, that are on again. */
+  const [back, setBack] = useState<CameBack[]>([])
+  const backPkgs = back.flatMap((b) => b.packages)
+
+  const refreshBack = (): void => {
+    window.cytv.cameBack().then(setBack, () => setBack([]))
+  }
+  useEffect(refreshBack, [status.host])
 
   useEffect(() => {
     // Keep the order lists() gives: matches, then the TV's own brand, with "My TV is not listed" on top.
@@ -49,6 +57,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
     try {
       const p = await window.cytv.plan(id)
       setPlan(p)
+      refreshBack()
       setTicked(new Set(p.entries.filter((e) => defaultTick(e)).map((e) => e.pkg)))
     } catch (e) {
       setPlan(null)
@@ -142,19 +151,22 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
     }
   }
 
-  /** Packages a firmware update switched back on: off again, as they were. */
+  /** Packages a system update switched back on: off again, each through the list that switched it off. */
   async function switchBackOff(): Promise<void> {
-    if (!plan?.cameBack?.length) return
+    if (!back.length) return
     setBackPhase('busy')
     try {
-      const r = await window.cytv.applyDebloat({ listId: plan.listId, disable: plan.cameBack, enable: [], forceHome, forceSetupwraith: forceSetup })
-      setBackPhase(r.ok ? 'done' : 'failed')
-      if (!r.ok || r.warnings.length) setResult(r)
+      const rs: ApplyResult[] = []
+      for (const b of back) rs.push(await window.cytv.applyDebloat({ listId: b.listId, disable: b.packages, enable: [], forceHome, forceSetupwraith: forceSetup }))
+      const ok = rs.every((r) => r.ok)
+      setBackPhase(ok ? 'done' : 'failed')
+      if (!ok || rs.some((r) => r.warnings.length)) setResult({ ok, summary: rs.map((r) => r.summary).join(' '), warnings: rs.flatMap((r) => r.warnings) })
     } catch (e) {
       setBackPhase('failed')
       setResult({ ok: false, summary: errorText(e), warnings: [] })
     } finally {
-      loadPlan(plan.listId, true)
+      if (plan) loadPlan(plan.listId, true)
+      else refreshBack()
     }
   }
 
@@ -202,6 +214,16 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
             {t("This TV turns its USB port off while debugging is on. Drives and USB adapters come back once you finish and switch debugging off. Clean up didn't cause it.")}
           </span>
           <button className="btn ghost" aria-label={t('Hide this note')} onClick={hideUsbNote}>✕</button>
+        </div>
+      )}
+
+      {backPkgs.length > 0 && (
+        <div className="notice warn">
+          <b>{t('{n} {n|app|apps} came back on, probably after a system update.', { n: backPkgs.length })}</b>
+          <div className="small mono" style={{ marginTop: 6 }}>{backPkgs.join(', ')}</div>
+          <div style={{ marginTop: 10 }}>
+            <ActionButton phase={backPhase} label={t('Switch them off again')} busyLabel={t('Switching off')} doneLabel={t('Off again')} onClick={() => void switchBackOff()} />
+          </div>
         </div>
       )}
 
@@ -294,15 +316,6 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
             </div>
           ) : (
             <div className="notice">{t('No restore point yet. The app saves one before the first package is switched off.')}</div>
-          )}
-
-          {!!plan.cameBack?.length && (
-            <div className="notice warn">
-              {tx('{n} {n|package|packages} you switched off {n|is|are} on again, often after a firmware update: {list}.', { n: plan.cameBack.length, list: <code>{plan.cameBack.join(', ')}</code> })}
-              <div style={{ marginTop: 10 }}>
-                <ActionButton phase={backPhase} label={t('Switch them off again')} busyLabel={t('Switching off')} doneLabel={t('Off again')} onClick={() => void switchBackOff()} />
-              </div>
-            </div>
           )}
 
           {stockHome && (

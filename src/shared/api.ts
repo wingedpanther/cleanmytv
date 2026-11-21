@@ -127,8 +127,12 @@ export interface DebloatPlan {
   record?: { path: string; created: string }
   /** Package that owns Home right now. */
   homePackage: string | null
-  /** Packages this app switched off on this TV that are on again, like after a firmware update. */
-  cameBack?: string[]
+}
+
+/** Packages this app switched off on the connected TV with one list that are on again, like after a system update. */
+export interface CameBack {
+  listId: string
+  packages: string[]
 }
 
 export interface DebloatApplyRequest {
@@ -161,6 +165,8 @@ export interface UpdateInfo {
   url?: string
   /** This copy can download and install it itself (Mac and Windows builds). */
   canInstall?: boolean
+  /** This check asked GitHub and got no answer; `latest` is from an earlier check, if any. */
+  failed?: boolean
 }
 
 export interface BootCheckResult {
@@ -403,6 +409,8 @@ export interface HomeConfig {
   can_change_settings?: boolean
   /** Read only: which looks are saved for the day and night switch. */
   looks_saved?: LookSlot[]
+  /** Packages CleanMyTV keeps switched off, set by the app, so the TV can tell when a system update brings them back. */
+  switched_off?: string[]
 }
 
 /** One picture of a built-in theme, for the TV's own theme carousel. */
@@ -479,6 +487,43 @@ export interface SystemState {
   storage: { freeKb: number; totalKb: number } | null
 }
 
+/** One app's share of the TV's storage, in bytes. */
+export interface AppSize {
+  pkg: string
+  /** The app's code: the APK and its updates. */
+  app: number
+  /** Unknown (undefined) when the TV hasn't measured its apps' data yet. */
+  data?: number
+  cache?: number
+  state: PackageState
+  /** A system app carrying an update from the Play Store, which Remove update takes off again. */
+  updated: boolean
+}
+
+export interface AppSizes {
+  storage: { freeKb: number; totalKb: number } | null
+  /** Biggest first. */
+  apps: AppSize[]
+  /** diskstats: Android's own measurement of code, data and cache. code: only the code of apps outside the system image. */
+  source: 'diskstats' | 'code'
+}
+
+/** What a backup file holds and what restoring it on the connected TV would do. */
+export interface BackupPreview {
+  file: string
+  savedAt: string
+  /** The TV it was saved from, as "manufacturer model". */
+  tv: string
+  /** It was saved from another model than the connected TV. */
+  otherModel: boolean
+  /** Packages it switches off that are on now. */
+  switchOff: string[]
+  /** Packages in the backup that this TV doesn't have. */
+  missing: string[]
+  /** CleanMyTV Home settings: put on the TV, none in the file, or the TV has no CleanMyTV Home. */
+  home: 'apply' | 'none' | 'not-installed'
+}
+
 /** An .apk the owner picked, read before it goes to the TV. */
 export interface SideloadInfo {
   file: string
@@ -534,8 +579,8 @@ export interface CytvApi {
   reconnect(): Promise<ConnStatus | null>
   /** Port 5555 refuses or ignores connections (after debugging was switched off). */
   checkAdbClosed(host: string): Promise<{ closed: boolean; message: string }>
-  /** Asks GitHub for a newer CleanMyTV, at most every 12 hours. */
-  checkUpdate(): Promise<UpdateInfo>
+  /** Asks GitHub for a newer CleanMyTV: on the first call each launch, and whenever `force` is set; else from the last hour's answer. */
+  checkUpdate(force?: boolean): Promise<UpdateInfo>
   /** Downloads the new version for this computer and checks it against the release's SHA256SUMS.txt. */
   downloadUpdate(): Promise<ApplyResult>
   /** Installs the downloaded version; the app quits and opens again. */
@@ -547,6 +592,8 @@ export interface CytvApi {
 
   /** App, computer and TV details for a bug report: no address, serial or settings. */
   bugReport(): Promise<string>
+  /** One file for a GitHub issue: computer, TV, packages, Home's settings, this session's log and the TV's log. The path, or null if cancelled. */
+  saveReport(): Promise<string | null>
   /** Record a problem: notes the TV's clock, so Stop gets the TV's log from here on. */
   recordStart(): Promise<void>
   /** The TV's log since recordStart with the bug report details, saved where the person picks. Null if they cancel. */
@@ -568,6 +615,14 @@ export interface CytvApi {
   tvPackages(): Promise<DebloatEntry[]>
   applyDebloat(req: DebloatApplyRequest): Promise<ApplyResult>
   restore(listId: string): Promise<ApplyResult>
+  /** Packages this app switched off on the connected TV that are on again, by list. */
+  cameBack(): Promise<CameBack[]>
+  /** Saves the TV's clean-up and CleanMyTV Home settings to a JSON file the owner picks. The path, or null if cancelled. */
+  saveBackup(): Promise<string | null>
+  /** Opens a backup file the owner picks and says what restoring it would do. Null if cancelled. */
+  openBackup(): Promise<BackupPreview | null>
+  /** Restores the backup opened last: the clean-up through Clean up's own path, then Home's settings. */
+  restoreBackup(): Promise<ApplyResult>
 
   // CleanMyTV Home
   /** Give Home back to the stock launcher, leaving CleanMyTV Home installed. */
@@ -661,6 +716,10 @@ export interface CytvApi {
   pathForFile(file: File): string
   /** Clears every app's cache on the TV. */
   clearCaches(): Promise<ApplyResult>
+  /** Free space and what each app takes, biggest first. */
+  appSizes(): Promise<AppSizes>
+  /** Takes the Play Store update off a switched-off system app; the version the TV came with stays, switched off. */
+  removeUpdate(pkg: string): Promise<ApplyResult>
   key(keycode: number): Promise<void>
   reboot(): Promise<void>
 

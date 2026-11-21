@@ -76,6 +76,12 @@ export interface FakeTv {
   homeKeyboard?: string
   /** What `logcat -d` prints. */
   logcat?: string
+  /** What `dumpsys diskstats` prints; only the free-space lines when unset, as before Android's first measurement. */
+  diskstats?: string
+  /** System apps carrying a Play Store update, with the KB it takes; `pm uninstall-system-updates` frees it. */
+  updatedSystem?: Map<string, number>
+  /** Packages uninstalled for user 0 that `pm list packages -u` still lists. */
+  uninstalledForUser?: string[]
   /** Packages that never stay running (pidof finds nothing), like a launcher crashing at boot. */
   crashing?: string[]
   /** App-ops set with `appops set`, as "<package> <op>" to mode. */
@@ -127,10 +133,25 @@ function sh(tv: FakeTv, cmd: string): string {
   }
   if ((m = /^cmd hdmi_control cec_setting set (\S+) (\S+)$/.exec(cmd))) { if (tv.cecWake !== undefined) tv.cecWake = m[2]; return '' }
   if (cmd.startsWith('getprop')) {
-    const props: Record<string, string> = { 'ro.product.model': 'BRAVIA 4K VH2', 'ro.product.device': tv.device ?? 'BRAVIA_VH2', 'ro.product.name': 'BRAVIA_VH2_EU', 'ro.product.manufacturer': tv.manufacturer ?? 'Sony', 'ro.build.version.release': tv.sdk === '24' ? '7.0' : '12', 'ro.build.version.sdk': tv.sdk ?? '31', 'sys.boot_completed': '1', 'ro.build.display.id': 'TEST', 'ro.adb.secure': tv.adbSecure }
+    const props: Record<string, string> = { 'ro.product.model': 'BRAVIA 4K VH2', 'ro.product.device': tv.device ?? 'BRAVIA_VH2', 'ro.product.name': 'BRAVIA_VH2_EU', 'ro.product.manufacturer': tv.manufacturer ?? 'Sony', 'ro.build.version.release': tv.sdk === '24' ? '7.0' : '12', 'ro.build.version.sdk': tv.sdk ?? '31', 'sys.boot_completed': '1', 'ro.build.display.id': 'TEST', 'ro.adb.secure': tv.adbSecure, 'ro.build.fingerprint': 'Sony/BRAVIA_VH2/BRAVIA_VH2:12/TEST/1:user/release-keys' }
     return cmd.split(';').map((c) => props[c.trim().split(' ')[1]] ?? '').join('\n') + '\n'
   }
   if (cmd === 'pm list packages') return [...tv.packages.keys()].map((p) => `package:${p}`).join('\n') + '\n'
+  if (cmd === 'pm list packages -u') return [...tv.packages.keys(), ...(tv.uninstalledForUser ?? [])].map((p) => `package:${p}`).join('\n') + '\n'
+  if (cmd === 'pm list packages -f -s') {
+    return [...tv.packages.keys()].map((p) => tv.updatedSystem?.has(p) ? `package:/data/app/~~Ab12==/${p}-Cd34==/base.apk=${p}` : `package:/system/app/${p}/${p}.apk=${p}`).join('\n') + '\n'
+  }
+  if (cmd === 'dumpsys diskstats') return tv.diskstats ?? 'Latency: 1ms [512B Data Write]\nData-Free: 8131144K / 10167132K total = 79% free\n'
+  if ((m = /^pm uninstall-system-updates (\S+)$/.exec(cmd))) {
+    if (Number(tv.sdk ?? 31) < 29) return `Unknown command: uninstall-system-updates\n`
+    const kb = tv.updatedSystem?.get(m[1])
+    if (kb === undefined) return `Failure [Package ${m[1]} is not a system app with updates]\n`
+    tv.updatedSystem!.delete(m[1])
+    if (tv.freeKb !== undefined) tv.freeKb += kb
+    return 'Success\n'
+  }
+  if (cmd.startsWith('logcat -d -v threadtime -t ')) return tv.logcat ?? ''
+  if (cmd.startsWith('dumpsys window | grep')) return '  mCurrentFocus=Window{ab04e86 u0 com.example/com.example.Main}\n  mFocusedApp=ActivityRecord{5b90de5 u0 com.example/.Main t19}\n'
   if (cmd === 'pm list packages -d') return [...tv.packages].filter(([, s]) => s === 'disabled').map(([p]) => `package:${p}`).join('\n') + '\n'
   if (cmd.startsWith('cmd package resolve-activity')) {
     // --query-flags arrived in Android 10; Android 9 fails it and the shell runs the plain query after ||.
@@ -265,6 +286,9 @@ function sh(tv: FakeTv, cmd: string): string {
   if (cmd.includes('echo reset')) return 'reset\n'
   if (cmd.includes('echo applied')) return 'applied\n'
   if ((m = /^pm uninstall (\S+)$/.exec(cmd))) {
+    // On a system app with an update, uninstall takes the update off and the system version stays.
+    const kb = tv.updatedSystem?.get(m[1])
+    if (kb !== undefined) { tv.updatedSystem!.delete(m[1]); if (tv.freeKb !== undefined) tv.freeKb += kb; return 'Success\n' }
     if (!tv.packages.delete(m[1])) return 'Failure [DELETE_FAILED_INTERNAL_ERROR]\n'
     tv.homeClaims = tv.homeClaims.filter((c) => !c.startsWith(m![1] + '/'))
     return 'Success\n'

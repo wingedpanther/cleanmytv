@@ -1,7 +1,7 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import type { ApplyResult, SystemState } from '@shared/api'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import type { AppSize, AppSizes, ApplyResult, BackupPreview, SystemState } from '@shared/api'
 import type { ScreenProps } from '../App'
-import { Busy, Confirm, ResultNotice, errorText } from '../components/ui'
+import { Busy, Confirm, ResultNotice, Skeleton, errorText } from '../components/ui'
 import { t } from '../lib/i18n'
 
 const ADGUARD = 'dns.adguard-dns.com'
@@ -65,7 +65,7 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
         </div>
       )}
 
-      {sys.storage && <Storage storage={sys.storage} busy={!!busy} onClear={() => run(t('Clearing app caches'), () => window.cytv.clearCaches())} />}
+      {sys.storage && <Storage storage={sys.storage} busy={!!busy} run={run} />}
 
       <div className="card">
           <h2>{t('Animation speed')}</h2>
@@ -146,6 +146,8 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
         </div>
       )}
 
+      <Backup busy={!!busy} run={run} onResult={setResult} />
+
       <div>
         <div className="card">
           <h2>{t('Remote')}</h2>
@@ -202,7 +204,50 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
 // Below this, installs and app updates start failing on most TVs (#48).
 const LOW_MB = 500
 
-function Storage({ storage, busy, onClear }: { storage: NonNullable<SystemState['storage']>; busy: boolean; onClear: () => void }): ReactNode {
+/** Bytes as MB, or GB from 1 GB up. */
+function size(bytes: number): string {
+  const mb = bytes / 1024 / 1024
+  if (mb >= 1024) return t('{n} GB', { n: (mb / 1024).toFixed(1) })
+  return t('{n} MB', { n: mb >= 10 ? Math.round(mb) : mb.toFixed(1) })
+}
+
+const total = (a: AppSize): number => a.app + (a.data ?? 0) + (a.cache ?? 0)
+// The rest wait behind Show all: the top of the list is where the space is.
+const TOP = 12
+
+type Run = (label: string, fn: () => Promise<ApplyResult>) => Promise<void>
+
+function Storage({ storage, busy, run }: { storage: NonNullable<SystemState['storage']>; busy: boolean; run: Run }): ReactNode {
+  const [sizes, setSizes] = useState<AppSizes | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [all, setAll] = useState(false)
+  /** Names as CleanMyTV Home shows them, when the TV has it. */
+  const [labels, setLabels] = useState<Map<string, string>>(new Map())
+  const [removing, setRemoving] = useState<AppSize | null>(null)
+
+  async function load(): Promise<void> {
+    setLoading(true)
+    setError(null)
+    try {
+      setSizes(await window.cytv.appSizes())
+      if (!labels.size) {
+        const apps = await window.cytv.homeApps().catch(() => [])
+        setLabels(new Map(apps.map((a) => [a.pkg, a.label])))
+      }
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /** Runs a job that changes the space, then measures again if the list is open. */
+  async function change(label: string, fn: () => Promise<ApplyResult>): Promise<void> {
+    await run(label, fn)
+    if (sizes) await load()
+  }
+
   const free = Math.round(storage.freeKb / 1024)
   const total = Math.round(storage.totalKb / 1024)
   const used = Math.min(100, Math.max(0, 100 - (storage.freeKb / storage.totalKb) * 100))
@@ -222,11 +267,157 @@ function Storage({ storage, busy, onClear }: { storage: NonNullable<SystemState[
         {low ? t('Low enough that installs and app updates can fail.') : t('Apps keep caches here that they rebuild when needed.')}
       </p>
       <div className="row" style={{ marginTop: 12 }}>
-        <button className="btn" disabled={busy} onClick={onClear}>
+        <button className="btn" disabled={busy} onClick={() => void change(t('Clearing app caches'), () => window.cytv.clearCaches())}>
           {t('Clear app caches')}
         </button>
         <span className="muted small">{t('Logins and settings stay. Apps may open a little slower the first time.')}</span>
       </div>
+
+      {!sizes && !loading && (
+        <button className="btn small ghost" style={{ marginTop: 12 }} disabled={busy} onClick={() => void load()}>
+          {t('See what takes the space')}
+        </button>
+      )}
+      {loading && !sizes && <div style={{ marginTop: 12 }}><Skeleton rows={5} label={t('Measuring the apps')} /></div>}
+      {error && <div className="notice warn" style={{ marginTop: 12, marginBottom: 0 }}>{error}</div>}
+      {sizes && <AppList sizes={sizes} labels={labels} all={all} busy={busy || loading} onAll={() => setAll(true)} onRemove={setRemoving} />}
+
+      {removing && (
+        <Confirm
+          title={t('Remove the update?')}
+          confirmLabel={t('Remove update')}
+          onCancel={() => setRemoving(null)}
+          onConfirm={() => {
+            const pkg = removing.pkg
+            setRemoving(null)
+            void change(t('Removing the update'), () => window.cytv.removeUpdate(pkg))
+          }}
+        >
+          <p>{t('{app} goes back to the version the TV came with, and stays switched off.', { app: labels.get(removing.pkg) ?? removing.pkg })}</p>
+          <p className="muted small">{t("Its data goes too. If you switch it on again, the Play Store can update it again.")}</p>
+        </Confirm>
+      )}
+    </div>
+  )
+}
+
+function AppList(props: { sizes: AppSizes; labels: Map<string, string>; all: boolean; busy: boolean; onAll: () => void; onRemove: (a: AppSize) => void }): ReactNode {
+  const { sizes, labels } = props
+  const shown = useMemo(() => (props.all ? sizes.apps : sizes.apps.slice(0, TOP)), [sizes, props.all])
+  if (!sizes.apps.length) return <p className="muted small" style={{ marginTop: 12 }}>{t("The TV didn't say how much space its apps take.")}</p>
+  return (
+    <div style={{ marginTop: 14 }}>
+      {sizes.source === 'code' && (
+        <p className="muted small">{t("This TV hasn't measured its apps' data yet, so these are the apps' own sizes.")}</p>
+      )}
+      <div className="table-wrap">
+        <table className="pkgs">
+          <thead>
+            <tr>
+              <th>{t('App')}</th>
+              <th style={{ width: 110 }}>{t('Size')}</th>
+              <th style={{ width: 150 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((a) => (
+              <tr key={a.pkg}>
+                <td>
+                  {labels.get(a.pkg) ? <div>{labels.get(a.pkg)}</div> : null}
+                  <div className={labels.get(a.pkg) ? 'pkg-name small muted' : 'pkg-name'}>{a.pkg}</div>
+                </td>
+                <td title={a.data === undefined ? undefined : t('App {app}, data {data}, cache {cache}', { app: size(a.app), data: size(a.data), cache: size(a.cache ?? 0) })}>
+                  {size(total(a))}
+                  {a.state === 'disabled' && <div><span className="chip">{t('Off')}</span></div>}
+                </td>
+                <td>
+                  {a.state === 'disabled' && a.updated && (
+                    <button className="btn small ghost" disabled={props.busy} onClick={() => props.onRemove(a)}>
+                      {t('Remove update')}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!props.all && sizes.apps.length > TOP && (
+        <button className="btn small ghost" style={{ marginTop: 8 }} onClick={props.onAll}>
+          {t('Show all {n}', { n: sizes.apps.length })}
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** Saves the clean-up and CleanMyTV Home's settings to a file, and puts a file's back after a look at what it does. */
+function Backup({ busy, run, onResult }: { busy: boolean; run: Run; onResult: (r: ApplyResult) => void }): ReactNode {
+  const [preview, setPreview] = useState<BackupPreview | null>(null)
+
+  async function save(): Promise<void> {
+    try {
+      const path = await window.cytv.saveBackup()
+      if (path) onResult({ ok: true, summary: t('Saved the backup to {path}.', { path }), warnings: [] })
+    } catch (e) {
+      onResult({ ok: false, summary: errorText(e), warnings: [] })
+    }
+  }
+
+  async function open(): Promise<void> {
+    try {
+      setPreview(await window.cytv.openBackup())
+    } catch (e) {
+      onResult({ ok: false, summary: errorText(e), warnings: [] })
+    }
+  }
+
+  const when = (iso: string): string => {
+    const d = new Date(iso)
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+  }
+
+  return (
+    <div className="card">
+      <h2>{t('Back up this TV')}</h2>
+      <p className="muted small">
+        {t("One file with what Clean up switched off and CleanMyTV Home's settings and app order.")}{' '}
+        {t('Restore puts them back after a reset, or on another TV. The PIN and wallpaper stay out.')}
+      </p>
+      <div className="row">
+        <button className="btn" disabled={busy} onClick={() => void save()}>
+          {t('Save a backup')}
+        </button>
+        <button className="btn ghost" disabled={busy} onClick={() => void open()}>
+          {t('Restore a backup')}
+        </button>
+      </div>
+
+      {preview && (
+        <Confirm
+          title={t('Restore this backup?')}
+          confirmLabel={t('Restore')}
+          onCancel={() => setPreview(null)}
+          onConfirm={() => {
+            setPreview(null)
+            void run(t('Restoring the backup'), () => window.cytv.restoreBackup())
+          }}
+        >
+          <p>{t('From {tv}, saved {date}.', { tv: preview.tv || preview.file, date: when(preview.savedAt) })}</p>
+          {preview.otherModel && <div className="notice warn">{t('This backup comes from another TV model. Check the apps it switches off.')}</div>}
+          <ul>
+            <li>
+              {preview.switchOff.length
+                ? t('Switches off {n} {n|app|apps} that {n|is|are} on now.', { n: preview.switchOff.length })
+                : t('Switches nothing off: everything in it is off already.')}
+            </li>
+            {preview.missing.length > 0 && <li>{t("Skips {n} {n|app|apps} this TV doesn't have.", { n: preview.missing.length })}</li>}
+            {preview.home === 'apply' && <li>{t("Puts CleanMyTV Home's settings and app order back.")}</li>}
+            {preview.home === 'not-installed' && <li>{t("Leaves out CleanMyTV Home's settings, as this TV doesn't have it.")}</li>}
+          </ul>
+          {preview.switchOff.length > 0 && <p className="small mono muted">{preview.switchOff.join(', ')}</p>}
+        </Confirm>
+      )}
     </div>
   )
 }

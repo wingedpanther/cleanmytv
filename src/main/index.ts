@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, session, shell, type SaveDialogOptions } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -22,7 +22,10 @@ import * as web from './web'
 import * as home from './home'
 import * as themes from './themes'
 import { THEME_EXT, themeFileName } from '@shared/themes'
-import { bugReport } from './report'
+import { bugReport, fullReport } from './report'
+import * as storage from './storage'
+import * as backup from './backup'
+import { tellHome } from './switchedoff'
 import * as record from './record'
 import * as checkup from './checkup'
 import { englishOf, languageFromLocale, setLanguage, t, UiError } from './i18n'
@@ -31,6 +34,8 @@ import type { CheckItem, ConnStatus, CytvApi, KnownTv } from '@shared/api'
 let win: BrowserWindow | null = null
 /** The new version's installer once it is downloaded and checked. */
 let updateFile: string | null = null
+/** The first update check of each launch asks GitHub, whatever the cache says. */
+let askedGitHub = false
 
 interface Settings {
   lastHost?: string
@@ -52,7 +57,23 @@ function writeSettings(s: Settings): void {
 }
 
 const knownTvs = (): KnownTv[] => listTvs(readSettings())
-const remember = (host: string, st: ConnStatus): void => writeSettings(rememberTv(readSettings(), host, st))
+/** A TV that connected: remembered, and CleanMyTV Home told what stays switched off, in the background. */
+const remember = (host: string, st: ConnStatus): void => {
+  writeSettings(rememberTv(readSettings(), host, st))
+  void tellHome()
+}
+
+/** The save dialog over the window, or on its own when the window is gone. */
+async function saveDialog(opts: SaveDialogOptions): Promise<string | null> {
+  const r = win && !win.isDestroyed() ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
+  return r.canceled || !r.filePath ? null : r.filePath
+}
+
+/** The connected TV's model and today's date, for file names. */
+function fileTag(): string {
+  const model = (T.getStatus().probe?.model ?? 'no-tv').replace(/[^\w-]+/g, '-').toLowerCase()
+  return `${model}-${new Date().toISOString().slice(0, 10)}`
+}
 
 async function checks(): Promise<CheckItem[]> {
   const st = T.getStatus()
@@ -127,9 +148,10 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   lastHost: async () => readSettings().lastHost ?? null,
   checkAdbClosed: (host) => system.adbClosed(host),
   bootCheck: () => bootCheck(),
-  checkUpdate: async () => {
+  checkUpdate: async (force) => {
     const s = readSettings()
-    const { info, cache } = await checkUpdate(app.getVersion(), s.update ?? {})
+    const { info, cache } = await checkUpdate(app.getVersion(), s.update ?? {}, Date.now(), fetch, force === true || !askedGitHub)
+    askedGitHub = true
     if (cache !== s.update) writeSettings({ ...readSettings(), update: cache })
     return { ...info, canInstall: app.isPackaged && !!updater.assetName(info.latest ?? '', process.platform, process.arch) }
   },
@@ -146,6 +168,14 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   // The pairing form connects once this returns. Connecting here too would do it twice.
   pair: (host, pairPort, code, connectPort) => tools.pair(host, pairPort, code, connectPort),
   bugReport: () => bugReport(app.getVersion()),
+  saveReport: async () => {
+    const text = await fullReport(app.getVersion())
+    const path = await saveDialog({ title: t('Save the report'), defaultPath: join(app.getPath('downloads'), `cleanmytv-report-${fileTag()}.txt`), filters: [{ name: t('Text'), extensions: ['txt'] }] })
+    if (!path) return null
+    writeFileSync(path, text)
+    shell.showItemInFolder(path)
+    return path
+  },
   recordStart: () => record.start(),
   recordStop: async () => {
     const text = await record.stop(await bugReport(app.getVersion()))
@@ -166,15 +196,45 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   lists: async () => debloat.lists(T.getStatus().probe),
   plan: (id) => debloat.plan(id),
   tvPackages: () => debloat.tvPackages(),
-  applyDebloat: (req) => debloat.apply(req),
-  restore: (id) => debloat.restore(id),
+  applyDebloat: async (req) => {
+    const r = await debloat.apply(req)
+    await tellHome()
+    return r
+  },
+  restore: async (id) => {
+    const r = await debloat.restore(id)
+    await tellHome()
+    return r
+  },
+  cameBack: async () => (await debloat.switchedOff()).back,
+  saveBackup: async () => {
+    const data = await backup.make(app.getVersion())
+    const path = await saveDialog({ title: t('Save the backup'), defaultPath: join(app.getPath('documents'), `cleanmytv-backup-${fileTag()}.json`), filters: [{ name: t('CleanMyTV backup'), extensions: ['json'] }] })
+    if (!path) return null
+    writeFileSync(path, JSON.stringify(data, null, 2) + '\n')
+    return path
+  },
+  openBackup: async () => {
+    const opts = { title: t('Open a backup'), defaultPath: app.getPath('documents'), filters: [{ name: t('CleanMyTV backup'), extensions: ['json'] }], properties: ['openFile' as const] }
+    const r = win && !win.isDestroyed() ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
+    return r.canceled || !r.filePaths[0] ? null : backup.open(r.filePaths[0])
+  },
+  restoreBackup: async () => {
+    const r = await backup.restore()
+    await tellHome()
+    return r
+  },
   useStockLauncher: async () => home.leftHome(await launcher.useStock()),
   otherLaunchers: () => launcher.otherLaunchers(),
   useOtherLauncher: async (pkg) => home.leftHome(await launcher.useOther(String(pkg ?? ''))),
   keepGoogleLauncher: (on) => home.keepGoogleLauncher(on === true),
   removeOldLauncher: () => launcher.removeOld(),
   homeStatus: () => home.status(),
-  installHome: (stock) => home.install(typeof stock === 'string' ? stock : undefined),
+  installHome: async (stock) => {
+    const r = await home.install(typeof stock === 'string' ? stock : undefined)
+    if (r.ok) await tellHome()
+    return r
+  },
   useHome: async (stock) => {
     const st = await home.status()
     if (!st.installed) return { ok: false, summary: t('CleanMyTV Home is not installed yet.'), warnings: [] }
@@ -232,6 +292,8 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   sideloadInfo: (path) => sideload.inspect(String(path)),
   sideload: (path) => sideload.install(String(path)),
   clearCaches: () => system.clearCaches(),
+  appSizes: () => storage.sizes(),
+  removeUpdate: (pkg) => storage.removeUpdate(String(pkg ?? '')),
   key: (code) => system.key(code),
   reboot: () => system.reboot()
 }

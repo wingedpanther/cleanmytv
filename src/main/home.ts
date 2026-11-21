@@ -347,7 +347,7 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
     if (typeof o.wallpaper_from === 'string' && (o.wallpaper_from === '' || THEME_PICTURE.test(o.wallpaper_from))) out.wallpaper_from = o.wallpaper_from
     else bad('wallpaper_from must be "<theme id>:<picture>" or empty')
   }
-  for (const k of ['order', 'hidden', 'lock_apps'] as const) {
+  for (const k of ['order', 'hidden', 'lock_apps', 'switched_off'] as const) {
     if (o[k] === undefined) continue
     if (Array.isArray(o[k]) && (o[k] as unknown[]).length <= 500 && (o[k] as unknown[]).every((p) => typeof p === 'string' && T.PACKAGE_RE.test(p))) out[k] = [...new Set(o[k] as string[])]
     else bad(`${k} must be a list of package names`)
@@ -698,6 +698,29 @@ function pieces(data: Buffer): string[] {
 
 export async function readConfig(): Promise<HomeConfig> {
   return keep(parse(await T.tv().shell(`content call --uri ${URI} --method get`)))
+}
+
+// Settings that only make sense on the TV they came from, or that the app sets itself.
+const TV_ONLY = ['stock_redirect', 'wallpaper_from', 'power_on_target', 'switched_off'] as const
+
+/** The settings worth carrying to another TV or a reset one: valid ones only, no PIN and no wallpaper. */
+export function portable(o: Record<string, unknown>): Partial<HomeConfig> {
+  const out: Record<string, unknown> = { ...clean(o, true) }
+  for (const k of TV_ONLY) delete out[k]
+  return out as Partial<HomeConfig>
+}
+
+/**
+ * Puts settings from a backup on the TV. The lock stays off on a TV without a PIN, as the PIN never leaves
+ * a TV. True when that happened.
+ */
+export async function putSettings(saved: Record<string, unknown>): Promise<boolean> {
+  const change = portable(saved)
+  const noPin = change.lock_on === true && !(await readConfig()).lock_pin_set
+  if (noPin) delete change.lock_on
+  const cfg = await setConfig(change)
+  if (needsService(cfg)) await addService(KEY_SERVICE)
+  return noPin
 }
 
 export async function setConfig(change: Partial<HomeConfig>): Promise<HomeConfig> {

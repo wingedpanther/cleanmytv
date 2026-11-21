@@ -17,6 +17,7 @@ import { langChoice, setLangChoice, t, type LangChoice } from './lib/i18n'
 import { version } from '../../../package.json'
 
 const REPO_URL = 'https://github.com/wingedpanther/cleanmytv'
+const COFFEE_URL = 'https://buymeacoffee.com/wingedpanther'
 
 export type StepId = 'guided' | 'setup' | 'debloat' | 'home' | 'extras' | 'sideload' | 'finish'
 
@@ -85,6 +86,8 @@ export default function App(): ReactNode {
   const [update, setUpdate] = useState<UpdateInfo | null>(null)
   // The TV runs an older CleanMyTV Home than this app carries.
   const [homeBehind, setHomeBehind] = useState(false)
+  /** How many packages Clean up switched off are on again, for a note under that step. */
+  const [cameBack, setCameBack] = useState(0)
   const [jumping, setJumping] = useState(false)
   /** A Home tab asked for from ⌘K; n changes each time, so the same tab can be asked for twice. */
   const [homeTab, setHomeTab] = useState<{ tab: string; n: number } | null>(null)
@@ -145,6 +148,14 @@ export default function App(): ReactNode {
     if (status.state !== 'connected') return setHomeBehind(false)
     let stale = false
     window.cytv.homeStatus().then((hs) => { if (!stale) homeSeen(hs) }, () => null)
+    return () => { stale = true }
+  }, [status.state, status.host, step])
+
+  // Checked on connecting and on every step change, so the note goes once Clean up has switched them off.
+  useEffect(() => {
+    if (status.state !== 'connected') return setCameBack(0)
+    let stale = false
+    window.cytv.cameBack().then((b) => { if (!stale) setCameBack(b.reduce((n, x) => n + x.packages.length, 0)) }, () => null)
     return () => { stale = true }
   }, [status.state, status.host, step])
 
@@ -215,7 +226,13 @@ export default function App(): ReactNode {
                     <span className="step-num">{isDone ? '✓' : i + 1}</span>
                     <span className="step-label">
                       {s.label}
-                      <span className="step-sub">{s.id === 'home' && connected && homeBehind ? t('Update ready for this TV') : s.sub}</span>
+                      <span className="step-sub">
+                        {s.id === 'home' && connected && homeBehind
+                          ? t('Update ready for this TV')
+                          : s.id === 'debloat' && connected && cameBack > 0
+                            ? t('{n} {n|app|apps} came back on', { n: cameBack })
+                            : s.sub}
+                      </span>
                     </span>
                   </button>
                 </li>
@@ -224,7 +241,7 @@ export default function App(): ReactNode {
           </ol>
         </nav>
         <div className="sidebar-foot">
-          {update?.available && <UpdateNote update={update} />}
+          {update?.available ? <UpdateNote update={update} /> : <UpdateCheck onNewer={setUpdate} />}
           {t("Nothing is uninstalled. Every change can be undone from this app or the TV's Settings → Apps.")}
           <LanguagePick onPick={(c) => {
             // The window reloads in the new language and opens this step again.
@@ -238,6 +255,7 @@ export default function App(): ReactNode {
             <span>wingedpanther/cleanmytv</span>
           </a>
           <div className="gh-ver">CleanMyTV v{version} · MIT</div>
+          <a className="coffee-link" href={COFFEE_URL} target="_blank" rel="noreferrer">{t('Buy me a coffee')}</a>
         </div>
       </aside>
       <main className="main">
@@ -265,6 +283,33 @@ function ConnPill({ status }: { status: ConnStatus }): ReactNode {
     <div className="conn-pill" title={status.error ?? status.host}>
       <span className={`dot ${dot}`} />
       <span>{text}</span>
+    </div>
+  )
+}
+
+/** Asks GitHub now, past the cache: says this is the latest version, or hands a newer one to UpdateNote. */
+function UpdateCheck({ onNewer }: { onNewer: (u: UpdateInfo) => void }): ReactNode {
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState<string | null>(null)
+  async function check(): Promise<void> {
+    setBusy(true)
+    setNote(null)
+    try {
+      const u = await window.cytv.checkUpdate(true)
+      if (u.available) onNewer(u)
+      else setNote(u.failed ? t("Couldn't reach GitHub. Try again later.") : t('You have the latest version, {v}.', { v: u.current }))
+    } catch (e) {
+      setNote(errorText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="update-check">
+      <button className="update-check-btn" disabled={busy} onClick={() => void check()}>
+        {busy ? t('Checking…') : t('Check for updates')}
+      </button>
+      {note && <span className="update-state" role="status">{note}</span>}
     </div>
   )
 }
