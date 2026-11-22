@@ -17,6 +17,7 @@ import type {
   ToolId,
   TvApp
 } from '@shared/api'
+import { stepsFor, symptom, warningFor, type SymptomId } from '@shared/symptoms'
 
 const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
@@ -105,7 +106,9 @@ export function installMock(): void {
     ['com.google.android.tts', 're-enable if you use accessibility speech', false, 'enabled', 18],
     ['com.sony.dtv.airplayapp', 'AirPlay; kept by owner', false, 'enabled', 3],
     ['com.sony.dtv.bravia.cam', 'BRAVIA CAM', false, 'absent', 2],
-    ['com.sony.dtv.osat.album', 'Album app', true, 'enabled', 6]
+    ['com.sony.dtv.osat.album', 'Album app', true, 'enabled', 6],
+    ['com.sony.dtv.seeds.iot.remotestart', 'remote start receiver for seeds IoT', true, 'enabled', 5],
+    ['com.google.android.tv.remote.service', 'phone-as-remote (Google TV app)', true, 'enabled', 23]
   ].map(([pkg, note, suggested, state, common]) => ({
     pkg: pkg as string,
     note: note as string,
@@ -114,6 +117,16 @@ export function installMock(): void {
     common: common as number
   }))
   let record: DebloatPlan['record']
+  // ?applied opens Clean up as after a first run, for looking at Something broke.
+  if (new URLSearchParams(location.search).has('applied')) {
+    record = { path: '~/.cleanyourtv/recovery-192.168.1.50-3fa1b2c4.json', created: '2026-11-20T21:14:00+0000' }
+    for (const e of entries) {
+      if (e.state !== 'enabled' || !e.suggested || e.pkg.includes('tungsten') || e.pkg.includes('launcherx')) continue
+      e.recorded = 'enabled'
+      e.state = 'disabled'
+    }
+  }
+  const turned: Record<string, SymptomId> = {}
 
   const ok = (summary: string, warnings: string[] = []): ApplyResult => ({ ok: true, summary, warnings })
 
@@ -265,7 +278,10 @@ export function installMock(): void {
         listId,
         title: 'Sony BRAVIA 9 II, K-65XR90M2 (2026, device BRAVIA_AE3, MediaTek MT5838)',
         header: ['Google TV 14 (API 34), build UKN4.250422.001.', 'Everything is DISABLED, not uninstalled.'],
-        entries: entries.map((e) => ({ ...e })),
+        entries: entries.map((e) => {
+          const warning = warningFor(e.pkg, probe.manufacturer)
+          return { ...e, ...(warning ? { warning } : {}), ...(turned[e.pkg] ? { turnedOn: turned[e.pkg] } : {}) }
+        }),
         record,
         homePackage: launcherHome ? 'com.gathin.tvhome' : 'com.google.android.apps.tv.launcherx'
       }
@@ -305,6 +321,22 @@ export function installMock(): void {
     },
     async cameBack() {
       return []
+    },
+    async brokeSteps(id) {
+      await wait(300)
+      const off = entries.filter((e) => e.state === 'disabled' && e.recorded === 'enabled').map((e) => e.pkg)
+      return { symptom: id, steps: stepsFor(id, off).map((s) => s.map(({ pkg, link }) => ({ pkg, why: link.why(), ...(link.issue ? { issue: link.issue } : {}) }))), hint: symptom(id).hint?.() }
+    },
+    async brokeFix(id, pkgs) {
+      for (const pkg of pkgs) {
+        log('debloat', 'cmd', `pm enable ${pkg}`)
+        await wait(150)
+        const e = entries.find((x) => x.pkg === pkg)
+        if (e) e.state = 'enabled'
+        turned[pkg] = id
+      }
+      log('something broke', 'ok', `Turned back on: ${pkgs.join(', ')}.`)
+      return ok(`Turned back on: ${pkgs.join(', ')}.`)
     },
     async saveBackup() {
       await wait(300)

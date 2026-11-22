@@ -3,6 +3,8 @@
 import type { DebloatEntry } from '@shared/api'
 
 export function defaultTick(e: DebloatEntry): boolean {
+  // "Something broke" turned it back on: it stays on unless the owner ticks it.
+  if (e.turnedOn && e.state === 'enabled') return false
   // Keep earlier choices: a package this app switched off stays ticked.
   if (e.state === 'disabled') return e.suggested || e.recorded === 'enabled'
   // Features people use (phone remote, casting, voice) are the user's call, never a default.

@@ -5,7 +5,7 @@ import type { CytvApi, ConnStatus, DownloadProgress, LogLine } from '@shared/api
 const methods = [
   'setLanguage', 'scan', 'discover', 'stopDiscovery', 'connect', 'disconnect', 'status', 'lastHost', 'reconnect', 'checkAdbClosed', 'bootCheck', 'checkUpdate', 'downloadUpdate', 'installUpdate', 'pair',
   'bugReport', 'saveReport', 'recordStart', 'recordStop', 'recordCancel', 'checkup', 'checkupFix', 'checks', 'download',
-  'lists', 'plan', 'tvPackages', 'applyDebloat', 'restore', 'cameBack', 'saveBackup', 'openBackup', 'restoreBackup',
+  'lists', 'plan', 'tvPackages', 'applyDebloat', 'restore', 'cameBack', 'brokeSteps', 'brokeFix', 'saveBackup', 'openBackup', 'restoreBackup',
   'useStockLauncher', 'otherLaunchers', 'useOtherLauncher', 'keepGoogleLauncher', 'removeOldLauncher', 'homeStatus', 'installHome', 'useHome', 'homeApps', 'readHomeConfig', 'setRemoteButtons', 'setLockPin', 'setAppLock', 'clearAppLock', 'themePackBegin', 'themePackPut', 'themePackEnd', 'setSlides', 'fireplace', 'homeKeys', 'saveHomeLook', 'saveThemeOnTv', 'setHomeConfig', 'setHomeWallpaper', 'pictureToJpeg', 'applyHomeTheme', 'themeBackup', 'restoreThemeBackup', 'forgetThemeBackup', 'saveHomeTheme',
   'knownTvs', 'connectKnown', 'forgetTv', 'saveTvThumb',
   'screenshot', 'saveScreenshot', 'thumbShot', 'webGet',

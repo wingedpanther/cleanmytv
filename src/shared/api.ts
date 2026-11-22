@@ -1,6 +1,9 @@
 // The contract between the main process (talks to the TV) and the renderer (the UI).
 // Every call goes through window.cytv, which the preload script builds from this interface.
 import type { Lang } from './i18n'
+import type { SymptomId } from './symptoms'
+
+export type { SymptomId } from './symptoms'
 
 export type PackageState = 'enabled' | 'disabled' | 'absent'
 
@@ -116,6 +119,10 @@ export interface DebloatEntry {
   choice?: string
   /** Added by the owner, not from the list. */
   added?: boolean
+  /** Turned back on by "Something broke" for this: Clean up leaves it unticked from then on. */
+  turnedOn?: SymptomId
+  /** What switching it off did on someone else's TV, from their report, and the issue on GitHub. */
+  warning?: { text: string; issue?: number }
 }
 
 export interface DebloatPlan {
@@ -133,6 +140,22 @@ export interface DebloatPlan {
 export interface CameBack {
   listId: string
   packages: string[]
+}
+
+/** One package "Something broke" offers to turn back on, and why it is linked to the symptom. */
+export interface BrokeLink {
+  pkg: string
+  why: string
+  /** The issue on GitHub with the report. */
+  issue?: number
+}
+
+/** What this app switched off on the TV that is linked to a symptom, in steps, the likeliest first. */
+export interface BrokeSteps {
+  symptom: SymptomId
+  steps: BrokeLink[][]
+  /** Said once, for what turning packages on can't fix. */
+  hint?: string
 }
 
 export interface DebloatApplyRequest {
@@ -617,6 +640,10 @@ export interface CytvApi {
   restore(listId: string): Promise<ApplyResult>
   /** Packages this app switched off on the connected TV that are on again, by list. */
   cameBack(): Promise<CameBack[]>
+  /** What this app switched off on the TV that could cause the symptom, in steps. */
+  brokeSteps(symptom: SymptomId): Promise<BrokeSteps>
+  /** Turns those packages back on through Clean up's own path, and Clean up leaves them on from then on. */
+  brokeFix(symptom: SymptomId, packages: string[]): Promise<ApplyResult>
   /** Saves the TV's clean-up and CleanMyTV Home settings to a JSON file the owner picks. The path, or null if cancelled. */
   saveBackup(): Promise<string | null>
   /** Opens a backup file the owner picks and says what restoring it would do. Null if cancelled. */

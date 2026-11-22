@@ -8,10 +8,11 @@ import { join, resolve } from 'node:path'
 import { paths } from './paths'
 import { log } from './log'
 import * as T from './tv'
-import { keptLauncher } from './kept'
+import { keptLauncher, rememberTurnedOn, turnedOn } from './kept'
 import { keyboardPackages, noteKeyboard } from './keyboard'
 import { t, UiError } from './i18n'
 import { inEnglish } from './english'
+import { warningFor } from '@shared/symptoms'
 import type { ApplyResult, CameBack, DebloatApplyRequest, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState, Probe } from '@shared/api'
 
 const TASK = 'debloat'
@@ -564,7 +565,8 @@ export async function plan(listId: string): Promise<DebloatPlan> {
     state: stateOf(e.pkg, installed, disabled),
     recorded: record?.packages[e.pkg],
     common: common.get(e.pkg)?.count ?? 0,
-    choice: choiceFor(e)
+    choice: choiceFor(e),
+    ...reports(e.pkg)
   }))
   // The custom list is every package other TVs disable: only the ones on this TV are worth showing.
   if (listId === 'custom') entries = entries.filter((e) => e.state !== 'absent')
@@ -610,16 +612,16 @@ export function cameBack(active: string[], installed: Set<string>, disabled: Set
 const restoredMark = (record: string): string => `${record}.restored`
 
 /** The lists this app applied on the connected TV: a saved list with a restore point for this TV. */
-export function appliedLists(): { listId: string; active: string[] }[] {
+export function appliedLists(): { listId: string; active: string[]; recorded: Record<string, PackageState> }[] {
   const probe = T.getStatus().probe
   if (!probe) return []
-  const out: { listId: string; active: string[] }[] = []
+  const out: { listId: string; active: string[]; recorded: Record<string, PackageState> }[] = []
   for (const listId of ['custom', ...upstreamLists().map((l) => l.id)]) {
     const file = savedListPath(listId, probe)
     if (!existsSync(file)) continue
     try {
       const { path, record } = findRecord(file, probe.host, probe.device || undefined)
-      if (record && !existsSync(restoredMark(path))) out.push({ listId, active: savedActive(file) })
+      if (record && !existsSync(restoredMark(path))) out.push({ listId, active: savedActive(file), recorded: record.packages })
     } catch {
       // another device's record at this address: not this TV's clean-up
     }
@@ -645,6 +647,23 @@ export async function switchedOff(): Promise<{ off: string[]; back: CameBack[] }
   return { off: [...off].sort(), back }
 }
 
+/**
+ * What this app switched off on the connected TV and is still off, with the lists that did it. Not what was
+ * already off before the first clean-up: Restore leaves those off too.
+ */
+export async function stillOff(): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>()
+  const lists = appliedLists()
+  if (!lists.length) return out
+  const { installed, disabled } = await T.packageSets()
+  for (const l of lists) {
+    for (const p of l.active) {
+      if (installed.has(p) && disabled.has(p) && l.recorded[p] !== 'disabled') out.set(p, [...(out.get(p) ?? []), l.listId])
+    }
+  }
+  return out
+}
+
 /** The screensaver in use, and the backdrop app Google's needs with it: on by choice, not by an update (#57). */
 async function screensaverApps(): Promise<string[]> {
   const comp = (await T.sh(TASK, 'settings get secure screensaver_components', { quiet: true })).trim().split(',')[0] ?? ''
@@ -662,8 +681,16 @@ function addedEntry(pkg: string, state: PackageState, common: Map<string, { coun
     recorded,
     common: common.get(pkg)?.count ?? 0,
     choice: choiceFor({ pkg, note: '', suggested: true }),
-    added: true
+    added: true,
+    ...reports(pkg)
   }
+}
+
+/** What others reported after switching `pkg` off, and whether "Something broke" turned it back on here. */
+function reports(pkg: string): Pick<DebloatEntry, 'warning' | 'turnedOn'> {
+  const warning = warningFor(pkg, T.getStatus().probe?.manufacturer)
+  const turned = turnedOn()[pkg]
+  return { ...(warning ? { warning } : {}), ...(turned ? { turnedOn: turned } : {}) }
 }
 
 /** Every package on the TV, for adding one by hand (#39). Launchers and our own apps are left out. */
@@ -873,9 +900,10 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   let done = 0
   // Fire OS and some other firmware refuse their own apps outright; that is the TV's rule, not a failure.
   const guarded: string[] = []
+  const off: string[] = []
   for (const p of pkgs) {
     const out = await T.sh(TASK, `pm disable-user --user 0 ${p}`)
-    if (/disabled/.test(out)) done++
+    if (/disabled/.test(out)) { done++; off.push(p) }
     else if (/Cannot disable a protected package/i.test(out)) guarded.push(p)
     else warnings.push(`${p}: ${out.trim() || t('no answer')}`)
   }
@@ -889,6 +917,8 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
         ? t("The TV doesn't let these {n} be switched off, so they stay on: {pkgs}. Newer Fire TV software protects every Amazon app this way.", { n: guarded.length, pkgs: guarded.join(', ') })
         : t("The TV doesn't let these {n} be switched off, so they stay on: {pkgs}.", { n: guarded.length, pkgs: guarded.join(', ') }))
   }
+  // Ticked by hand after "Something broke" turned it back on: the owner's call now.
+  rememberTurnedOn(off, null)
   let enabled = 0
   for (const p of req.enable) {
     const out = await T.sh(TASK, `pm enable ${p}`)
@@ -905,6 +935,7 @@ export async function apply(req: DebloatApplyRequest): Promise<ApplyResult> {
   const back = req.enable.length > 0
   const say = (): string => {
     const v = { pkgs: stayedOn.join(', '), done, n: tried, more: guarded.length, back: enabled }
+    if (!req.disable.length && back) return t('Switched {back} {back|package|packages} back on.', v)
     if (pkgs.length === 0 && req.disable.length) {
       if (stayedOn.length) {
         return back
