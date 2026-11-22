@@ -88,7 +88,7 @@ describe('the languages', () => {
   })
 
   it("follow the computer's language, English when the app doesn't speak it", () => {
-    expect(['ru-RU', 'de_AT', 'de', 'DE-de', 'fr-FR', '', undefined].map(langOf)).toEqual(['ru', 'de', 'de', 'de', 'en', 'en', 'en'])
+    expect(['ru-RU', 'de_AT', 'de', 'DE-de', 'es-MX', 'fr-FR', '', undefined].map(langOf)).toEqual(['ru', 'de', 'de', 'de', 'es', 'en', 'en', 'en'])
   })
 })
 
@@ -118,6 +118,8 @@ describe('t', () => {
     expect(pluralIndex('ru', 1.5)).toBe(1)
     const de = (n: number): string => fill('de', '{n} {n|Zeile|Zeilen}', { n })
     expect([0, 1, 2, 21].map(de)).toEqual(['0 Zeilen', '1 Zeile', '2 Zeilen', '21 Zeilen'])
+    const es = (n: number): string => fill('es', '{n} {n|fila|filas}', { n })
+    expect([0, 1, 2, 1000000].map(es)).toEqual(['0 filas', '1 fila', '2 filas', '1000000 filas'])
   })
 
   it('uses English plurals when the English is the fallback', () => {

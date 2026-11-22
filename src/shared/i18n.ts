@@ -1,12 +1,14 @@
 // The translation core, shared by the window and the main process. English is the source: each
 // English text is its own key, and a language file maps it to the translation.
 import de from '../renderer/src/locales/de.json'
+import es from '../renderer/src/locales/es.json'
 import ru from '../renderer/src/locales/ru.json'
 
 /** The languages the app speaks. Another one is its file in locales/ and a line here. */
 export const LANGUAGES = {
   en: { name: 'English', dict: {} as Record<string, string> },
   de: { name: 'Deutsch', dict: de as Record<string, string> },
+  es: { name: 'Español', dict: es as Record<string, string> },
   ru: { name: 'Русский', dict: ru as Record<string, string> }
 }
 
@@ -25,14 +27,16 @@ function pluralRules(lang: Lang): { select: (n: number) => string; forms: string
   let r = rules.get(lang)
   if (!r) {
     const p = new Intl.PluralRules(lang)
-    const forms = [...p.resolvedOptions().pluralCategories].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b))
-    r = { select: (n) => p.select(n), forms }
+    // Spanish's "many" is only for round millions ("un millón de apps"), which read fine with the other form.
+    const merged = lang === 'es' ? ['many'] : []
+    const forms = [...p.resolvedOptions().pluralCategories].filter((f) => !merged.includes(f)).sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b))
+    r = { select: (n) => (merged.includes(p.select(n)) ? 'other' : p.select(n)), forms }
     rules.set(lang, r)
   }
   return r
 }
 
-/** How many forms a plural takes in [lang]: English and German two, Russian three (one, few, many). */
+/** How many forms a plural takes in [lang]: English, German and Spanish two, Russian three (one, few, many). */
 export const pluralForms = (lang: Lang): number => (lang === 'ru' ? 3 : pluralRules(lang).forms.length)
 
 /**
