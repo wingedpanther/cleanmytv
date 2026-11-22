@@ -100,15 +100,15 @@
         </activity>
 
         <!-- The app lock's PIN pad, over a locked app however it was opened. Its own task, so Back
-             and recents never land on it by mistake. -->
+             and recents never land on it by mistake. No orientation of its own: Android 8.0 won't start a
+             see-through screen that sets one, and it takes the landscape of the screen under it. -->
         <activity
             android:name=".LockActivity"
             android:exported="false"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:launchMode="singleTask"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen"
-            android:screenOrientation="landscape" />
+            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
 
         <!-- The sleep timer's alarm. -->
         <!-- Input tiles open through this: it switches to the input and closes without showing anything. -->
@@ -125,13 +125,13 @@
         <!-- Android's installer reports on an update here. -->
         <receiver android:name=".UpdateReceiver" android:exported="false" />
 
-        <!-- The on-TV editor (experimental), opened from its top bar icon. -->
+        <!-- The on-TV editor (experimental), opened from its top bar icon. See-through, so no orientation,
+             as the PIN pad. -->
         <activity
             android:name=".customization.CustomizationActivity"
             android:exported="false"
             android:excludeFromRecents="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen"
-            android:screenOrientation="landscape" />
+            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
 
         <!-- The fireplace, full screen on demand, and as a screensaver the TV lists by name. -->
         <activity

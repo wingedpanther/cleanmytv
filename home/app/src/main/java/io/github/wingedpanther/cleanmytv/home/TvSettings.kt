@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import kotlinx.coroutines.channels.awaitClose
 import android.provider.Settings
 import android.util.Log
 import java.net.Inet4Address
@@ -137,6 +138,19 @@ object TvSettings {
         val pct = BRIGHT_PCT[(now + 1) % BRIGHT_PCT.size]
         setBrightness(ctx, pct)
         return pct
+    }
+
+    /** Whether the TV's network is a cable, kept up to date while Home is open: the Wi-Fi icon shows a plug then. */
+    fun onCable(ctx: Context): kotlinx.coroutines.flow.Flow<Boolean> = kotlinx.coroutines.flow.callbackFlow {
+        val cm = ctx.getSystemService(ConnectivityManager::class.java)
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(n: android.net.Network, caps: NetworkCapabilities) {
+                trySend(caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET))
+            }
+            override fun onLost(n: android.net.Network) { trySend(false) }
+        }
+        runCatching { cm.registerDefaultNetworkCallback(cb) }.onFailure { trySend(false) }
+        awaitClose { runCatching { cm.unregisterNetworkCallback(cb) } }
     }
 
     /** "Ethernet · 192.168.0.8" or "Wi-Fi · …", read only; OK opens the network screen. */

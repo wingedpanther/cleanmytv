@@ -56,7 +56,7 @@ import org.json.JSONObject
 
 /** What a button can do, worded as the desktop app's Remote buttons tab, in the TV's language. */
 private fun actions() = listOf(
-    "settings" to tr("Open Settings"), "inputs" to tr("Open Inputs"), "home" to tr("Go Home"), "back" to tr("Back"),
+    "settings" to tr("Open Settings"), "inputs" to tr("Open Inputs"), "home" to tr("Go Home"), "launcher" to tr("Open CleanMyTV Home"), "back" to tr("Back"),
     "app" to tr("Open an app…"), "wifi" to tr("Open Wi-Fi"), "bluetooth" to tr("Open Bluetooth & remotes"),
     "display" to tr("Open Picture & sound"), "apps" to tr("Open the app list"), "sleep" to tr("Start the screensaver"),
     "search" to tr("Open Search"), "music" to tr("Music bars on or off"), "panel" to tr("Open Quick settings"),

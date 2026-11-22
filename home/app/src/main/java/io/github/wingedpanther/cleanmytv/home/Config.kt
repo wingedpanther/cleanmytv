@@ -260,7 +260,7 @@ data class HomeConfig(
             }
             return out
         }
-        val BUTTON_ACTIONS = QUICK - "inputs" + setOf("inputs", "home", "back", "none", "app", "next_wallpaper", "brightness")
+        val BUTTON_ACTIONS = QUICK - "inputs" + setOf("inputs", "home", "launcher", "back", "none", "app", "next_wallpaper", "brightness")
         /** App shortcuts in the top bar, after the quick-settings icons that fit. */
         const val MAX_QUICK_APPS = 6
         fun quickApp(entry: String): String? = entry.removePrefix("app:").takeIf { entry.startsWith("app:") && PKG.matches(it) }

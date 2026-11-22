@@ -21,4 +21,8 @@ class ButtonHoldTest {
         assertNull(parse("""{"code":183,"action":"home","hold":"dance"}""").hold)
         assertNull(parse("""{"code":183,"action":"home","hold":"none"}""").hold)
     }
+
+    @Test fun `the Home button can open CleanMyTV Home itself, pressed or held (#137)`() {
+        assertEquals(ButtonMap(3, "launcher", null, "launcher", null), parse("""{"code":3,"action":"launcher","hold":"launcher"}"""))
+    }
 }

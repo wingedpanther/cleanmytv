@@ -1,5 +1,6 @@
 package io.github.wingedpanther.cleanmytv.home
 
+import androidx.compose.material.icons.outlined.SettingsEthernet
 import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.compose.animation.animateColorAsState
@@ -352,8 +353,13 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         val r = Updates.check(ctx) ?: return@LaunchedEffect
         if (Updates.announce(ctx, r)) android.widget.Toast.makeText(ctx, tr("CleanMyTV Home {version} is out. The update icon is first in the top bar.", "version" to r.version), android.widget.Toast.LENGTH_LONG).show()
     }
+    // On a cable, the Wi-Fi icon shows a plug and says Ethernet. It opens the same network screen.
+    val cable by remember { TvSettings.onCable(ctx) }.collectAsState(initial = false)
     val quick = listOfNotNull(all["update"]?.takeIf { update != null }) + cfg.quick.mapNotNull { id ->
-        HomeConfig.quickApp(id)?.let { p -> byPkg[p]?.let { appAction(it, quickIcons[p]) } } ?: all[id]?.let { a -> cfg.names[id]?.let { a.copy(label = it) } ?: a }
+        HomeConfig.quickApp(id)?.let { p -> byPkg[p]?.let { appAction(it, quickIcons[p]) } } ?: all[id]?.let { a ->
+            val b = if (id == "wifi" && cable) a.copy(label = "Ethernet", icon = Icons.Outlined.SettingsEthernet) else a
+            cfg.names[id]?.let { b.copy(label = it) } ?: b
+        }
     }.filter { canOpen(ctx, it, inputs.isNotEmpty()) }
     var openFolder by remember { mutableStateOf<Pair<String, List<TvApp>>?>(null) }
     // Long press on a tile: its menu, and Move, which hands the arrow keys to the tile until OK or Back.

@@ -229,6 +229,8 @@ class KeyService : AccessibilityService() {
     private fun perform(action: String, app: String?) {
         when (action) {
             "home" -> performGlobalAction(GLOBAL_ACTION_HOME)
+            // On TVs that won't let another launcher be Home, the Home button can still open this one (#137).
+            "launcher" -> bringHome()
             "back" -> performGlobalAction(GLOBAL_ACTION_BACK)
             "none" -> Unit
             "inputs" -> startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN, "inputs").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
