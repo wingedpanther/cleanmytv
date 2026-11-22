@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import * as T from './tv'
 import { paths } from './paths'
+import { isSymptom, type SymptomId } from '@shared/symptoms'
 
 const file = (): string => join(paths.data, 'kept-launchers.json')
 
@@ -47,4 +48,39 @@ export function keepLauncher(pkg: string | null): void {
   const { [k]: _old, ...rest } = all()
   mkdirSync(paths.data, { recursive: true })
   writeFileSync(file(), JSON.stringify(pkg ? { ...rest, [k]: pkg } : rest, null, 2))
+}
+
+// Packages "Something broke" turned back on, per TV, with the symptom: Clean up leaves them unticked from then
+// on, so the next run doesn't switch them off again without the owner seeing it. Ticking one by hand and
+// applying forgets it.
+const turnedFile = (): string => join(paths.data, 'turned-back-on.json')
+
+function allTurned(): Record<string, Record<string, SymptomId>> {
+  try {
+    return existsSync(turnedFile()) ? (JSON.parse(readFileSync(turnedFile(), 'utf8')) as Record<string, Record<string, SymptomId>>) : {}
+  } catch {
+    return {}
+  }
+}
+
+/** The packages turned back on for the connected TV, and what for. */
+export function turnedOn(): Record<string, SymptomId> {
+  const k = tvKey()
+  const mine = k ? allTurned()[k] ?? {} : {}
+  return Object.fromEntries(Object.entries(mine).filter(([p, s]) => T.PACKAGE_RE.test(p) && isSymptom(s)))
+}
+
+/** Remembers `pkgs` as turned back on for `symptom` on the connected TV, or forgets them with null. */
+export function rememberTurnedOn(pkgs: string[], symptom: SymptomId | null): void {
+  const k = tvKey()
+  if (!k || !pkgs.length) return
+  const all = allTurned()
+  const mine = { ...all[k] }
+  if (!symptom && !pkgs.some((p) => p in mine)) return
+  for (const p of pkgs) {
+    if (symptom) mine[p] = symptom
+    else delete mine[p]
+  }
+  mkdirSync(paths.data, { recursive: true })
+  writeFileSync(turnedFile(), JSON.stringify({ ...all, [k]: mine }, null, 2))
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { ApplyResult, CameBack, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState } from '@shared/api'
+import type { ApplyResult, BrokeSteps, CameBack, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState, SymptomId } from '@shared/api'
+import { SYMPTOMS, symptom } from '@shared/symptoms'
 import type { ScreenProps } from '../App'
 import { ActionButton, CheckupCard, Confirm, ResultNotice, Skeleton, Toggle, UndoToast, errorText, usePhase } from '../components/ui'
 import { ShareList } from '../components/ShareList'
@@ -267,6 +268,7 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
 
       <ResultNotice result={result} onDismiss={() => setResult(null)} />
       {checkup > 0 && <CheckupCard key={checkup} auto />}
+      {plan?.record && !loadingPlan && <SomethingBroke onChanged={() => loadPlan(plan.listId, true)} onRestore={() => setConfirm('restore')} />}
 
       {loadingPlan && (
         <div className="card white">
@@ -372,6 +374,8 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
                     <td>
                       <div className="pkg-name">{e.pkg}</div>
                       {e.choice && <div className="choice-tag">{t('Your choice · {why}', { why: e.choice })}</div>}
+                      {e.turnedOn && <div className="choice-tag">{t('Turned back on for: {problem}', { problem: symptom(e.turnedOn).label() })}</div>}
+                      {e.warning && e.state !== 'absent' && <Report warning={e.warning} />}
                       <div className="small muted">
                         {[e.added && t('Added by you.'), !e.suggested && t('Kept by the list author.'), e.common > 1 && t('Switched off in {n} lists.', { n: e.common })].filter(Boolean).join(' ')}
                       </div>
@@ -489,6 +493,164 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
         </Confirm>
       )}
     </>
+  )
+}
+
+const ISSUES = 'https://github.com/wingedpanther/cleanmytv/issues/'
+
+/** What switching a package off did on someone else's TV: one line, and the issue it was reported in. */
+function Report({ warning }: { warning: { text: string; issue?: number } }): ReactNode {
+  return (
+    <div className="small report-line">
+      {warning.text}
+      {warning.issue && <> <a href={ISSUES + warning.issue} target="_blank" rel="noreferrer">#{warning.issue}</a></>}
+    </div>
+  )
+}
+
+/**
+ * Something broke after Clean up: the owner picks what, and the app turns back on only what it switched off
+ * that is linked to it, a step at a time. Restore is the last step.
+ */
+function SomethingBroke({ onChanged, onRestore }: { onChanged: () => void; onRestore: () => void }): ReactNode {
+  const [open, setOpen] = useState(false)
+  const [picked, setPicked] = useState<SymptomId | null>(null)
+  const [offer, setOffer] = useState<BrokeSteps | null>(null)
+  /** Which step this is, counting the ones turned on already. */
+  const [step, setStep] = useState(1)
+  const [phase, setPhase] = usePhase()
+  const [result, setResult] = useState<ApplyResult | null>(null)
+  const [fixed, setFixed] = useState(false)
+  const [error, setError] = useState('')
+
+  async function load(id: SymptomId, at: number): Promise<void> {
+    setPicked(id)
+    setStep(at)
+    setOffer(null)
+    setResult(null)
+    setFixed(false)
+    setError('')
+    try {
+      setOffer(await window.cytv.brokeSteps(id))
+    } catch (e) {
+      setError(errorText(e))
+    }
+  }
+
+  async function turnOn(): Promise<void> {
+    if (!picked || !offer?.steps[0]) return
+    setPhase('busy')
+    try {
+      const r = await window.cytv.brokeFix(picked, offer.steps[0].map((l) => l.pkg))
+      setPhase(r.ok ? 'done' : 'failed')
+      setResult(r)
+    } catch (e) {
+      setPhase('failed')
+      setResult({ ok: false, summary: errorText(e), warnings: [] })
+    } finally {
+      onChanged()
+    }
+  }
+
+  function close(): void {
+    setOpen(false)
+    setPicked(null)
+    setOffer(null)
+    setResult(null)
+    setFixed(false)
+  }
+
+  const now = offer?.steps[0]
+  return (
+    <div className="card">
+      <div className="row between" style={{ flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1 }}>
+          <h2 style={{ margin: 0 }}>{t('Something broke?')}</h2>
+          {!open && <p className="muted small" style={{ margin: '4px 0 0' }}>{t('Pick what stopped working. The app turns back on only what Clean up switched off that is linked to it, not everything.')}</p>}
+        </div>
+        <button className="btn small ghost" onClick={() => (open ? close() : setOpen(true))} aria-expanded={open}>
+          {open ? t('Close') : t('Find the cause')}
+        </button>
+      </div>
+
+      {open && !picked && (
+        <>
+          <p className="muted" style={{ margin: '10px 0 0' }}>{t('What stopped working?')}</p>
+          <div className="list-picker" style={{ maxHeight: 'none' }}>
+            {SYMPTOMS.map((s) => (
+              <button key={s.id} className="list-opt" onClick={() => void load(s.id, 1)}>
+                <span className="title">{s.label()}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {picked && (
+        <div style={{ marginTop: 12 }}>
+          <div className="row between">
+            <b>{symptom(picked).label()}</b>
+            <button className="btn small ghost" onClick={() => { setPicked(null); setOffer(null); setResult(null) }}>{t('Pick something else')}</button>
+          </div>
+          {error && <div className="notice error" style={{ marginTop: 10 }}>{error}</div>}
+          {!offer && !error && <Skeleton rows={2} label={t('Looking at what Clean up switched off')} />}
+
+          {fixed ? (
+            <div className="notice ok" style={{ marginTop: 10, marginBottom: 0 }}>{t('Good. Clean up leaves those on from now on, and Restore still puts everything back if you need it.')}</div>
+          ) : result ? (
+            <>
+              <ResultNotice result={result} />
+              {result.ok && (
+                <>
+                  <p style={{ marginTop: 0 }}>{t('Check the TV now. Does it work again?')}</p>
+                  <div className="row">
+                    <button className="btn" onClick={() => setFixed(true)}>{t('It works now')}</button>
+                    <button className="btn ghost" onClick={() => void load(picked, step + 1)}>{t('Still broken')}</button>
+                  </div>
+                </>
+              )}
+            </>
+          ) : offer && now ? (
+            <>
+              <p className="muted small" style={{ margin: '8px 0' }}>
+                {offer.steps.length > 1
+                  ? t('Step {n}: turn these back on first. They are the likeliest cause.', { n: step })
+                  : t('Step {n}: turn these back on.', { n: step })}
+              </p>
+              {now.map((l) => (
+                <div key={l.pkg} style={{ padding: '8px 0', borderTop: '1px solid var(--line)' }}>
+                  <div className="pkg-name">{l.pkg}</div>
+                  <div className="small muted">
+                    {l.why}
+                    {l.issue && <> <a href={ISSUES + l.issue} target="_blank" rel="noreferrer">#{l.issue}</a></>}
+                  </div>
+                </div>
+              ))}
+              {offer.hint && <div className="notice" style={{ marginTop: 10 }}>{offer.hint}</div>}
+              <div className="row" style={{ marginTop: 10 }}>
+                <ActionButton
+                  phase={phase}
+                  label={t('Turn {n|it|them} back on', { n: now.length })}
+                  busyLabel={t('Turning on')}
+                  doneLabel={t('On again')}
+                  onClick={() => void turnOn()}
+                />
+              </div>
+            </>
+          ) : offer ? (
+            <>
+              {offer.hint && <div className="notice" style={{ marginTop: 10 }}>{offer.hint}</div>}
+              <p style={{ marginTop: 10 }}>
+                {step > 1
+                  ? t('That was everything Clean up switched off that is linked to this. Restore turns every package from this list back on, to rule Clean up out.')
+                  : t("Clean up didn't switch off anything linked to this. Restore turns every package from this list back on, to rule Clean up out.")}
+              </p>
+              <button className="btn" onClick={onRestore}>{t('Restore')}</button>
+            </>
+          ) : null}
+        </div>
+      )}
+    </div>
   )
 }
 

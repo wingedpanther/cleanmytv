@@ -22,6 +22,7 @@ import * as web from './web'
 import * as home from './home'
 import * as themes from './themes'
 import { THEME_EXT, themeFileName } from '@shared/themes'
+import { isSymptom } from '@shared/symptoms'
 import { bugReport, fullReport } from './report'
 import * as storage from './storage'
 import * as backup from './backup'
@@ -29,6 +30,7 @@ import { tellHome } from './switchedoff'
 import * as record from './record'
 import * as share from './sharelist'
 import * as checkup from './checkup'
+import * as broke from './broke'
 import { englishOf, languageFromLocale, setLanguage, t, UiError } from './i18n'
 import type { CheckItem, ConnStatus, CytvApi, KnownTv } from '@shared/api'
 
@@ -210,6 +212,16 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
     return r
   },
   cameBack: async () => (await debloat.switchedOff()).back,
+  brokeSteps: async (id) => {
+    if (!isSymptom(id)) throw new Error(`not a symptom: ${String(id)}`)
+    return broke.steps(id)
+  },
+  brokeFix: async (id, pkgs) => {
+    if (!isSymptom(id)) throw new Error(`not a symptom: ${String(id)}`)
+    const r = await broke.fix(id, Array.isArray(pkgs) ? pkgs.filter((p): p is string => typeof p === 'string') : [])
+    await tellHome()
+    return r
+  },
   saveBackup: async () => {
     const data = await backup.make(app.getVersion())
     const path = await saveDialog({ title: t('Save the backup'), defaultPath: join(app.getPath('documents'), `cleanmytv-backup-${fileTag()}.json`), filters: [{ name: t('CleanMyTV backup'), extensions: ['json'] }] })
