@@ -1263,5 +1263,22 @@
   "{n} °C": "{n} °C",
   "hottest chip sensor": "sensor del chip más caliente",
   "{n} {n|core|cores}": "{n} {n|núcleo|núcleos}",
-  "Read again": "Leer de nuevo"
+  "Read again": "Leer de nuevo",
+  "The restore record for {host} was taken from another TV of the same model. Nothing was changed. If the TV at this address really is new, move {path} aside first.": "El registro de restauración para {host} pertenece a otro TV del mismo modelo. No se ha realizado ningún cambio. Si realmente se trata de un nuevo televisor, mueve primero {path} a otra ubicación.",
+  "Share my list": "Compartir mi lista",
+  "No list in the app fits this TV yet. Share what you switched off and what you kept, and it can become a list for everyone with this model.": "Todavía no hay ninguna lista en la app para este TV. Comparte lo que has desactivado y lo que has dejado, y puede convertirse en una lista para todos los que tengan este modelo.",
+  "Send what you switched off and kept to the lists on GitHub.": "Envía lo que has desactivado y lo que has dejado a las listas en GitHub.",
+  "This opens a new issue on GitHub with the text below. Nothing is sent until you submit it there. It has no address, Wi-Fi name or account.": "Esto abre una incidencia nueva en GitHub con el texto de abajo. No se envía nada hasta que la publiques allí. No incluye ninguna dirección, nombre de Wi-Fi ni cuenta.",
+  "Reading what Clean up did on this TV": "Leyendo lo que hizo la limpieza en este TV",
+  "Clean up hasn't switched anything off on this TV yet, so the issue only has the TV's details.": "La limpieza todavía no ha desactivado nada en este TV, así que la incidencia solo lleva los datos del TV.",
+  "Anything that broke?": "¿Ha dejado de funcionar algo?",
+  "For example: the remote's voice button stopped working.": "Por ejemplo: el botón de voz del mando dejó de funcionar.",
+  "The issue": "La incidencia",
+  "This is too long for a link. Open on GitHub copies the full text, and the issue opens with a short version: paste the text into it.": "Es demasiado largo para un enlace. «Abrir en GitHub» copia el texto completo y la incidencia se abre con una versión corta: pega el texto en ella.",
+  "Copied. Paste it into the issue on GitHub.": "Copiado. Pégalo en la incidencia de GitHub.",
+  "Copy the text": "Copiar el texto",
+  "Open on GitHub": "Abrir en GitHub",
+  "Switch to": "Cambiar a",
+  "Your TVs": "Tus televisores",
+  "Connect to {name}": "Conectar con {name}"
 }

@@ -1,11 +1,12 @@
 // TVs this app has connected to before, kept in settings.json. With more than one, nothing connects by
 // itself at start: the user picks, so a second TV in the house never gets changes meant for the first.
-import type { ConnStatus, KnownTv } from '@shared/api'
+import type { ConnStatus, KnownTv, Probe } from '@shared/api'
 
 export interface TvSettings {
   lastHost?: string
   lastDevice?: string
   lastModel?: string
+  lastId?: string
   tvs?: KnownTv[]
 }
 
@@ -17,18 +18,33 @@ export function listTvs(s: TvSettings): KnownTv[] {
 
 export const autoConnect = (s: TvSettings): boolean => listTvs(s).length <= 1
 
+/**
+ * The entry `p` is: the one with its id, else, for entries saved before ids, the same device and model.
+ * Two TVs of one model that both have ids stay two entries.
+ */
+function sameTv(t: KnownTv, p: Probe | undefined): boolean {
+  if (!p?.device) return false
+  if (t.id && p.id) return t.id === p.id
+  return t.device === p.device && t.model === p.model
+}
+
 /** A successful connection: this TV moves to the top and is the one to reconnect to. */
 export function rememberTv<S extends TvSettings>(s: S, host: string, st: ConnStatus, now = Date.now()): S {
   const p = st.probe
   const tvs = listTvs(s)
   // The same TV at a new address replaces its old entry; a different TV at this address replaces that one.
-  const old = tvs.find((t) => t.host === host) ?? tvs.find((t) => !!p?.device && t.device === p.device && t.model === p.model)
+  const old = tvs.find((t) => sameTv(t, p)) ?? tvs.find((t) => t.host === host)
   const entry: KnownTv = { ...old, host, device: p?.device, model: p?.model, manufacturer: p?.manufacturer, lastUsed: now }
-  if (old && old.device !== p?.device) {
+  if (p?.id) entry.id = p.id
+  else delete entry.id
+  if (old && !sameTv(old, p)) {
     delete entry.thumb
     delete entry.thumbAt
   }
-  return { ...s, lastHost: host, lastDevice: p?.device, lastModel: p?.model, tvs: [entry, ...tvs.filter((t) => t !== old)] }
+  const next: S = { ...s, lastHost: host, lastDevice: p?.device, lastModel: p?.model, tvs: [entry, ...tvs.filter((t) => t !== old && t.host !== host)] }
+  if (p?.id) next.lastId = p.id
+  else delete next.lastId
+  return next
 }
 
 export function forgetTv<S extends TvSettings>(s: S, host: string): S {
@@ -37,6 +53,7 @@ export function forgetTv<S extends TvSettings>(s: S, host: string): S {
     delete next.lastHost
     delete next.lastDevice
     delete next.lastModel
+    delete next.lastId
   }
   return next
 }

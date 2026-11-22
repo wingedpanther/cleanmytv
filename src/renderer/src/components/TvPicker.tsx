@@ -22,6 +22,45 @@ function ago(at: number): string {
   return t('used {n} d ago', { n: Math.round(h / 24) })
 }
 
+const tvName = (tv: KnownTv): string => [tv.manufacturer, tv.model].filter(Boolean).join(' ') || tv.host
+
+/**
+ * The other TVs in the sidebar: one click disconnects this one and connects to that one. Anything short of
+ * connected (pairing, Allow, a new address) is Setup's job, so `onNeedsSetup` opens it.
+ */
+export function SidebarTvs(props: { tvs: KnownTv[]; status: ConnStatus; onChange: () => void; onNeedsSetup: () => void }): ReactNode {
+  const [busy, setBusy] = useState<string | null>(null)
+  const current = props.status.state === 'connected' ? props.status.host : undefined
+  const list = props.tvs.filter((t) => t.host !== current)
+  if (!list.length || (!current && props.tvs.length < 2)) return null
+  const waiting = props.status.state === 'connecting' || props.status.state === 'waiting-auth'
+
+  async function connect(host: string): Promise<void> {
+    setBusy(host)
+    try {
+      const s = await window.cytv.connectKnown(host)
+      if (s.state !== 'connected') props.onNeedsSetup()
+    } catch {
+      props.onNeedsSetup()
+    } finally {
+      setBusy(null)
+      props.onChange()
+    }
+  }
+
+  return (
+    <div className="sidebar-tvs">
+      <span className="sidebar-tvs-head">{current ? t('Switch to') : t('Your TVs')}</span>
+      {list.map((tv) => (
+        <button key={tv.host} className="sidebar-tv-item" disabled={!!busy || waiting} onClick={() => void connect(tv.host)} title={t('Connect to {name}', { name: tvName(tv) })}>
+          <TvThumb tv={tv} />
+          <span>{busy === tv.host ? t('Connecting…') : tvName(tv)}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 /** TVs used before. Picking one connects to it (checking the same model answers there). */
 export function TvPicker(props: { tvs: KnownTv[]; status: ConnStatus; onChange: () => void; title: string; hint?: string }): ReactNode {
   const [busy, setBusy] = useState<string | null>(null)
@@ -59,7 +98,7 @@ export function TvPicker(props: { tvs: KnownTv[]; status: ConnStatus; onChange: 
           <div key={tv.host} className="tv-item">
             <TvThumb tv={tv} />
             <div className="tv-item-text">
-              <b>{[tv.manufacturer, tv.model].filter(Boolean).join(' ') || tv.host}</b>
+              <b>{tvName(tv)}</b>
               <span className="muted small">
                 {tv.host} · {ago(tv.lastUsed)}
               </span>

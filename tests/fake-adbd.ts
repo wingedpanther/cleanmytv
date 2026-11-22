@@ -58,6 +58,8 @@ export interface FakeTv {
   sdk?: string
   /** ro.product.manufacturer; Sony when unset. */
   manufacturer?: string
+  /** ro.serialno; empty when unset. */
+  serial?: string
   /** ro.product.device; BRAVIA_VH2 when unset. */
   device?: string
   /** CleanMyTV Home's versionName once installed; 1.0.0 when unset. */
@@ -133,7 +135,7 @@ function sh(tv: FakeTv, cmd: string): string {
   }
   if ((m = /^cmd hdmi_control cec_setting set (\S+) (\S+)$/.exec(cmd))) { if (tv.cecWake !== undefined) tv.cecWake = m[2]; return '' }
   if (cmd.startsWith('getprop')) {
-    const props: Record<string, string> = { 'ro.product.model': 'BRAVIA 4K VH2', 'ro.product.device': tv.device ?? 'BRAVIA_VH2', 'ro.product.name': 'BRAVIA_VH2_EU', 'ro.product.manufacturer': tv.manufacturer ?? 'Sony', 'ro.build.version.release': tv.sdk === '24' ? '7.0' : '12', 'ro.build.version.sdk': tv.sdk ?? '31', 'sys.boot_completed': '1', 'ro.build.display.id': 'TEST', 'ro.adb.secure': tv.adbSecure, 'ro.build.fingerprint': 'Sony/BRAVIA_VH2/BRAVIA_VH2:12/TEST/1:user/release-keys' }
+    const props: Record<string, string> = { 'ro.product.model': 'BRAVIA 4K VH2', 'ro.product.device': tv.device ?? 'BRAVIA_VH2', 'ro.product.name': 'BRAVIA_VH2_EU', 'ro.product.manufacturer': tv.manufacturer ?? 'Sony', 'ro.build.version.release': tv.sdk === '24' ? '7.0' : '12', 'ro.build.version.sdk': tv.sdk ?? '31', 'sys.boot_completed': '1', 'ro.build.display.id': 'TEST', 'ro.adb.secure': tv.adbSecure, 'ro.serialno': tv.serial ?? '', 'ro.build.fingerprint': 'Sony/BRAVIA_VH2/BRAVIA_VH2:12/TEST/1:user/release-keys' }
     return cmd.split(';').map((c) => props[c.trim().split(' ')[1]] ?? '').join('\n') + '\n'
   }
   if (cmd === 'pm list packages') return [...tv.packages.keys()].map((p) => `package:${p}`).join('\n') + '\n'

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { ApplyResult, CameBack, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { ActionButton, CheckupCard, Confirm, ResultNotice, Skeleton, Toggle, UndoToast, errorText, usePhase } from '../components/ui'
+import { ShareList } from '../components/ShareList'
 import { defaultTick } from '../lib/ticks'
 import { usbOffWhileDebugging } from '../lib/usb'
 import { t, tx } from '../lib/i18n'
@@ -462,6 +463,8 @@ export function Debloat({ status, go, markDone }: ScreenProps): ReactNode {
           </div>
         </div>
       )}
+
+      {lists && <ShareList noMatch={!lists.some((l) => l.score > 0)} applied={!!plan?.record} />}
 
       {undo && <UndoToast key={undo.text + undo.disable.length} text={undo.text} undoneText={t('Put back as it was')} onUndo={undoApply} onClose={() => setUndo(null)} />}
 

@@ -22,6 +22,8 @@ export interface Probe {
   build: string
   /** "0" means port 5555 accepts any device on the network without the Allow prompt. */
   adbSecure: string
+  /** A short hash of the TV's serial number, to tell two TVs of the same model apart. Never the serial itself. */
+  id?: string
 }
 
 export type ConnState = 'idle' | 'connecting' | 'waiting-auth' | 'connected' | 'error'
@@ -451,10 +453,37 @@ export interface KnownTv {
   device?: string
   model?: string
   manufacturer?: string
+  /** Probe.id: tells this TV from another of the same model. */
+  id?: string
   /** A small JPEG snapshot of the TV screen, as a data URL. */
   thumb?: string
   thumbAt?: number
   lastUsed: number
+}
+
+/** What Share my list puts in a GitHub issue. No address, serial, Wi-Fi name or account. */
+export interface ShareData {
+  app: string
+  tv: { manufacturer: string; model: string; device: string; product: string; android: string; sdk: number; build: string; fingerprint: string }
+  /** The bundled list that matched this TV, if any. */
+  matched: string | null
+  /** The app that answers the Home button now. */
+  home: string | null
+  /** The TV's own launcher, when the app knows it. */
+  stockLauncher: string | null
+  /** Each list Clean up applied on this TV. */
+  lists: ShareList[]
+  /** A launcher kept on for this TV, and whether the owner chose it or the TV needs it. */
+  keptLauncher: { pkg: string; why: 'owner' | 'tv' } | null
+}
+
+export interface ShareList {
+  id: string
+  title: string
+  /** Switched off with this list; `on` when it is on again. */
+  off: { pkg: string; note: string; on?: boolean }[]
+  /** On the TV and left on: for a bundled list, what it suggests; for the custom list, what was offered. */
+  kept: { pkg: string; note: string }[]
 }
 
 export interface InstallResult extends ApplyResult {
@@ -612,6 +641,8 @@ export interface CytvApi {
   /** The TV's log since recordStart with the bug report details, saved where the person picks. Null if they cancel. */
   recordStop(): Promise<string | null>
   recordCancel(): Promise<void>
+  /** The TV's details and what Clean up switched off and kept, for a "Share my list" issue. */
+  shareInfo(): Promise<ShareData>
   /** What commonly breaks after Clean up, checked on the TV: keyboard, Home, the remote's voice, the screensaver. */
   checkup(): Promise<CheckupItem[]>
   /** Puts one check-up item right, then checks again. */

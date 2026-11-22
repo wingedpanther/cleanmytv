@@ -40,6 +40,9 @@ export function installMock(): void {
     build: 'UKN4.250422.001',
     adbSecure: '1'
   }
+  // ?nomatch: no bundled list fits the TV. ?applied: Clean up already ran.
+  const noMatch = new URLSearchParams(location.search).has('nomatch')
+  const applied = new URLSearchParams(location.search).has('applied')
   // ?connected opens the mock already connected, for looking at the later steps.
   let status: ConnStatus = new URLSearchParams(location.search).has('connected')
     ? { state: 'connected', host: probe.host, probe }
@@ -113,7 +116,8 @@ export function installMock(): void {
     state: state as DebloatEntry['state'],
     common: common as number
   }))
-  let record: DebloatPlan['record']
+  let record: DebloatPlan['record'] = applied ? { path: '~/.cleanyourtv/recovery-192.168.1.50-3fa1b2c4.json', created: new Date().toISOString() } : undefined
+  if (applied) for (const e of entries) if (e.suggested && e.state === 'enabled' && e.common > 10 && !e.pkg.includes('launcherx')) e.state = 'disabled'
 
   const ok = (summary: string, warnings: string[] = []): ApplyResult => ({ ok: true, summary, warnings })
 
@@ -230,6 +234,20 @@ export function installMock(): void {
       return '/Users/you/Documents/cleanmytv-log-bravia-4k-vh2.txt'
     },
     async recordCancel() {},
+    async shareInfo() {
+      await wait(300)
+      const off = entries.filter((e) => e.state === 'disabled').map((e) => ({ pkg: e.pkg, note: e.note }))
+      const kept = entries.filter((e) => e.suggested && e.state === 'enabled').map((e) => ({ pkg: e.pkg, note: e.note }))
+      return {
+        app: '0.0.0-dev',
+        tv: { manufacturer: probe.manufacturer, model: probe.model, device: probe.device, product: probe.product, android: probe.release, sdk: probe.sdk, build: probe.build, fingerprint: 'Sony/BRAVIA_AE3_PA/BRAVIA_AE3:14/UKN4.250422.001/1:user/release-keys' },
+        matched: noMatch ? null : 'sony-bravia-9-ii',
+        home: homeIsHome ? 'io.github.wingedpanther.cleanmytv.home/.MainActivity' : 'com.google.android.apps.tv.launcherx/.home.HomeActivity',
+        stockLauncher: 'com.google.android.apps.tv.launcherx',
+        lists: record ? [{ id: noMatch ? 'custom' : 'sony-bravia-9-ii', title: 'Custom list', off, kept }] : [],
+        keptLauncher: googleKept ? { pkg: 'com.google.android.apps.tv.launcherx', why: 'owner' as const } : null
+      }
+    },
     async checkup() {
       await wait(400)
       return [
@@ -248,8 +266,8 @@ export function installMock(): void {
       await wait(200)
       return [
         { id: 'custom', title: 'My TV is not listed: pick from packages other TVs disable', score: 0 },
-        { id: 'sony-bravia-9-ii', title: 'Sony BRAVIA 9 II, K-65XR90M2 (2026, device BRAVIA_AE3, MediaTek MT5838)', score: 9 },
-        { id: 'sony-bravia-4k-ae2', title: 'Sony BRAVIA 4K AE2 (BRAVIA_AE2, MediaTek MT5897), North America', score: 3 },
+        { id: 'sony-bravia-9-ii', title: 'Sony BRAVIA 9 II, K-65XR90M2 (2026, device BRAVIA_AE3, MediaTek MT5838)', score: noMatch ? 0 : 9 },
+        { id: 'sony-bravia-4k-ae2', title: 'Sony BRAVIA 4K AE2 (BRAVIA_AE2, MediaTek MT5897), North America', score: noMatch ? 0 : 3 },
         { id: 'tcl-g10-google-tv', title: 'TCL 55" 4K Google TV, 2023 (G10, Realtek RTD2875P)', score: 0 },
         { id: 'xiaomi-mi-box-s', title: 'Xiaomi Mi Box S (MIBOX4, oneday), streaming box', score: 0 },
         { id: 'philips-r8g-google-tv', title: 'Philips R8G Google TV (MOKA, Realtek RTD2851F), US', score: 0 }

@@ -10,6 +10,8 @@ export interface SavedTv {
   lastHost?: string
   lastDevice?: string
   lastModel?: string
+  /** Probe.id, when the TV gave one: tells it from another TV of the same model. */
+  lastId?: string
 }
 
 export interface ReconnectDeps {
@@ -26,7 +28,8 @@ export async function reconnect(saved: SavedTv, deps: ReconnectDeps): Promise<Co
   if (s.state === 'connected') {
     // The model is self-reported, so this is a check against mistakes (a new device at a reused
     // address), not proof of identity; it keeps the app from acting on the wrong device.
-    if (saved.lastDevice && s.probe?.device !== saved.lastDevice) {
+    const otherTv = (saved.lastDevice && s.probe?.device !== saved.lastDevice) || (saved.lastId && s.probe?.id && s.probe.id !== saved.lastId)
+    if (otherTv) {
       deps.disconnect()
       return deps.report({
         state: 'error', host, moved: true,

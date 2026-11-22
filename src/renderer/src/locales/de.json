@@ -1263,5 +1263,22 @@
   "{n} °C": "{n} °C",
   "hottest chip sensor": "heißester Chipsensor",
   "{n} {n|core|cores}": "{n} {n|Kern|Kerne}",
-  "Read again": "Neu lesen"
+  "Read again": "Neu lesen",
+  "The restore record for {host} was taken from another TV of the same model. Nothing was changed. If the TV at this address really is new, move {path} aside first.": "Der Wiederherstellungsdatensatz für {host} stammt von einem anderen TV desselben Modells. Es wurde nichts geändert. Wenn der TV unter dieser Adresse wirklich neu ist, verschiebe zuerst {path}.",
+  "Share my list": "Meine Liste teilen",
+  "No list in the app fits this TV yet. Share what you switched off and what you kept, and it can become a list for everyone with this model.": "Für diesen TV gibt es noch keine Liste in der App. Teile, was du ausgeschaltet und was du behalten hast, dann kann daraus eine Liste für alle mit diesem Modell werden.",
+  "Send what you switched off and kept to the lists on GitHub.": "Schick, was du ausgeschaltet und behalten hast, an die Listen auf GitHub.",
+  "This opens a new issue on GitHub with the text below. Nothing is sent until you submit it there. It has no address, Wi-Fi name or account.": "Das öffnet ein neues Issue auf GitHub mit dem Text unten. Nichts wird gesendet, bis du es dort abschickst. Es enthält keine Adresse, keinen WLAN-Namen und kein Konto.",
+  "Reading what Clean up did on this TV": "Lese, was Bereinigen auf diesem TV gemacht hat",
+  "Clean up hasn't switched anything off on this TV yet, so the issue only has the TV's details.": "Bereinigen hat auf diesem TV noch nichts ausgeschaltet, daher enthält das Issue nur die Angaben zum TV.",
+  "Anything that broke?": "Ist etwas kaputtgegangen?",
+  "For example: the remote's voice button stopped working.": "Zum Beispiel: Die Sprachtaste der Fernbedienung geht nicht mehr.",
+  "The issue": "Das Issue",
+  "This is too long for a link. Open on GitHub copies the full text, and the issue opens with a short version: paste the text into it.": "Das ist zu lang für einen Link. „Auf GitHub öffnen“ kopiert den ganzen Text, und das Issue öffnet sich mit einer kurzen Fassung: Füg den Text dort ein.",
+  "Copied. Paste it into the issue on GitHub.": "Kopiert. Füg es in das Issue auf GitHub ein.",
+  "Copy the text": "Text kopieren",
+  "Open on GitHub": "Auf GitHub öffnen",
+  "Switch to": "Wechseln zu",
+  "Your TVs": "Deine TVs",
+  "Connect to {name}": "Mit {name} verbinden"
 }
