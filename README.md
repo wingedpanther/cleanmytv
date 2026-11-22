@@ -139,7 +139,7 @@ Your settings and wallpaper stay through updates and reboots. The app also keeps
 computer: if CleanMyTV Home ever starts empty (after an uninstall or a factory reset), installing it
 puts the copy back. The wallpaper is also kept on the TV, so another computer can save the look with it. What the launcher can access is under [Security and privacy](#security-and-privacy).
 
-CleanMyTV Home needs Android 9 (API 28) or newer.
+CleanMyTV Home needs Android 8 (API 26) or newer.
 
 ## Coming back to customise
 
@@ -307,7 +307,7 @@ The tag has to match the version in `package.json`, or the release step stops.
 ## Known limits
 
 - Tested on a Xiaomi Mi Box S from Windows, and on a TV emulator from macOS.
-- Macs need macOS 13 Ventura or newer. CleanMyTV Home needs Android 9 or newer; Clean up works on older TVs.
+- Macs need macOS 13 Ventura or newer. CleanMyTV Home needs Android 8 or newer; Clean up works on older TVs.
 - Wireless debugging pairing uses Google's `adb`, downloaded on demand. On macOS, Local Network
   privacy can block that binary. If pairing fails there, pair from a Windows PC or run `adb pair`
   in Terminal once.

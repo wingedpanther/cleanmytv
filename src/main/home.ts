@@ -80,11 +80,11 @@ const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt',
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 /** Lets the launcher see other apps' media sessions; on only while the Now playing section is. */
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
-/** Android 9: CleanMyTV Home's minSdk (home/app/build.gradle.kts). */
-export const MIN_SDK = 28
+/** Android 8: CleanMyTV Home's minSdk (home/app/build.gradle.kts). */
+export const MIN_SDK = 26
 // Above Android's own codes: TCL remotes send 4001 and up (#47).
 const MAX_KEY = 65535
-const BUTTON_ACTIONS = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'timer', 'next_wallpaper', 'brightness', 'home', 'back', 'none', 'app']
+const BUTTON_ACTIONS = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'timer', 'next_wallpaper', 'brightness', 'home', 'launcher', 'back', 'none', 'app']
 /** A built-in theme's picture, as "<theme id>:<picture>". */
 const THEME_PICTURE = /^[a-z0-9-]{1,40}:[0-9]$/
 /** A TvInputManager input id, like com.mediatek.tvinput/.hdmi.HDMIInputService/HW5 (Config.kt INPUT_ID). */
@@ -131,7 +131,7 @@ export function unsupported(): string | null {
   const probe = T.getStatus().probe
   // An unknown SDK (0) is let through: pm install gives its own answer.
   if (!probe?.sdk || probe.sdk >= MIN_SDK) return null
-  return t('CleanMyTV Home needs Android 9 or newer, and this TV runs Android {release} (SDK {sdk}). Clean up still works on it.', { release: probe.release || '?', sdk: probe.sdk })
+  return t('CleanMyTV Home needs Android 8 or newer, and this TV runs Android {release} (SDK {sdk}). Clean up still works on it.', { release: probe.release || '?', sdk: probe.sdk })
 }
 
 // "Requested internal only, but not enough space" on older Android, INSTALL_FAILED_INSUFFICIENT_STORAGE on newer (#48).
@@ -854,7 +854,13 @@ async function restoreBackup(): Promise<boolean> {
 
 /** Notification-listener access for the Now playing section: given with the section, taken away without it. */
 async function nowPlayingAccess(on: boolean): Promise<void> {
-  await T.sh('theme', `cmd notification ${on ? 'allow' : 'disallow'}_listener ${NOW_LISTENER}`).catch(() => '')
+  const out = await T.sh('theme', `cmd notification ${on ? 'allow' : 'disallow'}_listener ${NOW_LISTENER}`).catch(() => '')
+  // Android 8.0 has no such command: change the setting it writes, the list of listeners, by hand (#139).
+  if (!/No shell command implementation|Unknown command/i.test(out)) return
+  const now = (await T.tv().shell('settings get secure enabled_notification_listeners')).trim()
+  const list = now && now !== 'null' ? now.split(':').filter((c) => c !== NOW_LISTENER) : []
+  const next = on ? [...list, NOW_LISTENER] : list
+  await T.sh('theme', next.length ? `settings put secure enabled_notification_listeners ${next.join(':')}` : 'settings delete secure enabled_notification_listeners').catch(() => '')
 }
 
 /** Lets the launcher see which apps the TV opened, for Recently used; on only while that row is. */

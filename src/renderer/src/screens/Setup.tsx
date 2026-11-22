@@ -220,9 +220,9 @@ export function Setup({ status, go, tvs, refreshTvs }: ScreenProps): ReactNode {
               {tx("This TV reports {prop}. Any device on your network can reach its debug port without the Allow prompt. Close it when you're done: the Finish step walks you through it.", { prop: <code>ro.adb.secure=0</code> })}
             </div>
           )}
-          {status.probe.sdk > 0 && status.probe.sdk < 28 && (
+          {status.probe.sdk > 0 && status.probe.sdk < 26 && (
             <div className="notice warn" style={{ marginTop: 16, marginBottom: 0 }}>
-              {t('This TV reports Android {release} (API {sdk}). CleanMyTV Home needs Android 9 (API 28) or newer, so the Home screen step will refuse to install here. Cleanup stays available and reversible (nothing is uninstalled).', { release: status.probe.release, sdk: status.probe.sdk })}
+              {t('This TV reports Android {release} (API {sdk}). CleanMyTV Home needs Android 8 (API 26) or newer, so the Home screen step will refuse to install here. Cleanup stays available and reversible (nothing is uninstalled).', { release: status.probe.release, sdk: status.probe.sdk })}
             </div>
           )}
           <div className="row" style={{ marginTop: 16 }}>

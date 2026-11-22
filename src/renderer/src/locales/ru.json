@@ -228,7 +228,7 @@
   "CleanMyTV Home is installed. Fire TV always opens Amazon's home screen first, so CleanMyTV Home comes back in front a moment after you press Home, up to 5 seconds on some models.": "CleanMyTV Home установлен. Fire TV всегда сначала открывает главный экран Amazon, поэтому CleanMyTV Home появляется поверх него через мгновение после нажатия «Домой» (на некоторых моделях — до 5 секунд).",
   "CleanMyTV Home is not installed yet.": "CleanMyTV Home ещё не установлен.",
   "CleanMyTV Home is the TV's new home screen: no ads, your apps, your layout. Install it once, then change anything here; the TV shows it straight away and keeps it after a reboot. The stock launcher is one click away on the Overview tab.": "CleanMyTV Home — новый главный экран телевизора: без рекламы, с вашими приложениями и вашим макетом. Установите его один раз, а потом меняйте что угодно здесь: телевизор сразу показывает изменения и сохраняет их после перезагрузки. Стандартный лаунчер возвращается одним нажатием на вкладке «Обзор».",
-  "CleanMyTV Home needs Android 9 or newer, and this TV runs Android {release} (SDK {sdk}). Clean up still works on it.": "CleanMyTV Home нужен Android 9 или новее, а на этом телевизоре Android {release} (SDK {sdk}). «Очистка» на нём всё равно работает.",
+  "CleanMyTV Home needs Android 8 or newer, and this TV runs Android {release} (SDK {sdk}). Clean up still works on it.": "CleanMyTV Home нужен Android 8 или новее, а на этом телевизоре Android {release} (SDK {sdk}). «Очистка» на нём всё равно работает.",
   "CleanMyTV Home opens on the Home button.": "Кнопка «Домой» открывает CleanMyTV Home.",
   "CleanMyTV Home stays installed. Remove it from the TV's Settings → Apps if you want it gone.": "CleanMyTV Home останется установленным. Если он не нужен, удалите его в настройках телевизора: «Настройки» → «Приложения».",
   "CleanMyTV theme": "Тема CleanMyTV",
@@ -1037,7 +1037,7 @@
   "This TV restarts when Google TV's launcher is switched off, so it stays on.": "Этот телевизор перезагружается, если отключить лаунчер Google TV, поэтому он остаётся включённым.",
   "this TV has no shared storage for Home to read the fireplace from. Update Home on the Overview tab and try again.": "на этом телевизоре нет общей памяти, откуда CleanMyTV Home мог бы взять камин. Обновите CleanMyTV Home на вкладке «Обзор» и попробуйте снова.",
   "This TV only offers Wireless debugging, which needs a one-time pairing code.": "Этот телевизор поддерживает только отладку по Wi-Fi, для неё нужен одноразовый код сопряжения.",
-  "This TV reports Android {release} (API {sdk}). CleanMyTV Home needs Android 9 (API 28) or newer, so the Home screen step will refuse to install here. Cleanup stays available and reversible (nothing is uninstalled).": "На телевизоре Android {release} (API {sdk}). CleanMyTV Home нужен Android 9 (API 28) или новее, поэтому шаг «Главный экран» не сможет его установить. Очистка по-прежнему доступна и обратима (ничего не удаляется).",
+  "This TV reports Android {release} (API {sdk}). CleanMyTV Home needs Android 8 (API 26) or newer, so the Home screen step will refuse to install here. Cleanup stays available and reversible (nothing is uninstalled).": "На телевизоре Android {release} (API {sdk}). CleanMyTV Home нужен Android 8 (API 26) или новее, поэтому шаг «Главный экран» не сможет его установить. Очистка по-прежнему доступна и обратима (ничего не удаляется).",
   "This TV reports ro.adb.secure=0: network debugging accepts any device on your network without the Allow prompt. Switch debugging off when you are done (Finish step).": "Этот телевизор сообщает ro.adb.secure=0: отладка по сети пускает любое устройство в вашей сети без запроса «Разрешить». Выключите отладку, когда закончите (раздел «Завершение»).",
   "This TV reports {prop}. Any device on your network can reach its debug port without the Allow prompt. Close it when you're done: the Finish step walks you through it.": "Телевизор сообщает {prop}. Любое устройство в вашей сети может подключиться к его порту отладки без запроса «Разрешить». Закройте порт, когда закончите: шаг «Завершение» покажет, как это сделать.",
   "This TV turns its USB port off while debugging is on. Drives and USB adapters come back once you finish and switch debugging off. Clean up didn't cause it.": "Этот телевизор отключает порт USB, пока включена отладка. Накопители и USB-адаптеры заработают снова, когда вы закончите и выключите отладку. Очистка тут ни при чём.",
@@ -1247,5 +1247,6 @@
   "Fri": "Пт",
   "Sat": "Сб",
   "Sun": "Вс",
-  "Pick at least one day.": "Выберите хотя бы один день."
+  "Pick at least one day.": "Выберите хотя бы один день.",
+  "Open CleanMyTV Home": "Открыть CleanMyTV Home"
 }

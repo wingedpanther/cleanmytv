@@ -228,7 +228,7 @@
   "CleanMyTV Home is installed. Fire TV always opens Amazon's home screen first, so CleanMyTV Home comes back in front a moment after you press Home, up to 5 seconds on some models.": "CleanMyTV Home está instalado. Fire TV siempre abre primero la pantalla de inicio de Amazon, por lo que CleanMyTV Home volverá al primer plano unos instantes después de pulsar Inicio, pudiendo tardar hasta 5 segundos en algunos modelos.",
   "CleanMyTV Home is not installed yet.": "CleanMyTV Home aún no está instalado.",
   "CleanMyTV Home is the TV's new home screen: no ads, your apps, your layout. Install it once, then change anything here; the TV shows it straight away and keeps it after a reboot. The stock launcher is one click away on the Overview tab.": "CleanMyTV Home es la nueva pantalla de inicio del TV: sin publicidad, con tus aplicaciones y tu propio diseño. Instálalo una vez y podrás modificar todo desde aquí; el TV aplicará los cambios de inmediato y los conservará tras reiniciar. El lanzador predeterminado sigue disponible con un solo clic desde la pestaña Resumen.",
-  "CleanMyTV Home needs Android 9 or newer, and this TV runs Android {release} (SDK {sdk}). Clean up still works on it.": "CleanMyTV Home requiere Android 9 o superior, y este TV utiliza Android {release} (SDK {sdk}). La función de Limpieza seguirá funcionando en este dispositivo.",
+  "CleanMyTV Home needs Android 8 or newer, and this TV runs Android {release} (SDK {sdk}). Clean up still works on it.": "CleanMyTV Home requiere Android 8 o superior, y este TV utiliza Android {release} (SDK {sdk}). La función de Limpieza seguirá funcionando en este dispositivo.",
   "CleanMyTV Home opens on the Home button.": "CleanMyTV Home se abrirá al pulsar el botón Inicio.",
   "CleanMyTV Home stays installed. Remove it from the TV's Settings → Apps if you want it gone.": "CleanMyTV Home permanecerá instalado. Si deseas eliminarlo, hazlo desde Ajustes → Aplicaciones del TV.",
   "CleanMyTV theme": "Tema CleanMyTV",
@@ -1037,7 +1037,7 @@
   "This TV restarts when Google TV's launcher is switched off, so it stays on.": "Este TV se reinicia cuando se desactiva el lanzador de Google TV, por lo que debe mantenerse activo.",
   "this TV has no shared storage for Home to read the fireplace from. Update Home on the Overview tab and try again.": "este TV no dispone de almacenamiento compartido desde el que Inicio pueda cargar la chimenea. Actualiza Home desde la pestaña Resumen e inténtalo de nuevo.",
   "This TV only offers Wireless debugging, which needs a one-time pairing code.": "Este TV solo ofrece depuración inalámbrica, que requiere un código de emparejamiento de un solo uso.",
-  "This TV reports Android {release} (API {sdk}). CleanMyTV Home needs Android 9 (API 28) or newer, so the Home screen step will refuse to install here. Cleanup stays available and reversible (nothing is uninstalled).": "Este TV informa de Android {release} (API {sdk}). CleanMyTV Home requiere Android 9 (API 28) o superior, por lo que el apartado Pantalla de inicio no permitirá la instalación. Limpieza seguirá estando disponible y todos los cambios podrán revertirse (no se desinstala nada).",
+  "This TV reports Android {release} (API {sdk}). CleanMyTV Home needs Android 8 (API 26) or newer, so the Home screen step will refuse to install here. Cleanup stays available and reversible (nothing is uninstalled).": "Este TV informa de Android {release} (API {sdk}). CleanMyTV Home requiere Android 8 (API 26) o superior, por lo que el apartado Pantalla de inicio no permitirá la instalación. Limpieza seguirá estando disponible y todos los cambios podrán revertirse (no se desinstala nada).",
   "This TV reports ro.adb.secure=0: network debugging accepts any device on your network without the Allow prompt. Switch debugging off when you are done (Finish step).": "Este TV informa de ro.adb.secure=0: la depuración de red acepta cualquier dispositivo de la red sin mostrar la solicitud «Permitir». Desactiva la depuración cuando termines (apartado Finalizar).",
   "This TV reports {prop}. Any device on your network can reach its debug port without the Allow prompt. Close it when you're done: the Finish step walks you through it.": "Este TV informa de {prop}. Cualquier dispositivo de tu red puede acceder a su puerto de depuración sin mostrar la solicitud «Permitir». Ciérralo cuando termines; el apartado Finalizar te guiará durante el proceso.",
   "This TV turns its USB port off while debugging is on. Drives and USB adapters come back once you finish and switch debugging off. Clean up didn't cause it.": "Este TV desactiva su puerto USB mientras la depuración está activada. Las unidades y adaptadores USB volverán a funcionar cuando finalices el proceso y desactives la depuración. No ha sido provocado por Limpieza.",
@@ -1247,5 +1247,6 @@
   "Fri": "Vie",
   "Sat": "Sáb",
   "Sun": "Dom",
-  "Pick at least one day.": "Selecciona al menos un día."
+  "Pick at least one day.": "Selecciona al menos un día.",
+  "Open CleanMyTV Home": "Abrir CleanMyTV Home"
 }

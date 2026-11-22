@@ -187,6 +187,8 @@ function sh(tv: FakeTv, cmd: string): string {
   if (cmd === "date '+%m-%d %H:%M:%S.000'") return '11-16 10:00:00.000\n'
   if (cmd.startsWith('logcat -d -v threadtime -T ')) return tv.logcat ?? ''
   if ((m = /^settings get secure (\S+)$/.exec(cmd))) return (tv.settings.get(m[1]) ?? 'null') + '\n'
+  // Android 8.0 has no `cmd notification` commands.
+  if (cmd.startsWith('cmd notification ') && tv.sdk === '26') return 'No shell command implementation.\n'
   if (cmd === 'df -k /data' && tv.freeKb !== undefined) {
     return `Filesystem      1K-blocks    Used Available Use% Mounted on\n/dev/block/dm-5  5806884 5700000 ${String(tv.freeKb).padStart(9)}  99% /data\n`
   }

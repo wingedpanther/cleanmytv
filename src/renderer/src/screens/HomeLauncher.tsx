@@ -1462,6 +1462,7 @@ const ACTIONS: [ButtonAction, string][] = [
   ['settings', t('Open Settings')],
   ['inputs', t('Open Inputs')],
   ['home', t('Go Home')],
+  ['launcher', t('Open CleanMyTV Home')],
   ['back', t('Back')],
   ['app', t('Open an app…')],
   ['wifi', t('Open Wi-Fi')],

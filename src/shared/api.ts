@@ -206,7 +206,7 @@ export type LookSlot = 'day' | 'night'
 export type QuickEntry = QuickId | `app:${string}`
 
 /** What a mapped remote button does: a quick-settings action, Home, Back, nothing, or open an app. */
-export type ButtonAction = QuickId | 'home' | 'back' | 'none' | 'app' | 'next_wallpaper' | 'brightness'
+export type ButtonAction = QuickId | 'home' | 'launcher' | 'back' | 'none' | 'app' | 'next_wallpaper' | 'brightness'
 
 export interface HomeButton {
   /** Key code the remote sends, 1 to 65535. Vendor buttons go above Android's own, like TCL's 4001. */

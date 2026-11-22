@@ -150,6 +150,12 @@ describe('CleanMyTV Home', () => {
     expect((await H.setConfig({ idle_minutes: 0 })).idle_minutes).toBe(0)
   })
 
+  it('takes the Open CleanMyTV Home job, pressed or held (#137)', async () => {
+    const cfg = await H.setConfig({ buttons: [{ code: 3, action: 'launcher', hold: 'launcher' }] })
+    expect(cfg.buttons).toEqual([{ code: 3, action: 'launcher', hold: 'launcher' }])
+    await H.setConfig({ buttons: [] })
+  })
+
   it("lists the launcher's own apps and drops malformed entries", async () => {
     expect((await H.apps()).map((a) => a.pkg)).toEqual(['com.netflix.ninja', 'com.google.android.youtube.tv'])
   })
@@ -446,6 +452,21 @@ describe('CleanMyTV Home', () => {
     expect(tv.commands.filter((c) => c.includes('READ_TV_LISTINGS'))).toHaveLength(grants)
   })
 
+  it('gives now playing its access on Android 8.0 through the listener setting (#139)', async () => {
+    const mine = 'io.github.wingedpanther.cleanmytv.home/io.github.wingedpanther.cleanmytv.home.NowPlayingListener'
+    tv.sdk = '26'
+    tv.settings.set('enabled_notification_listeners', 'com.other/.Listener')
+    try {
+      await H.setConfig({ sections: ['nowplaying', 'dock', 'grid'] })
+      expect(tv.settings.get('enabled_notification_listeners')).toBe(`com.other/.Listener:${mine}`)
+      await H.setConfig({ sections: ['dock', 'grid'] })
+      expect(tv.settings.get('enabled_notification_listeners')).toBe('com.other/.Listener')
+    } finally {
+      tv.sdk = undefined
+      tv.settings.delete('enabled_notification_listeners')
+    }
+  })
+
   it('gives Home back to the stock launcher from CleanMyTV Home', async () => {
     expect((await L.useStock()).ok).toBe(true)
     expect(tv.home).toBe('com.google.android.apps.tv.launcherx/.home.HomeActivity')
@@ -525,14 +546,17 @@ describe('CleanMyTV Home', () => {
     expect((await T.connect(host)).state).toBe('connected')
   })
 
-  it('refuses to install on Android older than 9 (#30)', async () => {
+  it('refuses to install on Android older than 8 (#30), and installs on Android 8.0 (#139)', async () => {
     const host = String(T.getStatus().host)
     tv.sdk = '24'
     expect((await T.connect(host)).state).toBe('connected')
     const r = await H.install()
     expect(r.ok).toBe(false)
-    expect(r.summary).toMatch(/needs Android 9 or newer, and this TV runs Android 7\.0 \(SDK 24\)/)
-    expect((await H.status()).unsupported).toMatch(/Android 9/)
+    expect(r.summary).toMatch(/needs Android 8 or newer, and this TV runs Android 7\.0 \(SDK 24\)/)
+    expect((await H.status()).unsupported).toMatch(/Android 8/)
+    tv.sdk = '26'
+    expect((await T.connect(host)).state).toBe('connected')
+    expect((await H.status()).unsupported).toBeUndefined()
     tv.sdk = undefined
     expect((await T.connect(host)).state).toBe('connected')
     expect((await H.status()).unsupported).toBeUndefined()
