@@ -1248,5 +1248,22 @@
   "Sat": "Сб",
   "Sun": "Вс",
   "Pick at least one day.": "Выберите хотя бы один день.",
-  "Open CleanMyTV Home": "Открыть CleanMyTV Home"
+  "Open CleanMyTV Home": "Открыть CleanMyTV Home",
+  "The restore record for {host} was taken from another TV of the same model. Nothing was changed. If the TV at this address really is new, move {path} aside first.": "Запись восстановления для {host} сделана на другом телевизоре той же модели. Ничего не изменено. Если по этому адресу действительно новый телевизор, сначала уберите файл {path}.",
+  "Share my list": "Поделиться списком",
+  "No list in the app fits this TV yet. Share what you switched off and what you kept, and it can become a list for everyone with this model.": "Для этого телевизора в приложении пока нет списка. Поделитесь тем, что вы отключили и что оставили, и из этого может получиться список для всех владельцев этой модели.",
+  "Send what you switched off and kept to the lists on GitHub.": "Отправьте на GitHub, что вы отключили и что оставили, для списков.",
+  "This opens a new issue on GitHub with the text below. Nothing is sent until you submit it there. It has no address, Wi-Fi name or account.": "Откроется новое обращение на GitHub с текстом ниже. Ничего не отправляется, пока вы не отправите его там. В нём нет адреса, имени сети Wi-Fi и учётной записи.",
+  "Reading what Clean up did on this TV": "Читаем, что сделала очистка на этом телевизоре",
+  "Clean up hasn't switched anything off on this TV yet, so the issue only has the TV's details.": "Очистка пока ничего не отключила на этом телевизоре, поэтому в обращении будут только сведения о телевизоре.",
+  "Anything that broke?": "Что-нибудь сломалось?",
+  "For example: the remote's voice button stopped working.": "Например: перестала работать кнопка голосового поиска на пульте.",
+  "The issue": "Обращение",
+  "This is too long for a link. Open on GitHub copies the full text, and the issue opens with a short version: paste the text into it.": "Текст слишком длинный для ссылки. «Открыть на GitHub» скопирует весь текст, а обращение откроется с короткой версией: вставьте текст туда.",
+  "Copied. Paste it into the issue on GitHub.": "Скопировано. Вставьте текст в обращение на GitHub.",
+  "Copy the text": "Скопировать текст",
+  "Open on GitHub": "Открыть на GitHub",
+  "Switch to": "Переключиться на",
+  "Your TVs": "Ваши телевизоры",
+  "Connect to {name}": "Подключиться к {name}"
 }

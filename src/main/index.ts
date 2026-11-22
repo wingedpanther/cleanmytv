@@ -27,6 +27,7 @@ import * as storage from './storage'
 import * as backup from './backup'
 import { tellHome } from './switchedoff'
 import * as record from './record'
+import * as share from './sharelist'
 import * as checkup from './checkup'
 import { englishOf, languageFromLocale, setLanguage, t, UiError } from './i18n'
 import type { CheckItem, ConnStatus, CytvApi, KnownTv } from '@shared/api'
@@ -42,6 +43,7 @@ interface Settings {
   /** The TV that answered there, to notice a different device at the same address. */
   lastDevice?: string
   lastModel?: string
+  lastId?: string
   /** Every TV connected before. With more than one, the app waits for the user to pick. */
   tvs?: KnownTv[]
   update?: UpdateCache
@@ -130,7 +132,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   connectKnown: async (host) => {
     const tv = knownTvs().find((t) => t.host === host)
     if (!tv) throw new UiError('That TV is not in the list.')
-    const s = await reconnect({ lastHost: tv.host, lastDevice: tv.device, lastModel: tv.model }, { connect: T.connect, disconnect: T.disconnect, report: T.report })
+    const s = await reconnect({ lastHost: tv.host, lastDevice: tv.device, lastModel: tv.model, lastId: tv.id }, { connect: T.connect, disconnect: T.disconnect, report: T.report })
     if (s?.state === 'connected') remember(tv.host, s)
     return s ?? T.getStatus()
   },
@@ -189,6 +191,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
     return r.filePath
   },
   recordCancel: async () => record.cancel(),
+  shareInfo: () => share.info(app.getVersion()),
   checkup: () => checkup.run(),
   checkupFix: async (id) => { await checkup.fix(id); return checkup.run() },
   checks,

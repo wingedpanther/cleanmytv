@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ConnStatus, HomeStatus, KnownTv, UpdateInfo } from '@shared/api'
 import { Jump, MOD_KEY, type JumpItem } from './components/Jump'
 import { LogDrawer } from './components/LogDrawer'
 import { NotConnected, errorText } from './components/ui'
-import { TvThumb } from './components/TvPicker'
+import { SidebarTvs, TvThumb } from './components/TvPicker'
 import { thumbnail } from './lib/image'
 import Guided from './screens/Guided'
 import { Setup } from './screens/Setup'
@@ -139,6 +139,14 @@ export default function App(): ReactNode {
     return () => { stale = true }
   }, [status.state, status.host])
 
+  // Another TV: the ticks in the sidebar were for the one before.
+  const lastTv = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (status.state !== 'connected' || !status.host) return
+    if (lastTv.current && lastTv.current !== status.host) setDone(new Set())
+    lastTv.current = status.host
+  }, [status.state, status.host])
+
   function homeSeen(hs: HomeStatus): void {
     setHomeBehind(hs.installed && !!hs.bundledVersion && hs.versionName !== hs.bundledVersion)
   }
@@ -208,6 +216,7 @@ export default function App(): ReactNode {
           </button>
         )}
         <ConnPill status={status} />
+        <SidebarTvs tvs={tvs} status={status} onChange={refreshTvs} onNeedsSetup={() => setStep('setup')} />
         <button className="jump-btn" onClick={() => setJumping(true)}>
           <span>{t('Find a setting')}</span>
           <kbd>{MOD_KEY}K</kbd>
@@ -259,7 +268,8 @@ export default function App(): ReactNode {
         </div>
       </aside>
       <main className="main">
-        <div className="content">{screen}</div>
+        {/* Keyed by the TV, so a switch starts each step afresh instead of showing the last TV's state. */}
+        <div className="content" key={current.needsTv ? status.host : 'any'}>{screen}</div>
         <LogDrawer />
       </main>
       {jumping && <Jump items={JUMP_ITEMS} onPick={jump} onClose={() => setJumping(false)} />}

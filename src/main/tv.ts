@@ -112,10 +112,11 @@ export function host(): string {
 
 async function readProbe(c: AdbClient, h: string): Promise<Probe> {
   const keys = ['ro.product.model', 'ro.product.device', 'ro.product.name', 'ro.product.manufacturer',
-    'ro.build.version.release', 'ro.build.version.sdk', 'ro.build.display.id', 'ro.adb.secure']
+    'ro.build.version.release', 'ro.build.version.sdk', 'ro.build.display.id', 'ro.adb.secure', 'ro.serialno']
   // One shell call, one line per property, so a slow TV answers in one round trip.
   const out = await c.shell(keys.map((k) => `getprop ${k}`).join('; '))
   const v = out.split('\n').map((l) => l.trim())
+  const id = tvId(v[8] ?? '')
   return {
     host: h,
     model: v[0] ?? '',
@@ -125,8 +126,19 @@ async function readProbe(c: AdbClient, h: string): Promise<Probe> {
     release: v[4] ?? '',
     sdk: Number(v[5]) || 0,
     build: v[6] ?? '',
-    adbSecure: v[7] ?? ''
+    adbSecure: v[7] ?? '',
+    ...(id ? { id } : {})
   }
+}
+
+/**
+ * Tells two TVs of the same model apart, for the TV list and the restore records. A hash, so the serial
+ * itself is never saved. Boxes that all report the same placeholder serial get none.
+ */
+export function tvId(serial: string): string | undefined {
+  const s = serial.trim()
+  if (s.length < 6 || /^(unknown|0123456789abcdef)$/i.test(s) || /^(.)\1+$/.test(s)) return undefined
+  return createHash('sha256').update('cleanmytv-tv:' + s).digest('hex').slice(0, 12)
 }
 
 /** One shell command, logged under `task`. */

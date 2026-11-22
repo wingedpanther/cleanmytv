@@ -3,16 +3,11 @@
 import * as T from './tv'
 import { log } from './log'
 import { UiError } from './i18n'
+import { scrub } from '@shared/share'
+
+export { scrub }
 
 let since: string | null = null
-
-/** Addresses, MAC addresses and email addresses, which no log reader needs. */
-export function scrub(text: string): string {
-  return text
-    .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, 'x.x.x.x')
-    .replace(/\b(?:[0-9a-f]{2}:){5}[0-9a-f]{2}\b/gi, 'xx:xx:xx:xx:xx:xx')
-    .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, 'someone@example.com')
-}
 
 /** The newest lines only, so a long recording still fits in a GitHub issue. */
 export function lastLines(text: string, max: number): string {

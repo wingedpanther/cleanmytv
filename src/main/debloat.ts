@@ -12,7 +12,7 @@ import { keptLauncher } from './kept'
 import { keyboardPackages, noteKeyboard } from './keyboard'
 import { t, UiError } from './i18n'
 import { inEnglish } from './english'
-import type { ApplyResult, CameBack, DebloatApplyRequest, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState, Probe } from '@shared/api'
+import type { ApplyResult, CameBack, DebloatApplyRequest, DebloatEntry, DebloatListSummary, DebloatPlan, PackageState, Probe, ShareList } from '@shared/api'
 
 const TASK = 'debloat'
 export const SETUPWRAITH = 'com.google.android.tungsten.setupwraith'
@@ -268,10 +268,31 @@ function slug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || 'tv'
 }
 
-/** The list this app writes for the TV and hands to the record, like a user's own debloat.txt. */
+/**
+ * The list this app writes for the TV and hands to the record, like a user's own debloat.txt. A TV with an
+ * id gets its own copy, so two TVs on one list don't share what is switched off; one that already has a
+ * restore point for the shared copy keeps using it.
+ */
 export function savedListPath(listId: string, probe: Probe): string {
   const base = listId === 'custom' ? `custom-${slug(probe.device || probe.model || probe.host)}` : slug(listId)
-  return join(cytvDir(), 'lists', `${base}.txt`)
+  const shared = join(cytvDir(), 'lists', `${base}.txt`)
+  if (!probe.id || (existsSync(shared) && hasRecord(shared, probe))) return shared
+  return join(cytvDir(), 'lists', `${base}-${probe.id}.txt`)
+}
+
+/** A restore point for this list that could be this TV's: same device, and the same id or none. */
+function hasRecord(listPath: string, probe: Probe): boolean {
+  const list = pyResolve(listPath)
+  for (const name of readdirSync(cytvDir())) {
+    if (!/^recovery-.*\.json$/.test(name)) continue
+    try {
+      const r = loadRecord(join(cytvDir(), name))
+      if (r.list === list && (!r.device || r.device === probe.device) && (!r.tv || r.tv === probe.id)) return true
+    } catch {
+      // not a record this app can read
+    }
+  }
+  return false
 }
 
 /** Python's Path.resolve(): absolute with symlinks followed (macOS /var is /private/var). */
@@ -299,6 +320,8 @@ export interface RecoveryRecord {
    * ignores it); it lets the app follow the TV to a new address and refuse another device's record.
    */
   device?: string
+  /** Probe.id of that TV, when it gave one: two TVs of one model don't share a record. Not in upstream's format either. */
+  tv?: string
 }
 
 export function loadRecord(path: string): RecoveryRecord {
@@ -321,6 +344,7 @@ export function loadRecord(path: string): RecoveryRecord {
   }
   if (record.settings != null && typeof record.settings !== 'object') throw new Error(`${path}: settings is not a mapping`)
   if (record.device != null && typeof record.device !== 'string') throw new Error(`${path}: device is not a string`)
+  if (record.tv != null && typeof record.tv !== 'string') throw new Error(`${path}: tv is not a string`)
   return record
 }
 
@@ -331,11 +355,16 @@ export function loadRecord(path: string): RecoveryRecord {
  */
 export function findRecord(listPath: string, host: string, device: string | undefined): { path: string; record: RecoveryRecord | null } {
   const path = recordPath(listPath, host)
+  const id = T.getStatus().probe?.id
+  const otherTv = (r: RecoveryRecord): boolean => !!r.tv && !!id && r.tv !== id
   if (existsSync(path)) {
     const record = loadRecord(path)
     if (record.device && device && record.device !== device) {
       throw new UiError('The restore record for {host} was taken from another device ({other}); this TV reports {device}. Nothing was changed. If the TV at this address really is new, move {path} aside first.',
         { host, other: record.device, device, path })
+    }
+    if (otherTv(record)) {
+      throw new UiError('The restore record for {host} was taken from another TV of the same model. Nothing was changed. If the TV at this address really is new, move {path} aside first.', { host, path })
     }
     return { path, record }
   }
@@ -346,7 +375,7 @@ export function findRecord(listPath: string, host: string, device: string | unde
       const old = join(cytvDir(), name)
       let record: RecoveryRecord
       try { record = loadRecord(old) } catch { continue }
-      if (record.list !== list || record.device !== device) continue
+      if (record.list !== list || record.device !== device || otherTv(record)) continue
       log(TASK, 'info', `this TV moved from ${record.host} to ${host}; keeping its restore record from ${record.created}`)
       writeRecord(path, { ...record, host })
       renameSync(old, old + '.moved')
@@ -416,6 +445,7 @@ export async function saveRecord(listPath: string, host: string, packages: strin
   if (home && !T.PACKAGE_RE.test(home.split('/')[0])) home = null
   const homePkg = home ? home.split('/')[0] : null
   const targets = homePkg && !packages.includes(homePkg) ? [...packages, homePkg] : packages
+  const tv = T.getStatus().probe?.id
   const record: RecoveryRecord = {
     version: VERSION,
     created: strftimeNow(),
@@ -424,7 +454,8 @@ export async function saveRecord(listPath: string, host: string, packages: strin
     home,
     settings,
     packages: Object.fromEntries(targets.map((n) => [n, stateOf(n, installed, disabled)])),
-    ...(device ? { device } : {})
+    ...(device ? { device } : {}),
+    ...(tv ? { tv } : {})
   }
   writeRecord(path, record)
   const already = Object.values(record.packages).filter((s) => s === 'disabled').length
@@ -643,6 +674,32 @@ export async function switchedOff(): Promise<{ off: string[]; back: CameBack[] }
     if (on.length) back.push({ listId: l.listId, packages: on })
   }
   return { off: [...off].sort(), back }
+}
+
+/**
+ * For Share my list: per applied list, what is off on the TV (and what came back on), and what was left
+ * on that the list suggests, or for the custom list, that it offered. Packages kept on for Home are left out.
+ */
+export async function shareLists(): Promise<ShareList[]> {
+  const probe = T.getStatus().probe
+  const lists = appliedLists()
+  if (!probe || !lists.length) return []
+  const { installed, disabled } = await T.packageSets()
+  const home = await T.homeComponent()
+  const homePackage = home ? home.split('/')[0] : null
+  const keep = await screensaverApps()
+  const common = commonality()
+  return lists.map(({ listId, active }) => {
+    const { title, parsed } = sourceList(listId)
+    const saved = savedEntries(savedListPath(listId, probe))
+    const notes = new Map([...parsed.entries, ...saved].filter((e) => e.note).map((e) => [e.pkg, e.note]))
+    const note = (pkg: string): string => notes.get(pkg) ?? common.get(pkg)?.note ?? ''
+    const back = new Set(cameBack(active, installed, disabled, homePackage, keep))
+    const off = active.filter((p) => disabled.has(p) || back.has(p)).map((p) => ({ pkg: p, note: note(p), ...(back.has(p) ? { on: true } : {}) }))
+    const offered = listId === 'custom' ? saved.map((e) => e.pkg) : parsed.entries.filter((e) => e.suggested).map((e) => e.pkg)
+    const kept = offered.filter((p) => !active.includes(p) && installed.has(p) && !disabled.has(p) && !isCore(p)).map((p) => ({ pkg: p, note: note(p) }))
+    return { id: listId, title, off, kept }
+  })
 }
 
 /** The screensaver in use, and the backdrop app Google's needs with it: on by choice, not by an update (#57). */
