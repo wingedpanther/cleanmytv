@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { LANGUAGES, fill, langOf, pluralForms, pluralIndex, translate, type Lang } from '@shared/i18n'
+import { LANGUAGES, NAME_KEY, fill, langOf, pluralForms, pluralIndex, translate, type Lang } from '@shared/i18n'
 
 const dict = LANGUAGES.ru.dict
 const LOCALES = 'src/renderer/src/locales'
@@ -85,6 +85,23 @@ describe('the languages', () => {
   it('list every file in locales/', () => {
     const files = readdirSync(LOCALES).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5))
     expect(files.sort()).toEqual(Object.keys(LANGUAGES).filter((l) => l !== 'en').sort())
+  })
+
+  it('each name themselves in their file, and the name is no translation', () => {
+    for (const f of readdirSync(LOCALES).filter((x) => x.endsWith('.json'))) {
+      const code = f.slice(0, -5)
+      const raw = JSON.parse(readFileSync(join(LOCALES, f), 'utf8')) as Record<string, string>
+      expect(code).toMatch(/^[a-z]{2,3}$/)
+      expect(raw[NAME_KEY]?.trim(), `${f} needs "${NAME_KEY}"`).toBeTruthy()
+      expect(LANGUAGES[code].name).toBe(raw[NAME_KEY])
+      expect(NAME_KEY in LANGUAGES[code].dict).toBe(false)
+    }
+  })
+
+  it("take their number of plural forms from the language's own rules", () => {
+    expect(['en', 'de', 'es', 'fr', 'ru', 'uk', 'cs', 'pl', 'ja'].map(pluralForms)).toEqual([2, 2, 2, 2, 3, 3, 3, 3, 1])
+    expect(pluralIndex('fr', 0)).toBe(0)
+    expect(pluralIndex('fr', 1000000)).toBe(1)
   })
 
   it("follow the computer's language, English when the app doesn't speak it", () => {

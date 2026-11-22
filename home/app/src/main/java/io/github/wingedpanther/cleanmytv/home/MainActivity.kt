@@ -25,8 +25,9 @@ const val TAG = "CMTVHome"
 /**
  * [tint]: the icon's main colour, darkened, for the tile behind an app that has no TV banner (#4).
  * [colour]: the same for every app, banner or icon, for the background that follows focus.
+ * [installed]: when the app was first installed, which an update keeps (NewApps); 0 for input tiles.
  */
-data class TvApp(val pkg: String, val label: String, val art: ImageBitmap, val banner: Boolean, val launch: Intent, val tint: Int? = null, val colour: Int? = null, val glyph: Glyph? = null)
+data class TvApp(val pkg: String, val label: String, val art: ImageBitmap, val banner: Boolean, val launch: Intent, val tint: Int? = null, val colour: Int? = null, val glyph: Glyph? = null, val installed: Long = 0L)
 
 class MainActivity : ComponentActivity() {
     private val visualiser = Visualiser()
@@ -120,7 +121,8 @@ fun loadApps(ctx: Context, glyphs: Boolean): List<TvApp> {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
             val colour = tileTint(art)
             val glyph = if (glyphs) IconArt.glyph(ctx, ai.packageName, ai.loadIcon(pm)) else null
-            out += TvApp(ai.packageName, ri.loadLabel(pm).toString(), art.asImageBitmap(), banner != null, launch, if (banner == null) colour else null, colour, glyph)
+            val installed = runCatching { pm.getPackageInfo(ai.packageName, 0).firstInstallTime }.getOrDefault(0L)
+            out += TvApp(ai.packageName, ri.loadLabel(pm).toString(), art.asImageBitmap(), banner != null, launch, if (banner == null) colour else null, colour, glyph, installed)
         }
     }
     if (ConfigStore.config.value.inputTiles) out += InputTiles.apps(ctx)

@@ -214,6 +214,12 @@ internal fun ServiceNote(what: String) {
     )
 }
 
+/** Android 8 has no way for an app to turn the TV off, so where sleep is set this says what happens instead. */
+@Composable
+internal fun SleepNote() {
+    if (KeyService.sleepsByScreensaver) Alert(text = tr("On Android 8 Home starts the screensaver instead of turning the TV off."), modifier = Modifier.fillMaxWidth())
+}
+
 /** A list of choices in a dialog, for a button's job or app. */
 @Composable
 internal fun Choose(title: String, options: List<Pair<String, String>>, onDismiss: () -> Unit, onPick: (String) -> Unit) {

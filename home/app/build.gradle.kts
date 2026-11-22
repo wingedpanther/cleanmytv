@@ -49,4 +49,6 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // Android's org.json is a stub on the JVM; the real one parses the weather in tests.
     testImplementation("org.json:json:20240303")
+    // Android's ICU is a stub on the JVM too; ICU4J has the same plural rules for the i18n tests.
+    testImplementation("com.ibm.icu:icu4j:77.1")
 }

@@ -25,4 +25,14 @@ describe('new Home settings from the desktop app', () => {
     expect(cfg.power_on_target).toBe('')
     expect(cfg.tv_inputs).toEqual([{ id: hdmi, name: 'PS5' }, { id: 'a/b', name: 'a/b' }])
   })
+
+  it('takes where new apps go: nowhere, the dock or a row by name, as plain text', () => {
+    expect(clean({ new_apps_to: 'dock' })).toEqual({ new_apps_to: 'dock' })
+    expect(clean({ new_apps_to: '' })).toEqual({ new_apps_to: '' })
+    expect(clean({ new_apps_to: ' Watch\n' })).toEqual({ new_apps_to: 'Watch' })
+    expect(clean({ new_apps_to: 'x'.repeat(40) }).new_apps_to).toHaveLength(30)
+    expect(() => clean({ new_apps_to: 3 })).toThrow(/new_apps_to/)
+    expect(parse('Result: Bundle[{config={}}]').new_apps_to).toBe('')
+    expect(parse(`Result: Bundle[{config=${JSON.stringify({ new_apps_to: 'Watch' })}}]`).new_apps_to).toBe('Watch')
+  })
 })

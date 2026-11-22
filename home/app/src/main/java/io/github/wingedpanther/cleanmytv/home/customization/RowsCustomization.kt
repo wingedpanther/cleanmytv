@@ -24,6 +24,7 @@ import androidx.tv.material3.Text
 import io.github.wingedpanther.cleanmytv.home.ConfigStore
 import io.github.wingedpanther.cleanmytv.home.Group
 import io.github.wingedpanther.cleanmytv.home.HomeConfig
+import io.github.wingedpanther.cleanmytv.home.NewApps
 import io.github.wingedpanther.cleanmytv.home.TvApp
 import io.github.wingedpanther.cleanmytv.home.customization.components.Alert
 import io.github.wingedpanther.cleanmytv.home.customization.components.MUTED_COLOR
@@ -32,6 +33,7 @@ import io.github.wingedpanther.cleanmytv.home.customization.components.TextPromp
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvDestructiveButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvPrimaryButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSecondaryButton
+import io.github.wingedpanther.cleanmytv.home.customization.components.findable
 import io.github.wingedpanther.cleanmytv.home.tr
 import org.json.JSONArray
 import org.json.JSONObject
@@ -45,8 +47,32 @@ private const val MAX_FOLDERS = 12
 fun RowsCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
         Alert(text = tr("Rows show under the dock. Folders open on OK. An app can sit in a row and a folder at once."), modifier = Modifier.fillMaxWidth())
+        NewAppsTo(config, ctx)
         Groups(tr("Rows"), "rows", config.rows, MAX_ROWS, ctx, apps)
         Groups(tr("Folders"), "folders", config.folders, MAX_FOLDERS, ctx, apps)
+    }
+}
+
+/** Where newly installed apps go: All apps as before, the dock for a day, or the end of a row. */
+@Composable
+private fun NewAppsTo(config: HomeConfig, ctx: Context) {
+    var picking by remember { mutableStateOf(false) }
+    val options = listOf("" to tr("All apps only"), NewApps.DOCK to tr("The dock, for a day")) + config.rows.map { it.name to tr("Row: {name}", "name" to it.name) }
+    val current = when {
+        config.newAppsTo.isEmpty() || config.newAppsTo == NewApps.DOCK -> options.first { it.first == config.newAppsTo }.second
+        config.rows.any { it.name == config.newAppsTo } -> config.newAppsTo
+        else -> tr("A row that's gone")
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("${tr("New apps")}: $current", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            TvSecondaryButton(text = tr("Change"), onClick = { picking = true }, modifier = Modifier.findable(tr("New apps")))
+        }
+        Text(tr("Apps you install from now on go there by themselves and show New for a day."), color = MUTED_COLOR, fontSize = 13.sp)
+    }
+    if (picking) Choose(tr("Where do new apps go?"), options, onDismiss = { picking = false }) {
+        picking = false
+        ConfigStore.update(ctx, JSONObject().put("new_apps_to", it))
     }
 }
 

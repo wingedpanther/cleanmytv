@@ -119,6 +119,7 @@ fun MoreCustomization(config: HomeConfig, ctx: Context) {
             onCheckedChange = { set("bedtime_on", it) }
         )
         if (config.bedtimeOn) {
+            SleepNote()
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("${tr("Turn off at")} ${clock(config.bedtimeAt)}", color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
                 TvSecondaryButton(text = tr("Earlier"), onClick = { set("bedtime_at", Math.floorMod(config.bedtimeAt - 15, 24 * 60)) })

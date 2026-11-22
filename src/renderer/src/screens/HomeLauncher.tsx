@@ -303,13 +303,13 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
             <Overview home={home} busy={!!busy} busyText={busy} run={run} askStock={() => setAskStock(true)} host={status.host} onShot={refreshTvs} />
           )}
           {ready && tab === 'apps' && apps && <AppsTab apps={apps} cfg={cfg} set={set} />}
-          {ready && tab === 'layout' && apps && <LayoutTab apps={apps} cfg={cfg} set={set} />}
+          {ready && tab === 'layout' && apps && <LayoutTab apps={apps} cfg={cfg} set={set} sdk={status.probe?.sdk} />}
           {ready && tab === 'look' && (
             <>
               <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} themes={themes} />
               <DayNightCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
               <SlideshowCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
-              <FireplaceCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
+              <FireplaceCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} sdk={status.probe?.sdk} />
             </>
           )}
           {ready && tab === 'widgets' && <WidgetsTab cfg={cfg} set={set} />}
@@ -582,6 +582,7 @@ function AppsTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetF
         <Slider label={t('Apps in the dock')} hint={t('The first apps sit in a row of large tiles. 0 for no dock.')} value={cfg.dock_size} min={0} max={8} onChange={(v) => set({ dock_size: v }, 300)} />
         <Toggle label={t('Inputs as tiles')} hint={t('Each HDMI port becomes a tile with the name the Inputs menu shows, like PS5. Put it in the dock or a row, and one press switches to it.')} checked={cfg.input_tiles} onChange={(v) => set({ input_tiles: v })} />
         <Toggle label={t('Phone apps in an Other apps folder')} hint={t('Apps made for phones, with no TV picture, move out of the dock and the grid into one folder. Apps you put in rows or folders stay where they are.')} checked={cfg.other_apps} onChange={(v) => set({ other_apps: v })} />
+        <NewAppsTo cfg={cfg} set={set} />
         <div className="row" style={{ margin: '6px 0 10px' }}>
           <span className="muted small">{t('Drag to reorder, or use the arrows. Highlighted tiles are the dock. Apps in a folder show only in the folder.')}</span>
           <span className="spacer" />
@@ -625,6 +626,31 @@ function AppsTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetF
         onChange={(folders) => set({ folders }, 500)}
       />
     </>
+  )
+}
+
+/** Where newly installed apps go. The TV keeps the choice on its row when that's renamed, and goes back to All apps when it's removed. */
+function NewAppsTo({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
+  const gone = cfg.new_apps_to !== '' && cfg.new_apps_to !== 'dock' && !cfg.rows.some((g) => g.name === cfg.new_apps_to)
+  return (
+    <div style={{ margin: '4px 0 12px' }}>
+      <div className="row" style={{ gap: 16, flexWrap: 'wrap' }}>
+        <label className="field">
+          <span>{t('New apps')}</span>
+          <select value={cfg.new_apps_to} onChange={(e) => set({ new_apps_to: e.target.value })}>
+            <option value="">{t('All apps only')}</option>
+            <option value="dock">{t('The dock, for a day')}</option>
+            {cfg.rows.map((g) => (
+              <option key={g.name} value={g.name}>
+                {t('Row: {name}', { name: g.name })}
+              </option>
+            ))}
+            {gone && <option value={cfg.new_apps_to}>{t("A row that's gone")}</option>}
+          </select>
+        </label>
+      </div>
+      <p className="muted small">{t('Apps installed from now on land there by themselves and show New on the TV for a day. Updates stay where they are.')}</p>
+    </div>
   )
 }
 
@@ -739,7 +765,7 @@ function OrderList<T extends string>(props: { all: T[]; on: T[]; label: (t: T) =
   )
 }
 
-function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetFn }): ReactNode {
+function LayoutTab({ apps, cfg, set, sdk }: { apps: TvApp[]; cfg: HomeConfig; set: SetFn; sdk?: number }): ReactNode {
   return (
     <>
       <div className="home-preview-sticky">
@@ -896,6 +922,7 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
           </div>
         )}
         {cfg.bedtime_on && cfg.bedtime_days.length === 0 && <p className="small muted" style={{ marginTop: 8 }}>{t('Pick at least one day.')}</p>}
+        {cfg.bedtime_on && <ScreensaverNote sdk={sdk} />}
       </div>
 
       <div className="card">
@@ -1919,8 +1946,13 @@ function LockTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c
   )
 }
 
+/** Android 8 has no way for an app to turn the TV off, so Home starts the screensaver there instead. */
+function ScreensaverNote({ sdk }: { sdk?: number }): ReactNode {
+  return sdk !== undefined && sdk < 28 ? <p className="small muted" style={{ marginTop: 8 }}>{t('On Android 8 Home starts the screensaver instead of turning the TV off.')}</p> : null
+}
+
 /** The fireplace: a looping video with its crackle, sent to the TV once, then used as a screensaver, full screen or behind Home. */
-function FireplaceCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: SetFn; setCfg: (c: HomeConfig) => void; onResult: (r: ApplyResult) => void }): ReactNode {
+function FireplaceCard({ cfg, set, setCfg, onResult, sdk }: { cfg: HomeConfig; set: SetFn; setCfg: (c: HomeConfig) => void; onResult: (r: ApplyResult) => void; sdk?: number }): ReactNode {
   const [phase, setPhase] = usePhase()
   const on = !!cfg.fire_on_tv
   const go = async (action: 'put' | 'show' | 'saver' | 'remove'): Promise<void> => {
@@ -1967,6 +1999,7 @@ function FireplaceCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: S
           <p className="small muted" style={{ marginTop: 0 }}>
             {t('Full screen only: the fire fades out, then the TV sleeps. Press OK on the remote to change it while the fire is on.')}
           </p>
+          {cfg.fire_timer > 0 && <ScreensaverNote sdk={sdk} />}
           {(cfg.fire_sound || cfg.fire_wall_sound) && <Slider label={t('Volume')} value={cfg.fire_volume} min={0} max={100} step={5} unit="%" onChange={(v) => set({ fire_volume: v }, 250)} />}
           <p style={{ marginTop: 10 }}>
             <button className="btn ghost" onClick={() => void go('remove')}>{t('Take it off the TV')}</button>

@@ -419,7 +419,7 @@ class FireplaceActivity : Activity() {
     private fun burnOut() {
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         view?.fadeOut(30_000) {
-            if (!KeyService.sleep()) Log.i(TAG, "fireplace timer: remote-button service is off, leaving sleep to the TV")
+            if (!KeyService.sleep(this)) Log.i(TAG, "fireplace timer: remote-button service is off, leaving sleep to the TV")
             finish()
         }
     }

@@ -272,6 +272,11 @@ export interface HomeConfig {
   names: Partial<Record<QuickId | 'all_apps', string>>
   rows: HomeGroup[]
   folders: HomeGroup[]
+  /**
+   * Where newly installed apps go (launcher 1.13.5): '' only All apps, 'dock' the dock for a day, else the end
+   * of the row with that name. Renaming that row takes it along; removing it sets ''.
+   */
+  new_apps_to: string
   /** Percent, 60 to 150. */
   dock_scale: number
   /** Row and folder tiles, percent, 60 to 150. */

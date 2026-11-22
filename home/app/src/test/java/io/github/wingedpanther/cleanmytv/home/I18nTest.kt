@@ -5,12 +5,14 @@ import io.github.wingedpanther.cleanmytv.home.customization.SETTINGS_INDEX
 import io.github.wingedpanther.cleanmytv.home.customization.components.Find
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import java.io.File
 
 class I18nTest {
-    /** Every language file Home ships, by language. */
+    /** Every language file Home ships, by language: whatever is in i18n/, so a new file is checked as it lands. */
     private val languages: Map<String, Map<String, String>> = File("src/main/resources/i18n").listFiles()!!
         .filter { it.extension == "json" }.associate { it.nameWithoutExtension to I18n.parse(it.readText()) }
     private val ru: Map<String, String> = languages.getValue("ru")
@@ -39,16 +41,27 @@ class I18nTest {
 
     private fun placeholders(s: String) = Regex("""\{(\w+)(?:\|[^{}]*)?}""").findAll(s).map { it.groupValues[1] }.toSet()
 
+    /** The word lists of each {n|...} in [s]. */
+    private fun plurals(s: String) = Regex("""\{\w+\|([^{}]*)}""").findAll(s).map { it.groupValues[1].split('|') }.toList()
+
     private fun russian() { I18n.language = { "ru" } }
 
+    /** ICU4J's rules, the ones Android's own ICU follows on the TV. */
+    @Before fun icu() {
+        I18n.rules = { lang -> com.ibm.icu.text.PluralRules.forLocale(java.util.Locale(lang)).let { r -> { n: Long -> r.select(n.toDouble()) } } }
+        I18n.reset()
+    }
+
     @After fun back() {
-        I18n.language = { java.util.Locale.getDefault().language }
+        I18n.language = { java.util.Locale.getDefault().toLanguageTag().substringBefore('-').lowercase() }
         I18n.source = { lang -> I18n::class.java.getResourceAsStream("/i18n/$lang.json")?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } }
         I18n.reset()
     }
 
     @Test fun `every text in the code has its translation in each language`() {
-        assertEquals(setOf("de", "ru"), languages.keys)
+        assertTrue("no files in i18n/", languages.size >= 2)
+        val names = Regex("^[a-z]{2,3}$")
+        assertTrue("files not named by a language code: ${languages.keys}", languages.keys.all { names.matches(it) })
         for ((lang, map) in languages) {
             val missing = (literals.keys + tables).filter { it !in map }
             assertTrue("not in $lang.json: $missing", missing.isEmpty())
@@ -74,6 +87,34 @@ class I18nTest {
             val blank = map.filter { (en, tr) -> en.isNotBlank() && tr.isBlank() }
             assertTrue("$lang empty translations: $blank", blank.isEmpty())
         }
+    }
+
+    @Test fun `each plural in a translation has the language's number of forms`() {
+        assertTrue("English keys need {n|one|other}", (literals.keys + tables).flatMap(::plurals).all { it.size == 2 })
+        for ((lang, map) in languages) {
+            val forms = I18n.plurals(lang).forms.size
+            val wrong = map.filter { (_, tr) -> plurals(tr).any { it.size != forms || it.any(String::isBlank) } }
+            assertTrue("$lang plurals need $forms forms: $wrong", wrong.isEmpty())
+        }
+    }
+
+    @Test fun `a language's forms come from its own rules`() {
+        assertEquals(listOf("one", "other"), I18n.plurals("en").forms)
+        assertEquals(listOf("one", "other"), I18n.plurals("de").forms)
+        assertEquals(listOf("one", "few", "many"), I18n.plurals("ru").forms)
+        assertEquals(listOf("one", "few", "other"), I18n.plurals("cs").forms)
+        assertEquals(listOf("other"), I18n.plurals("ja").forms)
+        // Spanish's "many" is for round millions only, which read fine with the other form.
+        assertEquals(listOf("one", "other"), I18n.plurals("es").forms)
+        assertEquals(1, I18n.pluralIndex(1_000_000, "es"))
+        assertEquals(0, I18n.pluralIndex(0, "fr"))
+    }
+
+    @Test fun `without readable rules a count takes one and other`() {
+        I18n.rules = { throw RuntimeException("Stub!") }
+        I18n.reset()
+        assertEquals(listOf("one", "other"), I18n.plurals("ru").forms)
+        assertEquals("1 app, 5 apps", tr("{a} {a|app|apps}, {b} {b|app|apps}", "a" to 1, "b" to 5))
     }
 
     @Test fun `German counts take one and other`() {
@@ -146,12 +187,27 @@ class I18nTest {
         assertEquals("111 приложений", said[111])
     }
 
-    @Test fun `a search in Russian lands on the same control as in English`() {
+    @Test fun `a search in each language lands on the same control as in English`() {
         val labels = (literals.keys + tables).filter { k -> SETTINGS_INDEX.none { it.words == k } }
-        val lost = SETTINGS_INDEX.flatMap { f ->
-            labels.filter { Find.matches(f.name, it) && !Find.matches(ru[f.name], ru[it] ?: it) }.map { f.name to it }
+        for ((lang, map) in languages) {
+            val lost = SETTINGS_INDEX.flatMap { f ->
+                labels.filter { Find.matches(f.name, it) && !Find.matches(map[f.name], map[it] ?: it) }.map { f.name to it }
+            }
+            assertTrue("search misses in $lang: $lost", lost.isEmpty())
         }
-        assertTrue("search misses in Russian: $lost", lost.isEmpty())
+    }
+
+    @Test fun `the TV's language comes from its tag, so Hebrew is he and not iw`() {
+        val was = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale.forLanguageTag("he-IL"))
+            assertEquals("he", I18n.language())
+            java.util.Locale.setDefault(java.util.Locale.forLanguageTag("pt-BR"))
+            assertEquals("pt", I18n.language())
+        } finally {
+            java.util.Locale.setDefault(was)
+        }
+        assertFalse(I18n.language().contains('-'))
     }
 
     @Test fun `Russian words find the setting`() {

@@ -41,6 +41,9 @@ fun appAction(app: TvApp, icon: ImageBitmap?) = QuickAction("app:${app.pkg}", ap
 
 private fun settings(action: String) = Intent(action)
 
+/** The system's own "start screensaver now" activity, present on most Android TV builds. */
+val SCREENSAVER = ComponentName("com.android.systemui", "com.android.systemui.Somnambulator")
+
 fun quickActions(): Map<String, QuickAction> = listOf(
     QuickAction("inputs", tr("Inputs"), Icons.Outlined.Input, emptyList()),
     QuickAction("wifi", "Wi-Fi", Icons.Outlined.Wifi, listOf(settings(Settings.ACTION_WIFI_SETTINGS))),
@@ -54,8 +57,7 @@ fun quickActions(): Map<String, QuickAction> = listOf(
     )),
     QuickAction("display", tr("Picture & sound"), Icons.Outlined.Tv, listOf(settings(Settings.ACTION_DISPLAY_SETTINGS), settings(Settings.ACTION_SOUND_SETTINGS))),
     QuickAction("apps", tr("Apps"), Icons.Outlined.Apps, listOf(settings(Settings.ACTION_APPLICATION_SETTINGS), settings(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))),
-    // The system's own "start screensaver now" activity, present on most Android TV builds.
-    QuickAction("sleep", tr("Screensaver"), Icons.Outlined.Bedtime, listOf(Intent().setComponent(ComponentName("com.android.systemui", "com.android.systemui.Somnambulator")), settings(Settings.ACTION_DREAM_SETTINGS))),
+    QuickAction("sleep", tr("Screensaver"), Icons.Outlined.Bedtime, listOf(Intent().setComponent(SCREENSAVER), settings(Settings.ACTION_DREAM_SETTINGS))),
     // Needs a search app such as Google's (Katniss); a cleaned TV may have switched it off.
     QuickAction("search", tr("Search"), Icons.Outlined.Search, listOf(Intent(Intent.ACTION_ASSIST), Intent("android.search.action.GLOBAL_SEARCH"), Intent(Intent.ACTION_SEARCH_LONG_PRESS))),
     // Handled by Home itself: turns the music bars on and off.

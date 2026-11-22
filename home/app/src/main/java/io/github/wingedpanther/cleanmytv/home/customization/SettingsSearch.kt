@@ -71,6 +71,7 @@ val SETTINGS_INDEX: List<Findable> = run {
         Findable("Top bar icons", "quick settings shortcuts wifi bluetooth inputs settings icons bar sleep timer update", L),
         Findable("Rows", "categories groups row new rename", R),
         Findable("Folders", "group collection new rename", R),
+        Findable("New apps", "installed install download newly added land row dock badge", R),
         Findable("Font", "typeface text letters serif condensed casual", K),
         Findable("Darken the wallpaper", "dim dark brightness wallpaper", K),
         Findable("Shading", "shade gradient top bottom tint wash reach", K),
