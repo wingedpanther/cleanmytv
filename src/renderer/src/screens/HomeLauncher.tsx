@@ -582,6 +582,7 @@ function AppsTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetF
         <Slider label={t('Apps in the dock')} hint={t('The first apps sit in a row of large tiles. 0 for no dock.')} value={cfg.dock_size} min={0} max={8} onChange={(v) => set({ dock_size: v }, 300)} />
         <Toggle label={t('Inputs as tiles')} hint={t('Each HDMI port becomes a tile with the name the Inputs menu shows, like PS5. Put it in the dock or a row, and one press switches to it.')} checked={cfg.input_tiles} onChange={(v) => set({ input_tiles: v })} />
         <Toggle label={t('Phone apps in an Other apps folder')} hint={t('Apps made for phones, with no TV picture, move out of the dock and the grid into one folder. Apps you put in rows or folders stay where they are.')} checked={cfg.other_apps} onChange={(v) => set({ other_apps: v })} />
+        <NewAppsTo cfg={cfg} set={set} />
         <div className="row" style={{ margin: '6px 0 10px' }}>
           <span className="muted small">{t('Drag to reorder, or use the arrows. Highlighted tiles are the dock. Apps in a folder show only in the folder.')}</span>
           <span className="spacer" />
@@ -625,6 +626,31 @@ function AppsTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetF
         onChange={(folders) => set({ folders }, 500)}
       />
     </>
+  )
+}
+
+/** Where newly installed apps go. The TV keeps the choice on its row when that's renamed, and goes back to All apps when it's removed. */
+function NewAppsTo({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
+  const gone = cfg.new_apps_to !== '' && cfg.new_apps_to !== 'dock' && !cfg.rows.some((g) => g.name === cfg.new_apps_to)
+  return (
+    <div style={{ margin: '4px 0 12px' }}>
+      <div className="row" style={{ gap: 16, flexWrap: 'wrap' }}>
+        <label className="field">
+          <span>{t('New apps')}</span>
+          <select value={cfg.new_apps_to} onChange={(e) => set({ new_apps_to: e.target.value })}>
+            <option value="">{t('All apps only')}</option>
+            <option value="dock">{t('The dock, for a day')}</option>
+            {cfg.rows.map((g) => (
+              <option key={g.name} value={g.name}>
+                {t('Row: {name}', { name: g.name })}
+              </option>
+            ))}
+            {gone && <option value={cfg.new_apps_to}>{t("A row that's gone")}</option>}
+          </select>
+        </label>
+      </div>
+      <p className="muted small">{t('Apps installed from now on land there by themselves and show New on the TV for a day. Updates stay where they are.')}</p>
+    </div>
   )
 }
 

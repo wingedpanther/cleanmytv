@@ -30,6 +30,8 @@ data class HomeConfig(
     val quick: List<String> = listOf("inputs", "wifi", "settings"), // quick-settings icons and "app:<package>" shortcuts, in order
     val rows: List<Group> = emptyList(),
     val folders: List<Group> = emptyList(),
+    // Where newly installed apps go (NewApps): "" nowhere, "dock" the dock for a day, else the end of the row with that name
+    val newAppsTo: String = "",
     val dockScale: Int = 100, // percent
     val tileScale: Int = 100, // percent
     // Remote buttons (KeyService)
@@ -146,6 +148,7 @@ data class HomeConfig(
         .put("quick", JSONArray(quick))
         .put("rows", groupsJson(rows))
         .put("folders", groupsJson(folders))
+        .put("new_apps_to", newAppsTo)
         .put("dock_scale", dockScale)
         .put("tile_scale", tileScale)
         .put("buttons_on", buttonsOn)
@@ -265,7 +268,7 @@ data class HomeConfig(
         const val MAX_QUICK_APPS = 6
         fun quickApp(entry: String): String? = entry.removePrefix("app:").takeIf { entry.startsWith("app:") && PKG.matches(it) }
 
-        private fun groupsJson(gs: List<Group>) = JSONArray(gs.map { JSONObject().put("name", it.name).put("apps", JSONArray(it.apps)) })
+        fun groupsJson(gs: List<Group>) = JSONArray(gs.map { JSONObject().put("name", it.name).put("apps", JSONArray(it.apps)) })
 
         /** Unknown keys are ignored and bad values keep what was there, so an old or new desktop app can't break Home. */
         fun fromJson(o: JSONObject, base: HomeConfig = HomeConfig()): HomeConfig {
@@ -306,6 +309,7 @@ data class HomeConfig(
                         hold.takeIf { holdOk }, holdApp.takeIf { holdOk && hold == "app" })
                 }.distinctBy { it.code }
             }
+            val rows = groups("rows", 8) ?: base.rows
             return base.copy(
                 buttonsOn = bool("buttons_on", base.buttonsOn),
                 buttons = buttons() ?: base.buttons,
@@ -321,8 +325,10 @@ data class HomeConfig(
                     val apps = all.filter { quickApp(it) != null }.take(MAX_QUICK_APPS).toSet()
                     all.filter { it in QUICK || it in apps }
                 } ?: base.quick,
-                rows = groups("rows", 8) ?: base.rows,
+                rows = rows,
                 folders = groups("folders", 12) ?: base.folders,
+                newAppsTo = if (o.has("new_apps_to")) o.optString("new_apps_to").replace(Regex("[\\p{Cntrl}]"), "").trim().take(30)
+                    else NewApps.follow(base.newAppsTo, base.rows, rows),
                 dockScale = int("dock_scale", base.dockScale, 60, 150),
                 tileScale = int("tile_scale", base.tileScale, 60, 150),
                 accent = colour("accent", base.accent),

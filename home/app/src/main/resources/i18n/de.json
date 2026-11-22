@@ -546,5 +546,14 @@
   "hdmi input port tile dock console playstation xbox": "HDMI Eingang Anschluss Kachel Dock Konsole PlayStation Xbox",
   "sleep schedule night turn off time kids": "Schlafen Zeitplan Nacht ausschalten Zeit Kinder",
   "Open CleanMyTV Home": "CleanMyTV Home öffnen",
-  "On Android 8 Home starts the screensaver instead of turning the TV off.": "Unter Android 8 startet Home den Bildschirmschoner, statt den Fernseher auszuschalten."
+  "On Android 8 Home starts the screensaver instead of turning the TV off.": "Unter Android 8 startet Home den Bildschirmschoner, statt den Fernseher auszuschalten.",
+  "New apps": "Neue Apps",
+  "installed install download newly added land row dock badge": "installiert installieren herunterladen neu hinzugefügt landen zeile dock markierung",
+  "All apps only": "Nur in Alle Apps",
+  "The dock, for a day": "Ins Dock, für einen Tag",
+  "Row: {name}": "Zeile: {name}",
+  "A row that's gone": "Eine Zeile, die es nicht mehr gibt",
+  "Apps you install from now on go there by themselves and show New for a day.": "Apps, die du ab jetzt installierst, landen von selbst dort und tragen einen Tag lang „Neu“.",
+  "Where do new apps go?": "Wohin kommen neue Apps?",
+  "New": "Neu"
 }

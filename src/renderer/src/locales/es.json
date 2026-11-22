@@ -1250,5 +1250,11 @@
   "Sun": "Dom",
   "Pick at least one day.": "Selecciona al menos un día.",
   "Open CleanMyTV Home": "Abrir CleanMyTV Home",
+  "New apps": "Aplicaciones nuevas",
+  "All apps only": "Solo en Todas las aplicaciones",
+  "The dock, for a day": "En el dock, durante un día",
+  "Row: {name}": "Fila: {name}",
+  "A row that's gone": "Una fila que ya no existe",
+  "Apps installed from now on land there by themselves and show New on the TV for a day. Updates stay where they are.": "Las aplicaciones que se instalen a partir de ahora irán ahí solas y mostrarán «Nueva» en el TV durante un día. Las actualizaciones se quedan donde están.",
   "On Android 8 Home starts the screensaver instead of turning the TV off.": "En Android 8, Home inicia el salvapantallas en lugar de apagar el TV."
 }

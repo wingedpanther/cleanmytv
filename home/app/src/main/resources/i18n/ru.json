@@ -546,5 +546,14 @@
   "hdmi input port tile dock console playstation xbox": "HDMI вход порт плитка док приставка PlayStation Xbox",
   "sleep schedule night turn off time kids": "сон расписание ночь выключение время дети отбой",
   "Open CleanMyTV Home": "Открыть CleanMyTV Home",
-  "On Android 8 Home starts the screensaver instead of turning the TV off.": "На Android 8 Home вместо выключения телевизора запускает заставку."
+  "On Android 8 Home starts the screensaver instead of turning the TV off.": "На Android 8 Home вместо выключения телевизора запускает заставку.",
+  "New apps": "Новые приложения",
+  "installed install download newly added land row dock badge": "установлено установить скачать новые добавлено ряд док метка",
+  "All apps only": "Только во «Все приложения»",
+  "The dock, for a day": "В док, на сутки",
+  "Row: {name}": "Ряд: {name}",
+  "A row that's gone": "Ряд, которого больше нет",
+  "Apps you install from now on go there by themselves and show New for a day.": "Приложения, установленные с этого момента, сами попадут туда и сутки будут с меткой «Новое».",
+  "Where do new apps go?": "Куда попадают новые приложения?",
+  "New": "Новое"
 }

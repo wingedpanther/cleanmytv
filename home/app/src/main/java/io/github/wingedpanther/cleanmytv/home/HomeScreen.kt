@@ -187,7 +187,9 @@ private class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<Strin
     private val inFolders = cfg.folders.flatMap { it.apps }.toSet()
     /** Phone apps with no TV banner, in their own folder when the owner asks (#3). Apps they placed stay put. */
     private val other = if (cfg.otherApps) shown.filter { !it.banner && it.pkg !in inFolders } else emptyList()
-    val dock = shown.filter { it.pkg !in inFolders && it !in other }.take(cfg.dockSize)
+    /** New apps the owner sends to the dock: a day there, ahead of the usual ones (NewApps). */
+    private val newcomers = NewApps.forDock(cfg, shown.associate { it.pkg to it.installed }, System.currentTimeMillis()).mapNotNull { byPkg[it] }
+    val dock = newcomers + shown.filter { it.pkg !in inFolders && it !in other && it !in newcomers }.take(cfg.dockSize)
     val grid = shown.filter { it.pkg !in inFolders && it !in dock && it !in other }
     val rows = cfg.rows.map { g -> g.name to g.apps.mapNotNull { byPkg[it] }.filter { it.pkg !in cfg.hidden } }.filter { it.second.isNotEmpty() }
     val folders = (cfg.folders.map { g -> g.name to g.apps.mapNotNull { byPkg[it] } } + listOf(tr("Other apps") to other)).filter { it.second.isNotEmpty() }
@@ -215,7 +217,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var inputs by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     val glyphs = cfg.iconStyle != "banner"
     LaunchedEffect(appsVersion, glyphs, cfg.liveTv, cfg.inputTiles) {
-        apps = withContext(Dispatchers.Default) { loadApps(ctx, glyphs) }
+        apps = withContext(Dispatchers.Default) { loadApps(ctx, glyphs).also { NewApps.check(ctx, it) } }
         inputs = withContext(Dispatchers.Default) { tvInputs(ctx, cfg.liveTv) }
     }
     // Animations off in the TV's settings (or from CleanMyTV): Home stops moving too.
@@ -1012,6 +1014,7 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
             LiftLight(ui, focused)
             if (ui.movingKey == "$section:${app.pkg}") Box(Modifier.fillMaxSize().border(3.dp, ui.accent, shape))
             if (Lock.isLocked(ui.cfg, app.pkg)) LockBadge(Modifier.align(if (ui.shape == "round") Alignment.BottomCenter else Alignment.TopEnd))
+            if (ui.cfg.newAppsTo.isNotEmpty() && NewApps.isNew(app.installed, System.currentTimeMillis())) NewBadge(Modifier.align(if (ui.shape == "round") Alignment.TopCenter else Alignment.TopStart))
         }
         if (ui.cfg.showNames) {
             Text(app.label, color = TEXT, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = if (wide) TextAlign.Start else TextAlign.Center,
@@ -1119,6 +1122,13 @@ private val SQUIRCLE = GenericShape { size, _ ->
         if (i == 0) moveTo(x.toFloat(), y.toFloat()) else lineTo(x.toFloat(), y.toFloat())
     }
     close()
+}
+
+/** "New" on an app installed in the last day, while new apps have somewhere to go. Dark like the lock. */
+@Composable
+private fun NewBadge(modifier: Modifier) {
+    Text(tr("New"), color = TEXT, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+        modifier = modifier.padding(6.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(10.dp)).padding(horizontal = 8.dp, vertical = 2.dp))
 }
 
 /** The small lock in a locked app's corner. */

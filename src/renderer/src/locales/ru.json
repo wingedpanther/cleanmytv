@@ -1250,5 +1250,11 @@
   "Sun": "Вс",
   "Pick at least one day.": "Выберите хотя бы один день.",
   "Open CleanMyTV Home": "Открыть CleanMyTV Home",
+  "New apps": "Новые приложения",
+  "All apps only": "Только во «Все приложения»",
+  "The dock, for a day": "В док, на сутки",
+  "Row: {name}": "Ряд: {name}",
+  "A row that's gone": "Ряд, которого больше нет",
+  "Apps installed from now on land there by themselves and show New on the TV for a day. Updates stay where they are.": "Приложения, установленные с этого момента, сами попадут туда и сутки будут с меткой «Новое» на телевизоре. Обновления остаются на своих местах.",
   "On Android 8 Home starts the screensaver instead of turning the TV off.": "На Android 8 Home вместо выключения телевизора запускает заставку."
 }

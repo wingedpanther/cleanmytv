@@ -22,7 +22,7 @@ const HEX = /^#[0-9A-Fa-f]{6}$/
 
 export const DEFAULTS: HomeConfig = {
   layout: 'shelf', sections: ['nowplaying', 'dock', 'watchnext', 'rows', 'folders', 'grid'], top_space: 25, quick: ['inputs', 'wifi', 'settings'],
-  rows: [], folders: [], dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false, power_on_target: '', power_on_wait: 0,
+  rows: [], folders: [], new_apps_to: '', dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false, power_on_target: '', power_on_wait: 0,
   accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35, snow: false,
   edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, bing_caption: true, theme_memory: true, lock_editor: false, update_check: true, keyboard_guard: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
   order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
@@ -371,6 +371,10 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
       Array.isArray(g.apps) && g.apps.length <= 60 && g.apps.every((p: unknown) => typeof p === 'string' && T.PACKAGE_RE.test(p)))
     if (ok) out[k] = (v as HomeGroup[]).map((g) => ({ name: plain(g.name, 30), apps: [...new Set(g.apps)] }))
     else bad(`${k} must be up to ${max} named groups of package names`)
+  }
+  if (o.new_apps_to !== undefined) {
+    if (typeof o.new_apps_to === 'string') out.new_apps_to = plain(o.new_apps_to, 30)
+    else bad('new_apps_to must be "", "dock" or a row name')
   }
   if (o.bedtime_days !== undefined) {
     const v = o.bedtime_days
