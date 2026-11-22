@@ -49,7 +49,7 @@ object SleepTimer {
 
     internal fun fire(ctx: Context) {
         _at.value = null
-        if (!KeyService.sleep()) Log.w(TAG, "sleep timer: the button service is off, so the TV stays on")
+        if (!KeyService.sleep(ctx)) Log.w(TAG, "sleep timer: the button service is off, so the TV stays on")
     }
 }
 

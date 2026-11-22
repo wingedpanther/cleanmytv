@@ -545,5 +545,6 @@
   "OK": "OK",
   "hdmi input port tile dock console playstation xbox": "HDMI Eingang Anschluss Kachel Dock Konsole PlayStation Xbox",
   "sleep schedule night turn off time kids": "Schlafen Zeitplan Nacht ausschalten Zeit Kinder",
-  "Open CleanMyTV Home": "CleanMyTV Home öffnen"
+  "Open CleanMyTV Home": "CleanMyTV Home öffnen",
+  "On Android 8 Home starts the screensaver instead of turning the TV off.": "Unter Android 8 startet Home den Bildschirmschoner, statt den Fernseher auszuschalten."
 }

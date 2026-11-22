@@ -303,13 +303,13 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
             <Overview home={home} busy={!!busy} busyText={busy} run={run} askStock={() => setAskStock(true)} host={status.host} onShot={refreshTvs} />
           )}
           {ready && tab === 'apps' && apps && <AppsTab apps={apps} cfg={cfg} set={set} />}
-          {ready && tab === 'layout' && apps && <LayoutTab apps={apps} cfg={cfg} set={set} />}
+          {ready && tab === 'layout' && apps && <LayoutTab apps={apps} cfg={cfg} set={set} sdk={status.probe?.sdk} />}
           {ready && tab === 'look' && (
             <>
               <LookTab cfg={cfg} set={set} busy={!!busy} wallpaper={wallpaper} themes={themes} />
               <DayNightCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
               <SlideshowCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
-              <FireplaceCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} />
+              <FireplaceCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} sdk={status.probe?.sdk} />
             </>
           )}
           {ready && tab === 'widgets' && <WidgetsTab cfg={cfg} set={set} />}
@@ -739,7 +739,7 @@ function OrderList<T extends string>(props: { all: T[]; on: T[]; label: (t: T) =
   )
 }
 
-function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: SetFn }): ReactNode {
+function LayoutTab({ apps, cfg, set, sdk }: { apps: TvApp[]; cfg: HomeConfig; set: SetFn; sdk?: number }): ReactNode {
   return (
     <>
       <div className="home-preview-sticky">
@@ -896,6 +896,7 @@ function LayoutTab({ apps, cfg, set }: { apps: TvApp[]; cfg: HomeConfig; set: Se
           </div>
         )}
         {cfg.bedtime_on && cfg.bedtime_days.length === 0 && <p className="small muted" style={{ marginTop: 8 }}>{t('Pick at least one day.')}</p>}
+        {cfg.bedtime_on && <ScreensaverNote sdk={sdk} />}
       </div>
 
       <div className="card">
@@ -1919,8 +1920,13 @@ function LockTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg: (c
   )
 }
 
+/** Android 8 has no way for an app to turn the TV off, so Home starts the screensaver there instead. */
+function ScreensaverNote({ sdk }: { sdk?: number }): ReactNode {
+  return sdk !== undefined && sdk < 28 ? <p className="small muted" style={{ marginTop: 8 }}>{t('On Android 8 Home starts the screensaver instead of turning the TV off.')}</p> : null
+}
+
 /** The fireplace: a looping video with its crackle, sent to the TV once, then used as a screensaver, full screen or behind Home. */
-function FireplaceCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: SetFn; setCfg: (c: HomeConfig) => void; onResult: (r: ApplyResult) => void }): ReactNode {
+function FireplaceCard({ cfg, set, setCfg, onResult, sdk }: { cfg: HomeConfig; set: SetFn; setCfg: (c: HomeConfig) => void; onResult: (r: ApplyResult) => void; sdk?: number }): ReactNode {
   const [phase, setPhase] = usePhase()
   const on = !!cfg.fire_on_tv
   const go = async (action: 'put' | 'show' | 'saver' | 'remove'): Promise<void> => {
@@ -1967,6 +1973,7 @@ function FireplaceCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: S
           <p className="small muted" style={{ marginTop: 0 }}>
             {t('Full screen only: the fire fades out, then the TV sleeps. Press OK on the remote to change it while the fire is on.')}
           </p>
+          {cfg.fire_timer > 0 && <ScreensaverNote sdk={sdk} />}
           {(cfg.fire_sound || cfg.fire_wall_sound) && <Slider label={t('Volume')} value={cfg.fire_volume} min={0} max={100} step={5} unit="%" onChange={(v) => set({ fire_volume: v }, 250)} />}
           <p style={{ marginTop: 10 }}>
             <button className="btn ghost" onClick={() => void go('remove')}>{t('Take it off the TV')}</button>

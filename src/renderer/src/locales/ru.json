@@ -1249,5 +1249,6 @@
   "Sat": "Сб",
   "Sun": "Вс",
   "Pick at least one day.": "Выберите хотя бы один день.",
-  "Open CleanMyTV Home": "Открыть CleanMyTV Home"
+  "Open CleanMyTV Home": "Открыть CleanMyTV Home",
+  "On Android 8 Home starts the screensaver instead of turning the TV off.": "На Android 8 Home вместо выключения телевизора запускает заставку."
 }

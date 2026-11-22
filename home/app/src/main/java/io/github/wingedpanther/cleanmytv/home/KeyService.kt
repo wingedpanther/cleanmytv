@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
@@ -171,7 +172,7 @@ class KeyService : AccessibilityService() {
         hideNote()
         Bedtime.warningUntil = 0L
         updateServiceInfo()
-        if (!sleep()) Log.w(TAG, "bedtime: sleep didn't go through")
+        if (!sleep(this)) Log.w(TAG, "bedtime: sleep didn't go through")
         Bedtime.schedule(this)
     }
 
@@ -411,8 +412,35 @@ class KeyService : AccessibilityService() {
         /** Whether the service is running, so the on-TV editor can say when mapped buttons won't work yet. */
         val isOn: Boolean get() = running != null
 
-        /** Screen off, as the power button would. Needs the key service on; false when it isn't. */
-        fun sleep(): Boolean = running?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) ?: false
+        /**
+         * Screen off, as the power button would: Android 9's lock-screen action, which needs the key service
+         * on. Android 8 has no such action for apps, so there the screensaver starts instead, and many TVs turn
+         * the panel off after it has run a while. False when neither can happen.
+         */
+        fun sleep(ctx: Context? = running): Boolean {
+            val saver = if (Build.VERSION.SDK_INT < LOCK_SDK) ctx?.let(::screensaver) else null
+            return when (sleepBy(Build.VERSION.SDK_INT, running != null, saver != null)) {
+                SleepBy.LOCK -> running?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) ?: false
+                SleepBy.SCREENSAVER -> runCatching { ctx!!.startActivity(saver) }.onFailure { Log.w(TAG, "screensaver: $it") }.isSuccess
+                SleepBy.NONE -> false
+            }
+        }
+
+        /** GLOBAL_ACTION_LOCK_SCREEN came with Android 9. */
+        const val LOCK_SDK = 28
+
+        /** Whether this TV sleeps by starting the screensaver, so the editor can say so where sleep is set. */
+        val sleepsByScreensaver: Boolean get() = Build.VERSION.SDK_INT < LOCK_SDK
+
+        fun sleepBy(sdk: Int, serviceOn: Boolean, screensaver: Boolean): SleepBy = when {
+            sdk >= LOCK_SDK -> if (serviceOn) SleepBy.LOCK else SleepBy.NONE
+            screensaver -> SleepBy.SCREENSAVER
+            else -> SleepBy.NONE
+        }
+
+        /** The system's "start screensaver now" screen, when this TV has it. */
+        private fun screensaver(ctx: Context): Intent? =
+            Intent().setComponent(SCREENSAVER).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).takeIf { it.resolveActivity(ctx.packageManager) != null }
 
         /**
          * Some TVs take this service out of the accessibility list when they restart, so mapped buttons, the
@@ -437,6 +465,9 @@ class KeyService : AccessibilityService() {
         }
     }
 }
+
+/** How the TV goes to sleep: the lock-screen action, the screensaver on Android 8, or not at all. */
+enum class SleepBy { LOCK, SCREENSAVER, NONE }
 
 /** At boot, before anyone presses Home: Fire TV opens Amazon's launcher first and needs the service to leave it. */
 class BootReceiver : BroadcastReceiver() {

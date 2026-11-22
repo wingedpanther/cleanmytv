@@ -139,5 +139,6 @@ fun FireplaceCustomization(config: HomeConfig, ctx: Context) {
             min = 0, max = 240, unit = tr(" min (0=Off)"),
             onChange = { ConfigStore.update(ctx, JSONObject().put("fire_timer", it)) }
         )
+        if (config.fireTimer > 0) SleepNote()
     }
 }

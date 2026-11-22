@@ -36,7 +36,8 @@ export function installMock(): void {
     product: 'BRAVIA_AE3_PA',
     manufacturer: 'Sony',
     release: '14',
-    sdk: 34,
+    // ?sdk=26 for an Android 8 TV.
+    sdk: Number(new URLSearchParams(location.search).get('sdk')) || 34,
     build: 'UKN4.250422.001',
     adbSecure: '1'
   }

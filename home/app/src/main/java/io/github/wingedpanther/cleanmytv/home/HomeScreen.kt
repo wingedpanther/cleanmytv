@@ -1496,6 +1496,7 @@ private fun TimerMenu(ui: Ui, onClose: () -> Unit) {
             Column(Modifier.width(360.dp).background(PANEL, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(tr("Sleep timer"), color = TEXT, fontSize = 22.sp, fontWeight = FontWeight.Medium)
                 Text(sleepAt?.let { tr("The TV sleeps at {time}", "time" to DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))) } ?: tr("The TV goes to sleep after"), color = MUTED, fontSize = 15.sp, modifier = Modifier.padding(bottom = 6.dp))
+                if (KeyService.sleepsByScreensaver) Text(tr("On Android 8 Home starts the screensaver instead of turning the TV off."), color = MUTED, fontSize = 13.sp, modifier = Modifier.padding(bottom = 6.dp))
                 val items = SleepTimer.CHOICES.map { m -> Limits.words(m) to { SleepTimer.set(ctx, m) } } + (if (sleepAt != null) listOf(tr("Off") to { SleepTimer.set(ctx, null) }) else emptyList())
                 items.forEachIndexed { i, (label, act) ->
                     val shape = RoundedCornerShape(12.dp)

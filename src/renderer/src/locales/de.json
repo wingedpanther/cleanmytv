@@ -1249,5 +1249,6 @@
   "Sat": "Sa",
   "Sun": "So",
   "Pick at least one day.": "Wähl mindestens einen Tag.",
-  "Open CleanMyTV Home": "CleanMyTV Home öffnen"
+  "Open CleanMyTV Home": "CleanMyTV Home öffnen",
+  "On Android 8 Home starts the screensaver instead of turning the TV off.": "Unter Android 8 startet Home den Bildschirmschoner, statt den Fernseher auszuschalten."
 }
