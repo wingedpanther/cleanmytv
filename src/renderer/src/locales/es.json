@@ -1248,5 +1248,20 @@
   "Sat": "Sáb",
   "Sun": "Dom",
   "Pick at least one day.": "Selecciona al menos un día.",
-  "Open CleanMyTV Home": "Abrir CleanMyTV Home"
+  "Open CleanMyTV Home": "Abrir CleanMyTV Home",
+  "Health": "Estado",
+  "Reading the TV's health": "Leyendo el estado del TV",
+  "{n} {n|day|days}": "{n} {n|día|días}",
+  "{n} {n|hour|hours}": "{n} {n|hora|horas}",
+  "Little memory is free, so apps may reload when you switch back to them.": "Queda poca memoria libre, así que las apps pueden recargarse al volver a ellas.",
+  "The TV hasn't restarted in {time}. A restart clears what has built up and often makes an older TV quicker.": "El TV no se reinicia desde hace {time}. Reiniciar limpia lo acumulado y suele hacer más rápido un TV antiguo.",
+  "The chip is hot. Give the TV or box some air around its vents.": "El chip está caliente. Deja espacio libre alrededor de las rejillas del TV o del dispositivo.",
+  "Worth a look": "Merece un vistazo",
+  "All good": "Todo bien",
+  "free of {total} memory": "libres de {total} de memoria",
+  "since the last restart": "desde el último reinicio",
+  "{n} °C": "{n} °C",
+  "hottest chip sensor": "sensor del chip más caliente",
+  "{n} {n|core|cores}": "{n} {n|núcleo|núcleos}",
+  "Read again": "Leer de nuevo"
 }

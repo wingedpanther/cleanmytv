@@ -285,6 +285,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   }),
   webGet: (url) => web.get(String(url)),
   systemState: () => system.state(),
+  health: () => system.health(),
   setPrivateDns: (host) => system.privateDns(host),
   setAnimationScale: (s) => system.animationScale(s),
   setMatchFrameRate: (m) => system.matchFrameRate(m),

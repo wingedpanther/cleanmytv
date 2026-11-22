@@ -1248,5 +1248,20 @@
   "Sat": "Сб",
   "Sun": "Вс",
   "Pick at least one day.": "Выберите хотя бы один день.",
-  "Open CleanMyTV Home": "Открыть CleanMyTV Home"
+  "Open CleanMyTV Home": "Открыть CleanMyTV Home",
+  "Health": "Состояние",
+  "Reading the TV's health": "Читаем состояние телевизора",
+  "{n} {n|day|days}": "{n} {n|день|дня|дней}",
+  "{n} {n|hour|hours}": "{n} {n|час|часа|часов}",
+  "Little memory is free, so apps may reload when you switch back to them.": "Свободной памяти мало, поэтому приложения могут перезапускаться, когда вы к ним возвращаетесь.",
+  "The TV hasn't restarted in {time}. A restart clears what has built up and often makes an older TV quicker.": "Телевизор не перезагружался {time}. Перезагрузка очищает накопившееся и часто ускоряет старый телевизор.",
+  "The chip is hot. Give the TV or box some air around its vents.": "Чип горячий. Оставьте немного места вокруг вентиляционных отверстий телевизора или приставки.",
+  "Worth a look": "Стоит проверить",
+  "All good": "Всё в порядке",
+  "free of {total} memory": "свободно из {total} памяти",
+  "since the last restart": "с последней перезагрузки",
+  "{n} °C": "{n} °C",
+  "hottest chip sensor": "самый горячий датчик чипа",
+  "{n} {n|core|cores}": "{n} {n|ядро|ядра|ядер}",
+  "Read again": "Прочитать снова"
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { AppSize, AppSizes, ApplyResult, BackupPreview, SystemState } from '@shared/api'
+import type { AppSize, AppSizes, ApplyResult, BackupPreview, SystemState, TvHealth } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { Busy, Confirm, ResultNotice, Skeleton, errorText } from '../components/ui'
 import { t } from '../lib/i18n'
@@ -66,6 +66,8 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
       )}
 
       {sys.storage && <Storage storage={sys.storage} busy={!!busy} run={run} />}
+
+      <Health onRestart={() => setAskReboot(true)} />
 
       <div className="card">
           <h2>{t('Animation speed')}</h2>
@@ -198,6 +200,75 @@ export function Extras({ markDone }: ScreenProps): ReactNode {
         </Confirm>
       )}
     </>
+  )
+}
+
+// Little memory left for the app in front: TVs start closing apps in the background and feel slow.
+const LOW_MEM = 0.15
+// TVs that only ever sleep can run for weeks; a restart clears what has built up.
+const LONG_UP_DAYS = 7
+// Chips on TVs throttle somewhere above this.
+const HOT_C = 80
+
+/** Memory, time since the last restart and temperature, read when the screen opens. */
+function Health({ onRestart }: { onRestart: () => void }): ReactNode {
+  const [h, setH] = useState<TvHealth | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const read = (): void => {
+    setError(null)
+    window.cytv.health().then(setH, (e) => setError(errorText(e)))
+  }
+  useEffect(read, [])
+
+  if (error) return <div className="card"><h2>{t('Health')}</h2><div className="notice warn" style={{ marginBottom: 0 }}>{error}</div></div>
+  if (!h) return <div className="card"><h2>{t('Health')}</h2><Skeleton rows={3} label={t("Reading the TV's health")} /></div>
+
+  const lowMem = h.memTotalMb > 0 && h.memFreeMb / h.memTotalMb < LOW_MEM
+  const days = Math.floor(h.uptimeS / 86400)
+  const longUp = days >= LONG_UP_DAYS
+  const hot = h.tempC !== null && h.tempC >= HOT_C
+  const up = days >= 1 ? t('{n} {n|day|days}', { n: days }) : t('{n} {n|hour|hours}', { n: Math.max(1, Math.floor(h.uptimeS / 3600)) })
+  const tips = [
+    lowMem && t('Little memory is free, so apps may reload when you switch back to them.'),
+    longUp && t("The TV hasn't restarted in {time}. A restart clears what has built up and often makes an older TV quicker.", { time: up }),
+    hot && t('The chip is hot. Give the TV or box some air around its vents.')
+  ].filter((x): x is string => !!x)
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h2>{t('Health')}</h2>
+        <span className={`chip ${tips.length ? 'warn' : 'ok'}`}>{tips.length ? t('Worth a look') : t('All good')}</span>
+      </div>
+      <div className="stat-row">
+        <div className="stat">
+          <b>{t('{n} MB', { n: h.memFreeMb })}</b>
+          <span>{t('free of {total} memory', { total: t('{n} MB', { n: h.memTotalMb }) })}</span>
+        </div>
+        <div className="stat">
+          <b>{up}</b>
+          <span>{t('since the last restart')}</span>
+        </div>
+        {h.tempC !== null && (
+          <div className="stat">
+            <b>{t('{n} °C', { n: h.tempC })}</b>
+            <span>{t('hottest chip sensor')}</span>
+          </div>
+        )}
+        {h.chip && (
+          <div className="stat">
+            <b>{h.chip}</b>
+            <span>{t('{n} {n|core|cores}', { n: h.cores })}</span>
+          </div>
+        )}
+      </div>
+      {tips.map((tip) => (
+        <p key={tip} className="muted small" style={{ marginTop: 8 }}>{tip}</p>
+      ))}
+      <div className="row" style={{ marginTop: 12 }}>
+        {longUp && <button className="btn" onClick={onRestart}>{t('Restart the TV')}</button>}
+        <button className="btn small ghost" onClick={read}>{t('Read again')}</button>
+      </div>
+    </div>
   )
 }
 

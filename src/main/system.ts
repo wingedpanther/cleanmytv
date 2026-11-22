@@ -2,7 +2,7 @@
 // storage, the remote, and a screenshot of the TV.
 import { Socket } from 'node:net'
 import * as T from './tv'
-import type { ApplyResult, SystemState } from '@shared/api'
+import type { ApplyResult, SystemState, TvHealth } from '@shared/api'
 import { t, UiError } from './i18n'
 
 const TASK = 'system'
@@ -20,6 +20,46 @@ export async function state(): Promise<SystemState> {
     matchFrameRate: sdk >= FRAME_RATE_SDK ? await get('secure', 'match_content_frame_rate') : '',
     storage: await T.storage(TASK)
   }
+}
+
+// One command for the lot. Thermal zones are what most TVs expose to the shell; Android 10 and later also
+// list their sensors in thermalservice, which is all some TVs give.
+const HEALTH = [
+  'grep -E "^(MemTotal|MemAvailable):" /proc/meminfo',
+  'cat /proc/uptime',
+  'for z in /sys/class/thermal/thermal_zone*; do echo "zone $(cat $z/type 2>/dev/null) $(cat $z/temp 2>/dev/null)"; done',
+  'dumpsys thermalservice 2>/dev/null | grep "Temperature{"',
+  'echo "chip $(getprop ro.board.platform) $(getprop ro.hardware)"',
+  'echo "cores $(grep -c ^processor /proc/cpuinfo)"'
+].join('; ')
+
+// Battery sensors (thermalservice type 2) and anything outside this range aren't the chip.
+const PLAUSIBLE = (c: number): boolean => c > 5 && c < 130
+
+export function parseHealth(out: string): TvHealth {
+  const num = (re: RegExp): number => Number(re.exec(out)?.[1] ?? 0) || 0
+  const temps: number[] = []
+  for (const m of out.matchAll(/^zone (\S*) (-?\d+(?:\.\d+)?)\s*$/gm)) {
+    if (/batt|charger|usb|pmic/i.test(m[1])) continue
+    const v = Number(m[2])
+    // Most kernels report millidegrees, a few whole degrees.
+    temps.push(Math.abs(v) >= 1000 ? v / 1000 : v)
+  }
+  for (const m of out.matchAll(/Temperature\{mValue=(-?[\d.]+), mType=(\d+)/g)) if (m[2] !== '2') temps.push(Number(m[1]))
+  const hot = temps.filter(PLAUSIBLE)
+  const chip = /^chip (\S*) ?(\S*)/m.exec(out)
+  return {
+    memTotalMb: Math.round(num(/MemTotal:\s+(\d+)/) / 1024),
+    memFreeMb: Math.round(num(/MemAvailable:\s+(\d+)/) / 1024),
+    uptimeS: Math.round(num(/^(\d+(?:\.\d+)?) \d/m)),
+    tempC: hot.length ? Math.round(Math.max(...hot)) : null,
+    chip: chip?.[1] || chip?.[2] || '',
+    cores: num(/^cores (\d+)/m)
+  }
+}
+
+export async function health(): Promise<TvHealth> {
+  return parseHealth(await T.tv().shell(HEALTH))
 }
 
 /** Clears every app's cache and says how much space that gave back. */

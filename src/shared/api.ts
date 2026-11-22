@@ -487,6 +487,19 @@ export interface SystemState {
   storage: { freeKb: number; totalKb: number } | null
 }
 
+/** How the TV is doing: memory, time since the last restart, temperature and chip. */
+export interface TvHealth {
+  memTotalMb: number
+  memFreeMb: number
+  /** Seconds since the TV last started. */
+  uptimeS: number
+  /** The hottest chip sensor in °C; null when the TV doesn't say. */
+  tempC: number | null
+  /** ro.board.platform, or ro.hardware when that is empty. */
+  chip: string
+  cores: number
+}
+
 /** One app's share of the TV's storage, in bytes. */
 export interface AppSize {
   pkg: string
@@ -702,6 +715,7 @@ export interface CytvApi {
 
   // TV extras
   systemState(): Promise<SystemState>
+  health(): Promise<TvHealth>
   setPrivateDns(host: string | null): Promise<ApplyResult>
   setAnimationScale(scale: number): Promise<ApplyResult>
   /** Match content frame rate: 0 never, 1 only when the switch is smooth, 2 always (Android 12+). */

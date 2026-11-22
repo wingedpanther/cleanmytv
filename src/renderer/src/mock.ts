@@ -494,6 +494,9 @@ export function installMock(): void {
     async systemState() {
       return { ...sys }
     },
+    async health() {
+      return { memTotalMb: 1978, memFreeMb: 241, uptimeS: 11 * 86400 + 3600, tempC: 63, chip: 'mt5895', cores: 4 }
+    },
     async setPrivateDns(host) {
       sys.privateDnsMode = host ? 'hostname' : 'opportunistic'
       sys.privateDnsHost = host ?? ''
