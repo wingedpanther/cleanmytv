@@ -154,6 +154,17 @@ describe('CleanMyTV Home', () => {
     expect((await H.apps()).map((a) => a.pkg)).toEqual(['com.netflix.ninja', 'com.google.android.youtube.tv'])
   })
 
+  it('lists no apps, and no error, when CleanMyTV Home is not on the TV (#141)', async () => {
+    const pkg = 'io.github.wingedpanther.cleanmytv.home'
+    const state = tv.packages.get(pkg)!
+    tv.packages.delete(pkg)
+    try {
+      expect(await H.apps()).toEqual([])
+    } finally {
+      tv.packages.set(pkg, state)
+    }
+  })
+
   it('maps remote buttons, switches the key service on and off, and reads the button log', async () => {
     const svc = 'io.github.wingedpanther.cleanmytv.home/io.github.wingedpanther.cleanmytv.home.KeyService'
     tv.settings.set('enabled_accessibility_services', 'com.other/.Svc')

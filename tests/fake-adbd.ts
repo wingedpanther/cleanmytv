@@ -201,7 +201,9 @@ function sh(tv: FakeTv, cmd: string): string {
     return 'Performing Streamed Install\nSuccess\n'
   }
   if ((m = /^content call --uri content:\/\/io\.github\.wingedpanther\.cleanmytv\.home\.config --method (\w+)(?: --arg (\S+))?$/.exec(cmd))) {
-    if (!tv.packages.has('io.github.wingedpanther.cleanmytv.home')) return 'Error while accessing provider\n'
+    if (!tv.packages.has('io.github.wingedpanther.cleanmytv.home')) {
+      return 'Error while accessing provider:io.github.wingedpanther.cleanmytv.home.config\njava.lang.IllegalStateException: Could not find provider: io.github.wingedpanther.cleanmytv.home.config\n'
+    }
     const up = '/data/data/home/wallpaper.upload'
     const u = /^(fire|pack|slide)_file_(begin|chunk|end)$/.exec(m[1])
     if (u) {

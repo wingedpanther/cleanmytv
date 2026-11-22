@@ -436,6 +436,8 @@ function call(method: string, arg?: string, task = 'theme'): Promise<string> {
 /** The apps CleanMyTV Home shows, with the names the TV gives them. */
 export async function apps(): Promise<TvApp[]> {
   const out = await T.tv().shell(`content call --uri ${URI} --method apps`)
+  // Storage asks for the names whether or not Home is on the TV. Without it there are none to give (#141).
+  if (out.includes('Could not find provider')) return []
   const m = /apps=(\[.*\])\}\]/.exec(out)
   if (!m) throw new UiError("CleanMyTV Home didn't list its apps: {output}", { output: out.trim().slice(0, 200) || 'no output' })
   const list = JSON.parse(m[1]) as unknown[]
