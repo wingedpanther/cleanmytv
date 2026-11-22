@@ -5,13 +5,17 @@ import java.util.Locale
 
 /**
  * Home's text in the TV's language. The English stays in the code and is the key; i18n/<language>.json maps
- * it to that language (ru.json, de.json). A missing entry shows the English, and so does a language with no
- * file. Each map is read once, the first time it's needed, from the APK's own resources, so the lock screen,
- * the button service and plain JVM tests need no Context.
+ * it to that language (ru.json, de.json). Another language is only its file: nothing here names one. A
+ * missing entry shows the English, and so does a language with no file. Each map is read once, the first
+ * time it's needed, from the APK's own resources, so the lock screen, the button service and plain JVM tests
+ * need no Context.
  */
 object I18n {
-    /** The language to show, the TV's own unless a test picks one. */
-    @Volatile var language: () -> String = { Locale.getDefault().language }
+    /**
+     * The language to show, the TV's own unless a test picks one. From the language tag, which says "he" and
+     * "id" where Locale.language still says "iw" and "in", so the file is named the way people expect.
+     */
+    @Volatile var language: () -> String = { Locale.getDefault().toLanguageTag().substringBefore('-').lowercase() }
 
     /** Where a language's map comes from, as JSON text, or null when there is none. Tests swap it. */
     @Volatile var source: (String) -> String? = { lang ->
@@ -25,8 +29,8 @@ object I18n {
         runCatching { source(lang)?.let(::parse) }.getOrNull() ?: emptyMap()
     }
 
-    /** Forgets the maps, for tests that swap [source]. */
-    fun reset() = tables.clear()
+    /** Forgets the maps and plural rules, for tests that swap [source] or [rules]. */
+    fun reset() { tables.clear(); pluralCache.clear() }
 
     fun parse(json: String): Map<String, String> {
         val o = JSONObject(json)
@@ -54,27 +58,35 @@ object I18n {
         }
     }
 
-    /**
-     * Which form goes with [n] things. Russian, Ukrainian and Belarusian have three: 1, 21, 101 take the
-     * first; 2-4, 22-24 the second; the rest the third. French counts 0 and 1 as one. Most others, English
-     * and German among them, say one for 1 and the second form for the rest.
-     */
-    fun pluralIndex(n: Long, lang: String = language()): Int {
-        val a = kotlin.math.abs(n)
-        return when (lang) {
-            "ru", "uk", "be" -> {
-                val ten = a % 10
-                val hundred = a % 100
-                when {
-                    ten == 1L && hundred != 11L -> 0
-                    ten in 2..4 && hundred !in 12..14 -> 1
-                    else -> 2
-                }
-            }
-            "fr" -> if (a <= 1L) 0 else 1
-            else -> if (a == 1L) 0 else 1
-        }
+    /** Plural categories in the order a translation lists its forms, as CLDR names them. */
+    private val ORDER = listOf("zero", "one", "two", "few", "many", "other")
+
+    /** One for 1, other for the rest, for when a language's rules can't be read. */
+    private val ONE_OTHER: (Long) -> String = { if (it == 1L) "one" else "other" }
+
+    /** A language's plural rule: the CLDR category for a whole number. Android's ICU on the TV; tests swap in ICU4J. */
+    @Volatile var rules: (String) -> (Long) -> String = { lang ->
+        android.icu.text.PluralRules.forLocale(Locale(lang)).let { r -> { n: Long -> r.select(n.toDouble()) } }
     }
+
+    /**
+     * The forms a language's counts take, as the categories whole numbers below 200 fall in: one and other in
+     * English and German, one, few and many in Russian. A category only round millions reach, like Spanish
+     * "many", isn't one; those numbers take the last form.
+     */
+    class Plurals(val forms: List<String>, private val pick: (Long) -> String) {
+        fun index(n: Long): Int = forms.indexOf(pick(n)).let { if (it < 0) forms.size - 1 else it }
+    }
+
+    private val pluralCache = java.util.concurrent.ConcurrentHashMap<String, Plurals>()
+
+    fun plurals(lang: String): Plurals = pluralCache.getOrPut(lang) {
+        val pick = runCatching { rules(lang).also { it(1L) } }.getOrNull() ?: ONE_OTHER
+        Plurals((0L until 200L).map(pick).distinct().sortedBy { ORDER.indexOf(it) }, pick)
+    }
+
+    /** Which form goes with [n] things, counting from 0 in the order the translation lists them. */
+    fun pluralIndex(n: Long, lang: String = language()): Int = plurals(lang).index(kotlin.math.abs(n))
 }
 
 /** [english] in the TV's language: tr("After {n} min", "n" to 5). */

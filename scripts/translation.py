@@ -1,11 +1,13 @@
 """The translation spreadsheet: makes one for volunteers, and reads a filled-in one back into the language files.
 
-    python3 scripts/translation.py sheet out.xlsx         every English text, with an empty column to fill in
-    python3 scripts/translation.py import de filled.xlsx  writes locales/de.json and Home's i18n/de.json
+    python3 scripts/translation.py sheet out.xlsx                     every English text, with an empty column to fill in
+    python3 scripts/translation.py import fr filled.xlsx "Français"  writes locales/fr.json and Home's i18n/fr.json
 
 The sheet has a tab for the TV Home screen and one for the desktop app, English in column A and the
 translation in column B. A text both apps use is listed once. Needs openpyxl (pip install openpyxl).
-After an import, add the language to LANGUAGES in src/shared/i18n.ts; Home finds the file by itself.
+The name is how the language's speakers write it, for the desktop app's language menu; a language that
+already has a file keeps its name when it's left out. Both apps find the new files by themselves.
+See docs/TRANSLATING.md.
 """
 import json
 import re
@@ -16,6 +18,8 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
 ROOT = Path(__file__).resolve().parent.parent
+# Where a desktop language file keeps the language's own name (NAME_KEY in src/shared/i18n.ts).
+NAME = "_name"
 DESKTOP = ROOT / "src/renderer/src/locales"
 HOME = ROOT / "home/app/src/main/resources/i18n"
 TABS = [("TV Home screen", HOME), ("Desktop app", DESKTOP)]
@@ -33,7 +37,7 @@ HOW = [
 
 def english(folder: Path) -> list[str]:
     """The English texts an app asks for, from its Russian file, which the tests keep complete."""
-    return list(json.loads((folder / "ru.json").read_text("utf-8")))
+    return [k for k in json.loads((folder / "ru.json").read_text("utf-8")) if k != NAME]
 
 
 def sheet(out: str) -> None:
@@ -80,13 +84,17 @@ def read(path: str) -> dict[str, str]:
     return out
 
 
-def import_(lang: str, path: str) -> None:
+def import_(lang: str, path: str, name: str | None) -> None:
     if not re.fullmatch(r"[a-z]{2,3}", lang) or lang in ("en", "ru"):
         sys.exit(f"not a language to import: {lang}")
+    old = DESKTOP / f"{lang}.json"
+    name = (name or "").strip() or (json.loads(old.read_text("utf-8")).get(NAME) if old.exists() else None)
+    if not name:
+        sys.exit(f'{lang} needs its name, as its speakers write it: import {lang} {path} "Name"')
     got = read(path)
     for title, folder in TABS:
         texts = english(folder)
-        out, missing, wrong = {}, [], []
+        out, missing, wrong = ({NAME: name} if folder == DESKTOP else {}), [], []
         for en in texts:
             tr = got.get(en)
             if tr is None:
@@ -96,7 +104,7 @@ def import_(lang: str, path: str) -> None:
             else:
                 out[en] = tr
         (folder / f"{lang}.json").write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", "utf-8")
-        print(f"{title}: {len(out)} of {len(texts)} translated, {len(missing)} missing, {len(wrong)} with changed {{placeholders}} left out")
+        print(f"{title}: {len(out) - (folder == DESKTOP)} of {len(texts)} translated, {len(missing)} missing, {len(wrong)} with changed {{placeholders}} left out")
         for en in wrong:
             print(f"  placeholders differ: {en!r}")
 
@@ -104,7 +112,7 @@ def import_(lang: str, path: str) -> None:
 if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "sheet":
         sheet(sys.argv[2])
-    elif len(sys.argv) == 4 and sys.argv[1] == "import":
-        import_(sys.argv[2], sys.argv[3])
+    elif len(sys.argv) in (4, 5) and sys.argv[1] == "import":
+        import_(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) == 5 else None)
     else:
         sys.exit(__doc__)
