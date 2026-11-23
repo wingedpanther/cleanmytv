@@ -458,6 +458,11 @@ export function installMock(): void {
       homeConfig.themes_on_tv = order.length
       return { ...homeConfig }
     },
+    async themePackRemove() {
+      await wait(300)
+      homeConfig.themes_on_tv = 0
+      return { ...homeConfig }
+    },
     async saveThemeOnTv(name) {
       await wait(300)
       homeConfig.themes_on_tv = (homeConfig.themes_on_tv ?? 0) + (name ? 1 : 0)

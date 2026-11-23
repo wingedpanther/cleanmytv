@@ -74,6 +74,8 @@ export interface FakeTv {
   imes?: string[]
   /** Themes saved on the TV by name. */
   homeThemes?: string[]
+  /** The built-in themes Home's carousel has, in order (pack_end). */
+  homePack?: string[]
   /** The keyboard CleanMyTV Home was told about. */
   homeKeyboard?: string
   /** What `logcat -d` prints. */
@@ -252,6 +254,12 @@ function sh(tv: FakeTv, cmd: string): string {
       if (!tv.files.has('/data/data/home/wallpaper.jpg')) return 'Error while accessing provider:io.github.wingedpanther.cleanmytv.home.config\njava.lang.IllegalArgumentException: put a wallpaper on first; a theme needs a picture\n'
       tv.homeThemes = [...new Set([...(tv.homeThemes ?? []), name])]
       return `Result: Bundle[{theme=my-x, config=${JSON.stringify({ ...tv.homeConfig, has_wallpaper: true, configured: true, themes_on_tv: tv.homeThemes.length })}}]\n`
+    }
+    else if (m[1] === 'pack_end') {
+      // As ThemePack.end: the new set replaces the old, and themes saved on the TV stay.
+      tv.homePack = JSON.parse(Buffer.from(m[2], 'base64').toString('utf8')) as string[]
+      const themes = tv.homePack.length + (tv.homeThemes?.length ?? 0)
+      return `Result: Bundle[{config=${JSON.stringify({ ...tv.homeConfig, configured: true, themes_on_tv: themes })}}]\n`
     }
     else if (m[1] === 'keyboard') tv.homeKeyboard = Buffer.from(m[2], 'base64').toString('utf8')
     else if (m[1] === 'keys') return `Result: Bundle[{keys=${JSON.stringify([{ seq: 7, code: 83, name: 'KEYCODE_NOTIFICATION' }, { seq: 'x', code: 1 }])}}]\n`

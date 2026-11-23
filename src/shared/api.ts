@@ -734,6 +734,8 @@ export interface CytvApi {
   themePackBegin(): Promise<void>
   themePackPut(item: ThemePackItem): Promise<void>
   themePackEnd(order: string[]): Promise<HomeConfig>
+  /** Takes the built-in themes off the TV; themes saved on the TV stay. */
+  themePackRemove(): Promise<HomeConfig>
   /** Puts the fireplace on the TV, shows it now, makes it the screensaver, or takes it off. */
   fireplace(action: 'put' | 'show' | 'saver' | 'remove'): Promise<ApplyResult>
   /** Replaces the slideshow's pictures (prepared JPEGs in base64); an empty list clears them. */

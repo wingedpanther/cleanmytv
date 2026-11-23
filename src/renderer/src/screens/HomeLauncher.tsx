@@ -169,6 +169,28 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
     }
   }
 
+  /** #145: the built-in themes come off; ones saved on the TV stay, and so does the look on it now. */
+  async function themesOffTv(): Promise<void> {
+    setResult(null)
+    try {
+      setBusy(t('Taking the themes off the TV'))
+      const next = await window.cytv.themePackRemove()
+      setCfg(next)
+      const left = next.themes_on_tv ?? 0
+      setResult({
+        ok: true,
+        summary: left
+          ? t('The built-in themes are off the TV. The {n} you saved on the TV stay.', { n: left })
+          : t('The themes are off the TV. Your look stays as it is.'),
+        warnings: []
+      })
+    } catch (e) {
+      setResult({ ok: false, summary: errorText(e), warnings: [] })
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const readThemeBackup = (): void => {
     window.cytv.themeBackup().then(setThemeBackup, () => setThemeBackup(null))
   }
@@ -217,6 +239,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
     },
     onTv: cfg?.themes_on_tv ?? 0,
     toTv: () => themesToTv(),
+    offTv: () => themesOffTv(),
     custom: (theme) => guarded(() => themeStep(t('Putting {name} on the TV', { name: theme.name }), () => window.cytv.applyHomeTheme(theme), theme.name)),
     file: (text) => {
       let theme: HomeTheme
@@ -1061,6 +1084,8 @@ interface ThemeActions {
   /** Themes already on the TV for its carousel. */
   onTv: number
   toTv: () => void
+  /** Takes the built-in themes off the TV again. */
+  offTv: () => void
   /** A theme made in the editor. */
   custom: (t: HomeTheme) => void
   file: (text: string) => void
@@ -1129,6 +1154,11 @@ function ThemesCard({ themes, busy, cfg, set }: { themes: ThemeActions; busy: bo
         <button className="btn ghost" disabled={busy} onClick={themes.toTv}>
           {themes.onTv ? t('Put the themes on the TV again') : t('Put the themes on the TV')}
         </button>
+        {themes.onTv > 0 && (
+          <button className="btn ghost" disabled={busy} onClick={themes.offTv}>
+            {t('Take them off the TV')}
+          </button>
+        )}
         {!editing && (
           <button className="btn ghost" disabled={busy} onClick={() => setEditing(true)}>
             {t('Make your own…')}

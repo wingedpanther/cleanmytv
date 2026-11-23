@@ -408,6 +408,16 @@ describe('CleanMyTV Home', () => {
     await H.setWallpaper(null)
   })
 
+  it('takes the built-in themes off the TV and keeps the ones saved there (#145)', async () => {
+    tv.homeThemes = ['Evening']
+    await H.themePackBegin()
+    expect((await H.themePackEnd(['aurora', 'dusk', 'Bad id'])).themes_on_tv).toBe(3)
+    expect(tv.homePack).toEqual(['aurora', 'dusk'])
+    const cfg = await H.themePackRemove()
+    expect(tv.homePack).toEqual([])
+    expect(cfg.themes_on_tv).toBe(1)
+  })
+
   it('describes the TV for a bug report without its address or the owner\'s settings', async () => {
     await H.setConfig({ greeting: 'Hello Sam', weather_place: 'Dublin' })
     const text = await bugReport('9.9.9')

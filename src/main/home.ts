@@ -658,6 +658,18 @@ export async function themePackEnd(order: string[]): Promise<HomeConfig> {
   return cfg
 }
 
+/**
+ * Takes the built-in themes off the TV (#145): an empty set replaces them, and Home keeps the themes
+ * saved on the TV itself, as any new set does. The look on the TV now stays.
+ */
+export async function themePackRemove(): Promise<HomeConfig> {
+  log('theme', 'cmd', 'take the themes off the TV')
+  await call('pack_begin')
+  const cfg = parse(await call('pack_end', Buffer.from('[]').toString('base64')))
+  log('theme', 'ok', `${cfg.themes_on_tv ?? 0} themes are on the TV`)
+  return cfg
+}
+
 function jpeg(b64: unknown): Buffer {
   if (typeof b64 !== 'string' || !/^[A-Za-z0-9+/]+=*$/.test(b64)) throw new Error('the picture must be a JPEG in base64')
   const data = Buffer.from(b64, 'base64')
