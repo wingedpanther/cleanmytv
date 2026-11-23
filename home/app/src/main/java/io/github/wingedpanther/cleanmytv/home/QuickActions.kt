@@ -143,6 +143,7 @@ fun xgimiPort(id: String): String =
  * opens its channels in the TV's Live TV app, which otherwise comes back on whichever source was used last.
  */
 fun openInput(ctx: Context, id: String) {
+    runCatching { ScreenTime.inputOpened(ctx, id) }
     val tim = ctx.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
     val passthrough = runCatching { tim?.getTvInputInfo(id)?.isPassthroughInput }.getOrNull() ?: true
     val tries = if (passthrough) listOf(TvContract.buildChannelUriForPassthroughInput(id))

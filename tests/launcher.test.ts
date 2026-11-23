@@ -468,7 +468,7 @@ describe('CleanMyTV Home', () => {
 
   it('reads every day of screen time 60 at a time, keeps only plain values, and saves CSV rows', async () => {
     tv.homeScreenTime = undefined
-    expect(await H.screenTime()).toEqual({ allowed: false, today: '', first: '', days: [] })
+    expect(await H.screenTime()).toEqual({ allowed: false, today: '', first: '', days: [], names: {} })
     const today = '2026-11-23'
     const days = Array.from({ length: 130 }, (_, i) => ({
       day: addDays(today, -i),
@@ -492,6 +492,16 @@ describe('CleanMyTV Home', () => {
     expect(csv).toBe(`date,app,package,minutes,times_opened,longest_minutes\n${addDays(today, -1)},"Netflix, ""TV""",com.netflix.ninja,60,2,30\n${today},"Netflix, ""TV""",com.netflix.ninja,60,2,30\n`)
     expect((await H.screenTimeClear()).days).toEqual([])
     tv.homeScreenTime = undefined
+  })
+
+  it('turns the button service on for a screen time goal, and reads the names Home noted for inputs', async () => {
+    await expect(H.setConfig({ screen_goal: 'x' as never })).rejects.toThrow(/screen_goal/)
+    expect((await H.setConfig({ screen_goal: 800 })).screen_goal).toBe(720)
+    expect(await H.setConfig({ screen_goal: 120, lock_screentime: true })).toMatchObject({ screen_goal: 120, lock_screentime: true })
+    expect(tv.settings.get('enabled_accessibility_services')).toContain('io.github.wingedpanther.cleanmytv.home/')
+    await H.setConfig({ screen_goal: 0, lock_screentime: false })
+    const page = H.parseScreenTime(`Result: Bundle[{screentime=${JSON.stringify({ allowed: true, today: '2026-11-23', first: '2026-11-23', days: [], names: { 'cmtv_input.hw1': 'PS5', 'bad;key': 'x', 'cmtv_input.hw2': 3 } })}}]\n`)
+    expect(page.names).toEqual({ 'cmtv_input.hw1': 'PS5' })
   })
 
   it('says to update Home when it is too old to keep screen time', () => {

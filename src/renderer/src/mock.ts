@@ -35,7 +35,8 @@ function mockScreenTime(): ScreenTimeData {
       'com.google.android.youtube.tv': Math.round(4200 * k),
       'com.netflix.ninja': Math.round(3000 * k),
       'io.github.wingedpanther.cleanmytv.home': Math.round(900 * k),
-      'com.spotify.tv.android': i % 3 ? Math.round(1200 * k) : 0
+      'com.spotify.tv.android': i % 3 ? Math.round(1200 * k) : 0,
+      'cmtv_input.hw1': weekend ? Math.round(2400 * k) : 0
     }
     const total = Object.values(apps).reduce((a, b) => a + b, 0)
     const hours = Array.from({ length: 24 }, (_, h) => (h >= 18 && h <= 23 ? Math.round(total / 6) : 0))
@@ -43,7 +44,7 @@ function mockScreenTime(): ScreenTimeData {
     for (const [p, sec] of Object.entries(apps)) if (sec) stats[p] = { sessions: 1 + (i % 4), longest: Math.round(sec * 0.6), last: Math.round(new Date(`${day}T22:40:00Z`).getTime() / 1000) }
     days.push({ day, apps, hours, stats })
   }
-  return { allowed: true, today, first, days }
+  return { allowed: true, today, first, days, names: { 'cmtv_input.hw1': 'PS5' } }
 }
 
 const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
@@ -99,7 +100,7 @@ export function installMock(): void {
     icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, intro: true, wallpaper_from: '',
     lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge', fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0, slide_minutes: 0, slide_from: 'mine', other_apps: false, live_tv: true, slides_on_tv: 0, fire_on_tv: false, lock_pin_set: false, themes_on_tv: 0, can_change_settings: true,
     clock: 'time_date', greeting: '', names: {}, idle_minutes: 0,
-    weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'c', weather_hours: false, weather_days: false, memory: false, day_night: false, day_at: 420, night_at: 1140, bedtime_on: false, bedtime_at: 1410, bedtime_days: [1, 2, 3, 4, 5, 6, 7], input_tiles: false, looks_saved: [],
+    weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'c', weather_hours: false, weather_days: false, memory: false, day_night: false, day_at: 420, night_at: 1140, bedtime_on: false, bedtime_at: 1410, bedtime_days: [1, 2, 3, 4, 5, 6, 7], input_tiles: false, screen_goal: 0, lock_screentime: false, looks_saved: [],
     visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100,
     has_wallpaper: false,
     tv_inputs: [{ id: 'com.mediatek.tvinput/.hdmi.HDMIInputService/HW5', name: 'PlayStation 5' }, { id: 'com.mediatek.tvinput/.hdmi.HDMIInputService/HW6', name: 'HDMI 2' }]

@@ -126,6 +126,10 @@ data class HomeConfig(
     val bedtimeAt: Int = 23 * 60 + 30,
     val bedtimeDays: List<Int> = (1..7).toList(),
     val inputTiles: Boolean = false, // HDMI and the other inputs as tiles, to put in the dock or a row like apps
+    // Screen time: a note over whatever is on once the TV has been on this many minutes in a day (0: no goal),
+    // and the dashboard asking for the PIN while App lock is on
+    val screenGoal: Int = 0,
+    val lockScreenTime: Boolean = false,
     // Apps CleanMyTV switched off, from the desktop app, so Home can say when a system update brings some back;
     // the ones the owner already heard about stay quiet
     val switchedOff: List<String> = emptyList(),
@@ -224,6 +228,8 @@ data class HomeConfig(
         .put("bedtime_at", bedtimeAt)
         .put("bedtime_days", JSONArray(bedtimeDays))
         .put("input_tiles", inputTiles)
+        .put("screen_goal", screenGoal)
+        .put("lock_screentime", lockScreenTime)
         .put("switched_off", JSONArray(switchedOff))
         .put("came_back_seen", JSONArray(cameBackSeen))
         .put("visualiser", visualiser)
@@ -403,6 +409,8 @@ data class HomeConfig(
                 bedtimeAt = int("bedtime_at", base.bedtimeAt, 0, 24 * 60 - 1),
                 bedtimeDays = o.optJSONArray("bedtime_days")?.let { a -> (0 until minOf(a.length(), 7)).map { a.optInt(it) }.filter { it in 1..7 }.distinct().sorted() } ?: base.bedtimeDays,
                 inputTiles = bool("input_tiles", base.inputTiles),
+                screenGoal = int("screen_goal", base.screenGoal, 0, 12 * 60),
+                lockScreenTime = bool("lock_screentime", base.lockScreenTime),
                 switchedOff = pkgs("switched_off") ?: base.switchedOff,
                 cameBackSeen = pkgs("came_back_seen") ?: base.cameBackSeen,
                 visualiser = bool("visualiser", base.visualiser),

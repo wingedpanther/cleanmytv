@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { HomeConfig, ScreenDay, ScreenTimeData, TvApp } from '@shared/api'
 import { addDays, appTotals, daysBetween } from '@shared/screentime'
-import { Busy, Confirm, errorText } from '../components/ui'
+import { Busy, Confirm, Toggle, errorText } from '../components/ui'
 import { t } from '../lib/i18n'
 
 type SetFn = (change: Partial<HomeConfig>, wait?: number) => void
 type Period = '1' | '7' | '30' | 'custom'
 
 const HOME = 'io.github.wingedpanther.cleanmytv.home'
+/** Minutes; 0 is no goal. */
+const GOALS = [0, 60, 90, 120, 150, 180, 240, 300, 360]
 
 /** "2 h 15 min", "45 min", from seconds. */
 function words(sec: number): string {
@@ -94,7 +96,7 @@ export function ScreenTimeTab({ cfg, set, apps }: { cfg: HomeConfig; set: SetFn;
   }
   useEffect(load, [on])
 
-  const label = (p: string): string => (p === HOME ? t('Home screen') : (apps.find((a) => a.pkg === p)?.label ?? p))
+  const label = (p: string): string => (p === HOME ? t('Home screen') : (data?.names[p] ?? apps.find((a) => a.pkg === p)?.label ?? p))
   const today = data?.today || new Date().toISOString().slice(0, 10)
   const first = data?.first || today
   const from = period === 'custom' ? (customFrom && customFrom >= first ? customFrom : addDays(today, -13) < first ? first : addDays(today, -13)) : addDays(today, 1 - Number(period))
@@ -241,6 +243,19 @@ export function ScreenTimeTab({ cfg, set, apps }: { cfg: HomeConfig; set: SetFn;
         </div>
         {note && <p className="muted small" style={{ marginTop: 8 }}>{note}</p>}
         <p className="muted small" style={{ marginTop: 8 }}>{t('The totals stay on the TV. This app only reads them when this tab is open.')}</p>
+      </div>
+      <div className="card">
+        <h2>{t('Goal and PIN')}</h2>
+        <label className="field">
+          <span>{t('Daily goal')}</span>
+          <span className="hint">{t('Once the TV has been on this long in a day, a note says so over whatever is on, once a day.')}</span>
+          <select value={cfg.screen_goal} onChange={(e) => set({ screen_goal: Number(e.target.value) })}>
+            {GOALS.map((m) => <option key={m} value={m}>{m ? words(m * 60) : t('No goal')}</option>)}
+          </select>
+        </label>
+        <Toggle label={t('Ask for the PIN to open Screen time on the TV')}
+          hint={cfg.lock_on && cfg.lock_pin_set ? t('Changing a daily limit there always asks for it.') : t('Needs App lock on, with a PIN.')}
+          checked={cfg.lock_screentime} disabled={!(cfg.lock_on && cfg.lock_pin_set)} onChange={(v) => set({ lock_screentime: v })} />
       </div>
       {clearing && (
         <Confirm title={t('Clear the screen time history?')} confirmLabel={t('Clear it')} onCancel={() => setClearing(false)}

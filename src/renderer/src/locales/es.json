@@ -1428,5 +1428,12 @@
   "The totals stay on the TV. This app only reads them when this tab is open.": "Los totales se quedan en la TV. Esta app solo los lee mientras esta pestaña está abierta.",
   "Clear the screen time history?": "¿Borrar el historial de tiempo de pantalla?",
   "Clear it": "Borrarlo",
-  "Home forgets the days it saved. Android keeps about a week of its own, so the last few days come back.": "Home olvida los días que guardó. Android guarda una semana más o menos por su cuenta, así que vuelven los últimos días."
+  "Home forgets the days it saved. Android keeps about a week of its own, so the last few days come back.": "Home olvida los días que guardó. Android guarda una semana más o menos por su cuenta, así que vuelven los últimos días.",
+  "Goal and PIN": "Objetivo y PIN",
+  "Daily goal": "Objetivo diario",
+  "Once the TV has been on this long in a day, a note says so over whatever is on, once a day.": "Cuando la TV lleve encendida este tiempo en un día, una nota lo dice sobre lo que esté en pantalla, una vez al día.",
+  "No goal": "Sin objetivo",
+  "Ask for the PIN to open Screen time on the TV": "Pedir el PIN para abrir Tiempo de pantalla en la TV",
+  "Changing a daily limit there always asks for it.": "Cambiar un límite diario allí siempre lo pide.",
+  "Needs App lock on, with a PIN.": "Necesita el Bloqueo de aplicaciones activado, con un PIN."
 }

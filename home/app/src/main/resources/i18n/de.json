@@ -589,5 +589,10 @@
   "No limit": "Kein Limit",
   "Changing it asks for the PIN.": "Zum Ändern braucht es die PIN.",
   "Back returns to all the apps.": "Zurück führt wieder zu allen Apps.",
-  "Enter the PIN to change the limit": "Gib die PIN ein, um das Limit zu ändern"
+  "Enter the PIN to change the limit": "Gib die PIN ein, um das Limit zu ändern",
+  "Screen time's dashboard asks for the PIN before it opens.": "Die Übersicht der Bildschirmzeit fragt vor dem Öffnen nach der PIN.",
+  "Last week: {time}, mostly {app}": "Letzte Woche: {time}, meist {app}",
+  "Last week: {time}": "Letzte Woche: {time}",
+  "Enter the PIN for Screen time": "Gib die PIN für die Bildschirmzeit ein",
+  "{time} on the TV today": "Heute {time} am TV"
 }

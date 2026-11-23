@@ -33,7 +33,7 @@ export const DEFAULTS: HomeConfig = {
   clock: 'time_date', greeting: '', names: {}, idle_minutes: 0,
   weather_place: '', weather_lat: 0, weather_lon: 0, weather_unit: 'c', weather_hours: false, weather_days: false, memory: false,
   day_night: false, day_at: 7 * 60, night_at: 19 * 60,
-  bedtime_on: false, bedtime_at: 23 * 60 + 30, bedtime_days: [1, 2, 3, 4, 5, 6, 7], input_tiles: false,
+  bedtime_on: false, bedtime_at: 23 * 60 + 30, bedtime_days: [1, 2, 3, 4, 5, 6, 7], input_tiles: false, screen_goal: 0, lock_screentime: false,
   visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
 }
 
@@ -72,11 +72,11 @@ const RANGES = {
   wallpaper_dim: [0, 80], dock_size: [0, 8], columns: [3, 8], idle_minutes: [0, 60],
   viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300],
   fire_volume: [0, 100], fire_timer: [0, 240], slide_minutes: [0, 240], tile_glass: [0, 60],
-  day_at: [0, 24 * 60 - 1], night_at: [0, 24 * 60 - 1], bedtime_at: [0, 24 * 60 - 1],
+  day_at: [0, 24 * 60 - 1], night_at: [0, 24 * 60 - 1], bedtime_at: [0, 24 * 60 - 1], screen_goal: [0, 12 * 60],
   shade_top: [0, 100], shade_top_reach: [0, 100], shade_bottom: [0, 100], shade_bottom_reach: [0, 100], wash: [0, 100], wash_reach: [10, 100]
 } as const
 
-const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night', 'power_on_input', 'edit_on_tv', 'bing_daily', 'bing_caption', 'theme_memory', 'lock_editor', 'update_check', 'keyboard_guard', 'snow', 'weather_hours', 'weather_days', 'bedtime_on', 'input_tiles'] as const
+const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night', 'power_on_input', 'edit_on_tv', 'bing_daily', 'bing_caption', 'theme_memory', 'lock_editor', 'update_check', 'keyboard_guard', 'snow', 'weather_hours', 'weather_days', 'bedtime_on', 'input_tiles', 'lock_screentime'] as const
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 /** Lets the launcher see other apps' media sessions; on only while the Now playing section is. */
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
@@ -240,8 +240,8 @@ export async function install(chosen?: string): Promise<InstallResult> {
 }
 
 /** The remote-button service has work: buttons, the app lock, the Home redirect or the power-on input. */
-export const needsService = (c: Pick<HomeConfig, 'buttons_on' | 'lock_on' | 'stock_redirect' | 'power_on_input' | 'bedtime_on'>): boolean =>
-  c.buttons_on || c.lock_on || !!c.stock_redirect || c.power_on_input || !!c.bedtime_on
+export const needsService = (c: Pick<HomeConfig, 'buttons_on' | 'lock_on' | 'stock_redirect' | 'power_on_input' | 'bedtime_on'> & Partial<Pick<HomeConfig, 'screen_goal'>>): boolean =>
+  c.buttons_on || c.lock_on || !!c.stock_redirect || c.power_on_input || !!c.bedtime_on || (c.screen_goal ?? 0) > 0
 
 /**
  * Keeps Google TV's own launcher on beside CleanMyTV Home (#99, #88). Some apps need it: Apple TV and Netflix
@@ -464,7 +464,7 @@ export function parseScreenTime(out: string): ScreenTimeData & { days: ScreenDay
   const m = /screentime=(\{.*\})\}\]/s.exec(out)
   if (!m) throw new UiError('Screen time needs CleanMyTV Home 1.13.7 or later on the TV. Update it with Update and use on the Overview tab.')
   const o = JSON.parse(m[1]) as Record<string, unknown>
-  if (o.allowed !== true) return { allowed: false, today: '', first: '', days: [] }
+  if (o.allowed !== true) return { allowed: false, today: '', first: '', days: [], names: {} }
   const today = typeof o.today === 'string' && DAY_RE.test(o.today) ? o.today : ''
   const first = typeof o.first === 'string' && DAY_RE.test(o.first) ? o.first : today
   const days = (Array.isArray(o.days) ? o.days : []).flatMap((d): ScreenDay[] => {
@@ -479,7 +479,9 @@ export function parseScreenTime(out: string): ScreenTimeData & { days: ScreenDay
     const hours = Array.from({ length: 24 }, (_, i) => secs(Array.isArray(x.hours) ? x.hours[i] : 0))
     return [{ day: x.day, apps, hours, stats }]
   })
-  return { allowed: true, today, first, days }
+  const names: Record<string, string> = {}
+  for (const [k, v] of Object.entries((o.names ?? {}) as Record<string, unknown>)) if (T.PACKAGE_RE.test(k) && typeof v === 'string' && v.trim()) names[k] = v.slice(0, 60)
+  return { allowed: true, today, first, days, names }
 }
 
 /** Every day of Screen time Home has, 60 days a call, going back until its first day. */
@@ -487,7 +489,7 @@ export async function screenTime(): Promise<ScreenTimeData> {
   const byDay = new Map<string, ScreenDay>()
   let page = parseScreenTime(await call('screentime', '59'))
   if (!page.allowed) return page
-  const { today, first } = page
+  const { today, first, names } = page
   // Home keeps 400 days at most: 7 pages.
   for (let back = 59; ; ) {
     for (const d of page.days) byDay.set(d.day, d)
@@ -496,7 +498,7 @@ export async function screenTime(): Promise<ScreenTimeData> {
     back += 60
     page = parseScreenTime(await call('screentime', String(back)))
   }
-  return { allowed: true, today, first, days: [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day)) }
+  return { allowed: true, today, first, days: [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day)), names }
 }
 
 export async function screenTimeClear(): Promise<ScreenTimeData> {
@@ -804,9 +806,10 @@ export async function setConfig(change: Partial<HomeConfig>): Promise<HomeConfig
   // A Home that updated itself never had the install's grant. Never taken back: Android stops Home to do that.
   if (change.sections && cfg.sections.includes('watchnext')) await watchNextAccess('theme')
   // Going back to the input at power on (#94) is the remote-button service's job too.
-  // So is bedtime: the service shows the note and puts the TV to sleep.
-  if (checked.power_on_input === true || checked.bedtime_on === true) await addService(KEY_SERVICE)
-  else if ((checked.power_on_input === false || checked.bedtime_on === false) && !needsService(cfg)) await dropServices(HOME_PKG)
+  // So is bedtime: the service shows the note and puts the TV to sleep. And Screen time's daily goal note.
+  const goal = checked.screen_goal as number | undefined
+  if (checked.power_on_input === true || checked.bedtime_on === true || (goal ?? 0) > 0) await addService(KEY_SERVICE)
+  else if ((checked.power_on_input === false || checked.bedtime_on === false || goal === 0) && !needsService(cfg)) await dropServices(HOME_PKG)
   return cfg
 }
 

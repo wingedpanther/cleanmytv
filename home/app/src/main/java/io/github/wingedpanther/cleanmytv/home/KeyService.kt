@@ -18,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -100,6 +101,9 @@ class KeyService : AccessibilityService() {
                 .distinctUntilChanged().collect { updateServiceInfo() }
         }
         scope.launch {
+            ConfigStore.config.map { it.screenGoal }.distinctUntilChanged().collectLatest { goal -> if (goal > 0) watchGoal(goal) }
+        }
+        scope.launch {
             ConfigStore.config.map { Triple(it.bedtimeOn, it.bedtimeAt, it.bedtimeDays) }
                 .distinctUntilChanged().collect { Bedtime.schedule(this@KeyService) }
         }
@@ -174,6 +178,26 @@ class KeyService : AccessibilityService() {
         updateServiceInfo()
         if (!sleep(this)) Log.w(TAG, "bedtime: sleep didn't go through")
         Bedtime.schedule(this)
+    }
+
+    /**
+     * Screen time's daily goal: once the TV has been on [goal] minutes today, a note says so over whatever is
+     * on, once a day. It looks again when the goal could next be reached, and at least every 5 minutes.
+     */
+    private suspend fun watchGoal(goal: Int) {
+        val prefs = getSharedPreferences("screentime", MODE_PRIVATE)
+        while (true) {
+            val today = java.time.LocalDate.now()
+            val used = kotlinx.coroutines.withContext(Dispatchers.IO) { ScreenTime.days(this@KeyService, today)?.lastOrNull()?.total }
+            val left = if (used == null) 5 * 60_000L else goal * 60_000L - used
+            if (used != null && left <= 0 && prefs.getString("goal_said", null) != today.toString()) {
+                prefs.edit().putString("goal_said", today.toString()).apply()
+                showNote(tr("{time} on the TV today", "time" to ScreenTime.words(used)))
+                timer.postDelayed({ if (!Bedtime.warning) hideNote() }, 10_000L)
+            }
+            // Said already, or no usage access: look again in a while for tomorrow's or for the access.
+            kotlinx.coroutines.delay(if (left <= 0) 5 * 60_000L else left.coerceIn(60_000L, 5 * 60_000L))
+        }
     }
 
     /** A minute before bedtime: say so over whatever is on, and listen for any button. */
@@ -390,7 +414,7 @@ class KeyService : AccessibilityService() {
             listening || Bedtime.warning || (!volumePaused && cfg.buttonsOn && cfg.buttons.isNotEmpty())
 
         /** The service has work while any of these is on. */
-        fun needsService(cfg: HomeConfig) = cfg.buttonsOn || cfg.lockOn || cfg.stockRedirect.isNotEmpty() || cfg.powerOnInput || cfg.limits.isNotEmpty() || cfg.bedtimeOn
+        fun needsService(cfg: HomeConfig) = cfg.buttonsOn || cfg.lockOn || cfg.stockRedirect.isNotEmpty() || cfg.powerOnInput || cfg.limits.isNotEmpty() || cfg.bedtimeOn || cfg.screenGoal > 0
 
         /**
          * Whether a window of such a launcher is its home screen. Only another of its own activities says no;

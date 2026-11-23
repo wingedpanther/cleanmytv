@@ -55,6 +55,8 @@ object ScreenTime {
     const val START = 1
     const val STOP = 2
     const val OFF = 3
+    /** Home switched to an input: [Ev.pkg] is its tile's key. The next app to come to the front is showing it. */
+    const val INPUT = 4
 
     /**
      * An activity came to the front ([START]), left it ([STOP]), or the screen went off or the TV shut down
@@ -68,6 +70,8 @@ object ScreenTime {
     /** Saved days older than this go. A day is a few hundred bytes. */
     const val KEEP_DAYS = 400L
     private const val DAY_MS = 24 * 3600 * 1000L
+    /** How soon after Home switches to an input the TV's player has to come to the front to count as showing it. */
+    private const val INPUT_MS = 15_000L
     /** Back in the same app within this, as after a pop-up or the volume bar, is still the same time on. */
     private const val SAME_SESSION_MS = 60_000L
 
@@ -75,8 +79,12 @@ object ScreenTime {
      * Adds up the stretches in [events] (oldest first) by day and hour. A stretch still open at the end runs
      * to [to]. An app in front before the first event isn't known, so callers start the events a day early
      * and drop the days before the ones they want.
+     *
+     * After an [INPUT], the TV's player counts as that input (PS5, not "Live TV") until it leaves the front.
+     * Home's own screens ([self]) in between, like the tile's hand-off, don't take it. An input picked from
+     * the TV's own menu while the player is up isn't seen, so that time stays with the input Home opened.
      */
-    fun tally(events: List<Ev>, to: Long, zone: ZoneId): Map<LocalDate, DayUse> {
+    fun tally(events: List<Ev>, to: Long, zone: ZoneId, self: String = ""): Map<LocalDate, DayUse> {
         val apps = HashMap<LocalDate, HashMap<String, Long>>()
         val hours = HashMap<LocalDate, LongArray>()
         val pieces = ArrayList<Triple<String, Long, Long>>()
@@ -92,15 +100,28 @@ object ScreenTime {
                 t = next
             }
         }
-        var front: String? = null
+        var front: String? = null // what the time counts for: the app, or the input it's showing
+        var frontPkg: String? = null // the app actually in front
         var frontCls = ""
         var since = 0L
+        var input: Pair<String, Long>? = null
         for (e in events) {
             if (e.time > to) break
             when (e.kind) {
-                START -> { front?.let { add(it, since, e.time) }; front = e.pkg; frontCls = e.cls; since = e.time }
-                STOP -> if (front == e.pkg && (e.cls == frontCls || e.cls.isEmpty())) { add(e.pkg, since, e.time); front = null }
-                OFF -> { front?.let { add(it, since, e.time) }; front = null }
+                INPUT -> input = e.pkg to e.time
+                START -> {
+                    front?.let { add(it, since, e.time) }
+                    val i = input
+                    front = when {
+                        i != null && e.pkg != self && e.time - i.second <= INPUT_MS -> i.first.also { input = null }
+                        // The player moving between its own screens is still on the same input.
+                        front?.startsWith(InputTiles.PREFIX) == true && e.pkg == frontPkg -> front
+                        else -> e.pkg
+                    }
+                    frontPkg = e.pkg; frontCls = e.cls; since = e.time
+                }
+                STOP -> if (frontPkg == e.pkg && (e.cls == frontCls || e.cls.isEmpty())) { front?.let { add(it, since, e.time) }; front = null; frontPkg = null }
+                OFF -> { front?.let { add(it, since, e.time) }; front = null; frontPkg = null }
             }
         }
         front?.let { add(it, since, to) }
@@ -185,7 +206,8 @@ object ScreenTime {
                 list.add(Ev(e.timeStamp, e.packageName ?: "", kind, e.className ?: ""))
             }
         }.onFailure { Log.w(TAG, "screen time: $it") }
-        return tally(list, end, zone)
+        marks(ctx).filter { it.time in begin..end }.let { if (it.isNotEmpty()) { list.addAll(it); list.sortBy { e -> e.time } } }
+        return tally(list, end, zone, ctx.packageName)
     }
 
     private fun load(ctx: Context): Pair<MutableMap<LocalDate, DayUse>, LocalDate?> = cache ?: run {
@@ -213,6 +235,40 @@ object ScreenTime {
         }.onFailure { Log.w(TAG, "screen time: $it") }
     }
 
+    // ---- inputs -------------------------------------------------------------------------------------
+    // Android only sees the TV's player app, not which port it shows, so Home notes each input it opens.
+
+    private fun marksFile(ctx: Context) = File(ctx.filesDir, "screentime-inputs.json")
+    private const val MARKS_DAYS = 30L
+
+    private fun readMarks(ctx: Context): JSONObject = runCatching { JSONObject(marksFile(ctx).readText()) }.getOrDefault(JSONObject())
+
+    private fun marks(ctx: Context): List<Ev> = runCatching {
+        val a = readMarks(ctx).getJSONArray("marks")
+        (0 until a.length()).map { a.getJSONArray(it).let { m -> Ev(m.getLong(0), m.getString(1), INPUT) } }
+    }.getOrDefault(emptyList())
+
+    /** Home is switching to input [id]: noted with its name, for the time the player shows it. */
+    @Synchronized
+    fun inputOpened(ctx: Context, id: String) {
+        val key = InputTiles.key(id)
+        val name = runCatching { tvInputs(ctx, liveTv = true).firstOrNull { it.first == id }?.second }.getOrNull() ?: id
+        val o = readMarks(ctx)
+        val now = System.currentTimeMillis()
+        val old = o.optJSONArray("marks") ?: JSONArray()
+        val keep = JSONArray()
+        for (i in 0 until old.length()) old.optJSONArray(i)?.let { if (it.optLong(0) > now - MARKS_DAYS * DAY_MS) keep.put(it) }
+        keep.put(JSONArray(listOf(now, key)))
+        o.put("marks", keep).put("names", (o.optJSONObject("names") ?: JSONObject()).put(key, name))
+        runCatching { marksFile(ctx).writeText(o.toString()) }.onFailure { Log.w(TAG, "screen time input: $it") }
+    }
+
+    /** The names Home noted for inputs, by their tile keys. */
+    fun inputNames(ctx: Context): Map<String, String> = runCatching {
+        val n = readMarks(ctx).getJSONObject("names")
+        n.keys().asSequence().associateWith { n.getString(it) }
+    }.getOrDefault(emptyMap())
+
     /** The first day Home has anything for, or null before the first look. */
     @Synchronized
     fun firstDay(ctx: Context): LocalDate? = load(ctx).first.filterValues { it.total > 0 }.keys.minOrNull()
@@ -227,7 +283,9 @@ object ScreenTime {
         val days = days(ctx, from) ?: return JSONObject().put("allowed", false)
         val list = JSONArray()
         days.take(PAGE).forEach { d -> list.put(d.json().put("day", d.day.toString())) }
-        return JSONObject().put("allowed", true).put("today", today.toString()).put("first", firstDay(ctx)?.toString() ?: today.toString()).put("days", list)
+        val names = JSONObject()
+        inputNames(ctx).forEach { (k, v) -> names.put(k, v) }
+        return JSONObject().put("allowed", true).put("today", today.toString()).put("first", firstDay(ctx)?.toString() ?: today.toString()).put("days", list).put("names", names)
     }
     const val PAGE = 60
 

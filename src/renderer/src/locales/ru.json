@@ -1428,5 +1428,12 @@
   "The totals stay on the TV. This app only reads them when this tab is open.": "Итоги остаются на телевизоре. Это приложение читает их, только пока открыта эта вкладка.",
   "Clear the screen time history?": "Очистить историю экранного времени?",
   "Clear it": "Очистить",
-  "Home forgets the days it saved. Android keeps about a week of its own, so the last few days come back.": "Home забудет сохранённые дни. Android сам хранит примерно неделю, поэтому последние дни вернутся."
+  "Home forgets the days it saved. Android keeps about a week of its own, so the last few days come back.": "Home забудет сохранённые дни. Android сам хранит примерно неделю, поэтому последние дни вернутся.",
+  "Goal and PIN": "Цель и PIN",
+  "Daily goal": "Дневная цель",
+  "Once the TV has been on this long in a day, a note says so over whatever is on, once a day.": "Когда телевизор проработает столько за день, поверх любого экрана появится заметка, один раз в день.",
+  "No goal": "Без цели",
+  "Ask for the PIN to open Screen time on the TV": "Спрашивать PIN для открытия экранного времени на телевизоре",
+  "Changing a daily limit there always asks for it.": "Изменение дневного лимита там всегда его спрашивает.",
+  "Needs App lock on, with a PIN.": "Нужна включённая блокировка приложений с PIN."
 }

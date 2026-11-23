@@ -276,6 +276,7 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
     const data = await home.screenTime()
     const names = new Map((await home.apps().catch(() => [])).map((a) => [a.pkg, a.label]))
     names.set(launcher.HOME_PKG, 'Home screen')
+    for (const [k, v] of Object.entries(data.names)) names.set(k, v)
     const csv = screenTimeCsv(daysBetween(data.days, from, to), (p) => names.get(p) ?? p)
     const path = await saveDialog({ title: t('Save the screen time'), defaultPath: join(app.getPath('documents'), `cleanmytv-screen-time-${from}-to-${to}.csv`), filters: [{ name: 'CSV', extensions: ['csv'] }] })
     if (!path) return null

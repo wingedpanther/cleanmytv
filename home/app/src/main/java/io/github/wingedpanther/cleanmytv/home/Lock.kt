@@ -23,6 +23,8 @@ object Lock {
     const val PANEL = "panel"
     /** Not an app either: the on-TV editor, locked on its own switch. */
     const val EDITOR = "editor"
+    /** Nor this: Screen time's dashboard, on its own switch. */
+    const val SCREENTIME = "screentime"
     private const val ROUNDS = 20_000
 
     private val unlocked = HashMap<String, Long>() // package -> elapsed time it locks again; MAX_VALUE until sleep
@@ -80,7 +82,7 @@ object Lock {
     fun needsPin(ctx: Context, what: String): Boolean {
         val cfg = ConfigStore.config.value
         if (!cfg.lockOn || !hasPin(ctx)) return false
-        val locked = what in cfg.lockApps || (cfg.lockSystem && (what in SETTINGS || what == PANEL)) || (what == EDITOR && cfg.lockEditor)
+        val locked = what in cfg.lockApps || (cfg.lockSystem && (what in SETTINGS || what == PANEL)) || (what == EDITOR && cfg.lockEditor) || (what == SCREENTIME && cfg.lockScreenTime)
         if (!locked) return false
         val until = unlocked[what] ?: return true
         if (SystemClock.elapsedRealtime() < until) return false

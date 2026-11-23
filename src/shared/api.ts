@@ -279,6 +279,8 @@ export interface ScreenTimeData {
   first: string
   /** Oldest first, one entry per day from first to today. */
   days: ScreenDay[]
+  /** Names Home noted for the inputs it opened, by their tile keys (cmtv_input.…). */
+  names: Record<string, string>
 }
 
 export interface HomeConfig {
@@ -432,6 +434,9 @@ export interface HomeConfig {
   bedtime_days: number[]
   /** HDMI and the other inputs as tiles, listed with the apps (launcher 1.13.4). */
   input_tiles: boolean
+  /** Screen time: a note on the TV once it has been on this many minutes in a day, 0 for none; and the dashboard behind the PIN (launcher 1.13.7). */
+  screen_goal: number
+  lock_screentime: boolean
   // Music bars
   visualiser: boolean
   viz_style: 'bars' | 'mirror' | 'wave'

@@ -103,4 +103,21 @@ class ScreenTimeTest {
         // Home 1.13.7 saved days without sessions.
         assertEquals(emptyMap<String, AppDay>(), DayUse.from(day, org.json.JSONObject("""{"apps":{"a":60},"hours":[]}""")).stats)
     }
+
+    @Test fun `the TV's player counts as the input Home opened, until it leaves the front`() {
+        val ps5 = InputTiles.PREFIX + "hw1"
+        val d = ScreenTime.tally(listOf(
+            Ev(at("2026-11-20T19:00"), ps5, ScreenTime.INPUT),
+            // The tile's hand-off screen is Home's own: it doesn't take the input.
+            Ev(at("2026-11-20T19:00").plus(200), "home", START),
+            Ev(at("2026-11-20T19:00").plus(900), "tv.player", START, "Player"),
+            Ev(at("2026-11-20T19:30"), "tv.player", START, "Guide"),
+            Ev(at("2026-11-20T20:00"), "tv.player", STOP, "Guide"),
+            // Opened later from the TV's own menu: the player as itself.
+            Ev(at("2026-11-20T21:00"), "tv.player", START, "Player"),
+            Ev(at("2026-11-20T21:10"), "", OFF),
+        ), at("2026-11-20T23:00"), zone, self = "home")[day]!!
+        assertEquals(60 * min - 900, d.apps[ps5])
+        assertEquals(10 * min, d.apps["tv.player"])
+    }
 }

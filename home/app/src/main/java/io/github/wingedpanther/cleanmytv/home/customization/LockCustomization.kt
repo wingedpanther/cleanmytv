@@ -105,6 +105,12 @@ fun LockCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
             checked = config.lockEditor,
             onCheckedChange = { set(JSONObject().put("lock_editor", it)) }
         )
+        TvSwitch(
+            title = tr("Screen time"),
+            subtitle = tr("Screen time's dashboard asks for the PIN before it opens."),
+            checked = config.lockScreenTime,
+            onCheckedChange = { set(JSONObject().put("lock_screentime", it)) }
+        )
         TvRadioGroup(
             title = tr("An unlock lasts"),
             options = listOf("sleep" to tr("Until the TV sleeps"), "15" to tr("15 minutes"), "always" to tr("Until another app opens")),

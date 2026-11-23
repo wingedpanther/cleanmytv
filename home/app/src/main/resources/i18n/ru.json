@@ -589,5 +589,10 @@
   "No limit": "Без лимита",
   "Changing it asks for the PIN.": "Для изменения нужен PIN.",
   "Back returns to all the apps.": "«Назад» возвращает ко всем приложениям.",
-  "Enter the PIN to change the limit": "Введите PIN, чтобы изменить лимит"
+  "Enter the PIN to change the limit": "Введите PIN, чтобы изменить лимит",
+  "Screen time's dashboard asks for the PIN before it opens.": "Панель экранного времени спрашивает PIN перед открытием.",
+  "Last week: {time}, mostly {app}": "Прошлая неделя: {time}, больше всего {app}",
+  "Last week: {time}": "Прошлая неделя: {time}",
+  "Enter the PIN for Screen time": "Введите PIN для экранного времени",
+  "{time} on the TV today": "{time} у телевизора сегодня"
 }

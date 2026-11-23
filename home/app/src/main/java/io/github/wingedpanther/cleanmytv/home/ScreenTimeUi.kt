@@ -73,7 +73,7 @@ private val ST_MUTED = Color(0xFFD7CFC4)
 class UsedApp(val pkg: String, val label: String, val icon: ImageBitmap?, val ms: Long)
 
 /** What the Home screen section shows: the last 7 days, today last, and today's top apps. */
-class ScreenSummary(val week: List<DayUse>, val top: List<UsedApp>)
+class ScreenSummary(val week: List<DayUse>, val top: List<UsedApp>, val lastWeek: String? = null)
 
 object ScreenTimeApps {
     private val known = HashMap<String, Pair<String, ImageBitmap?>>()
@@ -81,6 +81,7 @@ object ScreenTimeApps {
     /** Names and icons, looked up once. Home itself is "Home screen"; an app since removed keeps its package name. */
     @Synchronized
     fun info(ctx: Context, pkg: String): Pair<String, ImageBitmap?> = known.getOrPut(pkg) {
+        if (InputTiles.isInput(pkg)) return@getOrPut (ScreenTime.inputNames(ctx)[pkg] ?: tr("Input")) to null
         val pm = ctx.packageManager
         runCatching {
             val ai = pm.getApplicationInfo(pkg, 0)
@@ -96,8 +97,24 @@ object ScreenTimeApps {
 
     /** Null without usage access. Off the main thread. */
     fun summary(ctx: Context): ScreenSummary? {
-        val days = ScreenTime.days(ctx, LocalDate.now().minusDays(6)) ?: return null
-        return ScreenSummary(days, top(ctx, days.last().apps, 3))
+        val today = LocalDate.now()
+        val days = ScreenTime.days(ctx, today.minusDays(7)) ?: return null
+        val week = days.takeLast(7)
+        return ScreenSummary(week, top(ctx, week.last().apps, 3), weekWords(ctx, days, today))
+    }
+
+    /**
+     * On the first day of the week, as the TV's language counts it: "Last week: 14 h, mostly YouTube". The
+     * other days, null.
+     */
+    private fun weekWords(ctx: Context, days: List<DayUse>, today: LocalDate): String? {
+        if (today.dayOfWeek != java.time.temporal.WeekFields.of(Locale.getDefault()).firstDayOfWeek) return null
+        val last = days.filter { it.day.isBefore(today) }.takeLast(7)
+        val total = last.sumOf { it.total }
+        if (total < 60_000) return null
+        val most = top(ctx, merged(last), 1).firstOrNull()?.label
+        return if (most != null) tr("Last week: {time}, mostly {app}", "time" to ScreenTime.words(total), "app" to most)
+        else tr("Last week: {time}", "time" to ScreenTime.words(total))
     }
 
     fun open(ctx: Context) {
@@ -165,10 +182,12 @@ fun ScreenTimeCardBody(s: ScreenSummary?, accent: Color) {
     }
     val today = s.week.last()
     Row(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.width(150.dp)) {
+        Column(Modifier.width(170.dp)) {
             Text(tr("Screen time today"), color = ST_MUTED, fontSize = 13.sp, maxLines = 1, softWrap = false)
             Text(ScreenTime.words(today.total), color = ST_TEXT, fontSize = 26.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
-            s.week.getOrNull(s.week.size - 2)?.let { y ->
+            // The first day of the week says how the last one went; the other days, yesterday.
+            if (s.lastWeek != null) Text(s.lastWeek, color = ST_MUTED, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            else s.week.getOrNull(s.week.size - 2)?.let { y ->
                 Text(tr("Yesterday: {time}", "time" to ScreenTime.words(y.total)), color = ST_MUTED, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
@@ -444,7 +463,7 @@ private fun AppDetail(all: List<DayUse>, pkg: String, from: LocalDate, to: Local
     }
     asking?.let { m ->
         Dialog(onDismissRequest = { asking = null }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            PinPad(tr("Enter the PIN to change the limit"), "screentime", accent) { asking = null; setLimit(m) }
+            PinPad(tr("Enter the PIN to change the limit"), Lock.SCREENTIME, accent) { asking = null; setLimit(m) }
         }
     }
 }
@@ -456,7 +475,12 @@ class ScreenTimeActivity : ComponentActivity() {
         ConfigStore.load(this)
         setContent {
             val cfg by ConfigStore.config.collectAsState()
-            HomeFont(cfg.font) { ScreenTimeDashboard() }
+            // With "Ask for the PIN" on in App lock, the dashboard opens after the PIN; Back leaves without it.
+            var open by remember { mutableStateOf(!Lock.needsPin(this, Lock.SCREENTIME)) }
+            HomeFont(cfg.font) {
+                if (open) ScreenTimeDashboard()
+                else PinPad(tr("Enter the PIN for Screen time"), Lock.SCREENTIME, Color(cfg.accent)) { open = true }
+            }
         }
     }
 }
