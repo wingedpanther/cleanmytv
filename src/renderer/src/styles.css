@@ -544,7 +544,7 @@ a.btn { text-decoration: none; }
 /* Pinned under the top edge of the scroll area, full width so nothing scrolls past beside it. */
 .home-preview-sticky { position: sticky; top: -36px; z-index: 2; background: var(--background); margin: -18px -44px 0; padding: 36px 44px 4px; box-shadow: 0 10px 12px -12px rgba(0, 0, 0, 0.25); }
 .home-preview-sticky .home-preview { max-width: 560px; margin-bottom: 10px; }
-.layout-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.layout-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
 .layout-pick button { font: inherit; text-align: left; cursor: pointer; padding: 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--card); color: inherit; display: grid; gap: 8px; }
 .layout-pick button.on { border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent); }
 .layout-pick .mini { aspect-ratio: 16 / 9; border-radius: 6px; background: #1C2A1F; position: relative; overflow: hidden; }

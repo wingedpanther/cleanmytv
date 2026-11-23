@@ -95,6 +95,9 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.runtime.State
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Shape
@@ -443,11 +446,15 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         ConfigStore.update(ctx, change)
     }
     var focusColour by remember { mutableStateOf<Color?>(null) }
+    // Kidu's big name: the app under the focus, and the film or episode when the focus is on one. Read only there.
+    val heroApp = remember { mutableStateOf<TvApp?>(null) }
+    val heroWatch = remember { mutableStateOf<WatchItem?>(null) }
     val tint by animateColorAsState(focusColour ?: Color.Transparent, tween(600), label = "tint")
     // The Bing caption, while the picture it belongs to is the one on screen.
     val shownCaption = caption?.takeIf { cfg.bingCaption && !fireWall && wallpaper != null }
     val ui = Ui(cfg, accent, first, movingKey ?: home.first, onFolder = { openFolder = it }, track = track, weather = weather, memory = memory,
-        onFocusApp = { a -> focusColour = a.colour?.let { Color(it) } }, motion = motion, onAppMenu = { s, a -> menuFor = s to a }, movingKey = movingKey,
+        onFocusApp = { a -> focusColour = a.colour?.let { Color(it) }; heroApp.value = a; heroWatch.value = null },
+        onFocusWatch = { heroWatch.value = it }, motion = motion, onAppMenu = { s, a -> menuFor = s to a }, movingKey = movingKey,
         captioned = shownCaption != null, screenTime = screenTime, screenTimeSeen = screenSeen && wantScreen)
 
     Box(
@@ -499,6 +506,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             when (cfg.layout) {
                 "split" -> SplitLayout(home, ui, quick, onQuick)
                 "rail" -> RailLayout(home, ui, quick, onQuick)
+                "kidu" -> KiduLayout(home, ui, quick, onQuick, heroApp, heroWatch)
                 else -> ShelfLayout(home, ui, quick, onQuick)
             }
             shownCaption?.let { BingCaption(it, visualiser, cfg, Modifier.align(Alignment.BottomEnd).padding(start = SAFE_X, end = SAFE_X, bottom = SAFE_Y)) }
@@ -624,6 +632,8 @@ private class Ui(
     val weather: WeatherNow? = null,
     val memory: MemoryNow? = null,
     val onFocusApp: (TvApp) -> Unit = {},
+    /** A Continue watching tile took the focus, after [onFocusApp] for its app. */
+    val onFocusWatch: (WatchItem) -> Unit = {},
     /** False when the TV's animations are off: tiles still lift, without springs, tilt or sheen. */
     val motion: Boolean = true,
     /** A long press on a tile, with the section it is in. */
@@ -736,6 +746,75 @@ private fun RailLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Q
                 }
             }
             Sections(home, ui, Modifier.fillMaxSize(), PaddingValues(start = 24.dp - BLEED, end = SAFE_X - BLEED, top = 20.dp, bottom = 96.dp), dockWidth = 196.dp, showFolders = false)
+        }
+    }
+}
+
+/**
+ * Kidu: the app under the focus, its name large over the wallpaper with what was being watched in it; the clock
+ * and the top bar icons above, the sections in the lower half.
+ */
+@Composable
+private fun KiduLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (QuickAction) -> Unit, app: State<TvApp?>, watch: State<WatchItem?>) {
+    val cfg = ui.cfg
+    if (cfg.shadeTop > 0 && cfg.shadeTopReach > 0) {
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to scrim(cfg, cfg.shadeTop / 100f), cfg.shadeTopReach / 100f to Color.Transparent)))
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val lower = maxHeight * 0.5f
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(start = SAFE_X, end = SAFE_X, top = SAFE_Y), verticalAlignment = Alignment.Top) {
+                Column {
+                    Clock(cfg, 26.sp, 12.sp, Alignment.Start)
+                    WeatherLine(ui, 13.sp, Modifier.padding(top = 4.dp))
+                    HourLine(ui, 13.sp, Modifier.padding(top = 6.dp))
+                    DayLine(ui, 13.sp, Modifier.padding(top = 6.dp))
+                    MemoryLine(ui, 13.sp, Modifier.padding(top = 4.dp))
+                }
+                Spacer(Modifier.weight(1f))
+                if (quick.isNotEmpty()) Row(Modifier.focusGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) { quick.forEach { QuickButton(it, ui, onQuick) } }
+            }
+            KiduHero(home, ui, app, watch, Modifier.weight(1f).fillMaxWidth().padding(start = SAFE_X, end = SAFE_X))
+            Sections(home, ui, Modifier.fillMaxWidth().height(lower), PaddingValues(start = SAFE_X - BLEED, end = SAFE_X - BLEED, top = 0.dp, bottom = 96.dp), dockWidth = 200.dp)
+        }
+    }
+}
+
+/** Long names step down so they stay on one line across the screen. */
+private fun heroSize(name: String) = when { name.length <= 10 -> 84.sp; name.length <= 16 -> 64.sp; else -> 48.sp }
+
+/** A soft shadow under the hero's words, so they read on a bright photo. */
+private val HERO_SHADOW = Shadow(Color.Black.copy(alpha = 0.45f), blurRadius = 16f)
+
+/**
+ * The greeting, the focused app's name, and the film or episode in it to go back to: the one under the focus,
+ * else the newest in Continue watching for that app. Before anything has the focus, the first app in the dock.
+ */
+@Composable
+private fun KiduHero(home: Home, ui: Ui, app: State<TvApp?>, watch: State<WatchItem?>, modifier: Modifier) {
+    val a = app.value ?: home.dock.firstOrNull()
+    val item = watch.value?.takeIf { it.pkg == a?.pkg } ?: a?.let { x -> home.watch.firstOrNull { it.pkg == x.pkg } }
+    Box(modifier.clipToBounds(), contentAlignment = Alignment.BottomStart) {
+        androidx.compose.animation.Crossfade(a to item, animationSpec = tween(if (ui.motion) 220 else 0), label = "hero") { (shown, w) ->
+            Column(Modifier.padding(bottom = 18.dp)) {
+                Greeting(ui.cfg, 15.sp)
+                shown?.let {
+                    Text(it.label, color = TEXT, fontSize = heroSize(it.label), fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+                        style = TextStyle(shadow = HERO_SHADOW, letterSpacing = (-1.5).sp, lineHeight = heroSize(it.label) * 1.05f), modifier = Modifier.offset(x = (-3).dp))
+                }
+                w?.let { x ->
+                    Text(tr("Continue {title}", "title" to x.title), color = TEXT, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        style = TextStyle(shadow = HERO_SHADOW), modifier = Modifier.padding(top = 10.dp))
+                    val left = if (x.duration > 0 && x.position > 0) ((x.duration - x.position) / 60_000L).toInt().takeIf { it > 0 } else null
+                    val meta = listOfNotNull(WatchNext.episodeLine(x), left?.let { m -> tr("{time} left", "time" to Limits.words(m)) }).joinToString(" · ")
+                    if (meta.isNotEmpty()) Text(meta, color = MUTED, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(shadow = HERO_SHADOW), modifier = Modifier.padding(top = 3.dp))
+                    x.progress?.let { done ->
+                        Box(Modifier.padding(top = 12.dp).width(260.dp).height(3.dp).background(Color.White.copy(alpha = 0.22f), RoundedCornerShape(2.dp))) {
+                            Box(Modifier.fillMaxHeight().fillMaxWidth(done).background(ui.accent, RoundedCornerShape(2.dp)))
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1101,7 +1180,7 @@ private fun WatchTile(item: WatchItem, app: TvApp?, ui: Ui, w: Dp) {
         Surface(
             onClick = go,
             modifier = Modifier.pointer { go() }.fillMaxWidth().aspectRatio(16f / 9f)
-                .onFocusChanged { focused = it.isFocused; if (it.isFocused && app != null) ui.onFocusApp(app) }
+                .onFocusChanged { focused = it.isFocused; if (it.isFocused) { app?.let(ui.onFocusApp); ui.onFocusWatch(item) } }
                 .lift(ui, shape, focused),
             shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
             colors = ClickableSurfaceDefaults.colors(containerColor = TILE, focusedContainerColor = TILE_FOCUSED)

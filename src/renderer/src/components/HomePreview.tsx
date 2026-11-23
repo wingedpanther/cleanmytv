@@ -334,6 +334,35 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
         </div>
       </div>
     )
+  } else if (cfg.layout === 'kidu') {
+    // As on the TV: the first app in the dock stands in for the one under the focus.
+    const hero = model(apps, cfg).dock[0]?.label ?? 'YouTube'
+    const heroSize = hero.length <= 10 ? 84 : hero.length <= 16 ? 64 : 48
+    body = (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: `linear-gradient(${shade(cfg, cfg.shade_top)}, transparent ${cfg.shade_top_reach}%)` }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', padding: `${SAFE_Y}px ${SAFE_X}px 0` }}>
+          <div style={{ flex: 1 }}>
+            <Clock cfg={cfg} size={26} dateSize={12} align="left" />
+          </div>
+          {quick.length > 0 && (
+            <div style={{ display: 'flex', gap: 10 }}>
+              {quick.map((q) => (
+                <span key={q} style={{ width: 40, height: 40, borderRadius: 20, background: 'rgba(255,255,255,0.08)', display: 'grid', placeItems: 'center' }}>
+                  <QuickMark q={q} apps={apps} size={22} />
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: `0 ${SAFE_X}px 18px` }}>
+          {greet && <div style={{ fontSize: 15, fontWeight: 500 }}>{greet}</div>}
+          <div style={{ fontSize: heroSize, fontWeight: 600, letterSpacing: -1.5, lineHeight: 1.05, marginLeft: -3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '0 0 16px rgba(0,0,0,0.45)' }}>{hero}</div>
+        </div>
+        <div style={{ height: H * 0.5, overflow: 'hidden', padding: `0 ${SAFE_X}px` }}>
+          <Sections apps={apps} cfg={cfg} width={W - SAFE_X * 2} dockW={200} />
+        </div>
+      </div>
+    )
   } else if (cfg.layout === 'rail') {
     body = (
       <div style={{ display: 'flex', height: '100%' }}>

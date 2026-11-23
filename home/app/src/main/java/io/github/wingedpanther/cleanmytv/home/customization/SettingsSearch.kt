@@ -63,7 +63,7 @@ val SETTINGS_INDEX: List<Findable> = run {
     val B = CustomizationCategory.BUTTONS; val P = CustomizationCategory.LOCK; val V = CustomizationCategory.VISUALIZER
     val F = CustomizationCategory.FIREPLACE; val M = CustomizationCategory.MORE; val S = CustomizationCategory.SCREENTIME
     listOf(
-        Findable("Layout: Shelf, Split or Rail", "style arrangement sidebar left panel", L),
+        Findable("Layout: Shelf, Split or Rail", "style arrangement sidebar left panel kidu big name", L),
         Findable("Space above the apps", "top space gap margin dock position", L),
         Findable("Sections", "order show hide now playing recently used dock continue watching rows folders all apps", L),
         Findable("Recently used", "recent last apps history", L),

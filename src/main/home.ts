@@ -38,7 +38,7 @@ export const DEFAULTS: HomeConfig = {
 }
 
 const CHOICES = {
-  layout: ['shelf', 'split', 'rail'],
+  layout: ['shelf', 'split', 'rail', 'kidu'],
   focus: ['lift', 'glow', 'outline', 'none'],
   clock: ['time_date', 'time', 'off'],
   viz_style: ['bars', 'mirror', 'wave'],

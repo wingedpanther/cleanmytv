@@ -1435,5 +1435,6 @@
   "No goal": "Без цели",
   "Ask for the PIN to open Screen time on the TV": "Спрашивать PIN для открытия экранного времени на телевизоре",
   "Changing a daily limit there always asks for it.": "Изменение дневного лимита там всегда его спрашивает.",
-  "Needs App lock on, with a PIN.": "Нужна включённая блокировка приложений с PIN."
+  "Needs App lock on, with a PIN.": "Нужна включённая блокировка приложений с PIN.",
+  "The app you are on in big letters, with what you were watching in it. Apps in the lower half.": "Приложение, на котором вы находитесь, крупными буквами и то, что вы в нём смотрели. Приложения в нижней половине."
 }

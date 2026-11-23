@@ -1435,5 +1435,6 @@
   "No goal": "Sin objetivo",
   "Ask for the PIN to open Screen time on the TV": "Pedir el PIN para abrir Tiempo de pantalla en la TV",
   "Changing a daily limit there always asks for it.": "Cambiar un límite diario allí siempre lo pide.",
-  "Needs App lock on, with a PIN.": "Necesita el Bloqueo de aplicaciones activado, con un PIN."
+  "Needs App lock on, with a PIN.": "Necesita el Bloqueo de aplicaciones activado, con un PIN.",
+  "The app you are on in big letters, with what you were watching in it. Apps in the lower half.": "La app en la que estás, en letras grandes, con lo que veías en ella. Las apps en la mitad de abajo."
 }
