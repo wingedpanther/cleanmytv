@@ -12,6 +12,7 @@ enum class CustomizationCategory(val title: String, val subtitle: String) {
     APPS("Apps", "The dock, apps per row, order and hidden apps"),
     BUTTONS("Remote buttons", "Give spare buttons a new job"),
     LOCK("App lock", "Lock apps behind a PIN"),
+    SCREENTIME("Screen time", "The card on Home, a daily goal and the history"),
     VISUALIZER("Music bars", "Style, colour, height and sensitivity"),
     FIREPLACE("Fireplace", "The fire as the wallpaper, its sound and timer"),
     MORE("More", "Greeting, names, memory, inputs and power on");

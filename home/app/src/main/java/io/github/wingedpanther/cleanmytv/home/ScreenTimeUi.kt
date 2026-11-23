@@ -263,7 +263,7 @@ private fun ScreenTimeDashboard() {
                 !loaded -> {}
                 all == null -> Text(tr("Screen time needs usage access. In CleanMyTV on a computer, tick Screen time under CleanMyTV Home, Layout, Sections."), color = ST_MUTED, fontSize = 17.sp)
                 detail != null -> AppDetail(all, detail!!, from, to, accent, ground)
-                else -> Period(all, from, to, accent, ground) { detail = it }
+                else -> Period(all, from, to, accent, ground, cfg.screenGoal) { detail = it }
             }
         }
     }
@@ -307,7 +307,7 @@ private fun dayLabels(days: List<DayUse>): List<String> {
 }
 
 @Composable
-private fun Period(all: List<DayUse>, from: LocalDate, to: LocalDate, accent: Color, ground: Color, onApp: (String) -> Unit) {
+private fun Period(all: List<DayUse>, from: LocalDate, to: LocalDate, accent: Color, ground: Color, goal: Int, onApp: (String) -> Unit) {
     val ctx = LocalContext.current
     val n = (ChronoUnit.DAYS.between(from, to) + 1).toInt()
     val cur = all.filter { !it.day.isBefore(from) && !it.day.isAfter(to) }
@@ -326,6 +326,11 @@ private fun Period(all: List<DayUse>, from: LocalDate, to: LocalDate, accent: Co
                     val words = ScreenTime.words(it.total)
                     Text(if (to == LocalDate.now()) tr("Yesterday: {time}", "time" to words) else tr("The day before: {time}", "time" to words), color = ST_MUTED, fontSize = 15.sp)
                 }
+                // Today, against the daily goal: what's left of it, or that it's passed.
+                if (goal > 0 && to == LocalDate.now()) {
+                    val left = goal * 60_000L - total
+                    Text(if (left > 0) tr("{time} left of the daily goal", "time" to ScreenTime.words(left)) else tr("Past the daily goal of {time}", "time" to Limits.words(goal)), color = ST_MUTED, fontSize = 15.sp)
+                }
             } else {
                 Text(tr("{time} a day", "time" to ScreenTime.words(total / counted)), color = ST_TEXT, fontSize = 40.sp, fontWeight = FontWeight.Medium)
                 val prevSeen = before.count { firstSeen != null && !it.day.isBefore(firstSeen) }
@@ -341,8 +346,8 @@ private fun Period(all: List<DayUse>, from: LocalDate, to: LocalDate, accent: Co
                 Text(tr("By hour"), color = ST_MUTED, fontSize = 14.sp, modifier = Modifier.padding(bottom = 6.dp))
                 UseBars(cur.single().hours.toList(), hours, accent, panel.weight(1f), mark = if (to == LocalDate.now()) java.time.LocalTime.now().hour else -1, span = 6)
             } else {
-                Text(tr("By day"), color = ST_MUTED, fontSize = 14.sp, modifier = Modifier.padding(bottom = 6.dp))
-                UseBars(cur.map { it.total }, dayLabels(cur), accent, panel.weight(1f))
+                Text(if (goal > 0) tr("By day · the line is the daily goal") else tr("By day"), color = ST_MUTED, fontSize = 14.sp, modifier = Modifier.padding(bottom = 6.dp))
+                UseBars(cur.map { it.total }, dayLabels(cur), accent, panel.weight(1f), line = goal.takeIf { it > 0 }?.let { it * 60_000L })
                 Spacer(Modifier.height(12.dp))
                 Text(tr("When the TV is on, on average"), color = ST_MUTED, fontSize = 14.sp, modifier = Modifier.padding(bottom = 6.dp))
                 val avg = (0 until 24).map { h -> cur.sumOf { it.hours[h] } / counted }

@@ -381,6 +381,7 @@ fun CustomizationDialog(
                                             CustomizationCategory.THEMES -> ThemesCustomization(config, ctx, preview)
                                             CustomizationCategory.BUTTONS -> ButtonsCustomization(config, ctx, apps)
                                             CustomizationCategory.LOCK -> LockCustomization(config, ctx, apps)
+                                            CustomizationCategory.SCREENTIME -> ScreenTimeCustomization(config, ctx)
                                             CustomizationCategory.MORE -> MoreCustomization(config, ctx)
                                         }
                                     }
