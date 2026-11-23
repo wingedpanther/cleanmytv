@@ -35,6 +35,8 @@ import java.security.MessageDigest
  *   fire_dir                   the old upload folder on shared storage, for CleanMyTV 0.7.0 and 0.7.1
  *   fire_ready, fire_clear     the files have arrived, or are gone; Home looks again
  *   look_save <day|night>      keep Home's look and wallpaper as they are now, for the day and night switch
+ *   screentime <n>             Screen time from n days before today, up to 60 days, as JSON (ScreenTime.page)
+ *   screentime_clear           forget the saved Screen time days
  * Only the shell user (ADB) and root may call it, so other apps on the TV can't restyle Home.
  */
 class ConfigProvider : ContentProvider() {
@@ -50,6 +52,15 @@ class ConfigProvider : ContentProvider() {
         if (method == "keys") {
             KeyService.listen()
             out.putString("keys", KeyLog.json().toString())
+            return out
+        }
+        if (method == "screentime") {
+            out.putString("screentime", ScreenTime.page(ctx, arg?.toLongOrNull() ?: 6).toString())
+            return out
+        }
+        if (method == "screentime_clear") {
+            ScreenTime.clear(ctx)
+            out.putString("screentime", "{}")
             return out
         }
         if (method == "fire_dir") {

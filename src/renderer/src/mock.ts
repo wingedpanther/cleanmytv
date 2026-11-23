@@ -19,6 +19,32 @@ import type {
   TvApp
 } from '@shared/api'
 import { stepsFor, symptom, warningFor, type SymptomId } from '@shared/symptoms'
+import { addDays } from '@shared/screentime'
+import type { ScreenDay, ScreenTimeData } from '@shared/api'
+
+/** 40 days of made-up evenings: the same few apps, more at weekends. */
+function mockScreenTime(): ScreenTimeData {
+  const today = new Date().toISOString().slice(0, 10)
+  const first = addDays(today, -39)
+  const days: ScreenDay[] = []
+  for (let i = 0; i < 40; i++) {
+    const day = addDays(first, i)
+    const weekend = [0, 6].includes(new Date(`${day}T12:00:00Z`).getUTCDay())
+    const k = (weekend ? 1.6 : 1) * (0.7 + ((i * 37) % 10) / 20)
+    const apps: Record<string, number> = {
+      'com.google.android.youtube.tv': Math.round(4200 * k),
+      'com.netflix.ninja': Math.round(3000 * k),
+      'io.github.wingedpanther.cleanmytv.home': Math.round(900 * k),
+      'com.spotify.tv.android': i % 3 ? Math.round(1200 * k) : 0
+    }
+    const total = Object.values(apps).reduce((a, b) => a + b, 0)
+    const hours = Array.from({ length: 24 }, (_, h) => (h >= 18 && h <= 23 ? Math.round(total / 6) : 0))
+    const stats: ScreenDay['stats'] = {}
+    for (const [p, sec] of Object.entries(apps)) if (sec) stats[p] = { sessions: 1 + (i % 4), longest: Math.round(sec * 0.6), last: Math.round(new Date(`${day}T22:40:00Z`).getTime() / 1000) }
+    days.push({ day, apps, hours, stats })
+  }
+  return { allowed: true, today, first, days }
+}
 
 const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
@@ -474,6 +500,15 @@ export function installMock(): void {
       await wait(300)
       homeConfig.looks_saved = [...new Set([...(homeConfig.looks_saved ?? []), slot])].sort()
       return { ...homeConfig }
+    },
+    async screenTime() {
+      return mockScreenTime()
+    },
+    async screenTimeClear() {
+      return mockScreenTime()
+    },
+    async saveScreenTimeCsv(from, to) {
+      return `/Users/you/Documents/cleanmytv-screen-time-${from}-to-${to}.csv`
     },
     async homeKeys() {
       keySeq += 1

@@ -18,6 +18,7 @@ import { BUILT_IN_THEMES, THEME_KEYS, parseTheme, themeFileName, themeToFile } f
 import { bootCheck } from '../src/main/bootcheck'
 import { englishOf, UiError } from '../src/main/i18n'
 import { FakeTv, newTv, startFakeAdbd } from './fake-adbd'
+import { addDays, daysBetween, screenTimeCsv } from '../src/shared/screentime'
 
 const TV_COPY = '/data/local/tmp/cleanmytv-wallpaper.jpg'
 const home = mkdtempSync(join(tmpdir(), 'cytv-test-'))
@@ -463,6 +464,38 @@ describe('CleanMyTV Home', () => {
     const grants = tv.commands.filter((c) => c.includes('READ_TV_LISTINGS')).length
     await H.setConfig({ sections: ['dock', 'grid'] })
     expect(tv.commands.filter((c) => c.includes('READ_TV_LISTINGS'))).toHaveLength(grants)
+  })
+
+  it('reads every day of screen time 60 at a time, keeps only plain values, and saves CSV rows', async () => {
+    tv.homeScreenTime = undefined
+    expect(await H.screenTime()).toEqual({ allowed: false, today: '', first: '', days: [] })
+    const today = '2026-11-23'
+    const days = Array.from({ length: 130 }, (_, i) => ({
+      day: addDays(today, -i),
+      apps: { 'com.netflix.ninja': 3600 + i, 'bad;pkg': 5 },
+      hours: [60, 'x'] as unknown as number[],
+      s: { 'com.netflix.ninja': [2, 1800, 1795000000] }
+    }))
+    tv.homeScreenTime = { today, days }
+    const before = tv.commands.length
+    const st = await H.screenTime()
+    // 130 days back: three pages of up to 60.
+    expect(tv.commands.slice(before).filter((c) => c.includes('--method screentime'))).toHaveLength(3)
+    expect(st.allowed).toBe(true)
+    expect(st.first).toBe(addDays(today, -129))
+    expect(st.days).toHaveLength(130)
+    expect(st.days.at(-1)).toEqual({
+      day: today, apps: { 'com.netflix.ninja': 3600 }, hours: [60, ...Array(23).fill(0)],
+      stats: { 'com.netflix.ninja': { sessions: 2, longest: 1800, last: 1795000000 } }
+    })
+    const csv = screenTimeCsv(daysBetween(st.days, addDays(today, -1), today), (p) => (p === 'com.netflix.ninja' ? 'Netflix, "TV"' : p))
+    expect(csv).toBe(`date,app,package,minutes,times_opened,longest_minutes\n${addDays(today, -1)},"Netflix, ""TV""",com.netflix.ninja,60,2,30\n${today},"Netflix, ""TV""",com.netflix.ninja,60,2,30\n`)
+    expect((await H.screenTimeClear()).days).toEqual([])
+    tv.homeScreenTime = undefined
+  })
+
+  it('says to update Home when it is too old to keep screen time', () => {
+    expect(() => H.parseScreenTime('Error: unknown method: screentime\n')).toThrow(/1\.13\.7/)
   })
 
   it('gives now playing its access on Android 8.0 through the listener setting (#139)', async () => {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ApplyResult, ButtonAction, HomeButton, HomeConfig, HomeGroup, HomeTheme, ThemeBackup, HomeLayout, HomeSection, HomeStatus, KeyPress, LookSlot, QuickEntry, QuickId, TvApp } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { AppOrder } from '../components/AppOrder'
+import { ScreenTimeTab } from './ScreenTimeTab'
 import { HomePreview, QUICK_LABEL, QUICK_NAME, QuickMark, quickApp, quickLabel } from '../components/HomePreview'
 import { ActionButton, Busy, Confirm, PinBoxes, ResultNotice, Slider, StatusChip, Toggle, errorText, usePhase } from '../components/ui'
 import { prepareWallpaper, thumbnail } from '../lib/image'
@@ -11,7 +12,7 @@ import { drawWallpaper, paintWallpaper } from '../lib/themes'
 import { t, tx } from '../lib/i18n'
 import { BUILT_IN_THEMES, THEME_EXT, THEME_PICTURES, parseTheme, withPicture, type BuiltInTheme, type ThemeArt, type ThemePaint } from '@shared/themes'
 
-type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'widgets' | 'music' | 'buttons' | 'lock'
+type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'widgets' | 'music' | 'buttons' | 'lock' | 'screentime'
 
 const TABS: [Tab, string][] = [
   ['overview', t('Overview')],
@@ -21,7 +22,8 @@ const TABS: [Tab, string][] = [
   ['widgets', t('Widgets')],
   ['music', t('Music bars')],
   ['buttons', t('Remote buttons')],
-  ['lock', t('App lock')]
+  ['lock', t('App lock')],
+  ['screentime', t('Screen time')]
 ]
 
 const ACCENTS = ['#FF3000', '#2EC4B6', '#FFB23C', '#7C5CFF', '#3DDC84', '#FFFFFF']
@@ -338,6 +340,7 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
           {ready && tab === 'widgets' && <WidgetsTab cfg={cfg} set={set} />}
           {ready && tab === 'music' && <MusicTab cfg={cfg} set={set} />}
           {ready && tab === 'lock' && apps && <LockTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
+          {ready && tab === 'screentime' && apps && <ScreenTimeTab cfg={cfg} set={set} apps={apps} />}
           {ready && tab === 'buttons' && apps && <ButtonsTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} brand={status.probe?.manufacturer} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
           {ready && tab !== 'overview' && <p className="small muted">{saving ? t('Sending to the TV…') : t('Saved on the TV.')}</p>}
         </>

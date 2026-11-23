@@ -2,6 +2,7 @@
 // shell streams) and answers shell commands from a small scripted model of an Android TV.
 import { createHash, createPublicKey, publicDecrypt, constants, randomBytes } from 'node:crypto'
 import { createServer, Server, Socket } from 'node:net'
+import { addDays } from '../src/shared/screentime'
 
 const A_CNXN = 0x4e584e43, A_AUTH = 0x48545541, A_OPEN = 0x4e45504f, A_OKAY = 0x59414b4f, A_CLSE = 0x45534c43, A_WRTE = 0x45545257
 
@@ -76,6 +77,8 @@ export interface FakeTv {
   homeThemes?: string[]
   /** The built-in themes Home's carousel has, in order (pack_end). */
   homePack?: string[]
+  /** Screen time Home keeps: its today, and days as the launcher sends them (no access when undefined). */
+  homeScreenTime?: { today: string; days: { day: string; apps: Record<string, number>; hours?: number[]; s?: Record<string, number[]> }[] }
   /** The keyboard CleanMyTV Home was told about. */
   homeKeyboard?: string
   /** What `logcat -d` prints. */
@@ -261,6 +264,15 @@ function sh(tv: FakeTv, cmd: string): string {
       const themes = tv.homePack.length + (tv.homeThemes?.length ?? 0)
       return `Result: Bundle[{config=${JSON.stringify({ ...tv.homeConfig, configured: true, themes_on_tv: themes })}}]\n`
     }
+    else if (m[1] === 'screentime') {
+      // As ScreenTime.page: up to 60 days from <arg> days before today, with today and the first day kept.
+      const st = tv.homeScreenTime
+      if (!st) return `Result: Bundle[{screentime=${JSON.stringify({ allowed: false })}}]\n`
+      const from = addDays(st.today, -Number(m[2]))
+      const days = st.days.filter((d) => d.day >= from && d.day <= st.today).sort((a, b) => a.day.localeCompare(b.day)).slice(0, 60)
+      const first = st.days.map((d) => d.day).sort()[0] ?? st.today
+      return `Result: Bundle[{screentime=${JSON.stringify({ allowed: true, today: st.today, first, days })}}]\n`
+    } else if (m[1] === 'screentime_clear') { if (tv.homeScreenTime) tv.homeScreenTime.days = []; return 'Result: Bundle[{screentime={}}]\n' }
     else if (m[1] === 'keyboard') tv.homeKeyboard = Buffer.from(m[2], 'base64').toString('utf8')
     else if (m[1] === 'keys') return `Result: Bundle[{keys=${JSON.stringify([{ seq: 7, code: 83, name: 'KEYCODE_NOTIFICATION' }, { seq: 'x', code: 1 }])}}]\n`
     else if (m[1] === 'apps') return `Result: Bundle[{apps=${JSON.stringify([...tv.leanback.map((p) => ({ pkg: p, label: p.split('.').pop(), tv: true })), { pkg: 'bad;pkg', label: 'x', tv: true }])}}]\n`

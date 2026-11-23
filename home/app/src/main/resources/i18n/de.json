@@ -574,5 +574,20 @@
   "By day": "Nach Tag",
   "When the TV is on, on average": "Wann der TV läuft, im Schnitt",
   "Nothing on yet.": "Noch nichts gelaufen.",
-  "Screen time today": "Bildschirmzeit heute"
+  "Screen time today": "Bildschirmzeit heute",
+  "Pick the days": "Tage wählen",
+  "From": "Von",
+  "To": "Bis",
+  "The day before: {time}": "Am Tag davor: {time}",
+  "opened {n} times": "{n}-mal geöffnet",
+  "longest stretch {time}": "am längsten {time} am Stück",
+  "last on {when}": "zuletzt {when}",
+  "By day · the line is the daily limit": "Nach Tag · die Linie ist das Tageslimit",
+  "This is the time on Home's own screen.": "Das ist die Zeit auf dem Startbildschirm von Home.",
+  "Daily limit": "Tageslimit",
+  "{time} a day, then it needs the PIN": "{time} pro Tag, danach braucht es die PIN",
+  "No limit": "Kein Limit",
+  "Changing it asks for the PIN.": "Zum Ändern braucht es die PIN.",
+  "Back returns to all the apps.": "Zurück führt wieder zu allen Apps.",
+  "Enter the PIN to change the limit": "Gib die PIN ein, um das Limit zu ändern"
 }

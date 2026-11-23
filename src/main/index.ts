@@ -7,6 +7,7 @@ import { log, setSinks } from './log'
 import * as T from './tv'
 import * as debloat from './debloat'
 import * as launcher from './launcher'
+import { daysBetween, screenTimeCsv } from '@shared/screentime'
 import * as system from './system'
 import * as sideload from './sideload'
 import * as tools from './toolchain'
@@ -268,6 +269,20 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   setSlides: (jpegs) => home.setSlides(jpegs),
   fireplace: (action) => home.fireplace(action === 'put' || action === 'saver' || action === 'remove' ? action : 'show'),
   homeKeys: () => home.keys(),
+  screenTime: () => home.screenTime(),
+  screenTimeClear: () => home.screenTimeClear(),
+  saveScreenTimeCsv: async (from, to) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(from)) || !/^\d{4}-\d{2}-\d{2}$/.test(String(to))) throw new UiError('Pick the days first.')
+    const data = await home.screenTime()
+    const names = new Map((await home.apps().catch(() => [])).map((a) => [a.pkg, a.label]))
+    names.set(launcher.HOME_PKG, 'Home screen')
+    const csv = screenTimeCsv(daysBetween(data.days, from, to), (p) => names.get(p) ?? p)
+    const path = await saveDialog({ title: t('Save the screen time'), defaultPath: join(app.getPath('documents'), `cleanmytv-screen-time-${from}-to-${to}.csv`), filters: [{ name: 'CSV', extensions: ['csv'] }] })
+    if (!path) return null
+    writeFileSync(path, csv)
+    shell.showItemInFolder(path)
+    return path
+  },
   saveHomeLook: (slot) => home.saveLook(slot),
   saveThemeOnTv: (name) => home.saveThemeOnTv(String(name ?? '')),
   setHomeConfig: (change) => home.setConfig(change ?? {}),

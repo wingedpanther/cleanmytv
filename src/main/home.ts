@@ -13,7 +13,7 @@ import { keepLauncher, keptLauncher, mustKeep } from './kept'
 import { themeName } from '@shared/themes'
 import { noteKeyboard } from './keyboard'
 import { englishOf, t, UiError } from './i18n'
-import type { ApplyResult, HomeButton, HomeConfig, HomeGroup, HomeStatus, InstallResult, KeyPress, LookSlot, QuickId, ThemePackItem, TvApp } from '@shared/api'
+import type { ApplyResult, HomeButton, HomeConfig, HomeGroup, HomeStatus, InstallResult, KeyPress, LookSlot, QuickId, ScreenDay, ScreenTimeData, ThemePackItem, TvApp } from '@shared/api'
 
 const TASK = 'install'
 const MAIN = `${HOME_PKG}/.MainActivity`
@@ -454,6 +454,55 @@ export async function apps(): Promise<TvApp[]> {
     const label = typeof o.label === 'string' && o.label.trim() ? o.label.slice(0, 60) : o.pkg
     return [{ pkg: o.pkg, label, tv: o.tv === true }]
   })
+}
+
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
+const secs = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : 0)
+
+/** One page of Screen time from the launcher, checked: dates, package names and plain numbers only. */
+export function parseScreenTime(out: string): ScreenTimeData & { days: ScreenDay[] } {
+  const m = /screentime=(\{.*\})\}\]/s.exec(out)
+  if (!m) throw new UiError('Screen time needs CleanMyTV Home 1.13.7 or later on the TV. Update it with Update and use on the Overview tab.')
+  const o = JSON.parse(m[1]) as Record<string, unknown>
+  if (o.allowed !== true) return { allowed: false, today: '', first: '', days: [] }
+  const today = typeof o.today === 'string' && DAY_RE.test(o.today) ? o.today : ''
+  const first = typeof o.first === 'string' && DAY_RE.test(o.first) ? o.first : today
+  const days = (Array.isArray(o.days) ? o.days : []).flatMap((d): ScreenDay[] => {
+    const x = d as Record<string, unknown>
+    if (typeof x.day !== 'string' || !DAY_RE.test(x.day)) return []
+    const apps: Record<string, number> = {}
+    for (const [p, s] of Object.entries((x.apps ?? {}) as Record<string, unknown>)) if (T.PACKAGE_RE.test(p)) apps[p] = secs(s)
+    const stats: ScreenDay['stats'] = {}
+    for (const [p, v] of Object.entries((x.s ?? {}) as Record<string, unknown>)) {
+      if (T.PACKAGE_RE.test(p) && Array.isArray(v)) stats[p] = { sessions: secs(v[0]), longest: secs(v[1]), last: secs(v[2]) }
+    }
+    const hours = Array.from({ length: 24 }, (_, i) => secs(Array.isArray(x.hours) ? x.hours[i] : 0))
+    return [{ day: x.day, apps, hours, stats }]
+  })
+  return { allowed: true, today, first, days }
+}
+
+/** Every day of Screen time Home has, 60 days a call, going back until its first day. */
+export async function screenTime(): Promise<ScreenTimeData> {
+  const byDay = new Map<string, ScreenDay>()
+  let page = parseScreenTime(await call('screentime', '59'))
+  if (!page.allowed) return page
+  const { today, first } = page
+  // Home keeps 400 days at most: 7 pages.
+  for (let back = 59; ; ) {
+    for (const d of page.days) byDay.set(d.day, d)
+    const oldest = page.days[0]?.day
+    if (!oldest || first >= oldest || back >= 419) break
+    back += 60
+    page = parseScreenTime(await call('screentime', String(back)))
+  }
+  return { allowed: true, today, first, days: [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day)) }
+}
+
+export async function screenTimeClear(): Promise<ScreenTimeData> {
+  log('theme', 'cmd', 'forget the saved screen time')
+  await call('screentime_clear')
+  return screenTime()
 }
 
 /** The last remote buttons the TV received, from the launcher's key log. */

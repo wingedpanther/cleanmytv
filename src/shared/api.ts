@@ -259,6 +259,28 @@ export interface HomeGroup {
 }
 
 /** CleanMyTV Home's settings, as its ConfigProvider holds them. Snake case, as on the TV. */
+/** One day of Screen time as CleanMyTV Home keeps it. Times in seconds. */
+export interface ScreenDay {
+  /** YYYY-MM-DD, on the TV's clock. */
+  day: string
+  /** Seconds each app was in front. */
+  apps: Record<string, number>
+  /** Seconds the TV had anything in front, hour by hour, 0 to 23. */
+  hours: number[]
+  /** Per app: times it was on, its longest stretch, and when it last left the front (seconds since 1970). */
+  stats: Record<string, { sessions: number; longest: number; last: number }>
+}
+
+export interface ScreenTimeData {
+  /** False when Home has no usage access, so it can't count. */
+  allowed: boolean
+  /** The TV's today and the first day Home has anything for, as YYYY-MM-DD. */
+  today: string
+  first: string
+  /** Oldest first, one entry per day from first to today. */
+  days: ScreenDay[]
+}
+
 export interface HomeConfig {
   // Arrangement
   layout: HomeLayout
@@ -752,6 +774,12 @@ export interface CytvApi {
   setSlides(jpegs: string[]): Promise<HomeConfig>
   /** The last buttons the TV received, newest last. */
   homeKeys(): Promise<KeyPress[]>
+  /** Every day of Screen time CleanMyTV Home has. */
+  screenTime(): Promise<ScreenTimeData>
+  /** Forgets the saved days. Android's own last week comes back on the next look. */
+  screenTimeClear(): Promise<ScreenTimeData>
+  /** Saves the days from `from` to `to` (YYYY-MM-DD) as a CSV file. Null when the save was cancelled. */
+  saveScreenTimeCsv(from: string, to: string): Promise<string | null>
   /** Keeps Home's look and wallpaper as they are now, as the day or night look. */
   saveHomeLook(slot: LookSlot): Promise<HomeConfig>
   /** The TV's look and wallpaper become a theme on the TV with this name, or update the one of that name. */

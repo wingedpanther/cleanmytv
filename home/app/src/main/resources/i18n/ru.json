@@ -574,5 +574,20 @@
   "By day": "По дням",
   "When the TV is on, on average": "Когда работает телевизор, в среднем",
   "Nothing on yet.": "Пока ничего не включали.",
-  "Screen time today": "Экранное время сегодня"
+  "Screen time today": "Экранное время сегодня",
+  "Pick the days": "Выбрать дни",
+  "From": "С",
+  "To": "По",
+  "The day before: {time}": "Днём раньше: {time}",
+  "opened {n} times": "открыто {n} раз",
+  "longest stretch {time}": "дольше всего {time} подряд",
+  "last on {when}": "последний раз {when}",
+  "By day · the line is the daily limit": "По дням · линия — дневной лимит",
+  "This is the time on Home's own screen.": "Это время на главном экране Home.",
+  "Daily limit": "Дневной лимит",
+  "{time} a day, then it needs the PIN": "{time} в день, потом нужен PIN",
+  "No limit": "Без лимита",
+  "Changing it asks for the PIN.": "Для изменения нужен PIN.",
+  "Back returns to all the apps.": "«Назад» возвращает ко всем приложениям.",
+  "Enter the PIN to change the limit": "Введите PIN, чтобы изменить лимит"
 }

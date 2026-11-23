@@ -13,9 +13,36 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 
-/** One day on the TV: milliseconds per app, and per hour of the day (0 to 23) for all apps together. */
-class DayUse(val day: LocalDate, val apps: Map<String, Long>, val hours: LongArray) {
+/** One app's day past its minutes: how many times it was on, its longest stretch, and when it last left the front. */
+data class AppDay(val sessions: Int, val longest: Long, val last: Long)
+
+/**
+ * One day on the TV: milliseconds per app, per hour of the day (0 to 23) for all apps together, and each
+ * app's [AppDay]. Days saved by Home 1.13.7 have no [stats].
+ */
+class DayUse(val day: LocalDate, val apps: Map<String, Long>, val hours: LongArray, val stats: Map<String, AppDay> = emptyMap()) {
     val total: Long get() = apps.values.sum()
+
+    fun json(): JSONObject {
+        val a = JSONObject()
+        apps.forEach { (p, ms) -> if (ms >= 1000) a.put(p, ms / 1000) }
+        val s = JSONObject()
+        stats.forEach { (p, d) -> if (a.has(p)) s.put(p, JSONArray(listOf(d.sessions, d.longest / 1000, d.last / 1000))) }
+        return JSONObject().put("apps", a).put("hours", JSONArray(hours.map { it / 1000 })).put("s", s)
+    }
+
+    companion object {
+        /** Seconds in the file, milliseconds here. */
+        fun from(day: LocalDate, d: JSONObject): DayUse {
+            val a = d.getJSONObject("apps")
+            val h = d.getJSONArray("hours")
+            val s = d.optJSONObject("s") ?: JSONObject()
+            return DayUse(
+                day, a.keys().asSequence().associateWith { a.getLong(it) * 1000 }, LongArray(24) { h.optLong(it) * 1000 },
+                s.keys().asSequence().associateWith { p -> s.getJSONArray(p).let { AppDay(it.optInt(0), it.optLong(1) * 1000, it.optLong(2) * 1000) } },
+            )
+        }
+    }
 }
 
 /**
@@ -39,8 +66,10 @@ object ScreenTime {
     /** How far back the first look goes. Android has usually dropped anything older. */
     private const val FIRST_DAYS = 10L
     /** Saved days older than this go. A day is a few hundred bytes. */
-    private const val KEEP_DAYS = 400L
+    const val KEEP_DAYS = 400L
     private const val DAY_MS = 24 * 3600 * 1000L
+    /** Back in the same app within this, as after a pop-up or the volume bar, is still the same time on. */
+    private const val SAME_SESSION_MS = 60_000L
 
     /**
      * Adds up the stretches in [events] (oldest first) by day and hour. A stretch still open at the end runs
@@ -50,7 +79,9 @@ object ScreenTime {
     fun tally(events: List<Ev>, to: Long, zone: ZoneId): Map<LocalDate, DayUse> {
         val apps = HashMap<LocalDate, HashMap<String, Long>>()
         val hours = HashMap<LocalDate, LongArray>()
+        val pieces = ArrayList<Triple<String, Long, Long>>()
         fun add(pkg: String, from: Long, until: Long) {
+            if (until > from) pieces.add(Triple(pkg, from, until))
             var t = from
             while (t < until) {
                 val at = ZonedDateTime.ofInstant(Instant.ofEpochMilli(t), zone)
@@ -73,7 +104,27 @@ object ScreenTime {
             }
         }
         front?.let { add(it, since, to) }
-        return apps.mapValues { (day, a) -> DayUse(day, a, hours[day] ?: LongArray(24)) }
+        // Sessions: the same app's stretches with only a short gap between them, counted on each day they cover.
+        val stats = HashMap<LocalDate, HashMap<String, AppDay>>()
+        fun session(pkg: String, from: Long, until: Long) {
+            var t = from
+            while (t < until) {
+                val at = ZonedDateTime.ofInstant(Instant.ofEpochMilli(t), zone)
+                val next = minOf(until, at.toLocalDate().plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli())
+                val day = stats.getOrPut(at.toLocalDate()) { HashMap() }
+                val was = day[pkg] ?: AppDay(0, 0, 0)
+                day[pkg] = AppDay(was.sessions + 1, maxOf(was.longest, next - t), maxOf(was.last, next))
+                t = next
+            }
+        }
+        var open: Triple<String, Long, Long>? = null
+        for (p in pieces) {
+            val o = open
+            open = if (o != null && o.first == p.first && p.second - o.third <= SAME_SESSION_MS) Triple(o.first, o.second, p.third)
+            else { o?.let { session(it.first, it.second, it.third) }; p }
+        }
+        open?.let { session(it.first, it.second, it.third) }
+        return apps.mapValues { (day, a) -> DayUse(day, a, hours[day] ?: LongArray(24), stats[day] ?: emptyMap()) }
     }
 
     /** Days from [from] to [until], oldest first, with an empty day where nothing was on. */
@@ -144,13 +195,7 @@ object ScreenTime {
             val o = JSONObject(file(ctx).readText())
             through = o.optString("through").takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) }
             val all = o.getJSONObject("days")
-            for (key in all.keys()) {
-                val d = all.getJSONObject(key)
-                val a = d.getJSONObject("apps")
-                val h = d.getJSONArray("hours")
-                val day = LocalDate.parse(key)
-                days[day] = DayUse(day, a.keys().asSequence().associateWith { a.getLong(it) * 1000 }, LongArray(24) { h.optLong(it) * 1000 })
-            }
+            for (key in all.keys()) LocalDate.parse(key).let { day -> days[day] = DayUse.from(day, all.getJSONObject(key)) }
         }
         (days to through).also { cache = it }
     }
@@ -159,18 +204,32 @@ object ScreenTime {
     private fun store(ctx: Context) {
         val (days, through) = cache ?: return
         val all = JSONObject()
-        for ((day, use) in days) {
-            val a = JSONObject()
-            use.apps.forEach { (p, ms) -> if (ms >= 1000) a.put(p, ms / 1000) }
-            all.put(day.toString(), JSONObject().put("apps", a).put("hours", JSONArray(use.hours.map { it / 1000 })))
-        }
-        val o = JSONObject().put("v", 1).put("through", through?.toString() ?: "").put("days", all)
+        for ((day, use) in days) all.put(day.toString(), use.json())
+        val o = JSONObject().put("v", 2).put("through", through?.toString() ?: "").put("days", all)
         runCatching {
             val tmp = File(ctx.filesDir, "screentime.json.tmp")
             tmp.writeText(o.toString())
             tmp.renameTo(file(ctx))
         }.onFailure { Log.w(TAG, "screen time: $it") }
     }
+
+    /** The first day Home has anything for, or null before the first look. */
+    @Synchronized
+    fun firstDay(ctx: Context): LocalDate? = load(ctx).first.filterValues { it.total > 0 }.keys.minOrNull()
+
+    /**
+     * For the desktop app: up to [PAGE] days starting [back] days before today, with today and the first day
+     * Home has. A page at a time, since a binder answer has a size limit.
+     */
+    fun page(ctx: Context, back: Long): JSONObject {
+        val today = LocalDate.now(zone)
+        val from = today.minusDays(back.coerceIn(0, KEEP_DAYS))
+        val days = days(ctx, from) ?: return JSONObject().put("allowed", false)
+        val list = JSONArray()
+        days.take(PAGE).forEach { d -> list.put(d.json().put("day", d.day.toString())) }
+        return JSONObject().put("allowed", true).put("today", today.toString()).put("first", firstDay(ctx)?.toString() ?: today.toString()).put("days", list)
+    }
+    const val PAGE = 60
 
     /** "3 h 20 min", "45 min", "0 min": how the section and the dashboard say a length of time. */
     fun words(ms: Long): String = Limits.words(((ms + 30_000) / 60_000).toInt())
