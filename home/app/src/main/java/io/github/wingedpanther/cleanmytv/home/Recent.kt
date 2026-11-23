@@ -56,13 +56,10 @@ object Recent {
     private fun fromUsage(ctx: Context): List<String> = runCatching {
         val usm = ctx.getSystemService(UsageStatsManager::class.java) ?: return emptyList()
         val now = System.currentTimeMillis()
-        val events = usm.queryEvents(now - DAYS * 24 * 3600 * 1000, now)
-        val e = UsageEvents.Event()
         val seen = ArrayList<String>()
         @Suppress("DEPRECATION")
         val opened = if (Build.VERSION.SDK_INT >= 29) UsageEvents.Event.ACTIVITY_RESUMED else UsageEvents.Event.MOVE_TO_FOREGROUND
-        while (events.hasNextEvent()) {
-            events.getNextEvent(e)
+        for (e in ScreenTime.usageEvents(usm, now - DAYS * 24 * 3600 * 1000, now + 1)) {
             if (e.eventType == opened) seen.add(e.packageName)
         }
         seen.asReversed()

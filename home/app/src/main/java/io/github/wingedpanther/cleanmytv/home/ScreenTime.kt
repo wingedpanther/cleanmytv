@@ -195,19 +195,34 @@ object ScreenTime {
         val begin = from.atStartOfDay(zone).toInstant().toEpochMilli() - DAY_MS
         val end = until?.atStartOfDay(zone)?.toInstant()?.toEpochMilli() ?: System.currentTimeMillis()
         val list = ArrayList<Ev>()
+        for (e in usageEvents(usm, begin, end)) {
+            // The same numbers on every Android Home runs on: resumed or moved to the front (1), paused or moved
+            // back (2), the screen going off (16, Android 9+) and the TV shutting down (26).
+            val kind = when (e.eventType) { 1 -> START; 2 -> STOP; 16, 26 -> OFF; else -> continue }
+            list.add(Ev(e.timeStamp, e.packageName ?: "", kind, e.className ?: ""))
+        }
+        list.addAll(marks(ctx).filter { it.time in begin..end })
+        list.sortBy { it.time }
+        return tally(list, end, zone, ctx.packageName)
+    }
+
+    /**
+     * Android's usage events from [begin] to before [end], oldest first. Asked for up to far ahead: a TV that starts
+     * with its clock months ahead (a Sony BRAVIA did, June 2027) files the rest of the day under that date, and Android
+     * leaves that file out of any question that ends now. The events in it keep their real times.
+     */
+    fun usageEvents(usm: UsageStatsManager, begin: Long, end: Long): List<UsageEvents.Event> {
+        val out = ArrayList<UsageEvents.Event>()
         runCatching {
-            val events = usm.queryEvents(begin, end)
-            val e = UsageEvents.Event()
+            val events = usm.queryEvents(begin, Long.MAX_VALUE / 4)
             while (events.hasNextEvent()) {
+                val e = UsageEvents.Event()
                 events.getNextEvent(e)
-                // The same numbers on every Android Home runs on: resumed or moved to the front (1), paused or moved
-                // back (2), the screen going off (16, Android 9+) and the TV shutting down (26).
-                val kind = when (e.eventType) { 1 -> START; 2 -> STOP; 16, 26 -> OFF; else -> continue }
-                list.add(Ev(e.timeStamp, e.packageName ?: "", kind, e.className ?: ""))
+                if (e.timeStamp in begin until end) out.add(e)
             }
         }.onFailure { Log.w(TAG, "screen time: $it") }
-        marks(ctx).filter { it.time in begin..end }.let { if (it.isNotEmpty()) { list.addAll(it); list.sortBy { e -> e.time } } }
-        return tally(list, end, zone, ctx.packageName)
+        out.sortBy { it.timeStamp }
+        return out
     }
 
     private fun load(ctx: Context): Pair<MutableMap<LocalDate, DayUse>, LocalDate?> = cache ?: run {
@@ -215,6 +230,8 @@ object ScreenTime {
         var through: LocalDate? = null
         runCatching {
             val o = JSONObject(file(ctx).readText())
+            // Before 3, a TV whose clock started ahead saved its days empty: those are read again from Android.
+            if (o.optInt("v") < 3) return@runCatching
             through = o.optString("through").takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) }
             val all = o.getJSONObject("days")
             for (key in all.keys()) LocalDate.parse(key).let { day -> days[day] = DayUse.from(day, all.getJSONObject(key)) }
@@ -227,7 +244,7 @@ object ScreenTime {
         val (days, through) = cache ?: return
         val all = JSONObject()
         for ((day, use) in days) all.put(day.toString(), use.json())
-        val o = JSONObject().put("v", 2).put("through", through?.toString() ?: "").put("days", all)
+        val o = JSONObject().put("v", 3).put("through", through?.toString() ?: "").put("days", all)
         runCatching {
             val tmp = File(ctx.filesDir, "screentime.json.tmp")
             tmp.writeText(o.toString())
