@@ -54,10 +54,10 @@ const CHOICES = {
 } as const
 
 const LISTS = {
-  sections: ['nowplaying', 'recent', 'dock', 'watchnext', 'rows', 'folders', 'grid']
+  sections: ['nowplaying', 'recent', 'screentime', 'dock', 'watchnext', 'rows', 'folders', 'grid']
 } as const
 
-const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'customize', 'timer'] as const
+const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'customize', 'timer', 'screentime'] as const
 /** App shortcuts the top bar takes, as the launcher's HomeConfig.MAX_QUICK_APPS. */
 export const MAX_QUICK_APPS = 6
 const quickApp = (q: unknown): boolean => typeof q === 'string' && q.startsWith('app:') && T.PACKAGE_RE.test(q.slice(4))
@@ -223,7 +223,7 @@ export async function install(chosen?: string): Promise<InstallResult> {
   // Android switches accessibility services off when their app is reinstalled: turn the service back on.
   if (cfg && needsService(cfg)) await addService(KEY_SERVICE)
   if (cfg) await nowPlayingAccess(cfg.sections.includes('nowplaying'))
-  if (cfg) await usageAccess(cfg.sections.includes('recent'))
+  if (cfg) await usageAccess(wantsUsage(cfg))
   await noteKeyboard((await T.sh(TASK, 'settings get secure default_input_method', { quiet: true }).catch(() => '')).trim())
   const again = restored ? ` ${t("It started empty, so your settings and wallpaper came back from this computer's copy.")}` : ''
   return {
@@ -751,7 +751,7 @@ export async function setConfig(change: Partial<HomeConfig>): Promise<HomeConfig
   log('theme', 'cmd', `set ${JSON.stringify(checked, (k, v) => (PRIVATE_SETTINGS.includes(k) ? '(hidden)' : v))}`)
   const cfg = keep(parse(await call('set64', Buffer.from(json).toString('base64'))))
   if (change.sections) await nowPlayingAccess(cfg.sections.includes('nowplaying'))
-  if (change.sections) await usageAccess(cfg.sections.includes('recent'))
+  if (change.sections) await usageAccess(wantsUsage(cfg))
   // A Home that updated itself never had the install's grant. Never taken back: Android stops Home to do that.
   if (change.sections && cfg.sections.includes('watchnext')) await watchNextAccess('theme')
   // Going back to the input at power on (#94) is the remote-button service's job too.
@@ -882,7 +882,10 @@ async function nowPlayingAccess(on: boolean): Promise<void> {
   await T.sh('theme', next.length ? `settings put secure enabled_notification_listeners ${next.join(':')}` : 'settings delete secure enabled_notification_listeners').catch(() => '')
 }
 
-/** Lets the launcher see which apps the TV opened, for Recently used; on only while that row is. */
+/** Recently used and Screen time read which apps the TV had in front. */
+const wantsUsage = (cfg: HomeConfig): boolean => cfg.sections.includes('recent') || cfg.sections.includes('screentime')
+
+/** Lets the launcher see which apps the TV opened, for Recently used and Screen time; on only while one of them is. */
 async function usageAccess(on: boolean): Promise<void> {
   await T.sh('theme', `appops set ${HOME_PKG} GET_USAGE_STATS ${on ? 'allow' : 'default'}`).catch(() => '')
 }

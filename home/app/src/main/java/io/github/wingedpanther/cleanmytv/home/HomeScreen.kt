@@ -310,6 +310,17 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     LaunchedEffect(appsVersion, wantRecent, apps) {
         if (wantRecent) recentPkgs = withContext(Dispatchers.Default) { Recent.apps(ctx, apps.map { it.pkg }.toSet()) }
     }
+    // Screen time: read when Home comes back, and every few minutes while it stays.
+    val wantScreen = "screentime" in cfg.sections
+    var screenTime by remember { mutableStateOf<ScreenSummary?>(null) }
+    var screenSeen by remember { mutableStateOf(false) }
+    LaunchedEffect(appsVersion, wantScreen) {
+        while (wantScreen) {
+            screenTime = withContext(Dispatchers.IO) { ScreenTimeApps.summary(ctx) }
+            screenSeen = true
+            delay(5 * 60_000L)
+        }
+    }
     // Continue watching: read when Home comes back, and when an app changes the list while Home is in front.
     // Changes while an app plays are left for the read when Home comes back, so playback isn't disturbed.
     val wantWatch = "watchnext" in cfg.sections
@@ -395,6 +406,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             "timer" -> showTimer = true
             "update" -> showUpdate = true
             "fireplace" -> runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
+            "screentime" -> ScreenTimeApps.open(ctx)
         }
         open.value = null
     }
@@ -406,6 +418,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         else if (a.id == "timer") showTimer = true
         else if (a.id == "update") showUpdate = true
         else if (a.id == "fireplace") runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
+        else if (a.id == "screentime") ScreenTimeApps.open(ctx)
         else if (a.id == "memory") scope.launch { Memory.cleanAndSay(ctx); memoryTick++ }
         else if (a.id == "music") ConfigStore.update(ctx, org.json.JSONObject().put("visualiser", !cfg.visualiser))
         else resolve(ctx, a)?.let { i -> runCatching { ctx.startActivity(i) }.onFailure { Log.w(TAG, "${a.id}: $it") } }
@@ -435,7 +448,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     val shownCaption = caption?.takeIf { cfg.bingCaption && !fireWall && wallpaper != null }
     val ui = Ui(cfg, accent, first, movingKey ?: home.first, onFolder = { openFolder = it }, track = track, weather = weather, memory = memory,
         onFocusApp = { a -> focusColour = a.colour?.let { Color(it) } }, motion = motion, onAppMenu = { s, a -> menuFor = s to a }, movingKey = movingKey,
-        captioned = shownCaption != null)
+        captioned = shownCaption != null, screenTime = screenTime, screenTimeSeen = screenSeen && wantScreen)
 
     Box(
         Modifier.fillMaxSize().background(Color(cfg.background)).onPreviewKeyEvent { e ->
@@ -619,6 +632,9 @@ private class Ui(
     val movingKey: String? = null,
     /** Where the Bing picture was taken shows in the bottom corner: the rows stop above it. */
     val captioned: Boolean = false,
+    /** Screen time's numbers for its section; [screenTimeSeen] once they've been looked for, null meaning no usage access. */
+    val screenTime: ScreenSummary? = null,
+    val screenTimeSeen: Boolean = false,
 ) {
     /** Banners are always wide; the icon styles take the chosen shape. */
     val shape: String = if (cfg.iconStyle == "banner") "wide" else cfg.tileShape
@@ -792,6 +808,7 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
                     item("recent-title") { SectionTitle(cfg.names["recent"] ?: tr("Recently used"), still) }
                     item("recent") { TileRow("recent", home.recent, ui, 148.dp * (cfg.tileScale / 100f), big = false, rowSpec, rowPad) }
                 }
+                "screentime" -> if (ui.screenTimeSeen) item("screentime") { Box(still) { ScreenTimeCard(ui) } }
                 "dock" -> if (home.dock.isNotEmpty()) item("dock") {
                     TileRow("dock", home.dock, ui, dockW, big = true, rowSpec, rowPad)
                 }
@@ -824,6 +841,7 @@ private fun sectionKeys(home: Home, ui: Ui, showFolders: Boolean): List<String> 
     for (s in ui.cfg.sections) when (s) {
         "nowplaying" -> if (ui.track != null) add("nowplaying")
         "recent" -> if (home.recent.isNotEmpty()) { add("recent-title"); add("recent") }
+        "screentime" -> if (ui.screenTimeSeen) add("screentime")
         "dock" -> if (home.dock.isNotEmpty()) add("dock")
         "watchnext" -> if (home.watch.isNotEmpty()) { add("watchnext-title"); add("watchnext") }
         "rows" -> home.rows.indices.forEach { add("row$it-title"); add("row$it") }
@@ -1243,6 +1261,25 @@ private fun FolderTile(folder: Pair<String, List<TvApp>>, ui: Ui, size: Modifier
             LiftLight(ui, focused)
         }
         Text("${folder.first} · ${folder.second.size}", color = TEXT, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 7.dp, start = 2.dp))
+    }
+}
+
+/** Screen time on the Home screen: today, the week's bars and today's top apps. OK opens the dashboard. */
+@Composable
+private fun ScreenTimeCard(ui: Ui) {
+    val ctx = LocalContext.current
+    val shape = RoundedCornerShape(14.dp)
+    val (scale, glow, border) = focusStyle(ui, shape, zoom = 1.03f, lifted = true)
+    var focused by remember { mutableStateOf(false) }
+    Surface(
+        onClick = { ScreenTimeApps.open(ctx) },
+        modifier = Modifier.pointer { ScreenTimeApps.open(ctx) }.padding(horizontal = BLEED, vertical = 12.dp).width(600.dp).height(124.dp)
+            .onFocusChanged { focused = it.isFocused }.lift(ui, shape, focused),
+        shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
+        colors = ClickableSurfaceDefaults.colors(containerColor = PANEL.copy(alpha = 0.88f), focusedContainerColor = lerp(PANEL, ui.accent, 0.22f)),
+    ) {
+        ScreenTimeCardBody(ui.screenTime, ui.accent)
+        LiftLight(ui, focused)
     }
 }
 

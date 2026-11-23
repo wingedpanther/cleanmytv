@@ -240,6 +240,7 @@ class KeyService : AccessibilityService() {
             "panel", "themes", "customize" -> startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.OPEN, action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             "next_wallpaper" -> ThemePack.next(this)
             "fireplace" -> startActivity(Intent(this, FireplaceActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            "screentime" -> ScreenTimeApps.open(this)
             "memory" -> if (Memory.canClean) scope.launch { Memory.cleanAndSay(this@KeyService) }
             "brightness" -> android.widget.Toast.makeText(this, TvSettings.nextBrightness(this)?.let { tr("Brightness {n}%", "n" to it) } ?: tr("Brightness needs CleanMyTV's permission"), android.widget.Toast.LENGTH_SHORT).show()
             "app" -> if (InputTiles.isInput(app)) InputTiles.open(this, app!!) else app?.let { pkg ->

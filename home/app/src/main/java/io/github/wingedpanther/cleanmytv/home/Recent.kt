@@ -44,7 +44,8 @@ object Recent {
         (0 until a.length()).map { a.getString(it) }
     }.getOrDefault(emptyList())
 
-    private fun allowed(ctx: Context): Boolean {
+    /** Usage access, which the desktop app grants over ADB. Screen time needs it too. */
+    fun allowed(ctx: Context): Boolean {
         val ops = ctx.getSystemService(AppOpsManager::class.java) ?: return false
         @Suppress("DEPRECATION")
         val mode = if (Build.VERSION.SDK_INT >= 29) ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), ctx.packageName)

@@ -454,6 +454,9 @@ describe('CleanMyTV Home', () => {
       // Recently used reads which apps the TV opened, so it gets usage access only while it's on.
       'appops set io.github.wingedpanther.cleanmytv.home GET_USAGE_STATS allow'
     ])
+    // Screen time counts from the same usage events, so it keeps the access on without Recently used.
+    await H.setConfig({ sections: ['screentime', 'dock', 'grid'] })
+    expect(tv.commands.at(-1)).toBe('appops set io.github.wingedpanther.cleanmytv.home GET_USAGE_STATS allow')
     // Continue watching: the TV provider shows Home other apps' entries only with this. Never revoked.
     await H.setConfig({ sections: ['dock', 'watchnext', 'grid'] })
     expect(tv.commands.at(-1)).toBe('pm grant io.github.wingedpanther.cleanmytv.home android.permission.READ_TV_LISTINGS 2>/dev/null; echo listings-granted')

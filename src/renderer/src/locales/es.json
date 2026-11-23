@@ -1387,5 +1387,8 @@
   "An app store for the TV, from the maker of CleanMyTV. It lists free, open-source TV apps from GitHub and installs them with the remote.": "Una tienda de aplicaciones para el TV, del creador de CleanMyTV. Reúne aplicaciones de TV gratuitas y de código abierto de GitHub y las instala con el mando.",
   "Open Shelf {v} is on the TV. It updates itself.": "Open Shelf {v} ya está en el TV. Se actualiza solo.",
   "Update Open Shelf to {v}": "Actualizar Open Shelf a {v}",
-  "Install Open Shelf": "Instalar Open Shelf"
+  "Install Open Shelf": "Instalar Open Shelf",
+  "Screen time": "Tiempo de pantalla",
+  "Open Screen time": "Abrir Tiempo de pantalla",
+  "Screen time shows today's total, the last 7 days and today's top apps. Press it on the TV for the dashboard. The numbers stay on the TV.": "Tiempo de pantalla muestra el total de hoy, los últimos 7 días y las apps más usadas hoy. Púlsalo en la TV para ver el panel. Los datos se quedan en la TV."
 }

@@ -242,12 +242,12 @@ data class HomeConfig(
         private val PKG = Regex("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")
 
         private fun hex(c: Long) = "#%06X".format(c and 0xFFFFFF)
-        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "customize", "timer")
+        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "customize", "timer", "screentime")
         private val THEME_PICTURE = Regex("^[a-z0-9-]{1,40}:[0-9]$")
         /** A TvInputManager input id, like com.mediatek.tvinput/.hdmi.HDMIInputService/HW5. */
         private val INPUT_ID = Regex("^[A-Za-z0-9_.\\$/:-]{1,200}$")
         val POWER_ON_WAITS = listOf(0, 3, 5, 10)
-        val SECTIONS = setOf("nowplaying", "recent", "dock", "watchnext", "rows", "folders", "grid")
+        val SECTIONS = setOf("nowplaying", "recent", "screentime", "dock", "watchnext", "rows", "folders", "grid")
         val DEFAULT_SECTIONS = listOf("nowplaying", "dock", "watchnext", "rows", "folders", "grid")
         /** The sections Home 1.12 and older knew, for settings saved before "sections_known" was. */
         private val SECTIONS_BEFORE = setOf("nowplaying", "recent", "dock", "rows", "folders", "grid")

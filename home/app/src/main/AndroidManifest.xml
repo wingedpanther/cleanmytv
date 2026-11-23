@@ -133,6 +133,14 @@
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
 
+        <!-- Screen time's dashboard, opened from its section, top bar icon or a remote button. -->
+        <activity
+            android:name=".ScreenTimeActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:screenOrientation="landscape" />
+
         <!-- The fireplace, full screen on demand, and as a screensaver the TV lists by name. -->
         <activity
             android:name=".FireplaceActivity"

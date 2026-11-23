@@ -61,7 +61,7 @@ private fun actions() = listOf(
     "display" to tr("Open Picture & sound"), "apps" to tr("Open the app list"), "sleep" to tr("Start the screensaver"),
     "search" to tr("Open Search"), "music" to tr("Music bars on or off"), "panel" to tr("Open Quick settings"),
     "themes" to tr("Open Themes"), "fireplace" to tr("Show the fireplace"), "memory" to tr("Clean memory"),
-    "next_wallpaper" to tr("Next picture of the theme"), "brightness" to tr("Brightness: 10, 25, 50, 75, 100%"), "timer" to tr("Sleep timer: 15, 30, 60, 90, 120 min, off"), "customize" to tr("Open this editor"), "none" to tr("Do nothing"),
+    "next_wallpaper" to tr("Next picture of the theme"), "brightness" to tr("Brightness: 10, 25, 50, 75, 100%"), "timer" to tr("Sleep timer: 15, 30, 60, 90, 120 min, off"), "customize" to tr("Open this editor"), "screentime" to tr("Open Screen time"), "none" to tr("Do nothing"),
 )
 
 /** The arrows, OK and Back move around Home and this editor, so they can't be given another job here. */

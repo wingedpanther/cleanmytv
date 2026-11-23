@@ -1387,5 +1387,8 @@
   "An app store for the TV, from the maker of CleanMyTV. It lists free, open-source TV apps from GitHub and installs them with the remote.": "Магазин приложений для телевизора от автора CleanMyTV. В нём бесплатные приложения для ТВ с открытым кодом из GitHub, и он устанавливает их с пульта.",
   "Open Shelf {v} is on the TV. It updates itself.": "Open Shelf {v} уже на телевизоре. Он обновляется сам.",
   "Update Open Shelf to {v}": "Обновить Open Shelf до {v}",
-  "Install Open Shelf": "Установить Open Shelf"
+  "Install Open Shelf": "Установить Open Shelf",
+  "Screen time": "Экранное время",
+  "Open Screen time": "Открыть экранное время",
+  "Screen time shows today's total, the last 7 days and today's top apps. Press it on the TV for the dashboard. The numbers stay on the TV.": "Экранное время показывает итог за сегодня, последние 7 дней и самые используемые сегодня приложения. Нажмите на него на телевизоре, чтобы открыть подробности. Данные остаются на телевизоре."
 }

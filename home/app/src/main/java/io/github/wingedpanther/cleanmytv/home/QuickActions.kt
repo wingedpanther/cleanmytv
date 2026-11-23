@@ -11,6 +11,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.CleaningServices
@@ -71,6 +72,8 @@ fun quickActions(): Map<String, QuickAction> = listOf(
     QuickAction("fireplace", tr("Fireplace"), Icons.Outlined.LocalFireDepartment, emptyList()),
     // Handled by Home itself: picks when the TV goes to sleep.
     QuickAction("timer", tr("Sleep timer"), Icons.Outlined.Timer, emptyList()),
+    // Handled by Home itself: the screen time dashboard.
+    QuickAction("screentime", tr("Screen time"), Icons.Outlined.BarChart, emptyList()),
     // Shown by Home itself, first in the bar, only while a newer Home is on the release page.
     QuickAction("update", tr("Update Home"), Icons.Outlined.SystemUpdate, emptyList()),
     // Handled by Home itself: closes apps in the background. Up to Android 13 (see Memory).
@@ -94,7 +97,7 @@ private fun canStart(ctx: Context, i: Intent): Boolean {
 fun canOpen(ctx: Context, a: QuickAction, hasInputs: Boolean): Boolean = when (a.id) {
     "inputs" -> hasInputs
     "memory" -> Memory.canClean
-    "music", "panel", "themes", "timer", "update" -> true
+    "music", "panel", "themes", "timer", "update", "screentime" -> true
     "fireplace" -> Fire.ready(ctx)
     "customize" -> ConfigStore.config.value.editOnTv
     else -> resolve(ctx, a) != null

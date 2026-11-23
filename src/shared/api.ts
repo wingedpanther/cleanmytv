@@ -223,8 +223,8 @@ export interface HomeStatus {
 }
 
 export type HomeLayout = 'shelf' | 'split' | 'rail'
-export type HomeSection = 'nowplaying' | 'recent' | 'dock' | 'watchnext' | 'rows' | 'folders' | 'grid'
-export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes' | 'fireplace' | 'memory' | 'customize' | 'timer'
+export type HomeSection = 'nowplaying' | 'recent' | 'screentime' | 'dock' | 'watchnext' | 'rows' | 'folders' | 'grid'
+export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes' | 'fireplace' | 'memory' | 'customize' | 'timer' | 'screentime'
 /** A saved look for the day and night switch. */
 export type LookSlot = 'day' | 'night'
 /** A top-bar icon: a quick-settings action, or `app:<package>` for an app shortcut (CleanMyTV Home 1.2.0 and later). */

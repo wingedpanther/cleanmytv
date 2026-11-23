@@ -557,5 +557,22 @@
   "A row that's gone": "Ряд, которого больше нет",
   "Apps you install from now on go there by themselves and show New for a day.": "Приложения, установленные с этого момента, сами попадут туда и сутки будут с меткой «Новое».",
   "Where do new apps go?": "Куда попадают новые приложения?",
-  "New": "Новое"
+  "New": "Новое",
+  "Screen time": "Экранное время",
+  "Open Screen time": "Открыть экранное время",
+  "Home screen": "Главный экран",
+  "Screen time needs usage access. In CleanMyTV on a computer, tick Screen time under CleanMyTV Home, Layout, Sections.": "Экранному времени нужен доступ к статистике использования. В CleanMyTV на компьютере отметьте «Экранное время» в CleanMyTV Home, Макет, Разделы.",
+  "Today": "Сегодня",
+  "Yesterday: {time}": "Вчера: {time}",
+  "Nothing on yet today.": "Сегодня пока ничего не включали.",
+  "Last 7 days": "Последние 7 дней",
+  "Last 30 days": "Последние 30 дней",
+  "{time} a day": "{time} в день",
+  "{time} in all": "{time} всего",
+  "the {n} days before: {time} a day": "за {n} дней до этого: {time} в день",
+  "By hour": "По часам",
+  "By day": "По дням",
+  "When the TV is on, on average": "Когда работает телевизор, в среднем",
+  "Nothing on yet.": "Пока ничего не включали.",
+  "Screen time today": "Экранное время сегодня"
 }

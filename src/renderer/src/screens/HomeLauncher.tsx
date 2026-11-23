@@ -747,9 +747,9 @@ const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, num
   { id: 'rail', label: t('Rail'), hint: t('Icons down the left edge that open with labels.'), mini: [[3, 6, 6, 84, true], [70, 6, 24, 8, true], [16, 24, 78, 28, false], [16, 60, 78, 18, true]] }
 ]
 
-const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: t('Now playing'), recent: t('Recently used'), dock: t('Dock'), watchnext: t('Continue watching'), rows: t('Rows'), folders: t('Folders'), grid: t('All apps') }
-const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'recent', 'dock', 'watchnext', 'rows', 'folders', 'grid']
-const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'timer', 'customize', 'settings']
+const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: t('Now playing'), recent: t('Recently used'), screentime: t('Screen time'), dock: t('Dock'), watchnext: t('Continue watching'), rows: t('Rows'), folders: t('Folders'), grid: t('All apps') }
+const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'recent', 'screentime', 'dock', 'watchnext', 'rows', 'folders', 'grid']
+const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'timer', 'screentime', 'customize', 'settings']
 /** As the launcher's HomeConfig.MAX_QUICK_APPS. */
 const MAX_QUICK_APPS = 6
 const IDLE_CHOICES: [number, string][] = [[0, t('Off')], ...[1, 2, 5, 10, 15, 30].map((n): [number, string] => [n, t('{n} min', { n })])]
@@ -829,6 +829,11 @@ function LayoutTab({ apps, cfg, set, sdk }: { apps: TvApp[]; cfg: HomeConfig; se
           {cfg.sections.includes('recent') && (
             <p className="small muted" style={{ marginTop: 10 }}>
               {t('Recently used shows the last 8 apps the TV opened, newest first, whichever way they were opened.')}
+            </p>
+          )}
+          {cfg.sections.includes('screentime') && (
+            <p className="small muted" style={{ marginTop: 10 }}>
+              {t("Screen time shows today's total, the last 7 days and today's top apps. Press it on the TV for the dashboard. The numbers stay on the TV.")}
             </p>
           )}
           {cfg.sections.includes('watchnext') && (
@@ -1538,6 +1543,7 @@ const ACTIONS: [ButtonAction, string][] = [
   ['panel', t('Open Quick settings')],
   ['themes', t('Open Themes')],
   ['fireplace', t('Show the fireplace')],
+  ['screentime', t('Open Screen time')],
   ['memory', t('Clean memory')],
   ['next_wallpaper', t('Next picture of the theme')],
   ['brightness', t('Brightness: 10, 25, 50, 75, 100%')],

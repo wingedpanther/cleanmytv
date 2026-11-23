@@ -557,5 +557,22 @@
   "A row that's gone": "Eine Zeile, die es nicht mehr gibt",
   "Apps you install from now on go there by themselves and show New for a day.": "Apps, die du ab jetzt installierst, landen von selbst dort und tragen einen Tag lang „Neu“.",
   "Where do new apps go?": "Wohin kommen neue Apps?",
-  "New": "Neu"
+  "New": "Neu",
+  "Screen time": "Bildschirmzeit",
+  "Open Screen time": "Bildschirmzeit öffnen",
+  "Home screen": "Startbildschirm",
+  "Screen time needs usage access. In CleanMyTV on a computer, tick Screen time under CleanMyTV Home, Layout, Sections.": "Bildschirmzeit braucht Zugriff auf die Nutzungsdaten. Hake in CleanMyTV am Computer Bildschirmzeit an, unter CleanMyTV Home, Layout, Abschnitte.",
+  "Today": "Heute",
+  "Yesterday: {time}": "Gestern: {time}",
+  "Nothing on yet today.": "Heute lief noch nichts.",
+  "Last 7 days": "Letzte 7 Tage",
+  "Last 30 days": "Letzte 30 Tage",
+  "{time} a day": "{time} pro Tag",
+  "{time} in all": "{time} insgesamt",
+  "the {n} days before: {time} a day": "die {n} Tage davor: {time} pro Tag",
+  "By hour": "Nach Stunde",
+  "By day": "Nach Tag",
+  "When the TV is on, on average": "Wann der TV läuft, im Schnitt",
+  "Nothing on yet.": "Noch nichts gelaufen.",
+  "Screen time today": "Bildschirmzeit heute"
 }

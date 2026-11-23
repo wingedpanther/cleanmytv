@@ -24,19 +24,20 @@ const QUICK_GLYPH: Record<QuickId, string> = {
   fireplace: 'M12 21c-3.5 0-6-2.4-6-5.6 0-3.2 2.6-5 3.5-8.4 1.8 1.4 2.6 3 2.6 4.6 1-.7 1.6-1.8 1.7-3 1.6 1.6 2.2 3.6 2.2 5.6 0 3.4-2.5 6.8-4 6.8z',
   memory: 'M7 7h10v10H7zM10 4v3M14 4v3M10 17v3M14 17v3M4 10h3M4 14h3M17 10h3M17 14h3',
   customize: 'M4 5h16v11H4zM9 20h6M8 9h3M13 9h3M8 12h8',
-  timer: 'M12 7v5l3 2M9 3h6M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16z'
+  timer: 'M12 7v5l3 2M9 3h6M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16z',
+  screentime: 'M4 20h16M6 16v-5M10 16V6M14 16v-8M18 16v-3'
 }
 
 /** What the TV calls each icon. CleanMyTV Home is in English, so these stay English: the preview and the rename boxes show them. */
 export const QUICK_LABEL: Record<QuickId, string> = {
   inputs: 'Inputs', wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: 'Picture & sound', apps: 'Apps', sleep: 'Screensaver', search: 'Search', music: 'Music bars', settings: 'Settings',
-  panel: 'Quick settings', themes: 'Themes', fireplace: 'Fireplace', memory: 'Clean memory', customize: 'Customize', timer: 'Sleep timer'
+  panel: 'Quick settings', themes: 'Themes', fireplace: 'Fireplace', memory: 'Clean memory', customize: 'Customize', timer: 'Sleep timer', screentime: 'Screen time'
 }
 
 /** The same icons named in this app's language, for its own lists. */
 export const QUICK_NAME: Record<QuickId, string> = {
   inputs: t('Inputs'), wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: t('Picture & sound'), apps: t('Apps'), sleep: t('Screensaver'), search: t('Search'), music: t('Music bars'),
-  settings: t('Settings'), panel: t('Quick settings'), themes: t('Themes'), fireplace: t('Fireplace'), memory: t('Clean memory'), customize: t('Customize'), timer: t('Sleep timer')
+  settings: t('Settings'), panel: t('Quick settings'), themes: t('Themes'), fireplace: t('Fireplace'), memory: t('Clean memory'), customize: t('Customize'), timer: t('Sleep timer'), screentime: t('Screen time')
 }
 
 export function QuickIcon({ id, size = 16 }: { id: QuickId; size?: number }): ReactNode {
@@ -160,6 +161,32 @@ function Sections({ apps, cfg, width, dockW, showFolders = true }: { apps: TvApp
               <Title>Recently used</Title>
               <div style={{ display: 'flex', gap: GAP, padding: '6px 0' }}>
                 {[...m.grid, ...m.dock].slice(0, 5).map((a) => <Tile key={a.pkg} app={a} w={rowW} names={cfg.show_names} focused={false} cfg={cfg} />)}
+              </div>
+            </div>
+          )
+        // A stand-in: on the TV it's today's total, the last 7 days' bars and today's top apps.
+        if (s === 'screentime')
+          return (
+            <div key={s}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 20, width: 600, height: 124, padding: '14px 18px', margin: '6px 0', borderRadius: 14, background: 'rgba(45,58,46,0.88)', boxSizing: 'border-box' }}>
+                <div style={{ width: 130 }}>
+                  <div style={{ fontSize: 13, color: '#D7CFC4' }}>Screen time today</div>
+                  <div style={{ fontSize: 26, fontWeight: 500 }}>2 h 15 min</div>
+                  <div style={{ fontSize: 13, color: '#D7CFC4' }}>Yesterday: 3 h</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, width: 150, height: 70 }}>
+                  {[0.6, 0.9, 0.4, 0.75, 1, 0.5, 0.7].map((h, i) => (
+                    <div key={i} style={{ flex: 1, height: `${h * 100}%`, borderRadius: 4, background: cfg.accent, opacity: i === 6 ? 1 : 0.5 }} />
+                  ))}
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14 }}>
+                  {[...m.dock, ...m.grid].slice(0, 3).map((a, i) => (
+                    <div key={a.pkg} style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.label}</span>
+                      <span style={{ color: '#D7CFC4' }}>{['1 h 10 min', '40 min', '25 min'][i]}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )

@@ -42,8 +42,8 @@ import io.github.wingedpanther.cleanmytv.home.tvInputs
 import org.json.JSONArray
 import org.json.JSONObject
 
-private val SECTIONS_ALL = listOf("nowplaying", "recent", "dock", "watchnext", "rows", "folders", "grid")
-private val QUICK_ALL = listOf("inputs", "wifi", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "timer", "customize", "settings")
+private val SECTIONS_ALL = listOf("nowplaying", "recent", "screentime", "dock", "watchnext", "rows", "folders", "grid")
+private val QUICK_ALL = listOf("inputs", "wifi", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "timer", "screentime", "customize", "settings")
 
 @Composable
 fun LayoutCustomization(config: HomeConfig, ctx: Context) {
@@ -102,6 +102,7 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
                         when (id) {
                             "nowplaying" -> tr("Now playing")
                             "recent" -> tr("Recently used")
+                            "screentime" -> tr("Screen time")
                             "dock" -> tr("Dock")
                             "watchnext" -> tr("Continue watching")
                             "rows" -> tr("Rows")
