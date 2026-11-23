@@ -617,5 +617,16 @@
   "Screen time needs usage access. Press Allow and turn on CleanMyTV Home in the list, or tick Screen time in CleanMyTV on a computer.": "Bildschirmzeit braucht Zugriff auf die Nutzungsdaten. Drücke Zulassen und schalte CleanMyTV Home in der Liste ein, oder hake Bildschirmzeit in CleanMyTV am Computer an.",
   "Continue {title}": "Weiter mit {title}",
   "{time} left": "Noch {time}",
-  "style arrangement sidebar left panel kidu big name bau bauhaus clock": "Stil Anordnung Seitenleiste linkes Panel kidu großer name bau bauhaus uhr"
+  "style arrangement sidebar left panel kidu big name bau bauhaus clock": "Stil Anordnung Seitenleiste linkes Panel kidu großer name bau bauhaus uhr",
+  "hold ok": "ok halten",
+  "Options": "Optionen",
+  "Games": "Spiele",
+  "Music and audio": "Musik und Audio",
+  "Video": "Video",
+  "Social": "Soziales",
+  "News": "Nachrichten",
+  "Maps": "Karten",
+  "Productivity": "Produktivität",
+  "Favourites": "Favoriten",
+  "Continue": "Weiter"
 }

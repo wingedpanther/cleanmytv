@@ -131,6 +131,35 @@ function Title({ children }: { children: ReactNode }): ReactNode {
   return <div style={{ fontSize: 18, color: '#F0EBE5', fontWeight: 500, margin: '12px 0 4px' }}>{children}</div>
 }
 
+const BAU = { ink: '#141414', cream: '#F2EEE3', muted: '#A8A398', red: '#E03A2B', yellow: '#F5C518', blue: '#2F6BDE' }
+
+/** As the launcher's bauMark: Java's String.hashCode of the package picks the form and the colour. */
+function bauMark(pkg: string): [number, string] {
+  let h = 0
+  for (let i = 0; i < pkg.length; i++) h = (Math.imul(31, h) + pkg.charCodeAt(i)) | 0
+  h = h === -2147483648 ? 0 : Math.abs(h)
+  return [h % 7, [BAU.red, BAU.yellow, BAU.blue][Math.floor(h / 7) % 3]]
+}
+
+/** The seven Bauhaus forms, as the launcher draws them. */
+function BauGlyph({ form, colour, size }: { form: number; colour: string; size: number }): ReactNode {
+  const s = size
+  const shapes = [
+    <circle key="c" cx={s / 2} cy={s / 2} r={s / 2} fill={colour} />,
+    <rect key="s" width={s} height={s} fill={colour} />,
+    <path key="t" d={`M${s / 2} 0L${s} ${s}H0Z`} fill={colour} />,
+    <path key="q" d={`M${s} ${s}H0A${s} ${s} 0 0 1 ${s} 0Z`} fill={colour} />,
+    <path key="h" d={`M0 ${s / 2}H${s}A${s / 2} ${s / 2} 0 0 1 0 ${s / 2}Z`} fill={colour} />,
+    <circle key="r" cx={s / 2} cy={s / 2} r={s / 2 - s / 8} fill="none" stroke={colour} strokeWidth={s / 4} />,
+    <path key="p" d={`M0 0L${s} ${s / 2}L0 ${s}Z`} fill={colour} />
+  ]
+  return (
+    <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} aria-hidden style={{ display: 'block', flex: 'none' }}>
+      {shapes[form % 7]}
+    </svg>
+  )
+}
+
 function Sections({ apps, cfg, width, dockW, showFolders = true }: { apps: TvApp[]; cfg: HomeConfig; width: number; dockW: number; showFolders?: boolean }): ReactNode {
   const m = model(apps, cfg)
   const gridW = (width - GAP * (cfg.columns - 1)) / cfg.columns
@@ -364,30 +393,55 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
       </div>
     )
   } else if (cfg.layout === 'bau') {
-    const rule = '1px solid rgba(240,235,229,0.22)'
+    // As on the TV: its own charcoal and cream, each app marked with the same shape and colour.
+    const m = model(apps, cfg)
+    const rule = '1px solid #3A3A3A'
+    const cells = (list: TvApp[], cols: number, h: number, mark: number, size: number, focusFirst: boolean): ReactNode => (
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 1, padding: 1, background: BAU.cream }}>
+        {list.map((a, i) => {
+          const on = focusFirst && i === 0
+          const [form, colour] = bauMark(a.pkg)
+          return (
+            <div key={a.pkg} style={{ height: h, boxSizing: 'border-box', padding: h > 100 ? '14px 15px' : '10px 12px', background: on ? BAU.cream : BAU.ink, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <BauGlyph form={form} colour={colour} size={mark} />
+              <div style={{ fontSize: size, fontWeight: 800, letterSpacing: '-0.02em', color: on ? BAU.ink : BAU.cream, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.label.toLowerCase()}</div>
+            </div>
+          )
+        })}
+        {Array.from({ length: (cols - (list.length % cols)) % cols }, (_, i) => <div key={`e${i}`} style={{ height: h, background: BAU.ink }} />)}
+      </div>
+    )
     body = (
-      <div style={{ display: 'flex', height: '100%', background: `linear-gradient(90deg, ${shade(cfg, 70)}, transparent 60%)` }}>
-        <div style={{ width: W * 0.3, padding: `${SAFE_Y}px 0 ${SAFE_Y + 24}px ${SAFE_X}px`, display: 'flex', flexDirection: 'column' }}>
-          {cfg.clock !== 'off' && <div style={{ fontSize: 80, fontWeight: 800, letterSpacing: -3, lineHeight: 0.92, marginLeft: -4 }}>21:47</div>}
-          {cfg.clock === 'time_date' && <div style={{ fontSize: 14, fontWeight: 600, color: '#D7CFC4', marginTop: 10 }}>monday 23 november</div>}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 18 }}>
-            <span style={{ width: 26, height: 26, borderRadius: 13, background: '#E03A2B' }} />
-            <span style={{ width: 26, height: 26, background: '#F5C518' }} />
-            <span style={{ width: 26, height: 26, background: '#2F6BDE', clipPath: 'polygon(50% 0, 100% 100%, 0 100%)' }} />
+      <div style={{ display: 'flex', gap: 36, height: '100%', padding: `0 ${SAFE_X}px`, boxSizing: 'border-box', background: BAU.ink, color: BAU.cream }}>
+        <div style={{ width: 276, flex: 'none', padding: `${SAFE_Y}px 0`, display: 'flex', flexDirection: 'column' }}>
+          {cfg.clock !== 'off' && <div style={{ fontSize: 106, fontWeight: 800, letterSpacing: '-0.055em', lineHeight: 0.86, marginLeft: -5 }}>21:47</div>}
+          {cfg.clock === 'time_date' && <div style={{ fontSize: 14, fontWeight: 600, color: BAU.muted, marginTop: 14 }}>monday 23 november</div>}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 20 }}>
+            <BauGlyph form={0} colour={BAU.red} size={28} />
+            <BauGlyph form={1} colour={BAU.yellow} size={28} />
+            <BauGlyph form={2} colour={BAU.blue} size={28} />
           </div>
-          {greet && <div style={{ fontSize: 15, fontWeight: 500, marginTop: 16 }}>{greet}</div>}
+          {greet && <div style={{ fontSize: 14, fontWeight: 500, marginTop: 18 }}>{greet}</div>}
           <div style={{ flex: 1 }} />
           {quick.map((q, i) => (
-            <div key={q} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 15, padding: '9px 0', borderTop: rule, borderBottom: i === quick.length - 1 ? rule : undefined }}>
-              <span style={{ width: 22, display: 'inline-grid', placeItems: 'center' }}>
-                <QuickMark q={q} apps={apps} size={18} />
-              </span>{' '}
-              {(!quickApp(q) && cfg.names[q as QuickId]) || quickLabel(q, apps)}
+            <div key={q} style={{ display: 'flex', alignItems: 'center', height: 32, padding: '0 4px', fontSize: 12, fontWeight: 600, borderTop: rule, borderBottom: i === quick.length - 1 ? rule : undefined }}>
+              <span style={{ flex: 1 }}>{((!quickApp(q) && cfg.names[q as QuickId]) || quickLabel(q, apps)).toLowerCase()}</span>
+              <QuickMark q={q} apps={apps} size={16} />
             </div>
           ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 16, fontSize: 12, fontWeight: 600, color: BAU.muted }}>
+            <span style={{ border: `1px solid ${BAU.cream}`, color: BAU.cream, fontWeight: 800, padding: '3px 6px' }}>ok</span>open
+            <span style={{ border: `1px solid ${BAU.cream}`, color: BAU.cream, fontWeight: 800, padding: '3px 6px' }}>hold ok</span>options
+          </div>
         </div>
-        <div style={{ flex: 1, padding: `${SAFE_Y + 8}px ${SAFE_X}px 0 12px`, overflow: 'hidden' }}>
-          <Sections apps={apps} cfg={cfg} width={W * 0.7 - SAFE_X - 12} dockW={168} />
+        <div style={{ flex: 1, minWidth: 0, paddingTop: SAFE_Y, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 8 }}>
+            <b style={{ flex: 1, fontSize: 14, fontWeight: 800 }}>favourites</b>
+            <span style={{ fontSize: 12, fontWeight: 600, color: BAU.muted }}>all apps, {m.dock.length + m.grid.length}</span>
+          </div>
+          {cells(m.dock, 3, 155, 52, 20, true)}
+          <b style={{ display: 'block', margin: '22px 0 8px', fontSize: 14, fontWeight: 800 }}>{(cfg.names.all_apps ?? 'all apps').toLowerCase()}</b>
+          {cells(m.grid, cfg.columns, 82, 22, 15, false)}
         </div>
       </div>
     )

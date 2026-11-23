@@ -99,6 +99,11 @@ import androidx.compose.runtime.State
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
@@ -782,44 +787,100 @@ private fun KiduLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Q
 }
 
 /**
- * Bau: a big bold clock and three primary shapes on the left, the greeting and weather under them, and the top bar
- * icons as a ruled list at the foot; the apps scroll on the right.
+ * Bau, after the Bauhaus design: its own flat charcoal ground and cream type over the wallpaper and theme. On the
+ * left a heavy clock, the date in lower case and three primary shapes, the top bar icons as ruled rows and the
+ * remote's keys; on the right the sections as flat grids ruled in cream, each app marked with a shape in red,
+ * yellow or blue.
  */
 @Composable
 private fun BauLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (QuickAction) -> Unit) {
     val cfg = ui.cfg
-    Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(scrim(cfg, 0.7f), Color.Transparent), endX = 900f)))
-    Row(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxWidth(0.3f).fillMaxHeight().padding(start = SAFE_X, top = SAFE_Y, bottom = SAFE_Y + 24.dp)) {
+    Row(Modifier.fillMaxSize().background(BAU_INK).padding(start = SAFE_X, end = SAFE_X), horizontalArrangement = Arrangement.spacedBy(36.dp)) {
+        Column(Modifier.width(276.dp).fillMaxHeight().padding(top = SAFE_Y, bottom = SAFE_Y)) {
             BauClock(cfg)
-            Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-                Box(Modifier.size(26.dp).background(BAU_RED, CircleShape))
-                Box(Modifier.size(26.dp).background(BAU_YELLOW))
-                Box(Modifier.size(26.dp).background(BAU_BLUE, TRIANGLE))
+            Row(Modifier.padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
+                BauGlyph(0, BAU_RED, 28.dp); BauGlyph(1, BAU_YELLOW, 28.dp); BauGlyph(2, BAU_BLUE, 28.dp)
             }
-            Box(Modifier.padding(top = 16.dp)) { Greeting(cfg, 15.sp) }
-            WeatherLine(ui, 13.sp, Modifier.padding(top = 6.dp))
+            if (cfg.greeting.isNotBlank()) Box(Modifier.padding(top = 18.dp)) { Greeting(cfg, 14.sp) }
+            WeatherLine(ui, 12.sp, Modifier.padding(top = 8.dp))
             HourLine(ui, 12.sp, Modifier.padding(top = 6.dp))
             DayLine(ui, 12.sp, Modifier.padding(top = 6.dp))
-            MemoryLine(ui, 13.sp, Modifier.padding(top = 4.dp))
+            MemoryLine(ui, 12.sp, Modifier.padding(top = 4.dp))
             Spacer(Modifier.weight(1f))
-            // Ruled like a table: a line over each icon and one under the last.
             Column(Modifier.focusGroup()) {
-                quick.forEach { q ->
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(TEXT.copy(alpha = 0.22f)))
-                    QuickRow(q, ui, onQuick, expanded = true)
-                }
-                if (quick.isNotEmpty()) Box(Modifier.fillMaxWidth().height(1.dp).background(TEXT.copy(alpha = 0.22f)))
+                quick.forEach { q -> BauRule(); BauQuickRow(q, ui, onQuick) }
+                if (quick.isNotEmpty()) BauRule()
+            }
+            Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                BauKey("ok"); Text(tr("Open").lowercase(), color = BAU_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                BauKey(tr("hold ok")); Text(tr("Options").lowercase(), color = BAU_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
-        Sections(home, ui, Modifier.fillMaxSize(), PaddingValues(start = 12.dp, end = SAFE_X - BLEED, top = SAFE_Y + 8.dp, bottom = 96.dp), dockWidth = 168.dp)
+        BauSections(home, ui, Modifier.weight(1f).fillMaxHeight())
     }
 }
 
+private val BAU_INK = Color(0xFF141414)
+private val BAU_CREAM = Color(0xFFF2EEE3)
+private val BAU_MUTED = Color(0xFFA8A398)
+private val BAU_DIM = Color(0xFF4A4740)
+private val BAU_LINE = Color(0xFF3A3A3A)
 private val BAU_RED = Color(0xFFE03A2B)
 private val BAU_YELLOW = Color(0xFFF5C518)
 private val BAU_BLUE = Color(0xFF2F6BDE)
-private val TRIANGLE = GenericShape { size, _ -> moveTo(size.width / 2, 0f); lineTo(size.width, size.height); lineTo(0f, size.height); close() }
+private val BAU_COLOURS = listOf(BAU_RED, BAU_YELLOW, BAU_BLUE)
+
+@Composable
+private fun BauRule(colour: Color = BAU_LINE) = Box(Modifier.fillMaxWidth().height(1.dp).background(colour))
+
+/** A remote key as the design draws it: its name in a cream outline. */
+@Composable
+private fun BauKey(name: String) {
+    Text(name, color = BAU_CREAM, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.border(1.dp, BAU_CREAM).padding(horizontal = 6.dp, vertical = 3.dp))
+}
+
+/**
+ * The seven Bauhaus forms, drawn in [colour]: circle, square, triangle, quarter disc, half disc, ring and a
+ * triangle pointing right.
+ */
+@Composable
+private fun BauGlyph(kind: Int, colour: Color, size: Dp) {
+    Canvas(Modifier.size(size)) {
+        val w = this.size.width
+        when (kind % 7) {
+            0 -> drawCircle(colour)
+            1 -> drawRect(colour)
+            2 -> drawPath(Path().apply { moveTo(w / 2, 0f); lineTo(w, w); lineTo(0f, w); close() }, colour)
+            3 -> drawArc(colour, 180f, 90f, true, topLeft = Offset.Zero, size = Size(w * 2, w * 2))
+            4 -> drawArc(colour, 0f, 180f, true, topLeft = Offset(0f, 0f), size = Size(w, w))
+            5 -> drawCircle(colour, radius = w / 2 - w / 8, style = Stroke(width = w / 4))
+            else -> drawPath(Path().apply { moveTo(0f, 0f); lineTo(w, w / 2); lineTo(0f, w); close() }, colour)
+        }
+    }
+}
+
+/** Each app keeps its own form and colour, from its package name. */
+private fun bauMark(pkg: String): Pair<Int, Color> {
+    val h = pkg.hashCode().let { if (it == Int.MIN_VALUE) 0 else kotlin.math.abs(it) }
+    return h % 7 to BAU_COLOURS[(h / 7) % 3]
+}
+
+/** What kind of app it is, from the category it declares; null when it declares none. */
+private fun bauKind(ctx: android.content.Context, pkg: String): String? {
+    if (InputTiles.isInput(pkg)) return tr("Input")
+    val c = runCatching { ctx.packageManager.getApplicationInfo(pkg, 0).category }.getOrDefault(-1)
+    return when (c) {
+        android.content.pm.ApplicationInfo.CATEGORY_GAME -> tr("Games")
+        android.content.pm.ApplicationInfo.CATEGORY_AUDIO -> tr("Music and audio")
+        android.content.pm.ApplicationInfo.CATEGORY_VIDEO -> tr("Video")
+        android.content.pm.ApplicationInfo.CATEGORY_IMAGE -> tr("Photos")
+        android.content.pm.ApplicationInfo.CATEGORY_SOCIAL -> tr("Social")
+        android.content.pm.ApplicationInfo.CATEGORY_NEWS -> tr("News")
+        android.content.pm.ApplicationInfo.CATEGORY_MAPS -> tr("Maps")
+        android.content.pm.ApplicationInfo.CATEGORY_PRODUCTIVITY -> tr("Productivity")
+        else -> null
+    }
+}
 
 /** Bau's clock: heavy and tight, sized to the left column; 12-hour time is wider, so smaller. The date in lower case. */
 @Composable
@@ -828,13 +889,156 @@ private fun BauClock(cfg: HomeConfig) {
     var now by remember { mutableStateOf(Date()) }
     LaunchedEffect(Unit) { while (true) { now = Date(); delay(1000L - System.currentTimeMillis() % 1000) } }
     val time = DateFormat.getTimeInstance(DateFormat.SHORT).format(now)
-    val size = if (time.length <= 5) 80.sp else 50.sp
-    Text(time, color = TEXT, fontSize = size, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false,
-        style = TextStyle(letterSpacing = (-3).sp, lineHeight = size * 0.92f), modifier = Modifier.offset(x = (-4).dp))
+    val size = if (time.length <= 5) 106.sp else 62.sp
+    Text(time, color = BAU_CREAM, fontSize = size, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false,
+        style = TextStyle(letterSpacing = size * -0.055f, lineHeight = size * 0.86f), modifier = Modifier.offset(x = (-5).dp))
     if (cfg.clock == "time_date") {
         val locale = java.util.Locale.getDefault()
-        val day = java.text.SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM"), locale).format(now).lowercase(locale)
-        Text(day, color = MUTED, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
+        val day = java.text.SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM"), locale).format(now).lowercase(locale).replace(",", "")
+        Text(day, color = BAU_MUTED, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 14.dp))
+    }
+}
+
+/** A top bar icon as a ruled row: its name on the left, its mark on the right; cream when focused. */
+@Composable
+private fun BauQuickRow(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Surface(
+        onClick = { onQuick(a) },
+        modifier = Modifier.fillMaxWidth().height(32.dp).onFocusChanged { focused = it.isFocused },
+        shape = ClickableSurfaceDefaults.shape(RectangleShape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = BAU_CREAM)
+    ) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(a.label.lowercase(), color = if (focused) BAU_INK else BAU_CREAM, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            QuickGlyph(a, ui, focused, 16.dp)
+        }
+    }
+}
+
+/** The sections down the right, each under a lower-case title, as flat grids ruled in cream. */
+@Composable
+private fun BauSections(home: Home, ui: Ui, modifier: Modifier) {
+    val cfg = ui.cfg
+    LazyColumn(modifier, contentPadding = PaddingValues(top = SAFE_Y, bottom = 64.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        for (s in cfg.sections) when (s) {
+            "nowplaying" -> ui.track?.let { t -> item("nowplaying") { NowPlayingCard(t, ui) } }
+            "screentime" -> if (ui.screenTimeSeen) item("screentime") { ScreenTimeCard(ui) }
+            "dock" -> if (home.dock.isNotEmpty()) {
+                item("dock-title") { BauTitle(tr("Favourites"), tr("All apps") + ", " + (home.dock.size + home.grid.size)) }
+                item("dock") { BauGrid("dock", home.dock, ui, columns = 3, height = 155.dp, mark = 52.dp, nameSize = 20.sp) }
+            }
+            "watchnext" -> if (home.watch.isNotEmpty()) {
+                item("watchnext-title") { BauTitle(tr("Continue"), top = 14.dp) }
+                item("watchnext") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        home.watch.take(4).forEach { w -> BauWatch(w, home.app(w.pkg), ui, Modifier.weight(1f)) }
+                        repeat(4 - minOf(4, home.watch.size)) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
+            }
+            "recent" -> if (home.recent.isNotEmpty()) {
+                item("recent-title") { BauTitle(cfg.names["recent"] ?: tr("Recently used"), top = 14.dp) }
+                item("recent") { BauGrid("recent", home.recent, ui, columns = cfg.columns, height = 82.dp, mark = 22.dp, nameSize = 15.sp) }
+            }
+            "rows" -> home.rows.forEachIndexed { i, (name, list) ->
+                item("row$i-title") { BauTitle(name, top = 14.dp) }
+                item("row$i") { BauGrid("row$i", list, ui, columns = cfg.columns, height = 82.dp, mark = 22.dp, nameSize = 15.sp) }
+            }
+            "folders" -> if (home.folders.isNotEmpty()) {
+                item("folders-title") { BauTitle(tr("Folders"), top = 14.dp) }
+                item("folders") {
+                    BauCells(home.folders, cfg.columns, 82.dp) { f, m -> BauCell(f.first, "${f.second.size}", 3 to BAU_YELLOW, ui, 82.dp, 22.dp, 15.sp, m, onClick = { ui.onFolder(f) }) }
+                }
+            }
+            "grid" -> if (home.grid.isNotEmpty()) {
+                item("grid-title") { BauTitle(cfg.names["all_apps"] ?: tr("All apps"), top = 14.dp) }
+                item("grid") { BauGrid("grid", home.grid, ui, columns = cfg.columns, height = 82.dp, mark = 22.dp, nameSize = 15.sp) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BauTitle(name: String, side: String? = null, top: Dp = 0.dp) {
+    Row(Modifier.fillMaxWidth().padding(top = top), verticalAlignment = Alignment.Bottom) {
+        Text(name.lowercase(), color = BAU_CREAM, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+        side?.let { Text(it.lowercase(), color = BAU_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+    }
+}
+
+/** Items in rows of [columns], ruled in cream: the grid's cream shows through 1 dp gaps. */
+@Composable
+private fun <T> BauCells(items: List<T>, columns: Int, height: Dp, cell: @Composable (T, Modifier) -> Unit) {
+    Column(Modifier.fillMaxWidth().background(BAU_CREAM).padding(1.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        items.chunked(columns.coerceAtLeast(1)).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                row.forEach { cell(it, Modifier.weight(1f)) }
+                // The rest of a short last row stays dark, as the design's empty cells do.
+                repeat(columns - row.size) { Box(Modifier.weight(1f).height(height).background(BAU_INK)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BauGrid(section: String, apps: List<TvApp>, ui: Ui, columns: Int, height: Dp, mark: Dp, nameSize: androidx.compose.ui.unit.TextUnit) {
+    val ctx = LocalContext.current
+    BauCells(apps, columns, height) { app, m ->
+        val kind = remember(app.pkg) { bauKind(ctx, app.pkg) }
+        BauCell(app.label, if (Lock.isLocked(ui.cfg, app.pkg)) tr("Locked") else if (height > 100.dp) kind else null, bauMark(app.pkg), ui, height, mark, nameSize,
+            m.then(ui.focusFor(section, app)), moving = ui.movingKey == "$section:${app.pkg}",
+            onFocus = { ui.onFocusApp(app) }, onLongClick = { ui.onAppMenu(section, app) }, onClick = { launch(ctx, app) })
+    }
+}
+
+/** One square-edged cell: its shape at the top, its name and kind at the foot; cream with dark type when focused. */
+@Composable
+private fun BauCell(name: String, sub: String?, mark: Pair<Int, Color>, ui: Ui, height: Dp, markSize: Dp, nameSize: androidx.compose.ui.unit.TextUnit, modifier: Modifier,
+                    moving: Boolean = false, onFocus: () -> Unit = {}, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Surface(
+        onClick = onClick,
+        onLongClick = onLongClick,
+        modifier = modifier.height(height).pointer(onLongClick = onLongClick) { onClick() }.onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus() }
+            .then(if (moving) Modifier.border(3.dp, BAU_RED) else Modifier),
+        shape = ClickableSurfaceDefaults.shape(RectangleShape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        colors = ClickableSurfaceDefaults.colors(containerColor = BAU_INK, focusedContainerColor = BAU_CREAM)
+    ) {
+        Column(Modifier.fillMaxSize().padding(horizontal = if (height > 100.dp) 15.dp else 12.dp, vertical = if (height > 100.dp) 14.dp else 10.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            BauGlyph(mark.first, mark.second, markSize)
+            Column {
+                Text(name.lowercase(), color = if (focused) BAU_INK else BAU_CREAM, fontSize = nameSize, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    style = TextStyle(letterSpacing = nameSize * -0.02f, lineHeight = nameSize * 1.05f))
+                sub?.let { Text(it.lowercase(), color = if (focused) BAU_DIM else BAU_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
+        }
+    }
+}
+
+/** A film or episode to go back to: a cream rule over its name, its app and time left, and a thick progress bar. */
+@Composable
+private fun BauWatch(item: WatchItem, app: TvApp?, ui: Ui, modifier: Modifier) {
+    val ctx = LocalContext.current
+    var focused by remember { mutableStateOf(false) }
+    val go: () -> Unit = { (WatchNext.intent(ctx, item) ?: app?.launch)?.let { open(ctx, item.pkg, it, app?.launch) } }
+    val left = if (item.duration > 0 && item.position > 0) ((item.duration - item.position) / 60_000L).toInt().takeIf { it > 0 } else null
+    val meta = listOfNotNull(app?.label, left?.let { tr("{time} left", "time" to Limits.words(it)) }).joinToString(" · ")
+    Surface(
+        onClick = go,
+        modifier = modifier.pointer { go() }.onFocusChanged { focused = it.isFocused; if (it.isFocused) { app?.let(ui.onFocusApp); ui.onFocusWatch(item) } },
+        shape = ClickableSurfaceDefaults.shape(RectangleShape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = BAU_CREAM)
+    ) {
+        val ink = if (focused) BAU_INK else BAU_CREAM
+        Column {
+            BauRule(ink)
+            Text(item.title.lowercase(), color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp))
+            Text(meta.lowercase(), color = if (focused) BAU_DIM else BAU_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 1.dp, start = 2.dp, end = 2.dp))
+            Box(Modifier.padding(top = 8.dp, bottom = 6.dp).fillMaxWidth().height(4.dp).background(BAU_LINE)) {
+                Box(Modifier.fillMaxHeight().fillMaxWidth(item.progress ?: 0f).background(ink))
+            }
+        }
     }
 }
 

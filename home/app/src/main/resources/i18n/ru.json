@@ -617,5 +617,16 @@
   "Screen time needs usage access. Press Allow and turn on CleanMyTV Home in the list, or tick Screen time in CleanMyTV on a computer.": "Для экранного времени нужен доступ к истории использования. Нажмите «Разрешить» и включите CleanMyTV Home в списке или отметьте «Экранное время» в CleanMyTV на компьютере.",
   "Continue {title}": "Продолжить {title}",
   "{time} left": "Осталось {time}",
-  "style arrangement sidebar left panel kidu big name bau bauhaus clock": "стиль вид расположение боковая панель слева колонки полка kidu крупное название bau баухаус часы"
+  "style arrangement sidebar left panel kidu big name bau bauhaus clock": "стиль вид расположение боковая панель слева колонки полка kidu крупное название bau баухаус часы",
+  "hold ok": "удерживать ok",
+  "Options": "Параметры",
+  "Games": "Игры",
+  "Music and audio": "Музыка и аудио",
+  "Video": "Видео",
+  "Social": "Общение",
+  "News": "Новости",
+  "Maps": "Карты",
+  "Productivity": "Работа",
+  "Favourites": "Избранное",
+  "Continue": "Продолжить"
 }
