@@ -363,6 +363,34 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
         </div>
       </div>
     )
+  } else if (cfg.layout === 'bau') {
+    const rule = '1px solid rgba(240,235,229,0.22)'
+    body = (
+      <div style={{ display: 'flex', height: '100%', background: `linear-gradient(90deg, ${shade(cfg, 70)}, transparent 60%)` }}>
+        <div style={{ width: W * 0.3, padding: `${SAFE_Y}px 0 ${SAFE_Y + 24}px ${SAFE_X}px`, display: 'flex', flexDirection: 'column' }}>
+          {cfg.clock !== 'off' && <div style={{ fontSize: 80, fontWeight: 800, letterSpacing: -3, lineHeight: 0.92, marginLeft: -4 }}>21:47</div>}
+          {cfg.clock === 'time_date' && <div style={{ fontSize: 14, fontWeight: 600, color: '#D7CFC4', marginTop: 10 }}>monday 23 november</div>}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 18 }}>
+            <span style={{ width: 26, height: 26, borderRadius: 13, background: '#E03A2B' }} />
+            <span style={{ width: 26, height: 26, background: '#F5C518' }} />
+            <span style={{ width: 26, height: 26, background: '#2F6BDE', clipPath: 'polygon(50% 0, 100% 100%, 0 100%)' }} />
+          </div>
+          {greet && <div style={{ fontSize: 15, fontWeight: 500, marginTop: 16 }}>{greet}</div>}
+          <div style={{ flex: 1 }} />
+          {quick.map((q, i) => (
+            <div key={q} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 15, padding: '9px 0', borderTop: rule, borderBottom: i === quick.length - 1 ? rule : undefined }}>
+              <span style={{ width: 22, display: 'inline-grid', placeItems: 'center' }}>
+                <QuickMark q={q} apps={apps} size={18} />
+              </span>{' '}
+              {(!quickApp(q) && cfg.names[q as QuickId]) || quickLabel(q, apps)}
+            </div>
+          ))}
+        </div>
+        <div style={{ flex: 1, padding: `${SAFE_Y + 8}px ${SAFE_X}px 0 12px`, overflow: 'hidden' }}>
+          <Sections apps={apps} cfg={cfg} width={W * 0.7 - SAFE_X - 12} dockW={168} />
+        </div>
+      </div>
+    )
   } else if (cfg.layout === 'rail') {
     body = (
       <div style={{ display: 'flex', height: '100%' }}>

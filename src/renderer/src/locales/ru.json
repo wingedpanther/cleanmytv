@@ -1436,5 +1436,6 @@
   "Ask for the PIN to open Screen time on the TV": "Спрашивать PIN для открытия экранного времени на телевизоре",
   "Changing a daily limit there always asks for it.": "Изменение дневного лимита там всегда его спрашивает.",
   "Needs App lock on, with a PIN.": "Нужна включённая блокировка приложений с PIN.",
-  "The app you are on in big letters, with what you were watching in it. Apps in the lower half.": "Приложение, на котором вы находитесь, крупными буквами и то, что вы в нём смотрели. Приложения в нижней половине."
+  "The app you are on in big letters, with what you were watching in it. Apps in the lower half.": "Приложение, на котором вы находитесь, крупными буквами и то, что вы в нём смотрели. Приложения в нижней половине.",
+  "A big bold clock and three shapes on the left, the top bar icons listed under them. Apps on the right.": "Крупные жирные часы и три фигуры слева, под ними значки верхней панели списком. Приложения справа."
 }

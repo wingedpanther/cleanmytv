@@ -507,6 +507,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
                 "split" -> SplitLayout(home, ui, quick, onQuick)
                 "rail" -> RailLayout(home, ui, quick, onQuick)
                 "kidu" -> KiduLayout(home, ui, quick, onQuick, heroApp, heroWatch)
+                "bau" -> BauLayout(home, ui, quick, onQuick)
                 else -> ShelfLayout(home, ui, quick, onQuick)
             }
             shownCaption?.let { BingCaption(it, visualiser, cfg, Modifier.align(Alignment.BottomEnd).padding(start = SAFE_X, end = SAFE_X, bottom = SAFE_Y)) }
@@ -777,6 +778,63 @@ private fun KiduLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Q
             KiduHero(home, ui, app, watch, Modifier.weight(1f).fillMaxWidth().padding(start = SAFE_X, end = SAFE_X))
             Sections(home, ui, Modifier.fillMaxWidth().height(lower), PaddingValues(start = SAFE_X - BLEED, end = SAFE_X - BLEED, top = 0.dp, bottom = 96.dp), dockWidth = 200.dp)
         }
+    }
+}
+
+/**
+ * Bau: a big bold clock and three primary shapes on the left, the greeting and weather under them, and the top bar
+ * icons as a ruled list at the foot; the apps scroll on the right.
+ */
+@Composable
+private fun BauLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (QuickAction) -> Unit) {
+    val cfg = ui.cfg
+    Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(scrim(cfg, 0.7f), Color.Transparent), endX = 900f)))
+    Row(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxWidth(0.3f).fillMaxHeight().padding(start = SAFE_X, top = SAFE_Y, bottom = SAFE_Y + 24.dp)) {
+            BauClock(cfg)
+            Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
+                Box(Modifier.size(26.dp).background(BAU_RED, CircleShape))
+                Box(Modifier.size(26.dp).background(BAU_YELLOW))
+                Box(Modifier.size(26.dp).background(BAU_BLUE, TRIANGLE))
+            }
+            Box(Modifier.padding(top = 16.dp)) { Greeting(cfg, 15.sp) }
+            WeatherLine(ui, 13.sp, Modifier.padding(top = 6.dp))
+            HourLine(ui, 12.sp, Modifier.padding(top = 6.dp))
+            DayLine(ui, 12.sp, Modifier.padding(top = 6.dp))
+            MemoryLine(ui, 13.sp, Modifier.padding(top = 4.dp))
+            Spacer(Modifier.weight(1f))
+            // Ruled like a table: a line over each icon and one under the last.
+            Column(Modifier.focusGroup()) {
+                quick.forEach { q ->
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(TEXT.copy(alpha = 0.22f)))
+                    QuickRow(q, ui, onQuick, expanded = true)
+                }
+                if (quick.isNotEmpty()) Box(Modifier.fillMaxWidth().height(1.dp).background(TEXT.copy(alpha = 0.22f)))
+            }
+        }
+        Sections(home, ui, Modifier.fillMaxSize(), PaddingValues(start = 12.dp, end = SAFE_X - BLEED, top = SAFE_Y + 8.dp, bottom = 96.dp), dockWidth = 168.dp)
+    }
+}
+
+private val BAU_RED = Color(0xFFE03A2B)
+private val BAU_YELLOW = Color(0xFFF5C518)
+private val BAU_BLUE = Color(0xFF2F6BDE)
+private val TRIANGLE = GenericShape { size, _ -> moveTo(size.width / 2, 0f); lineTo(size.width, size.height); lineTo(0f, size.height); close() }
+
+/** Bau's clock: heavy and tight, sized to the left column; 12-hour time is wider, so smaller. The date in lower case. */
+@Composable
+private fun BauClock(cfg: HomeConfig) {
+    if (cfg.clock == "off") return
+    var now by remember { mutableStateOf(Date()) }
+    LaunchedEffect(Unit) { while (true) { now = Date(); delay(1000L - System.currentTimeMillis() % 1000) } }
+    val time = DateFormat.getTimeInstance(DateFormat.SHORT).format(now)
+    val size = if (time.length <= 5) 80.sp else 50.sp
+    Text(time, color = TEXT, fontSize = size, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false,
+        style = TextStyle(letterSpacing = (-3).sp, lineHeight = size * 0.92f), modifier = Modifier.offset(x = (-4).dp))
+    if (cfg.clock == "time_date") {
+        val locale = java.util.Locale.getDefault()
+        val day = java.text.SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM"), locale).format(now).lowercase(locale)
+        Text(day, color = MUTED, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
     }
 }
 
