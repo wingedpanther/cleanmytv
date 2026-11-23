@@ -1455,6 +1455,12 @@ function WidgetsTab({ cfg, set }: { cfg: HomeConfig; set: SetFn }): ReactNode {
             checked={cfg.weather_hours}
             onChange={(v) => set({ weather_hours: v })}
           />
+          <Toggle
+            label={t('Daily forecast')}
+            hint={t('The next 5 days under the weather: the day, the sky, the high and the low.')}
+            checked={cfg.weather_days}
+            onChange={(v) => set({ weather_days: v })}
+          />
         </div>
       </div>
 

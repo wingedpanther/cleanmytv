@@ -1010,6 +1010,8 @@
   "The Mi button on Xiaomi remotes opens PatchWall, so it does nothing once PatchWall is off. CleanMyTV Home can make it go Home instead. If it still does nothing after this, press Listen below and press the Mi button to see what it sends.": "Кнопка Mi на пультах Xiaomi открывает PatchWall, поэтому без PatchWall она ничего не делает. CleanMyTV Home может вместо этого открывать по ней главный экран. Если и после этого она не работает, нажмите «Слушать» ниже и нажмите кнопку Mi, чтобы увидеть, что она посылает.",
   "The new version's disk image is open in Finder. Quit CleanMyTV, drag the new one into Applications and replace the old one, then open it.": "Образ диска с новой версией открыт в Finder. Закройте CleanMyTV, перетащите новую версию в «Программы», заменив старую, и откройте её.",
   "The next 4 hours under the weather: the time, the sky and the temperature.": "Ближайшие 4 часа под строкой погоды: время, значок погоды и температура.",
+  "Daily forecast": "Прогноз по дням",
+  "The next 5 days under the weather: the day, the sky, the high and the low.": "Ближайшие 5 дней под строкой погоды: день, небо, максимум и минимум.",
   "The one-button path: the best-matching list for your TV, its suggested packages off, CleanMyTV Home installed and set as Home — then you land on the Home screen step to arrange it. Nothing is uninstalled and every step stays open in the sidebar if you want to go slower.": "Всё одной кнопкой: самый подходящий список для вашего телевизора, отключение рекомендованных в нём пакетов, установка CleanMyTV Home и назначение его главным экраном. Затем откроется шаг «Главный экран», где его можно настроить. Ничего не удаляется, а если хотите идти не спеша, все шаги доступны на боковой панели.",
   "The other light in the picture.": "Второй источник света на картинке.",
   "the phone remote (Google TV / Android TV Remote app)": "пульт в телефоне (приложение Google TV / Android TV Remote)",
@@ -1374,5 +1376,16 @@
   "Row: {name}": "Ряд: {name}",
   "A row that's gone": "Ряд, которого больше нет",
   "Apps installed from now on land there by themselves and show New on the TV for a day. Updates stay where they are.": "Приложения, установленные с этого момента, сами попадут туда и сутки будут с меткой «Новое» на телевизоре. Обновления остаются на своих местах.",
-  "On Android 8 Home starts the screensaver instead of turning the TV off.": "На Android 8 Home вместо выключения телевизора запускает заставку."
+  "On Android 8 Home starts the screensaver instead of turning the TV off.": "На Android 8 Home вместо выключения телевизора запускает заставку.",
+  "the Open Shelf download went somewhere unexpected ({host})": "загрузка Open Shelf ушла по неожиданному адресу ({host})",
+  "couldn't download Open Shelf (HTTP {status})": "не удалось скачать Open Shelf (HTTP {status})",
+  "the Open Shelf download is over 64 MB": "загрузка Open Shelf больше 64 МБ",
+  "the Open Shelf download isn't Open Shelf; try again later": "скачанный файл не является Open Shelf; попробуйте позже",
+  "Open Shelf {v} is on the TV. Open it from the app list to browse and install apps.": "Open Shelf {v} установлен на телевизор. Откройте его из списка приложений, чтобы искать и устанавливать приложения.",
+  "Open Shelf is on the TV. Open it from the app list to browse and install apps.": "Open Shelf установлен на телевизор. Откройте его из списка приложений, чтобы искать и устанавливать приложения.",
+  "Open Shelf": "Open Shelf",
+  "An app store for the TV, from the maker of CleanMyTV. It lists free, open-source TV apps from GitHub and installs them with the remote.": "Магазин приложений для телевизора от автора CleanMyTV. В нём бесплатные приложения для ТВ с открытым кодом из GitHub, и он устанавливает их с пульта.",
+  "Open Shelf {v} is on the TV. It updates itself.": "Open Shelf {v} уже на телевизоре. Он обновляется сам.",
+  "Update Open Shelf to {v}": "Обновить Open Shelf до {v}",
+  "Install Open Shelf": "Установить Open Shelf"
 }

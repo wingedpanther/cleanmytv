@@ -1,6 +1,8 @@
 import { deflateRawSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
 import { apkInfo, manifestInfo } from '../src/main/apk'
+import { downloadOpenShelf } from '../src/main/sideload'
+import { englishOf } from '../src/main/i18n'
 
 /** A binary AndroidManifest.xml with one <manifest> element: package and versionName as strings, versionCode as an int. */
 function manifest(pkg: string, versionName: string, versionCode: number): Buffer {
@@ -50,5 +52,32 @@ describe('reading an APK', () => {
   it('says null for anything that is not an APK', () => {
     expect(apkInfo(Buffer.from('not a zip at all'))).toBeNull()
     expect(apkInfo(zip('readme.txt', Buffer.from('hi')))).toBeNull()
+  })
+})
+
+describe('Open Shelf from its GitHub release', () => {
+  const shelf = zip('AndroidManifest.xml', manifest('io.github.wingedpanther.openshelf', '0.10.0', 13))
+  /** GitHub's answers: the latest/download link sends the request on to `to`, which serves `body`. */
+  const github = (to: string, body: Buffer): typeof fetch => (async (u: URL | string) => {
+    const url = String(u)
+    if (url.endsWith('/releases/latest/download/OpenShelf.apk')) return new Response(null, { status: 302, headers: { location: to } })
+    if (url === to) return new Response(new Uint8Array(body))
+    return new Response('not found', { status: 404 })
+  }) as typeof fetch
+
+  it('follows GitHub to the file and checks it is Open Shelf', async () => {
+    const data = await downloadOpenShelf(github('https://release-assets.githubusercontent.com/x/OpenShelf.apk', shelf))
+    expect(apkInfo(data)).toMatchObject({ package: 'io.github.wingedpanther.openshelf', versionName: '0.10.0' })
+  })
+
+  it('stops at a redirect away from GitHub', async () => {
+    const e = await downloadOpenShelf(github('https://example.com/OpenShelf.apk', shelf)).catch((x: unknown) => x)
+    expect(englishOf(e)).toMatch(/went somewhere unexpected \(example\.com\)/)
+  })
+
+  it("won't pass on another app under Open Shelf's name", async () => {
+    const other = zip('AndroidManifest.xml', manifest('com.example.other', '1.0', 1))
+    const e = await downloadOpenShelf(github('https://release-assets.githubusercontent.com/x/OpenShelf.apk', other)).catch((x: unknown) => x)
+    expect(englishOf(e)).toMatch(/isn't Open Shelf/)
   })
 })

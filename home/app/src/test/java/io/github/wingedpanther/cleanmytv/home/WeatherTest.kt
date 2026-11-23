@@ -4,6 +4,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 
 class WeatherTest {
@@ -23,7 +24,7 @@ class WeatherTest {
     @Test fun `MET Norway reads as the current hour with the rest of today's high and low`() {
         val w = metNoReading(forecast, Instant.parse("2026-11-11T09:20:00Z"), ZoneId.of("Asia/Yekaterinburg"), fahrenheit = false)!!
         // 09:00 is the hour under way; 21:00 UTC is already tomorrow in Surgut (UTC+5).
-        assertEquals(WeatherNow(temp = -4, code = 85, day = true, high = -1, low = -9, metNo = true), w.copy(hours = emptyList()))
+        assertEquals(WeatherNow(temp = -4, code = 85, day = true, high = -1, low = -9, metNo = true), w.copy(hours = emptyList(), days = emptyList()))
     }
 
     @Test fun `MET Norway's hours are the ones still to come, with their own sky`() {
@@ -52,6 +53,39 @@ class WeatherTest {
         assertEquals(listOf(15, 16, 17, 18).map { Instant.parse("2026-07-01T%02d:00:00Z".format(it - 1)) }, w.hours.map { it.at })
         assertEquals(listOf(19, 20, 19, 17), w.hours.map { it.temp })
         assertEquals(listOf(3, 61, 80, 3), w.hours.map { it.code })
+    }
+
+    @Test fun `Open-Meteo's days start tomorrow (#143)`() {
+        val o = JSONObject("""{"utc_offset_seconds":0,
+            "current":{"temperature_2m":5.0,"weather_code":3,"is_day":1},
+            "daily":{"time":["2026-11-23","2026-11-24","2026-11-25","2026-11-26","2026-11-27","2026-11-28","2026-11-29"],
+                "temperature_2m_max":[8.0,9.4,7.6,null,6.0,5.5,4.0],"temperature_2m_min":[1.0,2.2,0.4,1.0,-1.6,-2.0,-3.0],
+                "weather_code":[3,61,0,3,71,2,1]}}""")
+        val w = openMeteoReading(o, Instant.parse("2026-11-23T10:00:00Z"))
+        assertEquals(8, w.high)
+        assertEquals(
+            listOf(
+                WeatherDay(LocalDate.parse("2026-11-24"), 9, 2, 61),
+                WeatherDay(LocalDate.parse("2026-11-25"), 8, 0, 0),
+                WeatherDay(LocalDate.parse("2026-11-27"), 6, -2, 71),
+                WeatherDay(LocalDate.parse("2026-11-28"), 6, -2, 2),
+                WeatherDay(LocalDate.parse("2026-11-29"), 4, -3, 1),
+            ),
+            w.days,
+        )
+    }
+
+    @Test fun `MET Norway's days come from their own steps, with the sky nearest midday`() {
+        val o = JSONObject("""{"properties":{"timeseries":[
+            ${step("2026-11-11T09:00:00Z", -4.2, "cloudy")},
+            ${step("2026-11-12T00:00:00Z", -8.0, "clearsky_night")},
+            ${step("2026-11-12T06:00:00Z", -9.5, "fair_day")},
+            ${step("2026-11-12T12:00:00Z", -2.4, "lightsnow")},
+            ${step("2026-11-12T18:00:00Z", -6.0, null)},
+            ${step("2026-11-13T12:00:00Z", 1.0, "rain")}
+        ]}}""")
+        val w = metNoReading(o, Instant.parse("2026-11-11T09:20:00Z"), ZoneId.of("UTC"), fahrenheit = false)!!
+        assertEquals(listOf(WeatherDay(LocalDate.parse("2026-11-12"), -2, -9, 71), WeatherDay(LocalDate.parse("2026-11-13"), 1, 1, 63)), w.days)
     }
 
     @Test fun `MET Norway in Fahrenheit, and night from the symbol`() {

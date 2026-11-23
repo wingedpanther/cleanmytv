@@ -396,6 +396,8 @@ export interface HomeConfig {
   weather_unit: 'c' | 'f'
   /** The next four hours under the weather: time, sky and temperature. */
   weather_hours: boolean
+  /** The next 5 days under the weather (#143). */
+  weather_days: boolean
   /** Free memory under the clock (launcher 1.7.5). */
   memory: boolean
   /** Day and night looks take turns at day_at and night_at, minutes past midnight (launcher 1.7.5). */
@@ -595,6 +597,14 @@ export interface BackupPreview {
 }
 
 /** An .apk the owner picked, read before it goes to the TV. */
+/** Open Shelf, the project's app store for the TV: the version on the TV and the newest release. */
+export interface OpenShelfInfo {
+  installed: string | null
+  latest: string | null
+  /** The TV has an older version than the newest release. */
+  update: boolean
+}
+
 export interface SideloadInfo {
   file: string
   size: number
@@ -791,6 +801,10 @@ export interface CytvApi {
   sideloadInfo(path: string): Promise<SideloadInfo>
   /** Installs an .apk on this computer on the TV. */
   sideload(path: string): Promise<ApplyResult>
+  /** Open Shelf on the TV and its newest release. */
+  openShelf(): Promise<OpenShelfInfo>
+  /** Downloads the newest Open Shelf from GitHub and installs it on the TV. */
+  installOpenShelf(): Promise<ApplyResult>
   /** The path of a file dropped on or picked in the window. */
   pathForFile(file: File): string
   /** Clears every app's cache on the TV. */

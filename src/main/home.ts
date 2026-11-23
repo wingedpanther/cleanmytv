@@ -31,7 +31,7 @@ export const DEFAULTS: HomeConfig = {
   fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0,
   slide_minutes: 0, slide_from: 'mine', other_apps: false, live_tv: true,
   clock: 'time_date', greeting: '', names: {}, idle_minutes: 0,
-  weather_place: '', weather_lat: 0, weather_lon: 0, weather_unit: 'c', weather_hours: false, memory: false,
+  weather_place: '', weather_lat: 0, weather_lon: 0, weather_unit: 'c', weather_hours: false, weather_days: false, memory: false,
   day_night: false, day_at: 7 * 60, night_at: 19 * 60,
   bedtime_on: false, bedtime_at: 23 * 60 + 30, bedtime_days: [1, 2, 3, 4, 5, 6, 7], input_tiles: false,
   visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
@@ -76,7 +76,7 @@ const RANGES = {
   shade_top: [0, 100], shade_top_reach: [0, 100], shade_bottom: [0, 100], shade_bottom_reach: [0, 100], wash: [0, 100], wash_reach: [10, 100]
 } as const
 
-const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night', 'power_on_input', 'edit_on_tv', 'bing_daily', 'bing_caption', 'theme_memory', 'lock_editor', 'update_check', 'keyboard_guard', 'snow', 'weather_hours', 'bedtime_on', 'input_tiles'] as const
+const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night', 'power_on_input', 'edit_on_tv', 'bing_daily', 'bing_caption', 'theme_memory', 'lock_editor', 'update_check', 'keyboard_guard', 'snow', 'weather_hours', 'weather_days', 'bedtime_on', 'input_tiles'] as const
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 /** Lets the launcher see other apps' media sessions; on only while the Now playing section is. */
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`

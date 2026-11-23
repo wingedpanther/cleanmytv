@@ -91,6 +91,13 @@ fun WidgetCustomization(config: HomeConfig, ctx: Context) {
             onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("weather_hours", it)) }
         )
 
+        TvSwitch(
+            title = tr("Daily forecast"),
+            subtitle = tr("The next 5 days under the weather"),
+            checked = config.weatherDays,
+            onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("weather_days", it)) }
+        )
+
         TvSlider(
             title = tr("Idle screen after"),
             value = config.idleMinutes,

@@ -7,6 +7,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -14,15 +15,24 @@ import java.util.Locale
 
 /**
  * The weather now, in the unit the desktop app chose. `code` is a WMO weather code. `metNo` asks for MET
- * Norway's credit. `hours` are the next few hours, for the hourly forecast under the clock.
+ * Norway's credit. `hours` are the next few hours and `days` the next few days, for the forecasts under the clock.
  */
-data class WeatherNow(val temp: Int, val code: Int, val day: Boolean, val high: Int, val low: Int, val metNo: Boolean = false, val hours: List<WeatherHour> = emptyList())
+data class WeatherNow(
+    val temp: Int, val code: Int, val day: Boolean, val high: Int, val low: Int, val metNo: Boolean = false,
+    val hours: List<WeatherHour> = emptyList(), val days: List<WeatherDay> = emptyList(),
+)
 
 /** One hour ahead: when it starts, its temperature and its sky. */
 data class WeatherHour(val at: Instant, val temp: Int, val code: Int, val day: Boolean)
 
+/** One day ahead, in the place's own calendar: its high, its low and its sky. */
+data class WeatherDay(val date: LocalDate, val high: Int, val low: Int, val code: Int)
+
 /** How many hours the hourly forecast shows. */
 const val FORECAST_HOURS = 4
+
+/** How many days the daily forecast shows, from tomorrow; today's high and low are on the weather line. */
+const val FORECAST_DAYS = 5
 
 /**
  * Open-Meteo: free, no key, no account. One small request every 30 minutes while Home is open.
@@ -46,9 +56,9 @@ object Weather {
         val url = String.format(
             Locale.US,
             "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current=temperature_2m,weather_code,is_day" +
-                "&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&hourly=temperature_2m,weather_code,is_day&forecast_hours=%d" +
+                "&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=%d&hourly=temperature_2m,weather_code,is_day&forecast_hours=%d" +
                 "&timezone=auto&temperature_unit=%s",
-            cfg.weatherLat, cfg.weatherLon, FORECAST_HOURS + 2, if (cfg.weatherUnit == "f") "fahrenheit" else "celsius",
+            cfg.weatherLat, cfg.weatherLon, FORECAST_DAYS + 1, FORECAST_HOURS + 2, if (cfg.weatherUnit == "f") "fahrenheit" else "celsius",
         )
         val o = get(url) ?: return null
         return openMeteoReading(o, Instant.now())
@@ -78,7 +88,8 @@ object Weather {
 
 /**
  * An Open-Meteo answer as a reading. Its hours start with the one under way and are in the place's own
- * time, so `utc_offset_seconds` turns them into instants; only the hours still to come are kept.
+ * time, so `utc_offset_seconds` turns them into instants; only the hours still to come are kept. Its days
+ * start with today, which the weather line already shows.
  */
 fun openMeteoReading(o: JSONObject, now: Instant): WeatherNow {
     val current = o.getJSONObject("current")
@@ -94,6 +105,14 @@ fun openMeteoReading(o: JSONObject, now: Instant): WeatherNow {
             hours += WeatherHour(at, Math.round(t).toInt(), h.getJSONArray("weather_code").optInt(i), h.getJSONArray("is_day").optInt(i, 1) == 1)
         }
     }
+    val days = mutableListOf<WeatherDay>()
+    val dates = daily.optJSONArray("time")
+    if (dates != null) for (i in 1 until dates.length()) {
+        val hi = daily.getJSONArray("temperature_2m_max").optDouble(i)
+        val lo = daily.getJSONArray("temperature_2m_min").optDouble(i)
+        if (hi.isNaN() || lo.isNaN() || days.size == FORECAST_DAYS) continue
+        days += WeatherDay(LocalDate.parse(dates.getString(i)), Math.round(hi).toInt(), Math.round(lo).toInt(), daily.optJSONArray("weather_code")?.optInt(i, 3) ?: 3)
+    }
     return WeatherNow(
         temp = Math.round(current.getDouble("temperature_2m")).toInt(),
         code = current.getInt("weather_code"),
@@ -101,12 +120,14 @@ fun openMeteoReading(o: JSONObject, now: Instant): WeatherNow {
         high = Math.round(daily.getJSONArray("temperature_2m_max").getDouble(0)).toInt(),
         low = Math.round(daily.getJSONArray("temperature_2m_min").getDouble(0)).toInt(),
         hours = hours,
+        days = days,
     )
 }
 
 /**
  * A MET Norway forecast as a reading: the first hour that isn't over yet, and today's high and low from
- * the hours left in the TV's own day, then the next few hours. Temperatures come in Celsius.
+ * the hours left in the TV's own day, then the next few hours. Each later day's high and low come from its
+ * own steps, and its sky from the step nearest midday. Temperatures come in Celsius.
  */
 fun metNoReading(o: JSONObject, now: Instant, zone: ZoneId, fahrenheit: Boolean): WeatherNow? {
     val series = o.getJSONObject("properties").getJSONArray("timeseries")
@@ -115,6 +136,7 @@ fun metNoReading(o: JSONObject, now: Instant, zone: ZoneId, fahrenheit: Boolean)
     var current: JSONObject? = null
     val temps = mutableListOf<Double>()
     val hours = mutableListOf<WeatherHour>()
+    val later = sortedMapOf<LocalDate, MutableList<Pair<Int, JSONObject>>>()
     fun unit(c: Double) = Math.round(if (fahrenheit) c * 9 / 5 + 32 else c).toInt()
     fun skyOf(data: JSONObject) = data.optJSONObject("next_1_hours")?.optJSONObject("summary")?.optString("symbol_code")
         ?: data.optJSONObject("next_6_hours")?.optJSONObject("summary")?.optString("symbol_code") ?: ""
@@ -124,7 +146,9 @@ fun metNoReading(o: JSONObject, now: Instant, zone: ZoneId, fahrenheit: Boolean)
         if (at.isBefore(hourAgo)) continue
         if (current == null) current = step
         val t = step.getJSONObject("data").getJSONObject("instant").getJSONObject("details").optDouble("air_temperature")
-        if (at.atZone(zone).toLocalDate() == today && !t.isNaN()) temps += t
+        val local = at.atZone(zone)
+        if (local.toLocalDate() == today && !t.isNaN()) temps += t
+        if (local.toLocalDate().isAfter(today) && !t.isNaN()) later.getOrPut(local.toLocalDate()) { mutableListOf() } += local.hour to step
         if (at.isAfter(now) && !t.isNaN() && hours.size < FORECAST_HOURS) {
             val sky = skyOf(step.getJSONObject("data"))
             hours += WeatherHour(at, unit(t), wmoCode(sky), !sky.endsWith("_night") && !sky.endsWith("_polartwilight"))
@@ -142,6 +166,11 @@ fun metNoReading(o: JSONObject, now: Instant, zone: ZoneId, fahrenheit: Boolean)
         low = unit(temps.minOrNull() ?: temp),
         metNo = true,
         hours = hours,
+        days = later.entries.take(FORECAST_DAYS).map { (date, steps) ->
+            val ts = steps.map { it.second.getJSONObject("data").getJSONObject("instant").getJSONObject("details").getDouble("air_temperature") }
+            val noon = steps.filter { skyOf(it.second.getJSONObject("data")).isNotEmpty() }.minByOrNull { Math.abs(it.first - 12) }
+            WeatherDay(date, unit(ts.max()), unit(ts.min()), noon?.let { wmoCode(skyOf(it.second.getJSONObject("data"))) } ?: 3)
+        },
     )
 }
 

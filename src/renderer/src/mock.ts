@@ -1,6 +1,7 @@
 // A fake TV for viewing the UI in a plain browser (npm run dev without Electron, or vite preview).
 // Installed only when the preload script did not provide window.cytv.
 import type {
+  OpenShelfInfo,
   AppSize,
   ApplyResult,
   CheckItem,
@@ -58,6 +59,7 @@ export function installMock(): void {
   let launcherInstalled = false
   let launcherHome = false
   let homeInstalled = false
+  let shelf: OpenShelfInfo = new URLSearchParams(location.search).has('shelf') ? { installed: '0.9.0', latest: '0.10.0', update: true } : { installed: null, latest: '0.10.0', update: false }
   let homeIsHome = false
   let googleKept = false
   let keySeq = 0
@@ -71,7 +73,7 @@ export function installMock(): void {
     icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, intro: true, wallpaper_from: '',
     lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge', fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0, slide_minutes: 0, slide_from: 'mine', other_apps: false, live_tv: true, slides_on_tv: 0, fire_on_tv: false, lock_pin_set: false, themes_on_tv: 0, can_change_settings: true,
     clock: 'time_date', greeting: '', names: {}, idle_minutes: 0,
-    weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'c', weather_hours: false, memory: false, day_night: false, day_at: 420, night_at: 1140, bedtime_on: false, bedtime_at: 1410, bedtime_days: [1, 2, 3, 4, 5, 6, 7], input_tiles: false, looks_saved: [],
+    weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'c', weather_hours: false, weather_days: false, memory: false, day_night: false, day_at: 420, night_at: 1140, bedtime_on: false, bedtime_at: 1410, bedtime_days: [1, 2, 3, 4, 5, 6, 7], input_tiles: false, looks_saved: [],
     visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100,
     has_wallpaper: false,
     tv_inputs: [{ id: 'com.mediatek.tvinput/.hdmi.HDMIInputService/HW5', name: 'PlayStation 5' }, { id: 'com.mediatek.tvinput/.hdmi.HDMIInputService/HW6', name: 'HDMI 2' }]
@@ -585,6 +587,16 @@ export function installMock(): void {
       for (let i = 1; i <= 20; i++) { await wait(80); progress.forEach((cb) => cb({ tool: 'sideload', received: i, total: 20, phase: 'install' })) }
       progress.forEach((cb) => cb({ tool: 'sideload', received: 1, total: 1, phase: 'done' }))
       return { ok: true, summary: "Installed org.videolan.vlc 3.6.4. It's in Home's app list now.", warnings: [] }
+    },
+    async openShelf() {
+      await wait(400)
+      return shelf
+    },
+    async installOpenShelf() {
+      for (let i = 1; i <= 20; i++) { await wait(80); progress.forEach((cb) => cb({ tool: 'sideload', received: i, total: 20, phase: 'install' })) }
+      progress.forEach((cb) => cb({ tool: 'sideload', received: 1, total: 1, phase: 'done' }))
+      shelf = { installed: '0.10.0', latest: '0.10.0', update: false }
+      return { ok: true, summary: 'Open Shelf 0.10.0 is on the TV. Open it from the app list to browse and install apps.', warnings: [] }
     },
     pathForFile(file) { return '/Users/you/Downloads/' + file.name },
     async fixScreensaver() {

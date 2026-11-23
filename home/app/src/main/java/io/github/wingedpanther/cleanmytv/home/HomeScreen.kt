@@ -645,6 +645,7 @@ private fun ShelfLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (
                     Clock(cfg, 26.sp, 12.sp, Alignment.End)
                     WeatherLine(ui, 13.sp, Modifier.padding(top = 4.dp))
                     HourLine(ui, 13.sp, Modifier.padding(top = 6.dp))
+                    DayLine(ui, 13.sp, Modifier.padding(top = 6.dp))
                     MemoryLine(ui, 13.sp, Modifier.padding(top = 4.dp))
                     if (quick.isNotEmpty()) {
                         if (cfg.clock != "off") Spacer(Modifier.height(10.dp))
@@ -669,6 +670,7 @@ private fun SplitLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (
             WeatherLine(ui, 15.sp, Modifier.padding(top = 6.dp))
             // 13 sp keeps four hours inside the left third.
             HourLine(ui, 13.sp, Modifier.padding(top = 8.dp))
+            DayLine(ui, 13.sp, Modifier.padding(top = 8.dp))
             MemoryLine(ui, 15.sp, Modifier.padding(top = 6.dp))
             Spacer(Modifier.height(14.dp))
             Greeting(cfg, 18.sp)
@@ -713,6 +715,7 @@ private fun RailLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Q
                     Clock(cfg, 26.sp, 12.sp, Alignment.End)
                     WeatherLine(ui, 13.sp, Modifier.padding(top = 4.dp))
                     HourLine(ui, 13.sp, Modifier.padding(top = 6.dp))
+                    DayLine(ui, 13.sp, Modifier.padding(top = 6.dp))
                     MemoryLine(ui, 13.sp, Modifier.padding(top = 4.dp))
                 }
             }
@@ -1306,6 +1309,26 @@ private fun HourLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: 
     }
 }
 
+/** The next few days, when the owner turns them on (#143): each day's short name over its sky, high and low. */
+@Composable
+private fun DayLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
+    val days = ui.weather?.days?.takeIf { ui.cfg.weatherDays && it.isNotEmpty() } ?: return
+    val format = remember { java.time.format.DateTimeFormatter.ofPattern("EEE", java.util.Locale.getDefault()) }
+    val icon = with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.2f }
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        days.forEach { d ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(d.date.format(format), color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(weatherIcon(d.code, true), null, Modifier.size(icon), colorFilter = ColorFilter.tint(MUTED))
+                    Spacer(Modifier.width(4.dp))
+                    Text("${d.high}°/${d.low}°", color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
 /** Free memory, in the weather's quiet style, and when the sleep timer turns the TV off. */
 @Composable
 private fun MemoryLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
@@ -1457,6 +1480,7 @@ private fun IdleScreen(ui: Ui, modifier: Modifier) {
                 Clock(ui.cfg, 120.sp, 22.sp, Alignment.CenterHorizontally)
                 WeatherLine(ui, 18.sp, Modifier.padding(top = 12.dp))
                 HourLine(ui, 18.sp, Modifier.padding(top = 12.dp))
+                DayLine(ui, 18.sp, Modifier.padding(top = 12.dp))
             }
             else -> {
                 if (ui.cfg.idleStyle == "photos") IdlePhotos()
@@ -1464,6 +1488,7 @@ private fun IdleScreen(ui: Ui, modifier: Modifier) {
                     Clock(ui.cfg, 64.sp, 18.sp, Alignment.Start)
                     WeatherLine(ui, 16.sp, Modifier.padding(top = 8.dp))
                     HourLine(ui, 16.sp, Modifier.padding(top = 10.dp))
+                    DayLine(ui, 16.sp, Modifier.padding(top = 10.dp))
                 }
             }
         }

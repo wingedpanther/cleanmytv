@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
-import type { ApplyResult, SideloadInfo } from '@shared/api'
+import type { ApplyResult, OpenShelfInfo, SideloadInfo } from '@shared/api'
 import type { ScreenProps } from '../App'
 import { ActionButton, ResultNotice, errorText, usePhase } from '../components/ui'
 import { t } from '../lib/i18n'
@@ -16,6 +16,26 @@ export function Sideload(_props: ScreenProps): ReactNode {
   const [phase, setPhase] = usePhase()
   const [sent, setSent] = useState<{ received: number; total: number } | null>(null)
   const file = useRef<HTMLInputElement>(null)
+  const [shelf, setShelf] = useState<OpenShelfInfo | null>(null)
+  const [shelfPhase, setShelfPhase] = usePhase()
+
+  useEffect(() => { window.cytv.openShelf().then(setShelf, () => setShelf(null)) }, [])
+
+  async function getShelf(): Promise<void> {
+    setShelfPhase('busy')
+    setResult(null)
+    try {
+      const r = await window.cytv.installOpenShelf()
+      setShelfPhase(r.ok ? 'done' : 'failed')
+      setResult(r)
+      setShelf(await window.cytv.openShelf())
+    } catch (e) {
+      setShelfPhase('failed')
+      setResult({ ok: false, summary: errorText(e), warnings: [] })
+    } finally {
+      setSent(null)
+    }
+  }
 
   useEffect(() => window.cytv.onProgress((p) => {
     if (p.tool === 'sideload') setSent(p.phase === 'done' ? null : { received: p.received, total: p.total })
@@ -61,18 +81,47 @@ export function Sideload(_props: ScreenProps): ReactNode {
     void pick(e.dataTransfer.files?.[0])
   }
 
-  const busy = phase === 'busy'
+  const busy = phase === 'busy' || shelfPhase === 'busy'
+  const sending = sent && (
+    <>
+      <div className="progress"><div style={{ width: `${Math.round((sent.received / Math.max(1, sent.total)) * 100)}%` }} /></div>
+      <p className="small muted">{t('Sending to the TV: {pct}%', { pct: Math.round((sent.received / Math.max(1, sent.total)) * 100) })}</p>
+    </>
+  )
   return (
     <>
       <h1>{t('Install an app')}</h1>
       <p className="lede">{t("Put an app on the TV that isn't in its store. Download the app's .apk file on this computer, then drop it here.")}</p>
 
+      <ResultNotice result={result} onDismiss={() => setResult(null)} />
+
+      <div className="card">
+        <h2>{t('Open Shelf')}</h2>
+        <p className="muted">
+          {t('An app store for the TV, from the maker of CleanMyTV. It lists free, open-source TV apps from GitHub and installs them with the remote.')}
+        </p>
+        {shelf?.installed && !shelf.update ? (
+          <p className="small muted" style={{ marginBottom: 0 }}>{t('Open Shelf {v} is on the TV. It updates itself.', { v: shelf.installed })}</p>
+        ) : (
+          <div className="row">
+            <ActionButton
+              phase={shelfPhase}
+              primary
+              label={shelf?.update ? t('Update Open Shelf to {v}', { v: shelf.latest ?? '' }) : t('Install Open Shelf')}
+              busyLabel={t('Installing')}
+              doneLabel={t('Installed')}
+              disabled={busy}
+              onClick={() => void getShelf()}
+            />
+          </div>
+        )}
+        {shelfPhase === 'busy' && sending}
+      </div>
+
       <div className="notice warn">
         <b>{t('Only install apps you trust.')}</b>{' '}
         {t("An app from outside the Play Store hasn't been checked by Google. It can show ads, collect what you watch, or harm the TV. Get apps from their maker's own website, and skip anything that asks for more than it needs.")}
       </div>
-
-      <ResultNotice result={result} onDismiss={() => setResult(null)} />
 
       <div
         className={`drop-zone${over ? ' over' : ''}`}
@@ -115,12 +164,7 @@ export function Sideload(_props: ScreenProps): ReactNode {
             <ActionButton phase={phase} primary label={info.installed ? t('Update on the TV') : t('Install on the TV')} busyLabel={t('Installing')} doneLabel={t('Installed')} disabled={busy} onClick={() => void install()} />
             {!busy && <button className="btn ghost" onClick={() => { setInfo(null); setPath(null) }}>{t('Cancel')}</button>}
           </div>
-          {sent && (
-            <>
-              <div className="progress"><div style={{ width: `${Math.round((sent.received / Math.max(1, sent.total)) * 100)}%` }} /></div>
-              <p className="small muted">{t('Sending to the TV: {pct}%', { pct: Math.round((sent.received / Math.max(1, sent.total)) * 100) })}</p>
-            </>
-          )}
+          {phase === 'busy' && sending}
         </div>
       )}
     </>

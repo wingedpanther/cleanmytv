@@ -1010,6 +1010,8 @@
   "The Mi button on Xiaomi remotes opens PatchWall, so it does nothing once PatchWall is off. CleanMyTV Home can make it go Home instead. If it still does nothing after this, press Listen below and press the Mi button to see what it sends.": "El botón Mi de los mandos Xiaomi abre PatchWall, por lo que dejará de funcionar si PatchWall está desactivado. CleanMyTV Home puede hacer que abra Inicio en su lugar. Si aun así no ocurre nada, pulsa Escuchar más abajo y después el botón Mi para comprobar qué señal envía.",
   "The new version's disk image is open in Finder. Quit CleanMyTV, drag the new one into Applications and replace the old one, then open it.": "La imagen de disco de la nueva versión se ha abierto en Finder. Cierra CleanMyTV, arrastra la nueva aplicación a Aplicaciones para sustituir la anterior y vuelve a abrirla.",
   "The next 4 hours under the weather: the time, the sky and the temperature.": "Muestra las próximas 4 horas debajo de la información meteorológica: hora, estado del cielo y temperatura.",
+  "Daily forecast": "Previsión diaria",
+  "The next 5 days under the weather: the day, the sky, the high and the low.": "Los próximos 5 días bajo el tiempo: el día, el cielo, la máxima y la mínima.",
   "The one-button path: the best-matching list for your TV, its suggested packages off, CleanMyTV Home installed and set as Home — then you land on the Home screen step to arrange it. Nothing is uninstalled and every step stays open in the sidebar if you want to go slower.": "La ruta de un solo botón: selecciona automáticamente la lista más adecuada para tu TV, desactiva los paquetes recomendados, instala CleanMyTV Home y lo establece como pantalla de Inicio. Después accederás al apartado Pantalla de inicio para personalizarlo. No se desinstala nada y todos los pasos seguirán accesibles desde la barra lateral si prefieres realizar el proceso más despacio.",
   "The other light in the picture.": "La otra fuente de luz de la imagen.",
   "the phone remote (Google TV / Android TV Remote app)": "el mando remoto del teléfono (Google TV / Android TV Remote)",
@@ -1374,5 +1376,16 @@
   "Row: {name}": "Fila: {name}",
   "A row that's gone": "Una fila que ya no existe",
   "Apps installed from now on land there by themselves and show New on the TV for a day. Updates stay where they are.": "Las aplicaciones que se instalen a partir de ahora irán ahí solas y mostrarán «Nueva» en el TV durante un día. Las actualizaciones se quedan donde están.",
-  "On Android 8 Home starts the screensaver instead of turning the TV off.": "En Android 8, Home inicia el salvapantallas en lugar de apagar el TV."
+  "On Android 8 Home starts the screensaver instead of turning the TV off.": "En Android 8, Home inicia el salvapantallas en lugar de apagar el TV.",
+  "the Open Shelf download went somewhere unexpected ({host})": "la descarga de Open Shelf fue a un sitio inesperado ({host})",
+  "couldn't download Open Shelf (HTTP {status})": "no se pudo descargar Open Shelf (HTTP {status})",
+  "the Open Shelf download is over 64 MB": "la descarga de Open Shelf ocupa más de 64 MB",
+  "the Open Shelf download isn't Open Shelf; try again later": "la descarga no es Open Shelf; inténtalo más tarde",
+  "Open Shelf {v} is on the TV. Open it from the app list to browse and install apps.": "Open Shelf {v} ya está en el TV. Ábrelo desde la lista de aplicaciones para buscar e instalar aplicaciones.",
+  "Open Shelf is on the TV. Open it from the app list to browse and install apps.": "Open Shelf ya está en el TV. Ábrelo desde la lista de aplicaciones para buscar e instalar aplicaciones.",
+  "Open Shelf": "Open Shelf",
+  "An app store for the TV, from the maker of CleanMyTV. It lists free, open-source TV apps from GitHub and installs them with the remote.": "Una tienda de aplicaciones para el TV, del creador de CleanMyTV. Reúne aplicaciones de TV gratuitas y de código abierto de GitHub y las instala con el mando.",
+  "Open Shelf {v} is on the TV. It updates itself.": "Open Shelf {v} ya está en el TV. Se actualiza solo.",
+  "Update Open Shelf to {v}": "Actualizar Open Shelf a {v}",
+  "Install Open Shelf": "Instalar Open Shelf"
 }
