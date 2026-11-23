@@ -294,6 +294,9 @@ export function parse(out: string): HomeConfig {
   if (typeof o.configured === 'boolean') cfg.configured = o.configured
   if (typeof o.lock_pin_set === 'boolean') cfg.lock_pin_set = o.lock_pin_set
   if (typeof o.themes_on_tv === 'number') cfg.themes_on_tv = o.themes_on_tv
+  // Without these the Fireplace card never knew the fireplace was on the TV, so it had no Take it off (#144).
+  if (typeof o.fire_on_tv === 'boolean') cfg.fire_on_tv = o.fire_on_tv
+  if (typeof o.slides_on_tv === 'number') cfg.slides_on_tv = o.slides_on_tv
   if (typeof o.can_change_settings === 'boolean') cfg.can_change_settings = o.can_change_settings
   if (Array.isArray(o.looks_saved)) cfg.looks_saved = o.looks_saved.filter((l): l is LookSlot => l === 'day' || l === 'night')
   // Older launchers don't report this; leave it unset so the editor doesn't mark everything unavailable.

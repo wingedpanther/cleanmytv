@@ -35,4 +35,10 @@ describe('new Home settings from the desktop app', () => {
     expect(parse('Result: Bundle[{config={}}]').new_apps_to).toBe('')
     expect(parse(`Result: Bundle[{config=${JSON.stringify({ new_apps_to: 'Watch' })}}]`).new_apps_to).toBe('Watch')
   })
+
+  it('reads what Home says is on the TV, so the fireplace card offers Take it off (#144)', () => {
+    const cfg = parse(`Result: Bundle[{config=${JSON.stringify({ fire_on_tv: true, slides_on_tv: 3, themes_on_tv: 31 })}}]`)
+    expect(cfg).toMatchObject({ fire_on_tv: true, slides_on_tv: 3, themes_on_tv: 31 })
+    expect(parse('Result: Bundle[{config={"fire_on_tv":"yes"}}]').fire_on_tv).toBeUndefined()
+  })
 })
