@@ -275,7 +275,6 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(from)) || !/^\d{4}-\d{2}-\d{2}$/.test(String(to))) throw new UiError('Pick the days first.')
     const data = await home.screenTime()
     const names = new Map((await home.apps().catch(() => [])).map((a) => [a.pkg, a.label]))
-    names.set(launcher.HOME_PKG, 'Home screen')
     for (const [k, v] of Object.entries(data.names)) names.set(k, v)
     const csv = screenTimeCsv(daysBetween(data.days, from, to), (p) => names.get(p) ?? p)
     const path = await saveDialog({ title: t('Save the screen time'), defaultPath: join(app.getPath('documents'), `cleanmytv-screen-time-${from}-to-${to}.csv`), filters: [{ name: 'CSV', extensions: ['csv'] }] })

@@ -34,7 +34,6 @@ function mockScreenTime(): ScreenTimeData {
     const apps: Record<string, number> = {
       'com.google.android.youtube.tv': Math.round(4200 * k),
       'com.netflix.ninja': Math.round(3000 * k),
-      'io.github.wingedpanther.cleanmytv.home': Math.round(900 * k),
       'com.spotify.tv.android': i % 3 ? Math.round(1200 * k) : 0,
       'cmtv_input.hw1': weekend ? Math.round(2400 * k) : 0
     }

@@ -83,12 +83,14 @@ object ScreenTime {
      * After an [INPUT], the TV's player counts as that input (PS5, not "Live TV") until it leaves the front.
      * Home's own screens ([self]) in between, like the tile's hand-off, don't take it. An input picked from
      * the TV's own menu while the player is up isn't seen, so that time stays with the input Home opened.
+     * Time on Home itself isn't counted: the TV sitting on Home isn't time spent watching anything.
      */
     fun tally(events: List<Ev>, to: Long, zone: ZoneId, self: String = ""): Map<LocalDate, DayUse> {
         val apps = HashMap<LocalDate, HashMap<String, Long>>()
         val hours = HashMap<LocalDate, LongArray>()
         val pieces = ArrayList<Triple<String, Long, Long>>()
         fun add(pkg: String, from: Long, until: Long) {
+            if (self.isNotEmpty() && pkg == self) return
             if (until > from) pieces.add(Triple(pkg, from, until))
             var t = from
             while (t < until) {
@@ -230,8 +232,9 @@ object ScreenTime {
         var through: LocalDate? = null
         runCatching {
             val o = JSONObject(file(ctx).readText())
-            // Before 3, a TV whose clock started ahead saved its days empty: those are read again from Android.
-            if (o.optInt("v") < 3) return@runCatching
+            // Before 3, a TV whose clock started ahead saved its days empty; before 4, days counted the time on
+            // Home itself. Those are read again from Android.
+            if (o.optInt("v") < 4) return@runCatching
             through = o.optString("through").takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) }
             val all = o.getJSONObject("days")
             for (key in all.keys()) LocalDate.parse(key).let { day -> days[day] = DayUse.from(day, all.getJSONObject(key)) }
@@ -244,7 +247,7 @@ object ScreenTime {
         val (days, through) = cache ?: return
         val all = JSONObject()
         for ((day, use) in days) all.put(day.toString(), use.json())
-        val o = JSONObject().put("v", 3).put("through", through?.toString() ?: "").put("days", all)
+        val o = JSONObject().put("v", 4).put("through", through?.toString() ?: "").put("days", all)
         runCatching {
             val tmp = File(ctx.filesDir, "screentime.json.tmp")
             tmp.writeText(o.toString())

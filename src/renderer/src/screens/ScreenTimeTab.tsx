@@ -7,7 +7,6 @@ import { t } from '../lib/i18n'
 type SetFn = (change: Partial<HomeConfig>, wait?: number) => void
 type Period = '1' | '7' | '30' | 'custom'
 
-const HOME = 'io.github.wingedpanther.cleanmytv.home'
 /** Minutes; 0 is no goal. */
 const GOALS = [0, 60, 90, 120, 150, 180, 240, 300, 360]
 
@@ -96,7 +95,7 @@ export function ScreenTimeTab({ cfg, set, apps }: { cfg: HomeConfig; set: SetFn;
   }
   useEffect(load, [on])
 
-  const label = (p: string): string => (p === HOME ? t('Home screen') : (data?.names[p] ?? apps.find((a) => a.pkg === p)?.label ?? p))
+  const label = (p: string): string => data?.names[p] ?? apps.find((a) => a.pkg === p)?.label ?? p
   const today = data?.today || new Date().toISOString().slice(0, 10)
   const first = data?.first || today
   const from = period === 'custom' ? (customFrom && customFrom >= first ? customFrom : addDays(today, -13) < first ? first : addDays(today, -13)) : addDays(today, 1 - Number(period))

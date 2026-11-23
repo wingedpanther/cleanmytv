@@ -60,6 +60,18 @@ class ScreenTimeTest {
         assertEquals(15 * min, d.apps["home"])
     }
 
+    @Test fun `time on Home itself isn't counted`() {
+        val d = ScreenTime.tally(listOf(
+            Ev(at("2026-11-20T18:00"), "home", START),
+            Ev(at("2026-11-20T18:30"), "youtube", START),
+            Ev(at("2026-11-20T19:00"), "home", START),
+        ), at("2026-11-20T23:00"), zone, self = "home")[day]!!
+        assertEquals(mapOf("youtube" to 30 * min), d.apps)
+        assertEquals(30 * min, d.total)
+        assertEquals(30 * min, d.hours[18])
+        assertEquals(setOf("youtube"), d.stats.keys)
+    }
+
     @Test fun `events after the end are left for the next look`() {
         val d = ScreenTime.tally(listOf(
             Ev(at("2026-11-20T08:00"), "news", START),

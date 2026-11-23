@@ -78,15 +78,14 @@ class ScreenSummary(val week: List<DayUse>, val top: List<UsedApp>, val lastWeek
 object ScreenTimeApps {
     private val known = HashMap<String, Pair<String, ImageBitmap?>>()
 
-    /** Names and icons, looked up once. Home itself is "Home screen"; an app since removed keeps its package name. */
+    /** Names and icons, looked up once. An app since removed keeps its package name. */
     @Synchronized
     fun info(ctx: Context, pkg: String): Pair<String, ImageBitmap?> = known.getOrPut(pkg) {
         if (InputTiles.isInput(pkg)) return@getOrPut (ScreenTime.inputNames(ctx)[pkg] ?: tr("Input")) to null
         val pm = ctx.packageManager
         runCatching {
             val ai = pm.getApplicationInfo(pkg, 0)
-            val label = if (pkg == ctx.packageName) tr("Home screen") else pm.getApplicationLabel(ai).toString()
-            label to runCatching { pm.getApplicationIcon(ai).toBitmap(96, 96).asImageBitmap() }.getOrNull()
+            pm.getApplicationLabel(ai).toString() to runCatching { pm.getApplicationIcon(ai).toBitmap(96, 96).asImageBitmap() }.getOrNull()
         }.getOrDefault(pkg to null)
     }
 
@@ -446,11 +445,6 @@ private fun AppDetail(all: List<DayUse>, pkg: String, from: LocalDate, to: Local
         }
         Spacer(Modifier.width(28.dp))
         Column(Modifier.weight(0.42f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (pkg == ctx.packageName) {
-                Text(tr("This is the time on Home's own screen."), color = ST_MUTED, fontSize = 15.sp)
-                Spacer(Modifier.focusRequester(firstChip).size(1.dp))
-                return@Column
-            }
             Text(tr("Daily limit"), color = ST_TEXT, fontSize = 18.sp, fontWeight = FontWeight.Medium)
             Text(limit?.let { tr("{time} a day, then it needs the PIN", "time" to Limits.words(it)) } ?: tr("No limit"), color = ST_MUTED, fontSize = 15.sp)
             (listOf(0) + LIMIT_CHOICES).chunked(4).forEachIndexed { r, row ->
