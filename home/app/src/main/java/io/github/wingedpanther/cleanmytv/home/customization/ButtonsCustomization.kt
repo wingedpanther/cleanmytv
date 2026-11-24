@@ -140,6 +140,19 @@ fun ButtonsCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
             TvPrimaryButton(text = tr("Add a button"), onClick = { finding = true })
             if (Memory.canClean.not()) Alert(text = tr("Clean memory doesn't work on Android 14 and later, so a button for it does nothing."), modifier = Modifier.fillMaxWidth())
         }
+        // Both work on Home itself, so they don't need Remote buttons on.
+        TvSwitch(
+            title = tr("Number keys open the dock"),
+            subtitle = tr("On Home, 1 opens the first app in the dock, 2 the second, and so on"),
+            checked = config.numberKeys,
+            onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("number_keys", it)) }
+        )
+        TvSwitch(
+            title = tr("Press Home twice for the last app"),
+            subtitle = tr("Two quick presses of Home go back to the app you were in"),
+            checked = config.homeTwice,
+            onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("home_twice", it)) }
+        )
     }
 
     if (finding) FindButton(onDismiss = { finding = false }) { found -> finding = false; code = found }

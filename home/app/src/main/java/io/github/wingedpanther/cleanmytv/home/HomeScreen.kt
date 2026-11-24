@@ -378,7 +378,10 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     }
     // On a cable, the Wi-Fi icon shows a plug and says Ethernet. It opens the same network screen.
     val cable by remember { TvSettings.onCable(ctx) }.collectAsState(initial = false)
-    val quick = listOfNotNull(all["update"]?.takeIf { update != null }) + cfg.quick.mapNotNull { id ->
+    // Debugging left on: a quiet icon after the update one, until it's off or the owner keeps it on.
+    var debugging by remember { mutableStateOf(false) }
+    LaunchedEffect(appsVersion) { debugging = withContext(Dispatchers.IO) { Debugging.shown(ctx) } }
+    val quick = listOfNotNull(all["update"]?.takeIf { update != null }, all["debugging"]?.takeIf { debugging }) + cfg.quick.mapNotNull { id ->
         HomeConfig.quickApp(id)?.let { p -> byPkg[p]?.let { appAction(it, quickIcons[p]) } } ?: all[id]?.let { a ->
             val b = if (id == "wifi" && cable) a.copy(label = "Ethernet", icon = Icons.Outlined.SettingsEthernet) else a
             cfg.names[id]?.let { b.copy(label = it) } ?: b
@@ -396,6 +399,13 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var showThemes by remember { mutableStateOf(false) }
     var showTimer by remember { mutableStateOf(false) }
     var showUpdate by remember { mutableStateOf(false) }
+    var showDebugging by remember { mutableStateOf(false) }
+    // The tip about holding OK, on the first few days (see Hints), for 12 seconds.
+    var tip by remember { mutableStateOf(false) }
+    LaunchedEffect(appsVersion) {
+        if (!withContext(Dispatchers.IO) { Hints.take(ctx) }) return@LaunchedEffect
+        tip = true; delay(12_000); tip = false
+    }
     var panelPin by remember { mutableStateOf(false) }
     val openPanel = { if (Lock.needsPin(ctx, Lock.PANEL)) panelPin = true else showPanel = true }
     // App lock asks for the PIN here when its "Customize Home" switch is on.
@@ -417,6 +427,8 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             "update" -> showUpdate = true
             "fireplace" -> runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
             "screentime" -> ScreenTimeApps.open(ctx)
+            // Home pressed twice: the app it came from, or the last one opened before that.
+            MainActivity.LAST -> withContext(Dispatchers.Default) { Recent.apps(ctx, byPkg.keys) }.firstOrNull()?.let { byPkg[it] }?.let { launch(ctx, it) }
         }
         open.value = null
     }
@@ -427,6 +439,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         else if (a.id == "customize") openEditor()
         else if (a.id == "timer") showTimer = true
         else if (a.id == "update") showUpdate = true
+        else if (a.id == "debugging") showDebugging = true
         else if (a.id == "fireplace") runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
         else if (a.id == "screentime") ScreenTimeApps.open(ctx)
         else if (a.id == "memory") scope.launch { Memory.cleanAndSay(ctx); memoryTick++ }
@@ -461,7 +474,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     val shownCaption = caption?.takeIf { cfg.bingCaption && !fireWall && wallpaper != null }
     val ui = Ui(cfg, accent, first, movingKey ?: home.first, onFolder = { openFolder = it }, track = track, weather = weather, memory = memory,
         onFocusApp = { a -> focusColour = a.colour?.let { Color(it) }; heroApp.value = a; heroWatch.value = null },
-        onFocusWatch = { heroWatch.value = it }, motion = motion, onAppMenu = { s, a -> menuFor = s to a }, movingKey = movingKey,
+        onFocusWatch = { heroWatch.value = it }, motion = motion, onAppMenu = { s, a -> menuFor = s to a; if (tip) tip = false; Hints.done(ctx) }, movingKey = movingKey,
         captioned = shownCaption != null, screenTime = screenTime, screenTimeSeen = screenSeen && wantScreen)
 
     Box(
@@ -483,6 +496,9 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             when {
                 idle && e.type == KeyEventType.KeyDown -> { idle = false; swallowUp = true; true }
                 swallowUp && e.type == KeyEventType.KeyUp -> { swallowUp = false; true }
+                // 1 to 9 open the dock's first nine apps, on remotes that have number keys.
+                cfg.numberKeys && e.type == KeyEventType.KeyDown && dockNumber(e.key) != null ->
+                    home.dock.getOrNull(dockNumber(e.key)!! - 1)?.let { launch(ctx, it); true } ?: false
                 else -> false
             }
         }
@@ -502,7 +518,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         })
         if (cfg.snow) {
             // Still while anything is open over Home, and with the TV's animations off.
-            val menus = openFolder != null || menuFor != null || showInputs || showPanel || showThemes || showTimer || showUpdate || panelPin || editPin
+            val menus = openFolder != null || menuFor != null || showInputs || showPanel || showThemes || showTimer || showUpdate || showDebugging || panelPin || editPin
             Snow(running = resumed() && motion && !menus)
         }
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = shown }) {
@@ -521,6 +537,13 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             if (cfg.visualiser) Bars(visualiser, cfg, accent, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
         }
         if (shown < 1f) IdleScreen(ui, Modifier.fillMaxSize().graphicsLayer { alpha = 1f - shown })
+        val tipShown by animateFloatAsState(if (tip && !idle && moving == null) 1f else 0f, tween(400), label = "tip")
+        if (tipShown > 0f) Text(
+            tr("Tip: hold OK on an app to move it or hide it"),
+            color = TEXT, fontSize = 16.sp,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = SAFE_Y).graphicsLayer { alpha = tipShown }
+                .background(PANEL, RoundedCornerShape(12.dp)).padding(horizontal = 18.dp, vertical = 10.dp)
+        )
         moving?.let { m ->
             Text(
                 tr("Moving {app}. Use the arrows, then OK.", "app" to m.label),
@@ -545,6 +568,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     if (showThemes) ThemeCarousel(accent) { showThemes = false }
     if (showTimer) TimerMenu(ui) { showTimer = false }
     if (showUpdate) update?.let { UpdateDialog(it, accent) { showUpdate = false } }
+    if (showDebugging) DebuggingDialog(accent) { showDebugging = false; debugging = Debugging.shown(ctx) }
     if (backNews.isNotEmpty() && !showUpdate) CameBackDialog(backNews, accent) { CameBack.seen(ctx, back); backNews = emptyList() }
     if (panelPin) Dialog(onDismissRequest = { panelPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         PinPad(tr("Enter the PIN for Quick settings"), Lock.PANEL, accent) { panelPin = false; showPanel = true }
@@ -553,6 +577,11 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         PinPad(tr("Enter the PIN to customize Home"), Lock.EDITOR, accent) { editPin = false; openEditorNow(ctx) }
     }
 }
+
+/** 1 for the 1 key, on the main keys or the number pad; null for any other key. */
+private fun dockNumber(k: Key): Int? = DOCK_KEYS.indexOf(k).takeIf { it >= 0 }?.let { it % 9 + 1 }
+private val DOCK_KEYS = listOf(Key.One, Key.Two, Key.Three, Key.Four, Key.Five, Key.Six, Key.Seven, Key.Eight, Key.Nine,
+    Key.NumPad1, Key.NumPad2, Key.NumPad3, Key.NumPad4, Key.NumPad5, Key.NumPad6, Key.NumPad7, Key.NumPad8, Key.NumPad9)
 
 private fun openEditorNow(ctx: android.content.Context) {
     runCatching { ctx.startActivity(android.content.Intent(ctx, io.github.wingedpanther.cleanmytv.home.customization.CustomizationActivity::class.java)) }

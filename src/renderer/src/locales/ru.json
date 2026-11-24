@@ -1438,5 +1438,9 @@
   "Changing a daily limit there always asks for it.": "Изменение дневного лимита там всегда его спрашивает.",
   "Needs App lock on, with a PIN.": "Нужна включённая блокировка приложений с PIN.",
   "The app you are on in big letters, with what you were watching in it. Apps in the lower half.": "Приложение, на котором вы находитесь, крупными буквами и то, что вы в нём смотрели. Приложения в нижней половине.",
-  "A big bold clock and three shapes on the left, the top bar icons listed under them. Apps on the right.": "Крупные жирные часы и три фигуры слева, под ними значки верхней панели списком. Приложения справа."
+  "A big bold clock and three shapes on the left, the top bar icons listed under them. Apps on the right.": "Крупные жирные часы и три фигуры слева, под ними значки верхней панели списком. Приложения справа.",
+  "Number keys open the dock": "Цифровые кнопки открывают док",
+  "On Home, 1 opens the first app in the dock, 2 the second, and so on. For remotes with number keys.": "На главном экране 1 открывает первое приложение в доке, 2 второе и так далее. Для пультов с цифровыми кнопками.",
+  "Press Home twice for the last app": "Дважды Home для последнего приложения",
+  "Two quick presses of Home go back to the app you were in. Neither needs Remote buttons on.": "Два быстрых нажатия Home возвращают в приложение, где вы были. Обе функции работают и без «Кнопки пульта»."
 }

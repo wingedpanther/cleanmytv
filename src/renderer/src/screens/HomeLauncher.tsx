@@ -1653,6 +1653,21 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
       </div>
 
       <div className="card">
+        <Toggle
+          label={t('Number keys open the dock')}
+          hint={t('On Home, 1 opens the first app in the dock, 2 the second, and so on. For remotes with number keys.')}
+          checked={cfg.number_keys}
+          onChange={(v) => set({ number_keys: v })}
+        />
+        <Toggle
+          label={t('Press Home twice for the last app')}
+          hint={t('Two quick presses of Home go back to the app you were in. Neither needs Remote buttons on.')}
+          checked={cfg.home_twice}
+          onChange={(v) => set({ home_twice: v })}
+        />
+      </div>
+
+      <div className="card">
         <div className="card-head">
           <h2>{t('Find a button')}</h2>
           <button className="btn small" onClick={() => setListening(!listening)}>

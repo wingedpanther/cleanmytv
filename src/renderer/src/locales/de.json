@@ -1438,5 +1438,9 @@
   "Changing a daily limit there always asks for it.": "Ein Tageslimit dort zu ändern fragt immer danach.",
   "Needs App lock on, with a PIN.": "Braucht die App-Sperre, mit PIN.",
   "The app you are on in big letters, with what you were watching in it. Apps in the lower half.": "Die App, auf der du bist, in großen Buchstaben, mit dem, was du darin geschaut hast. Die Apps in der unteren Hälfte.",
-  "A big bold clock and three shapes on the left, the top bar icons listed under them. Apps on the right.": "Eine große, kräftige Uhr und drei Formen links, darunter die Symbole der oberen Leiste als Liste. Die Apps rechts."
+  "A big bold clock and three shapes on the left, the top bar icons listed under them. Apps on the right.": "Eine große, kräftige Uhr und drei Formen links, darunter die Symbole der oberen Leiste als Liste. Die Apps rechts.",
+  "Number keys open the dock": "Zifferntasten öffnen das Dock",
+  "On Home, 1 opens the first app in the dock, 2 the second, and so on. For remotes with number keys.": "Auf Home öffnet 1 die erste App im Dock, 2 die zweite und so weiter. Für Fernbedienungen mit Zifferntasten.",
+  "Press Home twice for the last app": "Zweimal Home für die letzte App",
+  "Two quick presses of Home go back to the app you were in. Neither needs Remote buttons on.": "Zweimal schnell Home bringt dich zurück zur App, in der du warst. Beides geht auch ohne „Fernbedienungstasten“."
 }

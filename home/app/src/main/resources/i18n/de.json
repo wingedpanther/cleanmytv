@@ -628,5 +628,19 @@
   "Maps": "Karten",
   "Productivity": "Produktivität",
   "Favourites": "Favoriten",
-  "Continue": "Weiter"
+  "Continue": "Weiter",
+  "Number keys open the dock": "Zifferntasten öffnen das Dock",
+  "On Home, 1 opens the first app in the dock, 2 the second, and so on": "Auf Home öffnet 1 die erste App im Dock, 2 die zweite und so weiter",
+  "Press Home twice for the last app": "Zweimal Home für die letzte App",
+  "Two quick presses of Home go back to the app you were in": "Zweimal schnell Home bringt dich zurück zur App, in der du warst",
+  "number digit keys 1 2 3 numbers dock shortcut": "Zahlen Ziffern Tasten 1 2 3 Zifferntasten Dock Abkürzung",
+  "home double twice back last app previous switch": "Home doppelt zweimal zurück letzte App vorherige wechseln",
+  "Debugging is on": "Debugging ist an",
+  "While it's on, a computer on your network can ask to control this TV. CleanMyTV on a computer needs it to connect, so turn it off once you're done.": "Solange es an ist, kann ein Computer in deinem Netzwerk anfragen, diesen Fernseher zu steuern. CleanMyTV auf dem Computer braucht es zum Verbinden, also schalte es aus, wenn du fertig bist.",
+  "To use CleanMyTV again later, turn it back on in Developer options.": "Um CleanMyTV später wieder zu nutzen, schalte es in den Entwickleroptionen wieder ein.",
+  "Home can't turn it off on this TV. Turn off USB debugging in Developer options.": "Home kann es auf diesem Fernseher nicht ausschalten. Schalte USB-Debugging in den Entwickleroptionen aus.",
+  "Open Developer options": "Entwickleroptionen öffnen",
+  "Turn it off": "Ausschalten",
+  "Keep it on": "Anlassen",
+  "Tip: hold OK on an app to move it or hide it": "Tipp: Halte OK auf einer App gedrückt, um sie zu verschieben oder auszublenden"
 }

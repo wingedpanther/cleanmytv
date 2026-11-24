@@ -108,6 +108,8 @@ data class HomeConfig(
     val themeMemory: Boolean = true, // each theme keeps the look changes made while it's on
     val updateCheck: Boolean = true, // look for a newer Home on the release page once a day
     val keyboardGuard: Boolean = true, // put the owner's keyboard back when the TV switches it at a restart or wake (#98)
+    val numberKeys: Boolean = true, // 1 to 9 on the remote open the dock's apps on Home
+    val homeTwice: Boolean = true, // Home pressed twice quickly goes back to the last app
     val limits: Map<String, Int> = emptyMap(), // package -> minutes a day, then the app needs the PIN
     // Weather next to the clock, from Open-Meteo; off while the place is blank
     val weatherPlace: String = "",
@@ -213,6 +215,8 @@ data class HomeConfig(
         .put("theme_memory", themeMemory)
         .put("update_check", updateCheck)
         .put("keyboard_guard", keyboardGuard)
+        .put("number_keys", numberKeys)
+        .put("home_twice", homeTwice)
         .put("limits", JSONObject(limits as Map<*, *>))
         .put("weather_place", weatherPlace)
         .put("weather_lat", weatherLat)
@@ -388,6 +392,8 @@ data class HomeConfig(
                 themeMemory = bool("theme_memory", base.themeMemory),
                 updateCheck = bool("update_check", base.updateCheck),
                 keyboardGuard = bool("keyboard_guard", base.keyboardGuard),
+                numberKeys = bool("number_keys", base.numberKeys),
+                homeTwice = bool("home_twice", base.homeTwice),
                 limits = o.optJSONObject("limits")?.let { m ->
                     m.keys().asSequence().take(60).mapNotNull { k -> m.optInt(k, -1).takeIf { PKG.matches(k) && it in 5..720 }?.let { k to it } }.toMap()
                 } ?: base.limits,

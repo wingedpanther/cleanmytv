@@ -105,6 +105,8 @@ val SETTINGS_INDEX: List<Findable> = run {
         Findable("Hide apps", "hidden remove show order", A),
         Findable("Remote buttons", "button remote map key red green yellow blue shortcut", B),
         Findable("Sleep timer button", "sleep timer off button", B),
+        Findable("Number keys open the dock", "number digit keys 1 2 3 numbers dock shortcut", B),
+        Findable("Press Home twice for the last app", "home double twice back last app previous switch", B),
         Findable("App lock", "pin password lock code parental kids child", P),
         Findable("Locked apps", "pin lock apps parental", P),
         Findable("Daily limits", "time limit screen time minutes kids child parental", P),

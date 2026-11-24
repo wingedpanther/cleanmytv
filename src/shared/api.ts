@@ -343,6 +343,8 @@ export interface HomeConfig {
   /** The TV looks for a newer CleanMyTV Home once a day and offers it (set on the TV). */
   update_check: boolean
   keyboard_guard: boolean
+  number_keys: boolean
+  home_twice: boolean
   /** The on-TV editor asks for the PIN too. */
   lock_editor: boolean
   /** Minutes a day per package; after them the app needs the PIN. */

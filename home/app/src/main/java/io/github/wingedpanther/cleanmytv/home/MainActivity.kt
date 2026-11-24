@@ -93,13 +93,23 @@ class MainActivity : ComponentActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    // A mapped button can ask Home to open something, such as the Inputs picker.
+    // A mapped button can ask Home to open something, such as the Inputs picker. A Home press arrives here too,
+    // without the extra: two of them close together go back to the last app.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.getStringExtra(OPEN)?.let { open.value = it }
+        intent.getStringExtra(OPEN)?.let { open.value = it; return }
+        if (!intent.hasCategory(Intent.CATEGORY_HOME)) return
+        val now = SystemClock.uptimeMillis()
+        if (now - lastHome < TWICE_MS && ConfigStore.config.value.homeTwice) { open.value = LAST; lastHome = 0L } else lastHome = now
     }
+    private var lastHome = 0L
 
-    companion object { const val OPEN = "open" }
+    companion object {
+        const val OPEN = "open"
+        /** What [open] says for Home pressed twice. */
+        const val LAST = "last"
+        private const val TWICE_MS = 600L
+    }
 }
 
 /** TV apps (with their banners), then phone apps that only have an icon. [glyphs]: also each app's logo, for the icon styles. */

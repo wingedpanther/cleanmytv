@@ -628,5 +628,19 @@
   "Maps": "Карты",
   "Productivity": "Работа",
   "Favourites": "Избранное",
-  "Continue": "Продолжить"
+  "Continue": "Продолжить",
+  "Number keys open the dock": "Цифровые кнопки открывают док",
+  "On Home, 1 opens the first app in the dock, 2 the second, and so on": "На главном экране 1 открывает первое приложение в доке, 2 второе и так далее",
+  "Press Home twice for the last app": "Дважды Home для последнего приложения",
+  "Two quick presses of Home go back to the app you were in": "Два быстрых нажатия Home возвращают в приложение, где вы были",
+  "number digit keys 1 2 3 numbers dock shortcut": "цифры цифровые кнопки 1 2 3 номера док ярлык",
+  "home double twice back last app previous switch": "home двойное дважды назад последнее приложение предыдущее переключить",
+  "Debugging is on": "Отладка включена",
+  "While it's on, a computer on your network can ask to control this TV. CleanMyTV on a computer needs it to connect, so turn it off once you're done.": "Пока она включена, компьютер в вашей сети может запросить управление этим телевизором. CleanMyTV на компьютере нужна она для подключения, так что выключите её, когда закончите.",
+  "To use CleanMyTV again later, turn it back on in Developer options.": "Чтобы снова использовать CleanMyTV, включите её в разделе «Для разработчиков».",
+  "Home can't turn it off on this TV. Turn off USB debugging in Developer options.": "Home не может выключить её на этом телевизоре. Выключите отладку по USB в разделе «Для разработчиков».",
+  "Open Developer options": "Открыть «Для разработчиков»",
+  "Turn it off": "Выключить",
+  "Keep it on": "Оставить включённой",
+  "Tip: hold OK on an app to move it or hide it": "Совет: удерживайте OK на приложении, чтобы переместить или скрыть его"
 }
