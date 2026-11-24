@@ -100,7 +100,7 @@ export function installMock(): void {
     wifi_name: '', wifi_password: '', wifi_security: 'WPA', guest_apps: [],
     lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge', fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0, slide_minutes: 0, slide_from: 'mine', other_apps: false, live_tv: true, slides_on_tv: 0, note_on_tv: '', fire_on_tv: false, lock_pin_set: false, themes_on_tv: 0, can_change_settings: true,
     clock: 'time_date', greeting: '', names: {}, idle_minutes: 0,
-    weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'c', weather_hours: false, weather_days: false, memory: false, day_night: false, day_at: 420, night_at: 1140, bedtime_on: false, bedtime_at: 1410, bedtime_days: [1, 2, 3, 4, 5, 6, 7], input_tiles: false, screen_goal: 0, lock_screentime: false, looks_saved: [],
+    weather_place: 'Dublin', weather_lat: 53.3331, weather_lon: -6.2489, weather_unit: 'c', weather_hours: false, weather_days: false, memory: false, day_night: false, day_at: 420, night_at: 1140, bedtime_on: false, bedtime_at: 1410, bedtime_days: [1, 2, 3, 4, 5, 6, 7], input_tiles: false, screen_goal: 0, lock_screentime: false, st_bg: '', st_opacity: 55, st_text: '', st_bars: '', looks_saved: [],
     visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100,
     has_wallpaper: false,
     tv_inputs: [{ id: 'com.mediatek.tvinput/.hdmi.HDMIInputService/HW5', name: 'PlayStation 5' }, { id: 'com.mediatek.tvinput/.hdmi.HDMIInputService/HW6', name: 'HDMI 2' }]

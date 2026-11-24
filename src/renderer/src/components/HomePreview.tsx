@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { HomeConfig, QuickEntry, QuickId, TvApp } from '@shared/api'
 import { t } from '../lib/i18n'
+import { cardColours } from '@shared/screentime'
 
 // The launcher lays out in dp on a 960x540 screen; the preview draws at that size and scales to fit.
 const W = 960
@@ -27,6 +28,33 @@ const QUICK_GLYPH: Record<QuickId, string> = {
   timer: 'M12 7v5l3 2M9 3h6M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16z',
   screentime: 'M4 20h16M6 16v-5M10 16V6M14 16v-8M18 16v-3',
   guest: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2'
+}
+
+/** A stand-in for the Screen time card, in the owner's colours: on the TV it's today's total, the week's bars and today's top apps. */
+export function ScreenTimeCard({ cfg, labels }: { cfg: HomeConfig; labels: string[] }): ReactNode {
+  const c = cardColours(cfg)
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 20, width: 600, height: 124, padding: '14px 18px', margin: '6px 0', borderRadius: 14, background: c.bg, color: c.text, boxSizing: 'border-box' }}>
+      <div style={{ width: 130 }}>
+        <div style={{ fontSize: 13, color: c.muted }}>Screen time today</div>
+        <div style={{ fontSize: 26, fontWeight: 500 }}>2 h 15 min</div>
+        <div style={{ fontSize: 13, color: c.muted }}>Yesterday: 3 h</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, width: 150, height: 70 }}>
+        {[0.6, 0.9, 0.4, 0.75, 1, 0.5, 0.7].map((h, i) => (
+          <div key={i} style={{ flex: 1, height: `${h * 100}%`, borderRadius: 4, background: c.bars, opacity: i === 6 ? 1 : 0.5 }} />
+        ))}
+      </div>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14 }}>
+        {labels.map((l, i) => (
+          <div key={l} style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l}</span>
+            <span style={{ color: c.muted }}>{['1 h 10 min', '40 min', '25 min'][i]}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 /** What the TV calls each icon. CleanMyTV Home is in English, so these stay English: the preview and the rename boxes show them. */
@@ -198,26 +226,7 @@ function Sections({ apps, cfg, width, dockW, showFolders = true }: { apps: TvApp
         if (s === 'screentime')
           return (
             <div key={s}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 20, width: 600, height: 124, padding: '14px 18px', margin: '6px 0', borderRadius: 14, background: 'rgba(45,58,46,0.88)', boxSizing: 'border-box' }}>
-                <div style={{ width: 130 }}>
-                  <div style={{ fontSize: 13, color: '#D7CFC4' }}>Screen time today</div>
-                  <div style={{ fontSize: 26, fontWeight: 500 }}>2 h 15 min</div>
-                  <div style={{ fontSize: 13, color: '#D7CFC4' }}>Yesterday: 3 h</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, width: 150, height: 70 }}>
-                  {[0.6, 0.9, 0.4, 0.75, 1, 0.5, 0.7].map((h, i) => (
-                    <div key={i} style={{ flex: 1, height: `${h * 100}%`, borderRadius: 4, background: cfg.accent, opacity: i === 6 ? 1 : 0.5 }} />
-                  ))}
-                </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14 }}>
-                  {[...m.dock, ...m.grid].slice(0, 3).map((a, i) => (
-                    <div key={a.pkg} style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.label}</span>
-                      <span style={{ color: '#D7CFC4' }}>{['1 h 10 min', '40 min', '25 min'][i]}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <ScreenTimeCard cfg={cfg} labels={[...m.dock, ...m.grid].slice(0, 3).map((a) => a.label)} />
             </div>
           )
         // A stand-in: on the TV it's what apps list in Android's Watch Next, and it hides while that's empty.
@@ -361,35 +370,6 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
         </div>
         <div style={{ flex: 1, padding: `${SAFE_Y + 12}px ${SAFE_X}px 0 0`, overflow: 'hidden' }}>
           <Sections apps={apps} cfg={cfg} width={W * 0.68 - SAFE_X} dockW={168} />
-        </div>
-      </div>
-    )
-  } else if (cfg.layout === 'kidu') {
-    // As on the TV: the first app in the dock stands in for the one under the focus.
-    const hero = model(apps, cfg).dock[0]?.label ?? 'YouTube'
-    const heroSize = hero.length <= 10 ? 84 : hero.length <= 16 ? 64 : 48
-    body = (
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: `linear-gradient(${shade(cfg, cfg.shade_top)}, transparent ${cfg.shade_top_reach}%)` }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', padding: `${SAFE_Y}px ${SAFE_X}px 0` }}>
-          <div style={{ flex: 1 }}>
-            <Clock cfg={cfg} size={26} dateSize={12} align="left" />
-          </div>
-          {quick.length > 0 && (
-            <div style={{ display: 'flex', gap: 10 }}>
-              {quick.map((q) => (
-                <span key={q} style={{ width: 40, height: 40, borderRadius: 20, background: 'rgba(255,255,255,0.08)', display: 'grid', placeItems: 'center' }}>
-                  <QuickMark q={q} apps={apps} size={22} />
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: `0 ${SAFE_X}px 18px` }}>
-          {greet && <div style={{ fontSize: 15, fontWeight: 500 }}>{greet}</div>}
-          <div style={{ fontSize: heroSize, fontWeight: 600, letterSpacing: -1.5, lineHeight: 1.05, marginLeft: -3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '0 0 16px rgba(0,0,0,0.45)' }}>{hero}</div>
-        </div>
-        <div style={{ height: H * 0.5, overflow: 'hidden', padding: `0 ${SAFE_X}px` }}>
-          <Sections apps={apps} cfg={cfg} width={W - SAFE_X * 2} dockW={200} />
         </div>
       </div>
     )

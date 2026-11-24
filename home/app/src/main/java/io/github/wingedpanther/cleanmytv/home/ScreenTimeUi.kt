@@ -69,6 +69,21 @@ import java.util.Locale
 private val ST_TEXT = Color(0xFFF0EBE5)
 private val ST_MUTED = Color(0xFFD7CFC4)
 
+/** The Screen time card's colours on Home: [bg] already carries the owner's opacity. */
+data class CardColours(val bg: Color, val text: Color, val muted: Color, val bars: Color)
+
+/**
+ * From the settings: black behind by default, text light or dark to suit what's behind it, and the accent for the
+ * bars, or Bau's cream in Bau, which has no accent.
+ */
+fun cardColours(cfg: HomeConfig): CardColours {
+    fun hex(s: String) = s.takeIf { it.length == 7 }?.let { Color(0xFF000000 or it.substring(1).toLong(16)) }
+    val bg = hex(cfg.stBg) ?: Color.Black
+    // A light background shows through enough from about half its opacity to need dark text.
+    val text = hex(cfg.stText) ?: if (bg.luminance() > 0.5f && cfg.stOpacity >= 50) Color(0xFF1C1C1C) else ST_TEXT
+    return CardColours(bg.copy(alpha = cfg.stOpacity / 100f), text, text.copy(alpha = 0.72f), hex(cfg.stBars) ?: if (cfg.layout == "bau") Color(0xFFF2EEE3) else Color(cfg.accent))
+}
+
 /** An app in a screen time list: its name and icon, and how long it was on. */
 class UsedApp(val pkg: String, val label: String, val icon: ImageBitmap?, val ms: Long)
 
@@ -137,18 +152,18 @@ private fun scaleFor(max: Long): Long {
  * there is one, is drawn across as a dashed line: an app's daily limit.
  */
 @Composable
-fun UseBars(values: List<Long>, labels: List<String>, accent: Color, modifier: Modifier, mark: Int = values.lastIndex, scaleLabel: Boolean = true, labelSize: Float = 12f, span: Int = 1, line: Long? = null) {
+fun UseBars(values: List<Long>, labels: List<String>, accent: Color, modifier: Modifier, mark: Int = values.lastIndex, scaleLabel: Boolean = true, labelSize: Float = 12f, span: Int = 1, line: Long? = null, muted: Color = ST_MUTED) {
     val scale = scaleFor(maxOf(values.maxOrNull() ?: 0L, line ?: 0L))
     Column(modifier) {
-        if (scaleLabel) Text(ScreenTime.words(scale), color = ST_MUTED.copy(alpha = 0.7f), fontSize = labelSize.sp, modifier = Modifier.padding(bottom = 4.dp))
+        if (scaleLabel) Text(ScreenTime.words(scale), color = muted.copy(alpha = 0.7f), fontSize = labelSize.sp, modifier = Modifier.padding(bottom = 4.dp))
         Canvas(Modifier.fillMaxWidth().weight(1f)) {
             val slot = size.width / values.size.coerceAtLeast(1)
             val w = (slot * 0.62f).coerceAtLeast(2f)
-            if (scaleLabel) drawLine(ST_MUTED.copy(alpha = 0.18f), Offset(0f, 0f), Offset(size.width, 0f), strokeWidth = 1.dp.toPx())
+            if (scaleLabel) drawLine(muted.copy(alpha = 0.18f), Offset(0f, 0f), Offset(size.width, 0f), strokeWidth = 1.dp.toPx())
             values.forEachIndexed { i, v ->
                 val x = i * slot + (slot - w) / 2
                 val h = if (v <= 0) 2.dp.toPx() else (size.height * v / scale).coerceAtLeast(3.dp.toPx())
-                val c = if (v <= 0) ST_MUTED.copy(alpha = 0.2f) else if (i == mark) accent else accent.copy(alpha = 0.5f)
+                val c = if (v <= 0) muted.copy(alpha = 0.2f) else if (i == mark) accent else accent.copy(alpha = 0.5f)
                 drawRoundRect(c, Offset(x, size.height - h), Size(w, h), CornerRadius(minOf(4.dp.toPx(), w / 2)))
             }
             line?.let {
@@ -158,7 +173,7 @@ fun UseBars(values: List<Long>, labels: List<String>, accent: Color, modifier: M
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 5.dp)) {
-            labels.forEach { Text(it, color = ST_MUTED.copy(alpha = 0.8f), fontSize = labelSize.sp, maxLines = 1, softWrap = false, textAlign = if (span == 1) TextAlign.Center else TextAlign.Start, modifier = Modifier.weight(span.toFloat())) }
+            labels.forEach { Text(it, color = muted.copy(alpha = 0.8f), fontSize = labelSize.sp, maxLines = 1, softWrap = false, textAlign = if (span == 1) TextAlign.Center else TextAlign.Start, modifier = Modifier.weight(span.toFloat())) }
         }
     }
 }
@@ -172,41 +187,41 @@ private fun hourLabels(ctx: Context): List<String> {
 
 private val WEEKDAY: DateTimeFormatter get() = DateTimeFormatter.ofPattern("EEEEE", Locale.getDefault())
 
-/** The section on the Home screen draws this inside its own focusable card. It names itself, so the section has no title. */
+/** The section on the Home screen draws this inside its own focusable card, in the owner's colours. It names itself, so the section has no title. */
 @Composable
-fun ScreenTimeCardBody(s: ScreenSummary?, accent: Color) {
+fun ScreenTimeCardBody(s: ScreenSummary?, c: CardColours) {
     if (s == null) {
-        Text(tr("Screen time needs usage access. In CleanMyTV on a computer, tick Screen time under CleanMyTV Home, Layout, Sections."), color = ST_MUTED, fontSize = 14.sp, modifier = Modifier.padding(16.dp))
+        Text(tr("Screen time needs usage access. In CleanMyTV on a computer, tick Screen time under CleanMyTV Home, Layout, Sections."), color = c.muted, fontSize = 14.sp, modifier = Modifier.padding(16.dp))
         return
     }
     val today = s.week.last()
     Row(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.width(170.dp)) {
-            Text(tr("Screen time today"), color = ST_MUTED, fontSize = 13.sp, maxLines = 1, softWrap = false)
-            Text(ScreenTime.words(today.total), color = ST_TEXT, fontSize = 26.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
+            Text(tr("Screen time today"), color = c.muted, fontSize = 13.sp, maxLines = 1, softWrap = false)
+            Text(ScreenTime.words(today.total), color = c.text, fontSize = 26.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
             // The first day of the week says how the last one went; the other days, yesterday.
-            if (s.lastWeek != null) Text(s.lastWeek, color = ST_MUTED, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (s.lastWeek != null) Text(s.lastWeek, color = c.muted, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             else s.week.getOrNull(s.week.size - 2)?.let { y ->
-                Text(tr("Yesterday: {time}", "time" to ScreenTime.words(y.total)), color = ST_MUTED, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(tr("Yesterday: {time}", "time" to ScreenTime.words(y.total)), color = c.muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        UseBars(s.week.map { it.total }, s.week.map { it.day.format(WEEKDAY) }, accent, Modifier.width(150.dp).fillMaxHeight(), scaleLabel = false, labelSize = 11f)
+        UseBars(s.week.map { it.total }, s.week.map { it.day.format(WEEKDAY) }, c.bars, Modifier.width(150.dp).fillMaxHeight(), scaleLabel = false, labelSize = 11f, muted = c.muted)
         Spacer(Modifier.width(20.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (s.top.isEmpty()) Text(tr("Nothing on yet today."), color = ST_MUTED, fontSize = 13.sp)
-            s.top.forEach { AppLine(it, iconSize = 22.dp, fontSize = 14f) }
+            if (s.top.isEmpty()) Text(tr("Nothing on yet today."), color = c.muted, fontSize = 13.sp)
+            s.top.forEach { AppLine(it, iconSize = 22.dp, fontSize = 14f, text = c.text, muted = c.muted) }
         }
     }
 }
 
 @Composable
-private fun AppLine(a: UsedApp, iconSize: Dp, fontSize: Float, modifier: Modifier = Modifier) {
+private fun AppLine(a: UsedApp, iconSize: Dp, fontSize: Float, modifier: Modifier = Modifier, text: Color = ST_TEXT, muted: Color = ST_MUTED) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(iconSize)) { a.icon?.let { Image(it, null, Modifier.fillMaxSize()) } }
         Spacer(Modifier.width(10.dp))
-        Text(a.label, color = ST_TEXT, fontSize = fontSize.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Text(a.label, color = text, fontSize = fontSize.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         Spacer(Modifier.width(10.dp))
-        Text(ScreenTime.words(a.ms), color = ST_MUTED, fontSize = fontSize.sp, maxLines = 1, softWrap = false)
+        Text(ScreenTime.words(a.ms), color = muted, fontSize = fontSize.sp, maxLines = 1, softWrap = false)
     }
 }
 

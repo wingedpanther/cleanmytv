@@ -1437,7 +1437,6 @@
   "Ask for the PIN to open Screen time on the TV": "Спрашивать PIN для открытия экранного времени на телевизоре",
   "Changing a daily limit there always asks for it.": "Изменение дневного лимита там всегда его спрашивает.",
   "Needs App lock on, with a PIN.": "Нужна включённая блокировка приложений с PIN.",
-  "The app you are on in big letters, with what you were watching in it. Apps in the lower half.": "Приложение, на котором вы находитесь, крупными буквами и то, что вы в нём смотрели. Приложения в нижней половине.",
   "A big bold clock and three shapes on the left, the top bar icons listed under them. Apps on the right.": "Крупные жирные часы и три фигуры слева, под ними значки верхней панели списком. Приложения справа.",
   "Number keys open the dock": "Цифровые кнопки открывают док",
   "On Home, 1 opens the first app in the dock, 2 the second, and so on. For remotes with number keys.": "На главном экране 1 открывает первое приложение в доке, 2 второе и так далее. Для пультов с цифровыми кнопками.",
@@ -1465,5 +1464,14 @@
   "The slideshow is the TV's screensaver now. It starts after the TV's screensaver time.": "Слайд-шоу теперь заставка телевизора. Она запускается после времени заставки телевизора.",
   "Wi-Fi name": "Имя Wi-Fi",
   "WPA, WPA2 or WPA3": "WPA, WPA2 или WPA3",
-  "A line that stays on Home until someone presses OK on it. You can also leave one from your phone: on the TV, Customize Home, Themes and wallpaper, From your phone.": "Строка, которая остаётся на Home, пока кто-нибудь не нажмёт OK. Записку можно оставить и с телефона: на телевизоре «Настройка Home», «Темы и обои», «С телефона»."
+  "A line that stays on Home until someone presses OK on it. You can also leave one from your phone: on the TV, Customize Home, Themes and wallpaper, From your phone.": "Строка, которая остаётся на Home, пока кто-нибудь не нажмёт OK. Записку можно оставить и с телефона: на телевизоре «Настройка Home», «Темы и обои», «С телефона».",
+  "The card on Home": "Карточка на Home",
+  "How the Screen time card looks on the TV's Home screen. The picture behind it here stands in for your wallpaper.": "Так выглядит карточка экранного времени на главном экране телевизора. Картинка за ней здесь заменяет ваши обои.",
+  "0 lets the wallpaper through completely, 100 is solid.": "0 полностью пропускает обои, 100 — сплошной фон.",
+  "Background opacity": "Непрозрачность фона",
+  "Black": "Чёрный",
+  "Light or dark to suit the background": "Светлый или тёмный, под цвет фона",
+  "The accent colour": "Цвет акцента",
+  "Use the default": "Вернуть по умолчанию",
+  "Bau's cream": "Кремовый цвет Bau"
 }

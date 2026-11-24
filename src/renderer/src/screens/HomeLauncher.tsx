@@ -754,7 +754,6 @@ const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, num
   { id: 'shelf', label: t('Shelf'), hint: t('Top bar, open space, apps lower down.'), mini: [[6, 6, 30, 6, true], [64, 6, 30, 6, true], [6, 40, 88, 24, false], [6, 72, 88, 18, true]] },
   { id: 'split', label: t('Split'), hint: t('Clock and quick settings on the left, apps on the right.'), mini: [[6, 10, 26, 18, true], [6, 62, 20, 24, true], [38, 8, 56, 26, false], [38, 42, 56, 18, true]] },
   { id: 'rail', label: t('Rail'), hint: t('Icons down the left edge that open with labels.'), mini: [[3, 6, 6, 84, true], [70, 6, 24, 8, true], [16, 24, 78, 28, false], [16, 60, 78, 18, true]] },
-  { id: 'kidu', label: 'Kidu', hint: t('The app you are on in big letters, with what you were watching in it. Apps in the lower half.'), mini: [[6, 6, 18, 8, true], [72, 6, 22, 7, true], [6, 30, 56, 16, false], [6, 56, 88, 16, true], [6, 78, 88, 12, true]] },
   { id: 'bau', label: 'Bau', hint: t('A big bold clock and three shapes on the left, the top bar icons listed under them. Apps on the right.'), mini: [[6, 8, 22, 20, false], [6, 32, 14, 6, true], [6, 66, 22, 24, true], [34, 8, 60, 26, false], [34, 42, 60, 18, true]] }
 ]
 

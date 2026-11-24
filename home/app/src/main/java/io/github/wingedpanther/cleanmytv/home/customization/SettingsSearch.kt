@@ -63,7 +63,7 @@ val SETTINGS_INDEX: List<Findable> = run {
     val B = CustomizationCategory.BUTTONS; val P = CustomizationCategory.LOCK; val V = CustomizationCategory.VISUALIZER
     val F = CustomizationCategory.FIREPLACE; val M = CustomizationCategory.MORE; val S = CustomizationCategory.SCREENTIME
     listOf(
-        Findable("Layout: Shelf, Split or Rail", "style arrangement sidebar left panel kidu big name bau bauhaus clock", L),
+        Findable("Layout: Shelf, Split or Rail", "style arrangement sidebar left panel bau bauhaus clock", L),
         Findable("Space above the apps", "top space gap margin dock position", L),
         Findable("Sections", "order show hide now playing recently used dock continue watching rows folders all apps", L),
         Findable("Recently used", "recent last apps history", L),
@@ -114,6 +114,7 @@ val SETTINGS_INDEX: List<Findable> = run {
         Findable("Customize Home lock", "pin editor lock", P),
         Findable("Change the PIN", "pin password code", P),
         Findable("Show Screen time on Home", "screen time usage hours watched how long statistics dashboard card", S),
+        Findable("The card on Home", "screen time card colour color background opacity transparent text bars", S),
         Findable("Daily goal", "screen time goal hours too much reminder note", S),
         Findable("Clear the history", "screen time delete history forget", S),
         Findable("Music bars", "visualiser visualizer equaliser equalizer audio sound bars", V),

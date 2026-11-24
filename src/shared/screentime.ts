@@ -1,4 +1,16 @@
-import type { ScreenDay } from './api'
+import type { HomeConfig, ScreenDay } from './api'
+
+/** As the launcher's cardColours: the Screen time card's background with its opacity, text, softer text and bars. */
+export function cardColours(cfg: Pick<HomeConfig, 'st_bg' | 'st_opacity' | 'st_text' | 'st_bars' | 'accent' | 'layout'>): { bg: string; text: string; muted: string; bars: string } {
+  const rgb = (hex: string): [number, number, number] => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number]
+  const bg = cfg.st_bg || '#000000'
+  const lin = (c: number): number => { const s = c / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4 }
+  const [r, g, b] = rgb(bg)
+  const light = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b) > 0.5
+  const text = cfg.st_text || (light && cfg.st_opacity >= 50 ? '#1C1C1C' : '#F0EBE5')
+  const rgba = (hex: string, a: number): string => `rgba(${rgb(hex).join(',')},${a})`
+  return { bg: rgba(bg, cfg.st_opacity / 100), text, muted: rgba(text, 0.72), bars: cfg.st_bars || (cfg.layout === 'bau' ? '#F2EEE3' : cfg.accent) }
+}
 
 /** The days from `from` to `to`, both YYYY-MM-DD, as kept. */
 export const daysBetween = (days: ScreenDay[], from: string, to: string): ScreenDay[] => days.filter((d) => d.day >= from && d.day <= to)

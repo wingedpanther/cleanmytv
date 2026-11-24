@@ -222,7 +222,7 @@ export interface HomeStatus {
   googleKept?: boolean
 }
 
-export type HomeLayout = 'shelf' | 'split' | 'rail' | 'kidu' | 'bau'
+export type HomeLayout = 'shelf' | 'split' | 'rail' | 'bau'
 export type HomeSection = 'nowplaying' | 'recent' | 'screentime' | 'dock' | 'watchnext' | 'rows' | 'folders' | 'grid'
 export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes' | 'fireplace' | 'memory' | 'customize' | 'timer' | 'screentime' | 'guest'
 /** A saved look for the day and night switch. */
@@ -446,6 +446,11 @@ export interface HomeConfig {
   input_tiles: boolean
   /** Screen time: a note on the TV once it has been on this many minutes in a day, 0 for none; and the dashboard behind the PIN (launcher 1.13.7). */
   screen_goal: number
+  /** The Screen time card on Home: colours as #RRGGBB, empty for the default, and the background's opacity, 0 to 100. */
+  st_bg: string
+  st_opacity: number
+  st_text: string
+  st_bars: string
   lock_screentime: boolean
   // Music bars
   visualiser: boolean

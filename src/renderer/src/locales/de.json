@@ -1437,7 +1437,6 @@
   "Ask for the PIN to open Screen time on the TV": "Nach der PIN fragen, um die Bildschirmzeit auf dem TV zu öffnen",
   "Changing a daily limit there always asks for it.": "Ein Tageslimit dort zu ändern fragt immer danach.",
   "Needs App lock on, with a PIN.": "Braucht die App-Sperre, mit PIN.",
-  "The app you are on in big letters, with what you were watching in it. Apps in the lower half.": "Die App, auf der du bist, in großen Buchstaben, mit dem, was du darin geschaut hast. Die Apps in der unteren Hälfte.",
   "A big bold clock and three shapes on the left, the top bar icons listed under them. Apps on the right.": "Eine große, kräftige Uhr und drei Formen links, darunter die Symbole der oberen Leiste als Liste. Die Apps rechts.",
   "Number keys open the dock": "Zifferntasten öffnen das Dock",
   "On Home, 1 opens the first app in the dock, 2 the second, and so on. For remotes with number keys.": "Auf Home öffnet 1 die erste App im Dock, 2 die zweite und so weiter. Für Fernbedienungen mit Zifferntasten.",
@@ -1465,5 +1464,14 @@
   "The slideshow is the TV's screensaver now. It starts after the TV's screensaver time.": "Die Diashow ist jetzt der Bildschirmschoner des Fernsehers. Sie startet nach der Bildschirmschoner-Zeit des Fernsehers.",
   "Wi-Fi name": "WLAN-Name",
   "WPA, WPA2 or WPA3": "WPA, WPA2 oder WPA3",
-  "A line that stays on Home until someone presses OK on it. You can also leave one from your phone: on the TV, Customize Home, Themes and wallpaper, From your phone.": "Eine Zeile, die auf Home bleibt, bis jemand OK drückt. Du kannst auch vom Smartphone eine hinterlassen: auf dem Fernseher Home anpassen, Themes und Hintergrundbild, Vom Smartphone."
+  "A line that stays on Home until someone presses OK on it. You can also leave one from your phone: on the TV, Customize Home, Themes and wallpaper, From your phone.": "Eine Zeile, die auf Home bleibt, bis jemand OK drückt. Du kannst auch vom Smartphone eine hinterlassen: auf dem Fernseher Home anpassen, Themes und Hintergrundbild, Vom Smartphone.",
+  "The card on Home": "Die Karte auf Home",
+  "How the Screen time card looks on the TV's Home screen. The picture behind it here stands in for your wallpaper.": "So sieht die Bildschirmzeit-Karte auf dem Startbildschirm des Fernsehers aus. Das Bild dahinter steht hier für dein Hintergrundbild.",
+  "0 lets the wallpaper through completely, 100 is solid.": "0 lässt das Hintergrundbild ganz durch, 100 ist deckend.",
+  "Background opacity": "Deckkraft des Hintergrunds",
+  "Black": "Schwarz",
+  "Light or dark to suit the background": "Hell oder dunkel, passend zum Hintergrund",
+  "The accent colour": "Die Akzentfarbe",
+  "Use the default": "Standard verwenden",
+  "Bau's cream": "Das Creme von Bau"
 }

@@ -1437,7 +1437,6 @@
   "Ask for the PIN to open Screen time on the TV": "Pedir el PIN para abrir Tiempo de pantalla en la TV",
   "Changing a daily limit there always asks for it.": "Cambiar un límite diario allí siempre lo pide.",
   "Needs App lock on, with a PIN.": "Necesita el Bloqueo de aplicaciones activado, con un PIN.",
-  "The app you are on in big letters, with what you were watching in it. Apps in the lower half.": "La app en la que estás, en letras grandes, con lo que veías en ella. Las apps en la mitad de abajo.",
   "A big bold clock and three shapes on the left, the top bar icons listed under them. Apps on the right.": "Un reloj grande y grueso y tres formas a la izquierda, con los iconos de la barra superior en lista debajo. Las apps a la derecha.",
   "Number keys open the dock": "Las teclas numéricas abren el dock",
   "On Home, 1 opens the first app in the dock, 2 the second, and so on. For remotes with number keys.": "En Home, 1 abre la primera app del dock, 2 la segunda, y así sucesivamente. Para mandos con teclas numéricas.",
@@ -1465,5 +1464,14 @@
   "The slideshow is the TV's screensaver now. It starts after the TV's screensaver time.": "La presentación es ahora el salvapantallas de la TV. Empieza tras el tiempo del salvapantallas de la TV.",
   "Wi-Fi name": "Nombre de la Wi-Fi",
   "WPA, WPA2 or WPA3": "WPA, WPA2 o WPA3",
-  "A line that stays on Home until someone presses OK on it. You can also leave one from your phone: on the TV, Customize Home, Themes and wallpaper, From your phone.": "Una línea que se queda en Home hasta que alguien pulse OK. También puedes dejar una desde el móvil: en la TV, «Customize Home», «Themes and wallpaper», «From your phone»."
+  "A line that stays on Home until someone presses OK on it. You can also leave one from your phone: on the TV, Customize Home, Themes and wallpaper, From your phone.": "Una línea que se queda en Home hasta que alguien pulse OK. También puedes dejar una desde el móvil: en la TV, «Customize Home», «Themes and wallpaper», «From your phone».",
+  "The card on Home": "La tarjeta en Home",
+  "How the Screen time card looks on the TV's Home screen. The picture behind it here stands in for your wallpaper.": "Así se ve la tarjeta de tiempo de pantalla en la pantalla de inicio de la TV. La imagen de detrás representa tu fondo.",
+  "0 lets the wallpaper through completely, 100 is solid.": "0 deja pasar el fondo por completo, 100 es opaco.",
+  "Background opacity": "Opacidad del fondo",
+  "Black": "Negro",
+  "Light or dark to suit the background": "Claro u oscuro según el fondo",
+  "The accent colour": "El color de acento",
+  "Use the default": "Usar el predeterminado",
+  "Bau's cream": "El crema de Bau"
 }

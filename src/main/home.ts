@@ -34,12 +34,12 @@ export const DEFAULTS: HomeConfig = {
   clock: 'time_date', greeting: '', names: {}, idle_minutes: 0,
   weather_place: '', weather_lat: 0, weather_lon: 0, weather_unit: 'c', weather_hours: false, weather_days: false, memory: false,
   day_night: false, day_at: 7 * 60, night_at: 19 * 60,
-  bedtime_on: false, bedtime_at: 23 * 60 + 30, bedtime_days: [1, 2, 3, 4, 5, 6, 7], input_tiles: false, screen_goal: 0, lock_screentime: false,
+  bedtime_on: false, bedtime_at: 23 * 60 + 30, bedtime_days: [1, 2, 3, 4, 5, 6, 7], input_tiles: false, screen_goal: 0, lock_screentime: false, st_bg: '', st_opacity: 55, st_text: '', st_bars: '',
   visualiser: true, viz_style: 'bars', viz_bars: 32, viz_height: 12, viz_opacity: 85, viz_colour: 'accent', viz_peaks: true, viz_sensitivity: 100
 }
 
 const CHOICES = {
-  layout: ['shelf', 'split', 'rail', 'kidu', 'bau'],
+  layout: ['shelf', 'split', 'rail', 'bau'],
   focus: ['lift', 'glow', 'outline', 'none'],
   clock: ['time_date', 'time', 'off'],
   viz_style: ['bars', 'mirror', 'wave'],
@@ -74,7 +74,7 @@ const RANGES = {
   wallpaper_dim: [0, 80], dock_size: [0, 8], columns: [3, 8], idle_minutes: [0, 60],
   viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300],
   fire_volume: [0, 100], fire_timer: [0, 240], slide_minutes: [0, 240], tile_glass: [0, 60],
-  day_at: [0, 24 * 60 - 1], night_at: [0, 24 * 60 - 1], bedtime_at: [0, 24 * 60 - 1], screen_goal: [0, 12 * 60],
+  day_at: [0, 24 * 60 - 1], night_at: [0, 24 * 60 - 1], bedtime_at: [0, 24 * 60 - 1], screen_goal: [0, 12 * 60], st_opacity: [0, 100],
   shade_top: [0, 100], shade_top_reach: [0, 100], shade_bottom: [0, 100], shade_bottom_reach: [0, 100], wash: [0, 100], wash_reach: [10, 100]
 } as const
 
@@ -321,6 +321,12 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
     if (o[k] === undefined) continue
     if (typeof o[k] === 'string' && HEX.test(o[k] as string)) out[k] = (o[k] as string).toUpperCase()
     else bad(`${k} must be a colour like #FF3000`)
+  }
+  // The Screen time card's colours: empty puts the default back.
+  for (const k of ['st_bg', 'st_text', 'st_bars'] as const) {
+    if (o[k] === undefined) continue
+    if (o[k] === '' || (typeof o[k] === 'string' && HEX.test(o[k] as string))) out[k] = (o[k] as string).toUpperCase()
+    else bad(`${k} must be a colour like #FF3000, or empty`)
   }
   for (const [k, allowed] of Object.entries(CHOICES)) {
     if (o[k] === undefined) continue

@@ -43,7 +43,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 private val SECTIONS_ALL = listOf("nowplaying", "recent", "screentime", "dock", "watchnext", "rows", "folders", "grid")
-private val QUICK_ALL = listOf("inputs", "wifi", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "timer", "screentime", "customize", "settings")
+private val QUICK_ALL = listOf("inputs", "wifi", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "timer", "screentime", "guest", "customize", "settings")
 
 @Composable
 fun LayoutCustomization(config: HomeConfig, ctx: Context) {
@@ -62,7 +62,7 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
         // --- Layout Mode & Top Space ---
         TvRadioGroup(
             title = tr("Layout"),
-            options = listOf("shelf" to tr("Shelf"), "split" to tr("Split"), "rail" to tr("Rail"), "kidu" to "Kidu", "bau" to "Bau"),
+            options = listOf("shelf" to tr("Shelf"), "split" to tr("Split"), "rail" to tr("Rail"), "bau" to "Bau"),
             current = config.layout,
             onSelect = { ConfigStore.update(ctx, JSONObject().put("layout", it)) }
         )

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { HomeConfig, ScreenDay, ScreenTimeData, TvApp } from '@shared/api'
 import { addDays, appTotals, daysBetween } from '@shared/screentime'
-import { Busy, Confirm, Toggle, errorText } from '../components/ui'
+import { Busy, Confirm, Slider, Toggle, errorText } from '../components/ui'
+import { ScreenTimeCard } from '../components/HomePreview'
 import { t } from '../lib/i18n'
 
 type SetFn = (change: Partial<HomeConfig>, wait?: number) => void
@@ -78,6 +79,17 @@ function Bars({ values, labels, mark = values.length - 1, line, hours }: { value
  * Screen time from CleanMyTV Home: the totals Home keeps on the TV, bigger than the TV's own dashboard,
  * with each app's times opened and longest stretch, a chart per app, and a CSV of any days.
  */
+/** A colour, or the default when it's empty. */
+function ColourPick({ label, value, shown, standard, onChange }: { label: string; value: string; shown: string; standard: string; onChange: (v: string) => void }): ReactNode {
+  return (
+    <div className="row" style={{ gap: 10, margin: '10px 0' }}>
+      <span style={{ width: 110 }}>{label}</span>
+      <input type="color" value={value || shown} aria-label={label} onChange={(e) => onChange(e.target.value.toUpperCase())} />
+      {value ? <button className="btn small ghost" onClick={() => onChange('')}>{t('Use the default')}</button> : <span className="small muted">{standard}</span>}
+    </div>
+  )
+}
+
 export function ScreenTimeTab({ cfg, set, apps }: { cfg: HomeConfig; set: SetFn; apps: TvApp[] }): ReactNode {
   const [data, setData] = useState<ScreenTimeData | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -255,6 +267,17 @@ export function ScreenTimeTab({ cfg, set, apps }: { cfg: HomeConfig; set: SetFn;
         <Toggle label={t('Ask for the PIN to open Screen time on the TV')}
           hint={cfg.lock_on && cfg.lock_pin_set ? t('Changing a daily limit there always asks for it.') : t('Needs App lock on, with a PIN.')}
           checked={cfg.lock_screentime} disabled={!(cfg.lock_on && cfg.lock_pin_set)} onChange={(v) => set({ lock_screentime: v })} />
+      </div>
+      <div className="card">
+        <h2>{t('The card on Home')}</h2>
+        <p className="muted small">{t("How the Screen time card looks on the TV's Home screen. The picture behind it here stands in for your wallpaper.")}</p>
+        <div style={{ padding: 14, borderRadius: 10, overflowX: 'auto', background: 'linear-gradient(135deg, #47606F, #B88A5E 60%, #E7D3A8)', margin: '6px 0 14px' }}>
+          <ScreenTimeCard cfg={cfg} labels={(view.list.length ? view.list.map(([p]) => label(p)) : apps.map((a) => a.label)).slice(0, 3)} />
+        </div>
+        <Slider label={t('Background opacity')} hint={t('0 lets the wallpaper through completely, 100 is solid.')} value={cfg.st_opacity} min={0} max={100} step={5} unit="%" onChange={(v) => set({ st_opacity: v }, 250)} />
+        <ColourPick label={t('Background')} value={cfg.st_bg} shown="#000000" standard={t('Black')} onChange={(v) => set({ st_bg: v }, 300)} />
+        <ColourPick label={t('Text')} value={cfg.st_text} shown="#F0EBE5" standard={t('Light or dark to suit the background')} onChange={(v) => set({ st_text: v }, 300)} />
+        <ColourPick label={t('Bars')} value={cfg.st_bars} shown={cfg.layout === 'bau' ? '#F2EEE3' : cfg.accent} standard={cfg.layout === 'bau' ? t("Bau's cream") : t('The accent colour')} onChange={(v) => set({ st_bars: v }, 300)} />
       </div>
       {clearing && (
         <Confirm title={t('Clear the screen time history?')} confirmLabel={t('Clear it')} onCancel={() => setClearing(false)}

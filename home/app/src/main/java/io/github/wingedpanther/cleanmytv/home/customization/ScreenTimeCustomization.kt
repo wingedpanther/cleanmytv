@@ -36,11 +36,18 @@ import io.github.wingedpanther.cleanmytv.home.customization.components.MUTED_COL
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvDestructiveButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvPrimaryButton
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSecondaryButton
+import io.github.wingedpanther.cleanmytv.home.customization.components.TvRadioGroup
+import io.github.wingedpanther.cleanmytv.home.customization.components.TvSlider
 import io.github.wingedpanther.cleanmytv.home.customization.components.TvSwitch
 import io.github.wingedpanther.cleanmytv.home.customization.components.findable
 import io.github.wingedpanther.cleanmytv.home.tr
 import org.json.JSONArray
 import org.json.JSONObject
+
+/** The card's colour choices here; the desktop app takes any colour. Empty is the default. */
+private fun cardBg() = listOf("" to tr("Black"), "#2B2B2B" to tr("Charcoal"), "#16213A" to tr("Navy"), "#2D3A2E" to tr("Green"), "#FFFFFF" to tr("White"))
+private fun cardText() = listOf("" to tr("Auto"), "#FFFFFF" to tr("White"), "#F0EBE5" to tr("Cream"), "#111111" to tr("Black"))
+private fun cardBars() = listOf("" to tr("Accent"), "#FFFFFF" to tr("White"), "#FFB23C" to tr("Amber"), "#2EC4B6" to tr("Teal"), "#E4572E" to tr("Red"))
 
 /** The same goals the desktop app offers, in minutes; 0 is none. */
 private val GOALS = listOf(0, 60, 90, 120, 150, 180, 240, 300, 360)
@@ -79,6 +86,13 @@ fun ScreenTimeCustomization(config: HomeConfig, ctx: Context) {
                 ConfigStore.update(ctx, JSONObject().put("sections", JSONArray(list)))
             }
         )
+        if ("screentime" in config.sections) {
+            Text(tr("The card on Home"), color = Color.White, fontSize = 15.sp, modifier = Modifier.findable(tr("The card on Home")))
+            TvRadioGroup(tr("Background"), cardBg(), config.stBg) { ConfigStore.update(ctx, JSONObject().put("st_bg", it)) }
+            TvSlider(tr("Background opacity"), config.stOpacity, 0, 100, "%") { ConfigStore.update(ctx, JSONObject().put("st_opacity", it)) }
+            TvRadioGroup(tr("Text"), cardText(), config.stText) { ConfigStore.update(ctx, JSONObject().put("st_text", it)) }
+            TvRadioGroup(tr("Bars"), cardBars(), config.stBars) { ConfigStore.update(ctx, JSONObject().put("st_bars", it)) }
+        }
         if (!allowed) {
             // Some TVs have Android's own screen for it; the others leave it to the computer.
             Alert(if (usageScreen != null) tr("Screen time needs usage access. Press Allow and turn on CleanMyTV Home in the list, or tick Screen time in CleanMyTV on a computer.")

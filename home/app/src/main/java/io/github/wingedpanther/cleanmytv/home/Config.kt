@@ -138,6 +138,12 @@ data class HomeConfig(
     // and the dashboard asking for the PIN while App lock is on
     val screenGoal: Int = 0,
     val lockScreenTime: Boolean = false,
+    // The Screen time card on Home: colours as "#RRGGBB", or empty for the default (black, light or dark text
+    // to suit, the accent for the bars), and how much of the background shows, 0 to 100
+    val stBg: String = "",
+    val stOpacity: Int = 55,
+    val stText: String = "",
+    val stBars: String = "",
     // Apps CleanMyTV switched off, from the desktop app, so Home can say when a system update brings some back;
     // the ones the owner already heard about stay quiet
     val switchedOff: List<String> = emptyList(),
@@ -245,6 +251,10 @@ data class HomeConfig(
         .put("input_tiles", inputTiles)
         .put("screen_goal", screenGoal)
         .put("lock_screentime", lockScreenTime)
+        .put("st_bg", stBg)
+        .put("st_opacity", stOpacity)
+        .put("st_text", stText)
+        .put("st_bars", stBars)
         .put("switched_off", JSONArray(switchedOff))
         .put("came_back_seen", JSONArray(cameBackSeen))
         .put("visualiser", visualiser)
@@ -303,6 +313,7 @@ data class HomeConfig(
                 if (o.has(key)) o.optDouble(key, cur).takeIf { it.isFinite() }?.coerceIn(-lim, lim) ?: cur else cur
             fun bool(key: String, cur: Boolean) = if (o.has(key)) o.optBoolean(key, cur) else cur
             fun choice(key: String, cur: String, allowed: Set<String>) = o.optString(key).takeIf { it in allowed } ?: cur
+            fun optColour(key: String, cur: String) = if (o.has(key)) o.optString(key).takeIf { it.isEmpty() || HEX.matches(it) }?.uppercase() ?: cur else cur
             fun pkgs(key: String): List<String>? = o.optJSONArray(key)?.let { a ->
                 (0 until minOf(a.length(), 500)).map { a.optString(it) }.filter { PKG.matches(it) }.distinct()
             }
@@ -340,7 +351,7 @@ data class HomeConfig(
                 powerOnInput = bool("power_on_input", base.powerOnInput),
                 powerOnTarget = if (o.has("power_on_target")) o.optString("power_on_target").takeIf { it.isEmpty() || INPUT_ID.matches(it) } ?: base.powerOnTarget else base.powerOnTarget,
                 powerOnWait = if (o.has("power_on_wait")) o.optInt("power_on_wait", -1).takeIf { it in POWER_ON_WAITS } ?: base.powerOnWait else base.powerOnWait,
-                layout = choice("layout", base.layout, setOf("shelf", "split", "rail", "kidu", "bau")),
+                layout = choice("layout", base.layout, setOf("shelf", "split", "rail", "bau")),
                 sections = strings("sections", SECTIONS) ?: base.sections,
                 topSpace = int("top_space", base.topSpace, 0, 80),
                 quick = o.optJSONArray("quick")?.let { a ->
@@ -433,6 +444,10 @@ data class HomeConfig(
                 inputTiles = bool("input_tiles", base.inputTiles),
                 screenGoal = int("screen_goal", base.screenGoal, 0, 12 * 60),
                 lockScreenTime = bool("lock_screentime", base.lockScreenTime),
+                stBg = optColour("st_bg", base.stBg),
+                stOpacity = int("st_opacity", base.stOpacity, 0, 100),
+                stText = optColour("st_text", base.stText),
+                stBars = optColour("st_bars", base.stBars),
                 switchedOff = pkgs("switched_off") ?: base.switchedOff,
                 cameBackSeen = pkgs("came_back_seen") ?: base.cameBackSeen,
                 visualiser = bool("visualiser", base.visualiser),
