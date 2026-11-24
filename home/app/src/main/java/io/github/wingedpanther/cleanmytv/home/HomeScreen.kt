@@ -100,6 +100,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.Size
@@ -1438,11 +1440,15 @@ private fun WatchTile(item: WatchItem, app: TvApp?, ui: Ui, w: Dp) {
         if (value == null) value = item.image?.let { WatchNext.picture(ctx, it, px) }
     }
     val go: () -> Unit = { (WatchNext.intent(ctx, item) ?: app?.launch)?.let { open(ctx, item.pkg, it, app?.launch) } }
-    Column(Modifier.width(w)) {
+    // Focus only brings the picture into view, which can leave the name and episode under the bottom edge
+    // (#147). The whole tile is asked for too, so Down from the dock always shows them.
+    val whole = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+    Column(Modifier.width(w).bringIntoViewRequester(whole)) {
         Surface(
             onClick = go,
             modifier = Modifier.pointer { go() }.fillMaxWidth().aspectRatio(16f / 9f)
-                .onFocusChanged { focused = it.isFocused; if (it.isFocused) { app?.let(ui.onFocusApp); ui.onFocusWatch(item) } }
+                .onFocusChanged { focused = it.isFocused; if (it.isFocused) { app?.let(ui.onFocusApp); ui.onFocusWatch(item); scope.launch { whole.bringIntoView() } } }
                 .lift(ui, shape, focused),
             shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,
             colors = ClickableSurfaceDefaults.colors(containerColor = TILE, focusedContainerColor = TILE_FOCUSED)
@@ -1827,7 +1833,9 @@ private fun RailItem(icon: ImageVector, label: String, ui: Ui, expanded: Boolean
 @Composable
 private fun Greeting(cfg: HomeConfig, size: androidx.compose.ui.unit.TextUnit) {
     if (cfg.greeting.isBlank()) return
-    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+    // Read again each minute: Home can stay open from morning into the evening.
+    var hour by remember { mutableIntStateOf(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) }
+    LaunchedEffect(Unit) { while (true) { delay(60_000L - System.currentTimeMillis() % 60_000L); hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY) } }
     val part = when (hour) { in 5..11 -> tr("Good morning"); in 12..17 -> tr("Good afternoon"); else -> tr("Good evening") }
     // The name in a light shade of the accent, light enough to read on any wallpaper.
     val name = lerp(Color(cfg.accent), Color.White, 0.45f)

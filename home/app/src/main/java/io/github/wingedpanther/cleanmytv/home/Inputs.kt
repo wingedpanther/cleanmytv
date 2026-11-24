@@ -13,13 +13,17 @@ data class InputRow(val id: String, val parentId: String?, val hdmi: Boolean, va
 fun pickInputs(rows: List<InputRow>, liveTv: Boolean = true): List<Pair<String, String>> {
     val ids = rows.map { it.id }.toSet()
     val devices = rows.filter { it.parentId != null }.groupBy { it.parentId }
-    fun text(s: String?): String? = s?.trim()?.takeIf { it.isNotEmpty() }
+    // Philips tacks a key onto the name, as in "PS5&SELECTED_DEVICE_TYPE": only the name is shown.
+    fun text(s: String?): String? = s?.replace(PHILIPS_KEY, "")?.trim()?.takeIf { it.isNotEmpty() }
     // A child whose port isn't listed stands in for it.
     val shown = rows.filter { (it.parentId == null || it.parentId !in ids) && !it.hidden && (liveTv || !it.tuner) }
         .sortedWith(compareBy({ !it.tuner }, { !it.hdmi }, { portNumber(it.id) }, { it.id }))
     return (shown.filter { it.tuner }.take(1) + shown.filterNot { it.tuner })
         .map { port -> port.id to (text(port.custom) ?: devices[port.id]?.firstNotNullOfOrNull { text(it.label) } ?: text(port.label) ?: if (port.tuner) tr("Live TV") else tr("Input")) }
 }
+
+/** An "&" with an upper-case key holding an underscore, so a name like "AT&T" stays whole. */
+private val PHILIPS_KEY = Regex("&[A-Z0-9]*_[A-Z0-9_]*")
 
 /** Port ids end in their number on most TVs (…/HW2); others sort after them. */
 private fun portNumber(id: String): Int = Regex("(\\d+)$").find(id)?.value?.toIntOrNull() ?: Int.MAX_VALUE

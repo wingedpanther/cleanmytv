@@ -85,6 +85,8 @@ export async function privateDns(host: string | null): Promise<ApplyResult> {
     return { ok: true, summary: t('Private DNS is back to automatic.'), warnings: [] }
   }
   T.q(host)
+  // Android's Private DNS speaks DNS-over-TLS to a host name with a certificate; an address like AdGuard Home's 192.168.1.2 can't go here.
+  if (/^[\d.:]+$/.test(host.replace(/^\w+:\/\//, ''))) throw new UiError('Private DNS needs a host name, not an IP address. To use {host}, set it as the DNS server on your router.', { host })
   if (!/^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(host)) throw new UiError('not a DNS host name: {host}', { host })
   if ((T.getStatus().probe?.sdk ?? 0) < 28) throw new UiError('Private DNS needs Android 9 or newer.')
   await T.sh(TASK, `settings put global private_dns_specifier ${host}`)

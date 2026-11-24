@@ -562,6 +562,7 @@
   "None": "Keine",
   "None yet. Find a button above and give it a job.": "Noch keine. Wähle oben eine Taste und weise ihr eine Funktion zu.",
   "Normal (1×)": "Normal (1×)",
+  "Private DNS needs a host name, not an IP address. To use {host}, set it as the DNS server on your router.": "Private DNS braucht einen Hostnamen, keine IP-Adresse. Um {host} zu nutzen, trag sie im Router als DNS-Server ein.",
   "not a DNS host name: {host}": "kein DNS-Hostname: {host}",
   "not a package name: {pkg}": "kein Paketname: {pkg}",
   "not a web address": "keine Webadresse",
