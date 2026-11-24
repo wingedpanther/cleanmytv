@@ -71,6 +71,10 @@ export interface FakeTv {
   cacheKb?: number
   /** Packages the firmware refuses to disable, as Fire OS does with Amazon's own. */
   protectedPkgs?: string[]
+  /** The TV drops off the network: it answers nothing more and never closes the connection. */
+  gone?: boolean
+  /** Packages `pm enable` won't switch back on. */
+  stuckOff?: string[]
   /** What `ime list -s` prints: the enabled keyboards. */
   imes?: string[]
   /** Themes saved on the TV by name. */
@@ -185,6 +189,7 @@ function sh(tv: FakeTv, cmd: string): string {
   }
   if ((m = /^pm enable (?:--user 0 )?(\S+)$/.exec(cmd))) {
     if (!tv.packages.has(m[1])) return `Error: Unknown package: ${m[1]}\n`
+    if (tv.stuckOff?.includes(m[1])) return `Security exception: Shell cannot change component state for ${m[1]}\n`
     tv.packages.set(m[1], 'enabled'); return `Package ${m[1]} new state: enabled\n`
   }
   if ((m = /^settings put (?:global|secure) (\S+) (.*)$/.exec(cmd)) && !cmd.includes(';')) { tv.settings.set(m[1], m[2]); return '' }
@@ -343,6 +348,7 @@ export function startFakeAdbd(tv: FakeTv, listenPort = 0): Promise<{ server: Ser
       let nextRemote = 100
       const banner = Buffer.from('device::ro.product.name=BRAVIA_VH2_EU;ro.product.model=BRAVIA 4K VH2;ro.product.device=BRAVIA_VH2;\0')
       sock.on('data', (chunk: Buffer) => {
+        if (tv.gone) return
         buf = Buffer.concat([buf, chunk])
         while (buf.length >= 24 && buf.length >= 24 + buf.readUInt32LE(12)) {
           const cmd = buf.readUInt32LE(0), a0 = buf.readUInt32LE(4), len = buf.readUInt32LE(12)
@@ -371,9 +377,15 @@ export function startFakeAdbd(tv: FakeTv, listenPort = 0): Promise<{ server: Ser
             const local = a0, remote = nextRemote++
             const service = data.toString().replace(/\0$/, '')
             sock.write(packet(A_OKAY, remote, local))
-            const out = Buffer.from(service.startsWith('shell:') ? sh(tv, service.slice(6)) : '')
-            for (let i = 0; i < out.length; i += tv.maxData) sock.write(packet(A_WRTE, remote, local, out.subarray(i, i + tv.maxData)))
-            sock.write(packet(A_CLSE, remote, local))
+            // "sleep <ms>": a command that takes a while and prints nothing until it ends, as pm install does.
+            const slow = /^shell:sleep (\d+)$/.exec(service)
+            const finish = (): void => {
+              if (tv.gone) return
+              const out = Buffer.from(service.startsWith('shell:') && !slow ? sh(tv, service.slice(6)) : '')
+              for (let i = 0; i < out.length; i += tv.maxData) sock.write(packet(A_WRTE, remote, local, out.subarray(i, i + tv.maxData)))
+              sock.write(packet(A_CLSE, remote, local))
+            }
+            if (slow) setTimeout(finish, Number(slow[1])); else finish()
           } else if (cmd === A_OKAY || cmd === A_CLSE) {
             // acknowledgements; nothing to do
           }

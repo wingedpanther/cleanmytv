@@ -3,7 +3,7 @@ import { join } from 'node:path'
 let resourcesDir = join(process.cwd(), 'resources')
 let dataDir = join(process.cwd(), '.cytv-data')
 
-/** resources: bundled upstream lists, CleanMyTV Home's APK and the signing key. data: the app's own writable folder. */
+/** resources: bundled upstream lists and CleanMyTV Home's APK (the signing key only in a checkout, for scripts/build-home). data: the app's own writable folder. */
 export function configurePaths(resources: string, data: string): void {
   resourcesDir = resources
   dataDir = data

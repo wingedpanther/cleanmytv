@@ -2,6 +2,7 @@ package io.github.wingedpanther.cleanmytv.home
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -15,6 +16,27 @@ import java.net.URL
  * which shrinks them for the TV; Home asks for no storage permission.
  */
 object Wallpapers {
+    /**
+     * A picture decoded no bigger than the screen needs. The upload limit is in bytes, and a 4 MB JPEG can hold
+     * 50 megapixels: decoded whole, that's 200 MB, and Home ran out of memory at every start with it.
+     */
+    fun screenPicture(ctx: Context, path: String): androidx.compose.ui.graphics.ImageBitmap? = runCatching {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        val dm = ctx.resources.displayMetrics
+        val (w, h) = maxOf(dm.widthPixels, dm.heightPixels) to minOf(dm.widthPixels, dm.heightPixels)
+        BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sampleFor(bounds.outWidth, bounds.outHeight, w.coerceIn(1280, 3840), h.coerceIn(720, 2160)) })
+            ?.asImageBitmap()
+    }.onFailure { android.util.Log.w(TAG, "picture: $it") }.getOrNull()
+
+    /** The largest power of two that still leaves the picture at least as big as [maxW] by [maxH]. */
+    fun sampleFor(width: Int, height: Int, maxW: Int, maxH: Int): Int {
+        var s = 1
+        while (width / (s * 2) >= maxW && height / (s * 2) >= maxH) s *= 2
+        return s
+    }
+
     private const val BING = "https://www.bing.com"
     private const val MAX_BYTES = 4 * 1024 * 1024
 

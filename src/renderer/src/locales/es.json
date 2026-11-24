@@ -1474,5 +1474,10 @@
   "The accent colour": "El color de acento",
   "Use the default": "Usar el predeterminado",
   "Bau's cream": "El crema de Bau",
-  "Search this TV": "Buscar en esta TV"
+  "Search this TV": "Buscar en esta TV",
+  "Home is {home}, not {before} as it was before cleanup.": "La pantalla de inicio es {home}, no {before} como antes de la limpieza.",
+  "not set": "sin definir",
+  "Restore didn't finish.": "La restauración no terminó.",
+  "Restore didn't finish. Still off: {pkgs}.": "La restauración no terminó. Siguen desactivados: {pkgs}.",
+  "the TV stopped answering. It may be off or off the network.": "el TV dejó de responder. Puede que esté apagado o fuera de la red."
 }

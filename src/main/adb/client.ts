@@ -69,7 +69,8 @@ interface Stream {
   chunks: Buffer[]
   bytes: number
   opened: (remoteId: number) => void
-  closed: () => void
+  /** The device ended the stream, or [err] when the connection went first: a cut-off answer is never whole. */
+  closed: (err?: AdbError) => void
 }
 
 export interface ConnectOptions {
@@ -80,6 +81,10 @@ export interface ConnectOptions {
   authTimeoutMs?: number
   /** Called when the TV is showing the "Allow USB debugging?" prompt. */
   onAuthPrompt?: () => void
+  /** While a command runs and nothing has come back for this long, check the TV is still there. */
+  idleMs?: number
+  /** How long the TV gets to answer that check before the connection counts as lost. */
+  probeMs?: number
 }
 
 export class AdbClient {
@@ -92,6 +97,9 @@ export class AdbClient {
   private nextId = 1
   private queue: Promise<unknown> = Promise.resolve()
   private closedError: AdbError | null = null
+  private lastRx = Date.now()
+  private probing = false
+  private watchdog: ReturnType<typeof setInterval> | null = null
   maxData = 4096
   banner = ''
   onClose?: (err: AdbError) => void
@@ -175,14 +183,41 @@ export class AdbClient {
     }
     this.maxData = Math.max(MIN_DATA, Math.min(MAX_DATA, packet.arg1 || 4096))
     this.banner = packet.data.toString('utf8').replace(/\0+$/, '')
+    // A TV that drops off the network sends nothing, not even a close: without a check every command waited
+    // its full 120 s and the app still said connected. A long quiet command on a live TV answers the check.
+    this.socket.setKeepAlive(true, 5000)
+    const idle = opts.idleMs ?? 15000
+    this.watchdog = setInterval(() => {
+      if (!this.probing && this.streams.size > 0 && Date.now() - this.lastRx > idle) void this.probe(opts.probeMs ?? 5000)
+    }, Math.min(5000, Math.max(50, idle / 3)))
+    this.watchdog.unref?.()
+  }
+
+  /** A tiny command beside the one that's running: any answer means the TV is still there. */
+  private async probe(timeoutMs: number): Promise<void> {
+    this.probing = true
+    const localId = this.nextId++
+    const since = this.lastRx
+    const alive = await new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => { this.streams.delete(localId); resolve(this.lastRx !== since) }, timeoutMs)
+      const end = (): void => { clearTimeout(timer); resolve(true) }
+      this.streams.set(localId, { localId, remoteId: 0, chunks: [], bytes: 0, opened: () => {}, closed: (err) => { if (err) { clearTimeout(timer); resolve(false) } else end() } })
+      try { this.send(A_OPEN, localId, 0, Buffer.from('shell:echo\0')) } catch { clearTimeout(timer); resolve(false) }
+    })
+    this.probing = false
+    if (alive || this.closedError) return
+    this.fail(new AdbError('the TV stopped answering. It may be off or off the network.', 'closed'))
+    this.socket.destroy()
   }
 
   private fail(err: AdbError): void {
     if (this.closedError) return
     this.closedError = err
+    if (this.watchdog) clearInterval(this.watchdog)
+    this.watchdog = null
     this.abortRead?.(err)
     this.abortRead = null
-    for (const s of this.streams.values()) s.closed()
+    for (const s of this.streams.values()) s.closed(err)
     this.streams.clear()
     this.onClose?.(err)
   }
@@ -198,6 +233,7 @@ export class AdbClient {
   }
 
   private onData(chunk: Buffer): void {
+    this.lastRx = Date.now()
     this.buffer = Buffer.concat([this.buffer, chunk])
     while (this.buffer.length >= 24) {
       const len = this.buffer.readUInt32LE(12)
@@ -290,11 +326,11 @@ export class AdbClient {
         chunks: [],
         bytes: 0,
         opened: () => {},
-        closed: () => {
+        closed: (err) => {
           if (done) return
           done = true
           clearTimeout(timer)
-          if (this.closedError && !stream.chunks.length) reject(this.closedError)
+          if (err) reject(err)
           else resolve(Buffer.concat(stream.chunks))
         }
       }

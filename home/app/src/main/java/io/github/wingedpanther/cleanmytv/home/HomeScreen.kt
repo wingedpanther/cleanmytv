@@ -257,7 +257,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         // The picture and its caption land together, so a new picture never shows the last one's caption.
         val (pic, line) = withContext(Dispatchers.IO) {
             val f = ConfigStore.wallpaper(ctx)
-            val pic = if (f.exists()) runCatching { BitmapFactory.decodeFile(f.path)?.asImageBitmap() }.getOrNull() else null
+            val pic = if (f.exists()) Wallpapers.screenPicture(ctx, f.path) else null
             pic to Wallpapers.caption(ctx)
         }
         wallpaper = pic
@@ -1182,7 +1182,8 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
                     item("folders") {
                         CompositionLocalProvider(LocalBringIntoViewSpec provides rowSpec) {
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(GAP), contentPadding = rowPad) {
-                                items(home.folders, key = { it.first }) { f -> FolderTile(f, ui, Modifier.width(148.dp * (cfg.tileScale / 100f))) }
+                                // By place, not name: two folders can share a name, and a key used twice crashes the row.
+                                items(home.folders.indices.toList(), key = { it }) { i -> FolderTile(home.folders[i], ui, Modifier.width(148.dp * (cfg.tileScale / 100f))) }
                             }
                         }
                     }
@@ -1915,7 +1916,7 @@ private fun IdlePhotos() {
     var photo by remember { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(Unit) {
         while (true) {
-            photo = withContext(Dispatchers.IO) { runCatching { BitmapFactory.decodeFile(files[at % files.size].path)?.asImageBitmap() }.getOrNull() }
+            photo = withContext(Dispatchers.IO) { Wallpapers.screenPicture(ctx, files[at % files.size].path) }
             delay(20_000L)
             at++
         }

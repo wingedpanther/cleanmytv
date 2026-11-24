@@ -41,7 +41,7 @@ object Lock {
         require(pin.length in 4..6 && pin.all { it in '0'..'9' }) { "the PIN must be 4 to 6 digits" }
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
         val tmp = File(ctx.filesDir, "lock.json.tmp")
-        tmp.writeText(JSONObject().put("salt", hex(salt)).put("hash", hex(hash(pin, salt))).toString())
+        tmp.writeText(JSONObject().put("salt", hex(salt)).put("hash", hex(hash(pin, salt))).put("len", pin.length).toString())
         tmp.renameTo(file(ctx))
         lockAll()
     }
@@ -52,13 +52,11 @@ object Lock {
     @Synchronized
     fun waitSeconds(): Int = ((waitUntil - SystemClock.elapsedRealtime() + 999) / 1000).toInt().coerceAtLeast(0)
 
-    /** Tests if [pin] matches without incrementing failed attempt counter or setting lockout penalties when wrong. */
-    @Synchronized
-    fun checkSilent(ctx: Context, pin: String, what: String): Boolean {
-        if (waitSeconds() > 0) return false
-        val saved = runCatching { JSONObject(file(ctx).readText()) }.getOrNull() ?: return false
-        return MessageDigest.isEqual(hash(pin, unhex(saved.getString("salt"))), unhex(saved.getString("hash")))
-    }
+    /**
+     * How many digits the PIN has, so the pad can check it the moment it's typed. Null for a PIN set before
+     * Home 1.13.20, which didn't keep it: those pads check on OK or at 6 digits.
+     */
+    fun pinLength(ctx: Context): Int? = runCatching { JSONObject(file(ctx).readText()).optInt("len") }.getOrNull()?.takeIf { it in 4..6 }
 
     /** True and unlocks [what] when the PIN is right. Every fifth wrong one in a row adds 30 seconds more. */
     @Synchronized

@@ -212,9 +212,10 @@ itself.
 - **Pinned upstream.** The debloat lists come from one upstream commit pinned in
   [`upstream.json`](upstream.json) with a content hash. A build refuses anything that doesn't match, so
   a change upstream reaches this app only after someone reviews it and moves the pin.
-- **The launcher signing key ships inside the app, on purpose.** `resources/signing/cleanmytv.jks`
-  (password `cleanyourtv`) signs CleanMyTV Home, so every build installs over the others. It gives no
-  access to a TV: installing anything still needs ADB access the owner allowed.
+- **The launcher signing key is in this repository.** `resources/signing/cleanmytv.jks` (password
+  `cleanyourtv`) signs CleanMyTV Home, so every build installs over the others. The installers don't
+  carry it; the desktop app never signs anything. It gives no access to a TV: installing anything still
+  needs ADB access the owner allowed.
 - **Close debugging when you're done.** Some TVs (`ro.adb.secure=0`) accept any device on the network
   without the Allow prompt; the app warns you if yours is one. The Finish step checks that port 5555 is
   closed. The launcher keeps working without debugging.

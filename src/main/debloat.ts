@@ -1029,16 +1029,39 @@ export async function restore(listId: string): Promise<ApplyResult> {
   const stock = await stockFallback()
   const cmds = restoreCommands(listPkgs, record, stock, notes)
   for (const n of inEnglish(() => { const en: string[] = []; restoreCommands(listPkgs, record, stock, en); return en })) log('restore', 'info', n)
-  await T.batch('restore', cmds)
+  const outs = await T.batch('restore', cmds)
+  // The batch ends with `pm list packages -d`: anything Restore switched on that's still in it didn't come back.
+  const stillOff = stillDisabled(cmds, outs[outs.length - 1] ?? '')
+  const home = await T.homeComponent()
+  const wantHome = record?.home && record.home.split('/')[0] !== CUSTOM_LAUNCHER ? record.home : null
+  const wrongHome = wantHome && (!home || fullComponent(home) !== fullComponent(wantHome)) ? wantHome : null
+  const ok = stillOff.length === 0 && !wrongHome
   // Nothing is kept off with this list now, so nothing can "come back on" until the next apply. The saved
   // list keeps the owner's picks, as upstream's recovery.py expects.
-  if (record) writeFileSync(restoredMark(path), new Date().toISOString())
-  const home = await T.homeComponent()
-  const say = (): string => record
-    ? home ? t('Restored the state recorded on {date}. Home is {home}.', { date: record.created, home }) : t('Restored the state recorded on {date}. Home is not set.', { date: record.created })
-    : home ? t('Enabled every package in the list. Home is {home}.', { home }) : t('Enabled every package in the list. Home is not set.')
+  if (record && ok) writeFileSync(restoredMark(path), new Date().toISOString())
+  const say = (): string => {
+    if (!ok) return [
+      stillOff.length ? t("Restore didn't finish. Still off: {pkgs}.", { pkgs: stillOff.join(', ') }) : t("Restore didn't finish."),
+      wrongHome ? t('Home is {home}, not {before} as it was before cleanup.', { home: home ?? t('not set'), before: wrongHome }) : '',
+    ].filter(Boolean).join(' ')
+    return record
+      ? home ? t('Restored the state recorded on {date}. Home is {home}.', { date: record.created, home }) : t('Restored the state recorded on {date}. Home is not set.', { date: record.created })
+      : home ? t('Enabled every package in the list. Home is {home}.', { home }) : t('Enabled every package in the list. Home is not set.')
+  }
   const summary = say()
-  log('restore', 'ok', inEnglish(say))
-  return { ok: true, summary, warnings: notes }
+  log('restore', ok ? 'ok' : 'warn', inEnglish(say))
+  return { ok, summary, warnings: notes }
+}
+
+/** The packages [cmds] switch on with `pm enable` that `pm list packages -d` ([listOut]) still lists as off. */
+export function stillDisabled(cmds: string[], listOut: string): string[] {
+  const off = new Set(listOut.split('\n').map((l) => l.trim()).filter((l) => l.startsWith('package:')).map((l) => l.slice(8)))
+  return [...new Set(cmds.flatMap((c) => /^pm enable (\S+)$/.exec(c)?.[1] ?? []))].filter((p) => off.has(p))
+}
+
+/** "pkg/.Main" and "pkg/pkg.Main" are the same activity. */
+const fullComponent = (c: string): string => {
+  const [pkg, cls = ''] = c.split('/')
+  return `${pkg}/${cls.startsWith('.') ? pkg + cls : cls}`
 }
 

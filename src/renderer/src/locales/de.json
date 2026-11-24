@@ -1474,5 +1474,10 @@
   "The accent colour": "Die Akzentfarbe",
   "Use the default": "Standard verwenden",
   "Bau's cream": "Das Creme von Bau",
-  "Search this TV": "Diesen TV durchsuchen"
+  "Search this TV": "Diesen TV durchsuchen",
+  "Home is {home}, not {before} as it was before cleanup.": "Home ist {home}, nicht {before} wie vor der Bereinigung.",
+  "not set": "nicht festgelegt",
+  "Restore didn't finish.": "Die Wiederherstellung ist nicht fertig geworden.",
+  "Restore didn't finish. Still off: {pkgs}.": "Die Wiederherstellung ist nicht fertig geworden. Noch aus: {pkgs}.",
+  "the TV stopped answering. It may be off or off the network.": "der TV antwortet nicht mehr. Vielleicht ist er aus oder nicht mehr im Netzwerk."
 }

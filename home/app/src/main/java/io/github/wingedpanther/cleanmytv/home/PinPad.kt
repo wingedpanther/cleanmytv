@@ -55,6 +55,8 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 private val PAD_TEXT = Color(0xFFF0EBE5)
 private val PAD_MUTED = Color(0xFFD7CFC4)
@@ -85,28 +87,31 @@ fun PinPad(title: String, what: String, accent: Color, onEntered: ((String) -> S
     val scope = rememberCoroutineScope()
     val first = remember { FocusRequester() }
     LaunchedEffect(wait) { if (wait > 0) { note = tr("Too many tries. Wait {n} s", "n" to wait); delay(1000); wait = Lock.waitSeconds(); if (wait == 0) note = "" } }
+    // Every check counts toward the wait after five wrong ones; a check that didn't count let any PIN be tried
+    // for free. The hash takes a moment on a slow TV, so it runs off the main thread.
+    val length = remember { if (onEntered == null) Lock.pinLength(ctx) else null }
+    var checking by remember { mutableStateOf(false) }
     fun submit() {
+        if (checking) return
         if (pin.length < 4) { note = tr("At least 4 digits"); return }
         if (onEntered != null) { note = onEntered(pin).orEmpty(); pin = ""; return }
-        if (Lock.check(ctx, pin, what)) { onUnlocked(); return }
-        pin = ""
-        wait = Lock.waitSeconds()
-        if (wait == 0) note = tr("Wrong PIN")
-        scope.launch { for (x in listOf(14f, -12f, 8f, -4f, 0f)) shake.animateTo(x, tween(45)) }
+        val tried = pin
+        checking = true
+        scope.launch {
+            val ok = withContext(Dispatchers.Default) { Lock.check(ctx, tried, what) }
+            checking = false
+            if (ok) { onUnlocked(); return@launch }
+            pin = ""
+            wait = Lock.waitSeconds()
+            if (wait == 0) note = tr("Wrong PIN")
+            for (x in listOf(14f, -12f, 8f, -4f, 0f)) shake.animateTo(x, tween(45))
+        }
     }
     fun type(c: Char) {
-        if (wait > 0 || pin.length >= 6) return
+        if (wait > 0 || checking || pin.length >= 6) return
         pin += c; note = ""
-        if (onEntered == null && pin.length >= 4) {
-            if (Lock.checkSilent(ctx, pin, what)) {
-                scope.launch {
-                    delay(120L)
-                    submit()
-                }
-                return
-            }
-        }
-        if (pin.length == 6) {
+        // Checked as soon as it's as long as the PIN, or at 6 digits when the length isn't known.
+        if (pin.length == (length ?: 6)) {
             scope.launch {
                 delay(120L)
                 submit()

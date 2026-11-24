@@ -192,7 +192,7 @@ fun LookCustomization(config: HomeConfig, ctx: Context) {
         // --- 6. Focus & Animation Effects ---
         TvRadioGroup(
             title = tr("Focus"),
-            options = listOf("lift" to tr("3D Lift"), "glow" to tr("Glow Effect"), "border" to tr("Border Outline"), "none" to tr("None")),
+            options = listOf("lift" to tr("3D Lift"), "glow" to tr("Glow Effect"), "outline" to tr("Border Outline"), "none" to tr("None")),
             current = config.focus,
             onSelect = { ConfigStore.update(ctx, JSONObject().put("focus", it)) }
         )

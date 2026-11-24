@@ -1474,5 +1474,10 @@
   "The accent colour": "Цвет акцента",
   "Use the default": "Вернуть по умолчанию",
   "Bau's cream": "Кремовый цвет Bau",
-  "Search this TV": "Поиск по телевизору"
+  "Search this TV": "Поиск по телевизору",
+  "Home is {home}, not {before} as it was before cleanup.": "Главный экран — {home}, а не {before}, как было до очистки.",
+  "not set": "не задан",
+  "Restore didn't finish.": "Восстановление не завершилось.",
+  "Restore didn't finish. Still off: {pkgs}.": "Восстановление не завершилось. Всё ещё отключены: {pkgs}.",
+  "the TV stopped answering. It may be off or off the network.": "телевизор перестал отвечать. Возможно, он выключен или отключён от сети."
 }

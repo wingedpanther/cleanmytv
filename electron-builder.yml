@@ -13,8 +13,6 @@ extraResources:
     to: home.apk
   - from: resources/home.json
     to: home.json
-  - from: resources/signing
-    to: signing
   - from: resources/licenses
     to: licenses
   - from: build/icon.png

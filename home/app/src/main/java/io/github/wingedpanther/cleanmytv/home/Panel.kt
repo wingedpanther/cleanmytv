@@ -97,7 +97,7 @@ fun SettingsPanel(accent: Color, bau: Boolean = false, onFind: () -> Unit = {}, 
                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (bau) 0.dp else 6.dp)) {
                     item("find") { PanelRow(tr("Search this TV"), "", tr("Apps, the TV's settings and Home's"), accent, Modifier.focusRequester(first), bau = bau) { onClose(); onFind() } }
                     choices.forEachIndexed { n, c ->
-                        item(c.label) {
+                        item("choice$n") {
                             fun step(d: Int) {
                                 if (c.set == null) return
                                 val i = (c.current + d).coerceIn(0, c.options.size - 1)

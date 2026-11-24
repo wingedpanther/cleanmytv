@@ -99,6 +99,19 @@ describe('talking to a TV', () => {
     expect(tv.commands).toContain('settings put global window_animation_scale 0.5')
   })
 
+  it("says when Restore couldn't switch a package back on", async () => {
+    tv.packages.set('com.sony.dtv.promos', 'disabled')
+    tv.stuckOff = ['com.sony.dtv.promos']
+    const res = await D.restore('custom')
+    tv.stuckOff = undefined
+    expect(res.ok).toBe(false)
+    expect(res.summary).toMatch(/Still off: com\.sony\.dtv\.promos/)
+  })
+
+  it('finds what pm list packages -d still lists', () => {
+    expect(D.stillDisabled(['pm enable a.b', 'pm enable c.d', 'settings put global x 1', 'pm list packages -d'], 'package:c.d\npackage:e.f\n')).toEqual(['c.d'])
+  })
+
   it('writes the record upstream recovery.py reads, and builds the same restore batch', async () => {
     if (!UPSTREAM) return
     const list = D.savedListPath('custom', T.getStatus().probe!)
