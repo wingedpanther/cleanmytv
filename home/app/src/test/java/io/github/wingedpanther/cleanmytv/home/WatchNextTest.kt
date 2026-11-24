@@ -62,30 +62,42 @@ class WatchNextTest {
         assertEquals("Pilot", WatchNext.episodeLine(base.copy(episodeTitle = "Pilot")))
     }
 
+    @Test fun `left out when untouched for a month, all but finished, or removed here and not watched since`() {
+        val day = 24 * 3600 * 1000L
+        val now = 100 * day
+        val items = listOf(
+            item("a.b", "Old", now - 31 * day), item("a.b", "Recent", now - 2 * day), item("a.b", "Unknown", 0),
+            item("a.b", "Done", now - day).copy(position = 96, duration = 100), item("a.b", "Half", now - day).copy(position = 50, duration = 100),
+            item("a.b", "Removed", now - 3 * day), item("a.b", "Back", now - day),
+        )
+        val removed = mapOf("a.b:Removed" to now - 2 * day, "a.b:Back" to now - 2 * day)
+        assertEquals(listOf("Half", "Back", "Recent", "Unknown"), WatchNext.pick(items, setOf("a.b"), HomeConfig(), now, removed).map { it.title })
+    }
+
     @Test fun `newest first, at most ten, apps on Home only`() {
         val items = (1..14).map { item("a.b", "F$it", engaged = it.toLong()) } + item("gone.app", "Old", 100)
-        val shown = WatchNext.pick(items, setOf("a.b"), HomeConfig())
+        val shown = WatchNext.pick(items, setOf("a.b"), HomeConfig(), now = 100L)
         assertEquals(WatchNext.SHOWN, shown.size)
         assertEquals((14 downTo 5).map { "F$it" }, shown.map { it.title })
     }
 
     @Test fun `the same film twice shows once, the newest`() {
         val items = listOf(item("a.b", "Old copy", 1, key = "a.b:42"), item("a.b", "New copy", 2, key = "a.b:42"))
-        assertEquals(listOf("New copy"), WatchNext.pick(items, setOf("a.b"), HomeConfig()).map { it.title })
+        assertEquals(listOf("New copy"), WatchNext.pick(items, setOf("a.b"), HomeConfig(), now = 100L).map { it.title })
     }
 
     @Test fun `hidden apps stay out`() {
         val items = listOf(item("a.b", "Mine", 1), item("c.d", "Hidden", 2))
-        assertEquals(listOf("Mine"), WatchNext.pick(items, setOf("a.b", "c.d"), HomeConfig(hidden = setOf("c.d"))).map { it.title })
+        assertEquals(listOf("Mine"), WatchNext.pick(items, setOf("a.b", "c.d"), HomeConfig(hidden = setOf("c.d")), now = 100L).map { it.title })
     }
 
     @Test fun `locked apps show with a badge, or not at all with Hide locked apps`() {
         val items = listOf(item("a.b", "Open", 1), item("c.d", "Locked", 2))
         val badge = HomeConfig(lockOn = true, lockApps = listOf("c.d"), lockShow = "badge")
-        assertEquals(listOf("Locked", "Open"), WatchNext.pick(items, setOf("a.b", "c.d"), badge).map { it.title })
-        assertEquals(listOf("Open"), WatchNext.pick(items, setOf("a.b", "c.d"), badge.copy(lockShow = "hide")).map { it.title })
+        assertEquals(listOf("Locked", "Open"), WatchNext.pick(items, setOf("a.b", "c.d"), badge, now = 100L).map { it.title })
+        assertEquals(listOf("Open"), WatchNext.pick(items, setOf("a.b", "c.d"), badge.copy(lockShow = "hide"), now = 100L).map { it.title })
         // The lock switched off: the hide setting no longer applies.
-        assertEquals(2, WatchNext.pick(items, setOf("a.b", "c.d"), badge.copy(lockShow = "hide", lockOn = false)).size)
+        assertEquals(2, WatchNext.pick(items, setOf("a.b", "c.d"), badge.copy(lockShow = "hide", lockOn = false), now = 100L).size)
     }
 
     @Test fun `pictures shrink by powers of two and never below the tile`() {

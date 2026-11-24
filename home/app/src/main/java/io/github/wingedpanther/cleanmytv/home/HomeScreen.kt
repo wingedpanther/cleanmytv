@@ -190,7 +190,7 @@ private fun IntroLayer(intro: Animatable<Float, *>) {
 }
 
 /** Everything the layouts draw, worked out once from the apps on the TV and the settings. */
-private class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<String> = emptyList(), watching: List<WatchItem> = emptyList(), usual: List<String> = emptyList(), guest: Boolean = false) {
+private class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<String> = emptyList(), watching: List<WatchItem> = emptyList(), usual: List<String> = emptyList(), guest: Boolean = false, watchRemoved: Map<String, Long> = emptyMap()) {
     // "Hide locked apps": they stay out of every section, and only open from elsewhere with the PIN.
     // Guest mode: only the guest apps, wherever the owner put them.
     private val apps = (if (cfg.lockOn && cfg.lockShow == "hide") all.filter { it.pkg !in cfg.lockApps } else all)
@@ -207,7 +207,7 @@ private class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<Strin
     val rows = cfg.rows.map { g -> g.name to g.apps.mapNotNull { byPkg[it] }.filter { it.pkg !in cfg.hidden } }.filter { it.second.isNotEmpty() }
     val folders = (cfg.folders.map { g -> g.name to g.apps.mapNotNull { byPkg[it] } } + listOf(tr("Other apps") to other)).filter { it.second.isNotEmpty() }
     val recent = recentPkgs.mapNotNull { byPkg[it] }.filter { it.pkg !in cfg.hidden }
-    val watch = WatchNext.pick(watching, byPkg.keys, cfg)
+    val watch = WatchNext.pick(watching, byPkg.keys, cfg, removed = watchRemoved)
     fun app(pkg: String): TvApp? = byPkg[pkg]
     /** The section the focus starts in, its key and its apps. */
     private val start: Pair<String, List<TvApp>>? = cfg.sections.firstNotNullOfOrNull { s ->
@@ -349,6 +349,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     // Changes while an app plays are left for the read when Home comes back, so playback isn't disturbed.
     val wantWatch = "watchnext" in cfg.sections
     var watching by remember { mutableStateOf<List<WatchItem>>(emptyList()) }
+    var watchRemoved by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
     var watchChanged by remember { mutableIntStateOf(0) }
     DisposableEffect(wantWatch) {
         val resumed = { (ctx as? androidx.activity.ComponentActivity)?.lifecycle?.currentState?.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) != false }
@@ -359,6 +360,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         if (!wantWatch) { watching = emptyList(); return@LaunchedEffect }
         // An app saving its place often writes a few times in a row: one read for the lot.
         if (watchChanged > 0) delay(300)
+        watchRemoved = withContext(Dispatchers.IO) { WatchNext.removed(ctx) }
         watching = withContext(Dispatchers.IO) { WatchNext.read(ctx) }
     }
     // Worked out again only when the apps or settings change, not on every redraw.
@@ -371,7 +373,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         usual = if (cfg.focusUsual && apps.isNotEmpty()) withContext(Dispatchers.IO) { Usual.apps(ctx, apps.map { it.pkg }.toSet()) } else emptyList()
         usualAt = asked
     }
-    val home = remember(apps, cfg, recentPkgs, wantRecent, watching, usual, guest) { Home(apps, cfg, if (wantRecent) recentPkgs else emptyList(), watching, usual, guest) }
+    val home = remember(apps, cfg, recentPkgs, wantRecent, watching, usual, guest, watchRemoved) { Home(apps, cfg, if (wantRecent) recentPkgs else emptyList(), watching, usual, guest, watchRemoved) }
     val accent = Color(cfg.accent)
     // Quick-settings icons this TV can actually open; Inputs only on TVs that have inputs.
     val all = remember { quickActions() }
@@ -424,6 +426,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var showUpdate by remember { mutableStateOf(false) }
     var showDebugging by remember { mutableStateOf(false) }
     var showGuest by remember { mutableStateOf(false) }
+    var watchMenu by remember { mutableStateOf<WatchItem?>(null) }
     val note by TvNote.note.collectAsState()
     // The tip about holding OK, on the first few days (see Hints), for 12 seconds.
     var tip by remember { mutableStateOf(false) }
@@ -507,7 +510,8 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     val shownCaption = caption?.takeIf { cfg.bingCaption && !fireWall && wallpaper != null }
     val ui = Ui(cfg, accent, first, movingKey ?: home.first, onFolder = { openFolder = it }, track = track, weather = weather, memory = memory,
         onFocusApp = { a -> focusColour = a.colour?.let { Color(it) } },
-        motion = motion, onAppMenu = { s, a -> if (!guest) { menuFor = s to a; if (tip) tip = false; Hints.done(ctx) } }, movingKey = movingKey,
+        motion = motion, onAppMenu = { s, a -> if (!guest) { menuFor = s to a; if (tip) tip = false; Hints.done(ctx) } },
+        onWatchMenu = { if (!guest) watchMenu = it }, movingKey = movingKey,
         captioned = shownCaption != null, screenTime = screenTime, screenTimeSeen = screenSeen && wantScreen)
 
     Box(
@@ -551,7 +555,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         })
         if (cfg.snow) {
             // Still while anything is open over Home, and with the TV's animations off.
-            val menus = openFolder != null || menuFor != null || showInputs || showPanel || showThemes || showTimer || showUpdate || showDebugging || showGuest || panelPin || editPin
+            val menus = openFolder != null || menuFor != null || showInputs || showPanel || showThemes || showTimer || showUpdate || showDebugging || showGuest || watchMenu != null || panelPin || editPin
             Snow(running = resumed() && motion && !menus)
         }
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = shown }) {
@@ -602,6 +606,9 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     if (showUpdate) update?.let { UpdateDialog(it, accent) { showUpdate = false } }
     if (showDebugging) DebuggingDialog(accent) { showDebugging = false; debugging = Debugging.shown(ctx) }
     if (showGuest) GuestDialog(cfg, accent) { showGuest = false }
+    watchMenu?.let { item ->
+        WatchMenu(item, accent, onRemove = { WatchNext.remove(ctx, item); watchRemoved = watchRemoved + (item.key to System.currentTimeMillis()); watchMenu = null }) { watchMenu = null }
+    }
     if (backNews.isNotEmpty() && !showUpdate) CameBackDialog(backNews, accent) { CameBack.seen(ctx, back); backNews = emptyList() }
     if (note != null && !showUpdate && !showDebugging && !showGuest && backNews.isEmpty() && !idle) note?.let { n -> NoteDialog(n, accent) { TvNote.clear(ctx) } }
     if (panelPin) Dialog(onDismissRequest = { panelPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -707,6 +714,8 @@ private class Ui(
     val motion: Boolean = true,
     /** A long press on a tile, with the section it is in. */
     val onAppMenu: (String, TvApp) -> Unit = { _, _ -> },
+    /** Hold OK on a Continue watching tile. */
+    val onWatchMenu: (WatchItem) -> Unit = {},
     /** "<section>:<package>" of the app being moved, drawn with an outline. */
     val movingKey: String? = null,
     /** Where the Bing picture was taken shows in the bottom corner: the rows stop above it. */
@@ -1059,7 +1068,8 @@ private fun BauWatch(item: WatchItem, app: TvApp?, ui: Ui, modifier: Modifier) {
     val meta = listOfNotNull(app?.label, left?.let { tr("{time} left", "time" to Limits.words(it)) }).joinToString(" · ")
     Surface(
         onClick = go,
-        modifier = modifier.pointer { go() }.onFocusChanged { focused = it.isFocused; if (it.isFocused) app?.let(ui.onFocusApp) },
+        onLongClick = { ui.onWatchMenu(item) },
+        modifier = modifier.pointer(onLongClick = { ui.onWatchMenu(item) }) { go() }.onFocusChanged { focused = it.isFocused; if (it.isFocused) app?.let(ui.onFocusApp) },
         shape = ClickableSurfaceDefaults.shape(RectangleShape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = BAU_CREAM)
     ) {
@@ -1439,7 +1449,8 @@ private fun WatchTile(item: WatchItem, app: TvApp?, ui: Ui, w: Dp) {
     Column(Modifier.width(w).bringIntoViewRequester(whole)) {
         Surface(
             onClick = go,
-            modifier = Modifier.pointer { go() }.fillMaxWidth().aspectRatio(16f / 9f)
+            onLongClick = { ui.onWatchMenu(item) },
+            modifier = Modifier.pointer(onLongClick = { ui.onWatchMenu(item) }) { go() }.fillMaxWidth().aspectRatio(16f / 9f)
                 .onFocusChanged { focused = it.isFocused; if (it.isFocused) { app?.let(ui.onFocusApp); scope.launch { whole.bringIntoView() } } }
                 .lift(ui, shape, focused),
             shape = ClickableSurfaceDefaults.shape(shape), scale = scale, glow = glow, border = border,

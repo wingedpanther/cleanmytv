@@ -12,6 +12,30 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.util.LruCache
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.tv.material3.Text
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +76,9 @@ data class WatchItem(
  */
 object WatchNext {
     const val SHOWN = 10
+    const val STALE_DAYS = 30
+    /** Watched this far, it's finished: the credits are often all that's left. */
+    private const val DONE = 0.95f
     const val PERMISSION = "android.permission.READ_TV_LISTINGS"
     val URI: Uri by lazy { Uri.parse("content://android.media.tv/watch_next_program") }
 
@@ -98,12 +125,16 @@ object WatchNext {
 
     /**
      * What the row shows: items from apps on Home and not hidden, nor locked with "Hide locked apps", newest
-     * first, one per film or episode, at most [SHOWN].
+     * first, one per film or episode, at most [SHOWN]. Some apps never take an entry off the list, so Home
+     * leaves out what nobody has watched for [STALE_DAYS], what's all but finished, and what the owner
+     * [removed] here, until it's watched again after that.
      */
-    fun pick(items: List<WatchItem>, apps: Set<String>, cfg: HomeConfig): List<WatchItem> {
+    fun pick(items: List<WatchItem>, apps: Set<String>, cfg: HomeConfig, now: Long = System.currentTimeMillis(), removed: Map<String, Long> = emptyMap()): List<WatchItem> {
         val hideLocked = cfg.lockOn && cfg.lockShow == "hide"
+        val since = now - STALE_DAYS * 24 * 3600 * 1000L
         return items.asSequence()
             .filter { it.pkg in apps && it.pkg !in cfg.hidden && !(hideLocked && it.pkg in cfg.lockApps) }
+            .filter { (it.engaged == 0L || it.engaged >= since) && (it.progress ?: 0f) < DONE && (removed[it.key]?.let { at -> it.engaged > at } ?: true) }
             .sortedByDescending { it.engaged }
             .distinctBy { it.key }
             .take(SHOWN)
@@ -120,6 +151,20 @@ object WatchNext {
         }
         return listOfNotNull(number, it.episodeTitle).joinToString(" · ").ifEmpty { null }
     }
+
+    private fun removedPrefs(ctx: Context) = ctx.getSharedPreferences("watch_removed", Context.MODE_PRIVATE)
+
+    /** Items the owner took off the row, by key, with when; older than [STALE_DAYS] they'd be left out anyway. */
+    fun removed(ctx: Context): Map<String, Long> {
+        val p = removedPrefs(ctx)
+        val since = System.currentTimeMillis() - STALE_DAYS * 24 * 3600 * 1000L
+        val all = p.all.mapNotNull { (k, v) -> (v as? Long)?.let { k to it } }.toMap()
+        all.filterValues { it < since }.keys.takeIf { it.isNotEmpty() }?.let { old -> p.edit().apply { old.forEach { remove(it) } }.apply() }
+        return all.filterValues { it >= since }
+    }
+
+    /** Hold OK, Remove: off the row until the app says it was watched again. */
+    fun remove(ctx: Context, item: WatchItem) = removedPrefs(ctx).edit().putLong(item.key, System.currentTimeMillis()).apply()
 
     fun allowed(ctx: Context): Boolean = ctx.checkSelfPermission(PERMISSION) == PackageManager.PERMISSION_GRANTED
 
@@ -242,5 +287,24 @@ object WatchNext {
             if (buf.size() > MAX_BYTES) return null
         }
         return buf.toByteArray()
+    }
+}
+
+/** Hold OK on a Continue watching tile: take it off the row, for apps that never do. */
+@Composable
+fun WatchMenu(item: WatchItem, accent: Color, onRemove: () -> Unit, onClose: () -> Unit) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)), contentAlignment = Alignment.Center) {
+            Column(Modifier.width(560.dp).background(Color(0xF22D3A2E), RoundedCornerShape(20.dp)).padding(26.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(item.title, color = Color(0xFFF0EBE5), fontSize = 22.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(tr("It comes back if you watch it again."), color = Color(0xFFD7CFC4), fontSize = 15.sp)
+                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    UpdateButton(tr("Remove from Continue watching"), accent, Modifier.focusRequester(first)) { onRemove() }
+                    UpdateButton(tr("Cancel"), accent) { onClose() }
+                }
+            }
+        }
     }
 }
