@@ -15,6 +15,7 @@ class CustomizationActivity : ComponentActivity() {
         overridePendingTransition(0, 0)
         ConfigStore.load(this)
         val apps = loadApps(this, glyphs = false)
+        val initial = intent.getStringExtra(FIND)?.let { n -> SETTINGS_INDEX.firstOrNull { it.name == n } }
 
         setContent {
             val config by ConfigStore.config.collectAsState()
@@ -22,9 +23,15 @@ class CustomizationActivity : ComponentActivity() {
             CustomizationDialog(
                 config = config,
                 apps = apps,
-                onDismiss = { finish() }
+                onDismiss = { finish() },
+                initial = initial,
             )
         }
+    }
+
+    companion object {
+        /** A [Findable]'s English name, to open the editor on that setting. */
+        const val FIND = "find"
     }
 
     override fun finish() {

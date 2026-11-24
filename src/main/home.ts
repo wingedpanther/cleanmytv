@@ -59,7 +59,7 @@ const LISTS = {
   sections: ['nowplaying', 'recent', 'screentime', 'dock', 'watchnext', 'rows', 'folders', 'grid']
 } as const
 
-const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'customize', 'timer', 'screentime', 'guest'] as const
+const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'customize', 'timer', 'screentime', 'guest', 'find', 'allapps'] as const
 /** App shortcuts the top bar takes, as the launcher's HomeConfig.MAX_QUICK_APPS. */
 export const MAX_QUICK_APPS = 6
 const quickApp = (q: unknown): boolean => typeof q === 'string' && q.startsWith('app:') && T.PACKAGE_RE.test(q.slice(4))

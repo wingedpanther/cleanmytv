@@ -80,7 +80,9 @@ import kotlinx.coroutines.delay
 fun CustomizationDialog(
     config: HomeConfig,
     apps: List<TvApp>,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    /** A setting Search this TV found on Home: the editor opens on it. */
+    initial: Findable? = null,
 ) {
     val ctx = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -99,6 +101,13 @@ fun CustomizationDialog(
     var searching by remember { mutableStateOf(false) }
     // A new search remounts the section, so its controls look for the setting even when the section is already open.
     var found by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        val f = initial ?: return@LaunchedEffect
+        Find.target = tr(f.name)
+        found++
+        selectedCategory = f.where
+        inContentPane = true
+    }
     // The picture under the focus in Themes and wallpaper, shown in the room to the right of the section.
     val preview = remember { mutableStateOf<Previewed?>(null) }
 

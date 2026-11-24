@@ -43,7 +43,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 private val SECTIONS_ALL = listOf("nowplaying", "recent", "screentime", "dock", "watchnext", "rows", "folders", "grid")
-private val QUICK_ALL = listOf("inputs", "wifi", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "timer", "screentime", "guest", "customize", "settings")
+private val QUICK_ALL = listOf("inputs", "wifi", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "timer", "screentime", "guest", "find", "allapps", "customize", "settings")
 
 @Composable
 fun LayoutCustomization(config: HomeConfig, ctx: Context) {

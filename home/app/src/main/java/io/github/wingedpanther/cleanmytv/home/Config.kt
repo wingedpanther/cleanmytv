@@ -273,7 +273,7 @@ data class HomeConfig(
         private val PKG = Regex("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")
 
         private fun hex(c: Long) = "#%06X".format(c and 0xFFFFFF)
-        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "customize", "timer", "screentime", "guest")
+        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "customize", "timer", "screentime", "guest", "find", "allapps")
         private val THEME_PICTURE = Regex("^[a-z0-9-]{1,40}:[0-9]$")
         /** A TvInputManager input id, like com.mediatek.tvinput/.hdmi.HDMIInputService/HW5. */
         private val INPUT_ID = Regex("^[A-Za-z0-9_.\\$/:-]{1,200}$")

@@ -30,6 +30,8 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tv
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material.icons.outlined.QrCode2
+import androidx.compose.material.icons.outlined.ManageSearch
+import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -83,6 +85,8 @@ fun quickActions(): Map<String, QuickAction> = listOf(
     // Handled by Home itself: closes apps in the background. Up to Android 13 (see Memory).
     QuickAction("memory", tr("Clean memory"), Icons.Outlined.CleaningServices, emptyList()),
     QuickAction("guest", tr("Guest Wi-Fi"), Icons.Outlined.QrCode2, emptyList()),
+    QuickAction("find", tr("Search this TV"), Icons.Outlined.ManageSearch, emptyList()),
+    QuickAction("allapps", tr("All apps"), Icons.Outlined.GridView, emptyList()),
 ).associateBy { it.id }
 
 /**
@@ -102,7 +106,7 @@ private fun canStart(ctx: Context, i: Intent): Boolean {
 fun canOpen(ctx: Context, a: QuickAction, hasInputs: Boolean): Boolean = when (a.id) {
     "inputs" -> hasInputs
     "memory" -> Memory.canClean
-    "music", "panel", "themes", "timer", "update", "debugging", "screentime", "guest" -> true
+    "music", "panel", "themes", "timer", "update", "debugging", "screentime", "guest", "find", "allapps" -> true
     "fireplace" -> Fire.ready(ctx)
     "customize" -> ConfigStore.config.value.editOnTv
     else -> resolve(ctx, a) != null

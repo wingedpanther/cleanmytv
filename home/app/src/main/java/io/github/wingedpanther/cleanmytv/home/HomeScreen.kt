@@ -427,6 +427,9 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var showDebugging by remember { mutableStateOf(false) }
     var showGuest by remember { mutableStateOf(false) }
     var watchMenu by remember { mutableStateOf<WatchItem?>(null) }
+    var showFind by remember { mutableStateOf(false) }
+    var showAllApps by remember { mutableStateOf(false) }
+    var pageMenu by remember { mutableStateOf<TvApp?>(null) }
     val note by TvNote.note.collectAsState()
     // The tip about holding OK, on the first few days (see Hints), for 12 seconds.
     var tip by remember { mutableStateOf(false) }
@@ -456,6 +459,8 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             "fireplace" -> runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
             "screentime" -> ScreenTimeApps.open(ctx)
             "guest" -> showGuest = true
+            "find" -> showFind = true
+            "allapps" -> showAllApps = true
             // Home pressed twice: the app it came from, or the last one opened before that.
             MainActivity.LAST -> withContext(Dispatchers.Default) { Recent.apps(ctx, byPkg.keys) }.firstOrNull()?.let { byPkg[it] }?.let { launch(ctx, it) }
         }
@@ -470,6 +475,8 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         else if (a.id == "update") showUpdate = true
         else if (a.id == "debugging") showDebugging = true
         else if (a.id == "guest") showGuest = true
+        else if (a.id == "find") showFind = true
+        else if (a.id == "allapps") showAllApps = true
         else if (a.id == "fireplace") runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
         else if (a.id == "screentime") ScreenTimeApps.open(ctx)
         else if (a.id == "memory") scope.launch { Memory.cleanAndSay(ctx); memoryTick++ }
@@ -555,7 +562,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         })
         if (cfg.snow) {
             // Still while anything is open over Home, and with the TV's animations off.
-            val menus = openFolder != null || menuFor != null || showInputs || showPanel || showThemes || showTimer || showUpdate || showDebugging || showGuest || watchMenu != null || panelPin || editPin
+            val menus = openFolder != null || menuFor != null || showInputs || showPanel || showThemes || showTimer || showUpdate || showDebugging || showGuest || watchMenu != null || showFind || showAllApps || panelPin || editPin
             Snow(running = resumed() && motion && !menus)
         }
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = shown }) {
@@ -600,12 +607,17 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         }
         AppMenu(app, ui, onMove = kind?.let { k -> { menuFor = null; openFolder = null; moving = Moving(k, app.pkg, app.label) } }) { menuFor = null }
     }
-    if (showPanel) SettingsPanel(accent) { showPanel = false }
+    if (showPanel) SettingsPanel(accent, bau = cfg.layout == "bau", onFind = { showFind = true }) { showPanel = false }
     if (showThemes) ThemeCarousel(accent) { showThemes = false }
     if (showTimer) TimerMenu(ui) { showTimer = false }
     if (showUpdate) update?.let { UpdateDialog(it, accent) { showUpdate = false } }
     if (showDebugging) DebuggingDialog(accent) { showDebugging = false; debugging = Debugging.shown(ctx) }
     if (showGuest) GuestDialog(cfg, accent) { showGuest = false }
+    // Search this TV and the All apps page see what Home shows: no locked apps with "Hide locked apps", only the guest apps in guest mode.
+    val pageApps = remember(byPkg, cfg.lockOn, cfg.lockShow, cfg.lockApps) { byPkg.values.filter { !(cfg.lockOn && cfg.lockShow == "hide" && it.pkg in cfg.lockApps) } }
+    if (showFind) FindPage(cfg, pageApps, home.dock.map { it.pkg }.toSet(), onApp = { launch(ctx, it) }) { showFind = false }
+    if (showAllApps) AppsPage(cfg, pageApps, onOpen = { launch(ctx, it) }, onMenu = { if (!guest) pageMenu = it }) { showAllApps = false }
+    pageMenu?.let { app -> AppMenu(app, ui, onMove = null) { pageMenu = null } }
     watchMenu?.let { item ->
         WatchMenu(item, accent, onRemove = { WatchNext.remove(ctx, item); watchRemoved = watchRemoved + (item.key to System.currentTimeMillis()); watchMenu = null }) { watchMenu = null }
     }
@@ -862,22 +874,22 @@ private fun BauLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Qu
     }
 }
 
-private val BAU_INK = Color(0xFF141414)
-private val BAU_CREAM = Color(0xFFF2EEE3)
-private val BAU_MUTED = Color(0xFFA8A398)
-private val BAU_DIM = Color(0xFF4A4740)
-private val BAU_LINE = Color(0xFF3A3A3A)
-private val BAU_RED = Color(0xFFE03A2B)
-private val BAU_YELLOW = Color(0xFFF5C518)
-private val BAU_BLUE = Color(0xFF2F6BDE)
-private val BAU_COLOURS = listOf(BAU_RED, BAU_YELLOW, BAU_BLUE)
+internal val BAU_INK = Color(0xFF141414)
+internal val BAU_CREAM = Color(0xFFF2EEE3)
+internal val BAU_MUTED = Color(0xFFA8A398)
+internal val BAU_DIM = Color(0xFF4A4740)
+internal val BAU_LINE = Color(0xFF3A3A3A)
+internal val BAU_RED = Color(0xFFE03A2B)
+internal val BAU_YELLOW = Color(0xFFF5C518)
+internal val BAU_BLUE = Color(0xFF2F6BDE)
+internal val BAU_COLOURS = listOf(BAU_RED, BAU_YELLOW, BAU_BLUE)
 
 @Composable
-private fun BauRule(colour: Color = BAU_LINE) = Box(Modifier.fillMaxWidth().height(1.dp).background(colour))
+internal fun BauRule(colour: Color = BAU_LINE) = Box(Modifier.fillMaxWidth().height(1.dp).background(colour))
 
 /** A remote key as the design draws it: its name in a cream outline. */
 @Composable
-private fun BauKey(name: String) {
+internal fun BauKey(name: String) {
     Text(name, color = BAU_CREAM, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.border(1.dp, BAU_CREAM).padding(horizontal = 6.dp, vertical = 3.dp))
 }
 
@@ -886,7 +898,7 @@ private fun BauKey(name: String) {
  * triangle pointing right.
  */
 @Composable
-private fun BauGlyph(kind: Int, colour: Color, size: Dp) {
+internal fun BauGlyph(kind: Int, colour: Color, size: Dp) {
     Canvas(Modifier.size(size)) {
         val w = this.size.width
         when (kind % 7) {
@@ -902,13 +914,13 @@ private fun BauGlyph(kind: Int, colour: Color, size: Dp) {
 }
 
 /** Each app keeps its own form and colour, from its package name. */
-private fun bauMark(pkg: String): Pair<Int, Color> {
+internal fun bauMark(pkg: String): Pair<Int, Color> {
     val h = pkg.hashCode().let { if (it == Int.MIN_VALUE) 0 else kotlin.math.abs(it) }
     return h % 7 to BAU_COLOURS[(h / 7) % 3]
 }
 
 /** What kind of app it is, from the category it declares; null when it declares none. */
-private fun bauKind(ctx: android.content.Context, pkg: String): String? {
+internal fun bauKind(ctx: android.content.Context, pkg: String): String? {
     if (InputTiles.isInput(pkg)) return tr("Input")
     val c = runCatching { ctx.packageManager.getApplicationInfo(pkg, 0).category }.getOrDefault(-1)
     return when (c) {
