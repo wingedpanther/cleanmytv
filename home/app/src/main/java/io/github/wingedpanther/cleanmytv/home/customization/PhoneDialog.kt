@@ -56,7 +56,7 @@ fun PhoneDialog(ctx: Context, onDismiss: () -> Unit) {
             ) {
                 if (code != null) Box(Modifier.size(220.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(12.dp)) { Qr(code) }
                 Column(Modifier.width(320.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(tr("Send a photo from your phone"), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(tr("Send a photo or a note from your phone"), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     if (url == null) {
                         Text(tr("The TV has no network address right now. Check it's on Wi-Fi or a cable."), color = MUTED_COLOR, fontSize = 14.sp)
                     } else {
@@ -73,7 +73,7 @@ fun PhoneDialog(ctx: Context, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun Qr(m: BitMatrix) {
+internal fun Qr(m: BitMatrix) {
     Canvas(Modifier.fillMaxSize()) {
         val cell = size.minDimension / m.width
         for (y in 0 until m.height) for (x in 0 until m.width) {

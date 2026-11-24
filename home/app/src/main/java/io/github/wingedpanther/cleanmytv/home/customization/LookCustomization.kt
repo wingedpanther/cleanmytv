@@ -212,6 +212,13 @@ fun LookCustomization(config: HomeConfig, ctx: Context) {
         )
 
         TvSwitch(
+            title = tr("Start on the app I usually open"),
+            subtitle = tr("Home opens with the focus on the app you open most at this time of day. The order stays."),
+            checked = config.focusUsual,
+            onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("focus_usual", it)) }
+        )
+
+        TvSwitch(
             title = tr("Background takes the app's colour"),
             subtitle = tr("A tint of the focused app's colour"),
             checked = config.followColour,

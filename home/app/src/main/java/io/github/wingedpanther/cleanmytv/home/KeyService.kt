@@ -70,7 +70,7 @@ class KeyService : AccessibilityService() {
         override fun onReceive(c: Context, i: Intent) {
             when (i.action) {
                 // A TV switched off again inside the wait opens nothing.
-                Intent.ACTION_SCREEN_OFF -> { timer.removeCallbacks(wake); Lock.lockAll(); PowerOn.asleep(c, front); Limits.front(c, null) }
+                Intent.ACTION_SCREEN_OFF -> { timer.removeCallbacks(wake); Lock.lockAll(); Guest.end(c); PowerOn.asleep(c, front); Limits.front(c, null) }
                 Intent.ACTION_SCREEN_ON -> { timer.removeCallbacks(wake); timer.postDelayed(wake, PowerOn.delayMs(ConfigStore.config.value)) }
             }
         }
@@ -499,6 +499,7 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, i: Intent) {
         if (i.action != Intent.ACTION_BOOT_COMPLETED) return
         ConfigStore.load(c)
+        Guest.end(c)
         KeyService.ensureOn(c)
         Keyboard.restore(c)
         Keyboard.watch(c)

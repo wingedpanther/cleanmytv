@@ -19,11 +19,13 @@ import java.security.SecureRandom
  * Photos from a phone, without the computer: while the QR code is on screen, Home answers on the home Wi-Fi at
  * a one-off address. The phone's page shrinks the photo to the TV's size, as the desktop app does, and sends
  * it as the wallpaper or into the slideshow. Only that address works, only while the QR code shows, and only
- * pictures up to 4 MB get through. Home still asks for no storage permission.
+ * pictures up to 4 MB get through. A short note can go too (TvNote). Home still asks for no storage permission.
  */
 object PhoneUpload {
     private const val MAX_BYTES = 4 * 1024 * 1024
     private const val OPEN_MS = 10 * 60_000L
+    /** A note's 200 characters, in UTF-8, with room to spare. */
+    private const val NOTE_BYTES = 2048
 
     private var server: ServerSocket? = null
     private val _note = MutableStateFlow("")
@@ -96,6 +98,14 @@ object PhoneUpload {
                 _note.value = said
                 reply("200 OK", "text/plain", said)
             }
+            method == "POST" && path == "/$token/note" -> {
+                if (length !in 1..NOTE_BYTES) return reply("413 Too Large", "text/plain", tr("That note is too long."))
+                val text = ByteArray(length).also { b -> var at = 0; while (at < length) { val n = input.read(b, at, length - at); if (n < 0) break; at += n } }
+                TvNote.set(ctx, String(text, Charsets.UTF_8))
+                val said = tr("The note is on the TV until someone presses OK.")
+                _note.value = said
+                reply("200 OK", "text/plain", said)
+            }
             else -> reply("404 Not Found", "text/plain", tr("This address has closed. Open From your phone on the TV again."))
         }
     }
@@ -134,7 +144,8 @@ object PhoneUpload {
 main{max-width:520px;margin:0 auto;padding:28px 18px}h1{font-size:22px;margin:0 0 6px}p{color:#c9c1b6;margin:0 0 18px}
 label{display:block;padding:14px 16px;border:1.5px solid #3a4a3b;border-radius:12px;margin:0 0 10px;cursor:pointer}
 input[type=radio]{margin-right:10px}.go{display:block;width:100%;padding:16px;border:0;border-radius:12px;background:#4caf50;color:#0e140f;font:600 17px system-ui,sans-serif;margin-top:8px}
-.go:disabled{opacity:.5}#note{margin-top:16px;min-height:24px}img{width:100%;border-radius:10px;margin-top:14px;display:none}
+.go:disabled{opacity:.5}#note,#said{margin-top:16px;min-height:24px}img{width:100%;border-radius:10px;margin-top:14px;display:none}
+h2{font-size:18px;margin:34px 0 6px}textarea{box-sizing:border-box;width:100%;padding:12px 14px;border:1.5px solid #3a4a3b;border-radius:12px;background:#0b120d;color:inherit;font:inherit;resize:vertical}
 </style></head><body><main>
 <h1>${tr("Send a photo to the TV")}</h1>
 <p>${tr("It's cropped to the TV's shape and shrunk before it leaves your phone.")}</p>
@@ -144,6 +155,11 @@ input[type=radio]{margin-right:10px}.go{display:block;width:100%;padding:16px;bo
 <button class="go" id="pick">${tr("Choose a photo")}</button>
 <img id="preview" alt="">
 <div id="note"></div>
+<h2>${tr("Leave a note on the TV")}</h2>
+<p>${tr("It stays on Home until someone presses OK.")}</p>
+<textarea id="text" rows="3" maxlength="${TvNote.MAX}"></textarea>
+<button class="go" id="send">${tr("Send the note")}</button>
+<div id="said"></div>
 </main><script>
 const note=document.getElementById('note'),file=document.getElementById('file'),pick=document.getElementById('pick'),img=document.getElementById('preview');
 pick.onclick=()=>file.click();
@@ -158,5 +174,10 @@ const to=document.querySelector('input[name=to]:checked').value;
 const r=await fetch('/$token/'+to,{method:'POST',headers:{'Content-Type':'image/jpeg'},body:b});
 note.textContent=await r.text();}catch(e){note.textContent='${js(tr("That didn't work: {why}"))}'.replace('{why}',e.message)}
 pick.disabled=false;file.value='';};
+const text=document.getElementById('text'),send=document.getElementById('send'),said=document.getElementById('said');
+send.onclick=async()=>{if(!text.value.trim())return;send.disabled=true;
+try{const r=await fetch('/$token/note',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:text.value.trim()});
+said.textContent=await r.text();if(r.ok)text.value='';}catch(e){said.textContent='${js(tr("That didn't work: {why}"))}'.replace('{why}',e.message)}
+send.disabled=false;};
 </script></body></html>"""
 }

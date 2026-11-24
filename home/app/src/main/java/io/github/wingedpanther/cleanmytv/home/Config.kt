@@ -69,6 +69,7 @@ data class HomeConfig(
     val nameFocus: Boolean = false, // with showNames: only the focused app's name shows
     val followColour: Boolean = false, // the background takes the focused app's colour
     val pinFocus: Boolean = false, // the focused tile stays put and the row slides under it
+    val focusUsual: Boolean = false, // Home opens on the app usually opened at this hour (Usual)
     val tilt: Boolean = false, // with lift: the tile leans toward the move, then settles
     // Icons: "banner" is the app's own TV banner; the rest redraw every app's logo the same way
     val iconStyle: String = "banner", // banner, colour, mono, duo
@@ -97,6 +98,11 @@ data class HomeConfig(
     val slideFrom: String = "mine", // mine, theme
     val clock: String = "time_date", // time_date, time, off
     val greeting: String = "",
+    // Guests (Guest): the Wi-Fi for the QR code, and the apps guest mode shows
+    val wifiName: String = "",
+    val wifiPassword: String = "",
+    val wifiSecurity: String = "WPA", // WPA (any WPA), WEP, nopass
+    val guestApps: List<String> = emptyList(),
     // The owner's own words for the top bar buttons and the All apps title, by id (#67)
     val names: Map<String, String> = emptyMap(),
     // Idle screen: after this many minutes without a button press, only the wallpaper and the clock show; 0 is off
@@ -183,6 +189,7 @@ data class HomeConfig(
         .put("name_focus", nameFocus)
         .put("follow_colour", followColour)
         .put("pin_focus", pinFocus)
+        .put("focus_usual", focusUsual)
         .put("tilt", tilt)
         .put("icon_style", iconStyle)
         .put("tile_shape", tileShape)
@@ -206,6 +213,10 @@ data class HomeConfig(
         .put("slide_from", slideFrom)
         .put("clock", clock)
         .put("greeting", greeting)
+        .put("wifi_name", wifiName)
+        .put("wifi_password", wifiPassword)
+        .put("wifi_security", wifiSecurity)
+        .put("guest_apps", JSONArray(guestApps))
         .put("names", JSONObject(names as Map<*, *>))
         .put("idle_minutes", idleMinutes)
         .put("idle_style", idleStyle)
@@ -252,7 +263,7 @@ data class HomeConfig(
         private val PKG = Regex("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")
 
         private fun hex(c: Long) = "#%06X".format(c and 0xFFFFFF)
-        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "customize", "timer", "screentime")
+        val QUICK = setOf("settings", "wifi", "inputs", "bluetooth", "display", "apps", "sleep", "search", "music", "panel", "themes", "fireplace", "memory", "customize", "timer", "screentime", "guest")
         private val THEME_PICTURE = Regex("^[a-z0-9-]{1,40}:[0-9]$")
         /** A TvInputManager input id, like com.mediatek.tvinput/.hdmi.HDMIInputService/HW5. */
         private val INPUT_ID = Regex("^[A-Za-z0-9_.\\$/:-]{1,200}$")
@@ -362,6 +373,7 @@ data class HomeConfig(
                 nameFocus = bool("name_focus", base.nameFocus),
                 followColour = bool("follow_colour", base.followColour),
                 pinFocus = bool("pin_focus", base.pinFocus),
+                focusUsual = bool("focus_usual", base.focusUsual),
                 tilt = bool("tilt", base.tilt),
                 iconStyle = choice("icon_style", base.iconStyle, setOf("banner", "colour", "mono", "duo")),
                 tileShape = choice("tile_shape", base.tileShape, setOf("wide", "square", "squircle", "round")),
@@ -398,6 +410,10 @@ data class HomeConfig(
                     m.keys().asSequence().take(60).mapNotNull { k -> m.optInt(k, -1).takeIf { PKG.matches(k) && it in 5..720 }?.let { k to it } }.toMap()
                 } ?: base.limits,
                 greeting = if (o.has("greeting")) o.optString("greeting").take(40) else base.greeting,
+                wifiName = if (o.has("wifi_name")) o.optString("wifi_name").take(32) else base.wifiName,
+                wifiPassword = if (o.has("wifi_password")) o.optString("wifi_password").take(63) else base.wifiPassword,
+                wifiSecurity = choice("wifi_security", base.wifiSecurity, setOf("WPA", "WEP", "nopass")),
+                guestApps = pkgs("guest_apps") ?: base.guestApps,
                 names = o.optJSONObject("names")?.let { n ->
                     n.keys().asSequence().mapNotNull { k -> n.optString(k).trim().take(24).takeIf { it.isNotEmpty() }?.let { k to it } }.toMap()
                 } ?: base.names,

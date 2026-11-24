@@ -25,19 +25,20 @@ const QUICK_GLYPH: Record<QuickId, string> = {
   memory: 'M7 7h10v10H7zM10 4v3M14 4v3M10 17v3M14 17v3M4 10h3M4 14h3M17 10h3M17 14h3',
   customize: 'M4 5h16v11H4zM9 20h6M8 9h3M13 9h3M8 12h8',
   timer: 'M12 7v5l3 2M9 3h6M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16z',
-  screentime: 'M4 20h16M6 16v-5M10 16V6M14 16v-8M18 16v-3'
+  screentime: 'M4 20h16M6 16v-5M10 16V6M14 16v-8M18 16v-3',
+  guest: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2'
 }
 
 /** What the TV calls each icon. CleanMyTV Home is in English, so these stay English: the preview and the rename boxes show them. */
 export const QUICK_LABEL: Record<QuickId, string> = {
   inputs: 'Inputs', wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: 'Picture & sound', apps: 'Apps', sleep: 'Screensaver', search: 'Search', music: 'Music bars', settings: 'Settings',
-  panel: 'Quick settings', themes: 'Themes', fireplace: 'Fireplace', memory: 'Clean memory', customize: 'Customize', timer: 'Sleep timer', screentime: 'Screen time'
+  panel: 'Quick settings', themes: 'Themes', fireplace: 'Fireplace', memory: 'Clean memory', customize: 'Customize', timer: 'Sleep timer', screentime: 'Screen time', guest: 'Guest Wi-Fi'
 }
 
 /** The same icons named in this app's language, for its own lists. */
 export const QUICK_NAME: Record<QuickId, string> = {
   inputs: t('Inputs'), wifi: 'Wi-Fi', bluetooth: 'Bluetooth', display: t('Picture & sound'), apps: t('Apps'), sleep: t('Screensaver'), search: t('Search'), music: t('Music bars'),
-  settings: t('Settings'), panel: t('Quick settings'), themes: t('Themes'), fireplace: t('Fireplace'), memory: t('Clean memory'), customize: t('Customize'), timer: t('Sleep timer'), screentime: t('Screen time')
+  settings: t('Settings'), panel: t('Quick settings'), themes: t('Themes'), fireplace: t('Fireplace'), memory: t('Clean memory'), customize: t('Customize'), timer: t('Sleep timer'), screentime: t('Screen time'), guest: t('Guest Wi-Fi')
 }
 
 export function QuickIcon({ id, size = 16 }: { id: QuickId; size?: number }): ReactNode {

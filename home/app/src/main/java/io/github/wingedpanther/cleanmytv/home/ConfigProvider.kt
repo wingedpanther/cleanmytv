@@ -165,6 +165,8 @@ class ConfigProvider : ContentProvider() {
                 Upload.finish(f, arg, "fireplace")
             }
             "fire_ready" -> Fire.changed(ctx)
+            "note_set" -> TvNote.set(ctx, String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8))
+            "note_clear" -> TvNote.clear(ctx)
             "look_save" -> DayNight.save(ctx, arg.orEmpty())
             "theme_save" -> out.putString("theme", ThemePack.saveCurrent(ctx, String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8)))
             "keyboard" -> Keyboard.note(ctx, String(Base64.decode(arg ?: "", Base64.DEFAULT), Charsets.UTF_8).trim())
@@ -184,6 +186,7 @@ class ConfigProvider : ContentProvider() {
             .put("themes_on_tv", ThemePack.list(ctx).size)
             .put("fire_on_tv", Fire.ready(ctx))
             .put("slides_on_tv", Slides.count(ctx))
+            .put("note_on_tv", TvNote.current(ctx)?.text ?: "")
             .put("can_change_settings", TvSettings.canWriteSecure(ctx))
             .put("looks_saved", org.json.JSONArray(DayNight.saved(ctx)))
         out.putString("config", config.toString())

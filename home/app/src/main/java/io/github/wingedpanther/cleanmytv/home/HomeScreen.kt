@@ -68,6 +68,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -189,9 +190,11 @@ private fun IntroLayer(intro: Animatable<Float, *>) {
 }
 
 /** Everything the layouts draw, worked out once from the apps on the TV and the settings. */
-private class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<String> = emptyList(), watching: List<WatchItem> = emptyList()) {
+private class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<String> = emptyList(), watching: List<WatchItem> = emptyList(), usual: List<String> = emptyList(), guest: Boolean = false) {
     // "Hide locked apps": they stay out of every section, and only open from elsewhere with the PIN.
-    private val apps = if (cfg.lockOn && cfg.lockShow == "hide") all.filter { it.pkg !in cfg.lockApps } else all
+    // Guest mode: only the guest apps, wherever the owner put them.
+    private val apps = (if (cfg.lockOn && cfg.lockShow == "hide") all.filter { it.pkg !in cfg.lockApps } else all)
+        .let { list -> if (guest) list.filter { it.pkg in cfg.guestApps } else list }
     private val byPkg = apps.associateBy { it.pkg }
     val shown = arrange(apps, cfg)
     private val inFolders = cfg.folders.flatMap { it.apps }.toSet()
@@ -206,17 +209,28 @@ private class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<Strin
     val recent = recentPkgs.mapNotNull { byPkg[it] }.filter { it.pkg !in cfg.hidden }
     val watch = WatchNext.pick(watching, byPkg.keys, cfg)
     fun app(pkg: String): TvApp? = byPkg[pkg]
-    /** The tile that takes focus when Home opens, as "<section>:<package>" (an app can sit in two sections). */
-    val first: String? = cfg.sections.firstNotNullOfOrNull { s ->
+    /** The section the focus starts in, its key and its apps. */
+    private val start: Pair<String, List<TvApp>>? = cfg.sections.firstNotNullOfOrNull { s ->
         when (s) {
-            "recent" -> recent.firstOrNull()?.let { "recent:${it.pkg}" }
-            "dock" -> dock.firstOrNull()?.let { "dock:${it.pkg}" }
-            "rows" -> rows.firstOrNull()?.second?.firstOrNull()?.let { "row0:${it.pkg}" }
-            "grid" -> grid.firstOrNull()?.let { "grid:${it.pkg}" }
+            "recent" -> recent.takeIf { it.isNotEmpty() }?.let { "recent" to it }
+            "dock" -> dock.takeIf { it.isNotEmpty() }?.let { "dock" to it }
+            "rows" -> rows.firstOrNull()?.second?.let { "row0" to it }
+            "grid" -> grid.takeIf { it.isNotEmpty() }?.let { "grid" to it.take(cfg.columns) }
             else -> null
         }
     }
+    /**
+     * The tile that takes focus when Home opens, as "<section>:<package>" (an app can sit in two sections): the
+     * first one, or the most [usual] app among the first few of that same row, so the screen doesn't scroll.
+     */
+    val first: String? = start?.let { (key, list) ->
+        val near = list.take(USUAL_NEAR).associateBy { it.pkg }
+        "$key:${(usual.firstNotNullOfOrNull { near[it] } ?: list.first()).pkg}"
+    }
 }
+
+/** How far along the starting row the usual app can be and still take the focus: always on screen. */
+private const val USUAL_NEAR = 4
 
 @Composable
 fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.runtime.MutableState<String?>) {
@@ -348,7 +362,16 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         watching = withContext(Dispatchers.IO) { WatchNext.read(ctx) }
     }
     // Worked out again only when the apps or settings change, not on every redraw.
-    val home = remember(apps, cfg, recentPkgs, wantRecent, watching) { Home(apps, cfg, if (wantRecent) recentPkgs else emptyList(), watching) }
+    val guest by Guest.on.collectAsState()
+    // The apps usually opened at this hour, most first, looked up each time Home comes back (Usual).
+    var usual by remember { mutableStateOf<List<String>>(emptyList()) }
+    var usualAt by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(appsVersion, cfg.focusUsual, apps.isEmpty()) {
+        val asked = System.currentTimeMillis()
+        usual = if (cfg.focusUsual && apps.isNotEmpty()) withContext(Dispatchers.IO) { Usual.apps(ctx, apps.map { it.pkg }.toSet()) } else emptyList()
+        usualAt = asked
+    }
+    val home = remember(apps, cfg, recentPkgs, wantRecent, watching, usual, guest) { Home(apps, cfg, if (wantRecent) recentPkgs else emptyList(), watching, usual, guest) }
     val accent = Color(cfg.accent)
     // Quick-settings icons this TV can actually open; Inputs only on TVs that have inputs.
     val all = remember { quickActions() }
@@ -362,7 +385,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             }.toMap()
         }
     }
-    val byPkg = apps.associateBy { it.pkg }
+    val byPkg = (if (guest) apps.filter { it.pkg in cfg.guestApps } else apps).associateBy { it.pkg }
     // A newer Home on the release page: its icon goes first in the bar until it's installed, skipped or put off.
     val update by Updates.available.collectAsState()
     // Switched-off apps a system update turned back on: all of them, and the ones the owner hasn't heard about.
@@ -386,7 +409,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             val b = if (id == "wifi" && cable) a.copy(label = "Ethernet", icon = Icons.Outlined.SettingsEthernet) else a
             cfg.names[id]?.let { b.copy(label = it) } ?: b
         }
-    }.filter { canOpen(ctx, it, inputs.isNotEmpty()) }
+    }.filter { canOpen(ctx, it, inputs.isNotEmpty()) && (!guest || it.id in Guest.QUICK) }
     var openFolder by remember { mutableStateOf<Pair<String, List<TvApp>>?>(null) }
     // Long press on a tile: its menu, and Move, which hands the arrow keys to the tile until OK or Back.
     var menuFor by remember { mutableStateOf<Pair<String, TvApp>?>(null) }
@@ -400,6 +423,8 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var showTimer by remember { mutableStateOf(false) }
     var showUpdate by remember { mutableStateOf(false) }
     var showDebugging by remember { mutableStateOf(false) }
+    var showGuest by remember { mutableStateOf(false) }
+    val note by TvNote.note.collectAsState()
     // The tip about holding OK, on the first few days (see Hints), for 12 seconds.
     var tip by remember { mutableStateOf(false) }
     LaunchedEffect(appsVersion) {
@@ -427,6 +452,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             "update" -> showUpdate = true
             "fireplace" -> runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
             "screentime" -> ScreenTimeApps.open(ctx)
+            "guest" -> showGuest = true
             // Home pressed twice: the app it came from, or the last one opened before that.
             MainActivity.LAST -> withContext(Dispatchers.Default) { Recent.apps(ctx, byPkg.keys) }.firstOrNull()?.let { byPkg[it] }?.let { launch(ctx, it) }
         }
@@ -440,6 +466,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         else if (a.id == "timer") showTimer = true
         else if (a.id == "update") showUpdate = true
         else if (a.id == "debugging") showDebugging = true
+        else if (a.id == "guest") showGuest = true
         else if (a.id == "fireplace") runCatching { ctx.startActivity(android.content.Intent(ctx, FireplaceActivity::class.java)) }
         else if (a.id == "screentime") ScreenTimeApps.open(ctx)
         else if (a.id == "memory") scope.launch { Memory.cleanAndSay(ctx); memoryTick++ }
@@ -448,6 +475,15 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     }
     val first = remember { FocusRequester() }
     LaunchedEffect(home.first, cfg.layout) { if (home.first != null && !keepFocus) runCatching { first.requestFocus() } }
+    // Back on Home: the focus goes to the usual app, unless a button was pressed while it was looked up. Only once
+    // the window has focus again: Android hands focus back to the last tile when it does, which would undo this.
+    val view = androidx.compose.ui.platform.LocalView.current
+    LaunchedEffect(usualAt) {
+        if (!cfg.focusUsual || usual.isEmpty() || keepFocus) return@LaunchedEffect
+        repeat(60) { if (!view.hasWindowFocus()) withFrameNanos { } }
+        withFrameNanos { }
+        if (lastPress <= usualAt) runCatching { first.requestFocus() }
+    }
     // While an app moves, the tile that holds focus is the moving one, wherever its new place is.
     val movingKey = moving?.let { m -> if (m.kind == "main") "${if (home.dock.any { it.pkg == m.pkg }) "dock" else "grid"}:${m.pkg}" else "${m.kind}:${m.pkg}" }
     LaunchedEffect(movingKey, cfg.order, cfg.rows) {
@@ -474,7 +510,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     val shownCaption = caption?.takeIf { cfg.bingCaption && !fireWall && wallpaper != null }
     val ui = Ui(cfg, accent, first, movingKey ?: home.first, onFolder = { openFolder = it }, track = track, weather = weather, memory = memory,
         onFocusApp = { a -> focusColour = a.colour?.let { Color(it) }; heroApp.value = a; heroWatch.value = null },
-        onFocusWatch = { heroWatch.value = it }, motion = motion, onAppMenu = { s, a -> menuFor = s to a; if (tip) tip = false; Hints.done(ctx) }, movingKey = movingKey,
+        onFocusWatch = { heroWatch.value = it }, motion = motion, onAppMenu = { s, a -> if (!guest) { menuFor = s to a; if (tip) tip = false; Hints.done(ctx) } }, movingKey = movingKey,
         captioned = shownCaption != null, screenTime = screenTime, screenTimeSeen = screenSeen && wantScreen)
 
     Box(
@@ -518,7 +554,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         })
         if (cfg.snow) {
             // Still while anything is open over Home, and with the TV's animations off.
-            val menus = openFolder != null || menuFor != null || showInputs || showPanel || showThemes || showTimer || showUpdate || showDebugging || panelPin || editPin
+            val menus = openFolder != null || menuFor != null || showInputs || showPanel || showThemes || showTimer || showUpdate || showDebugging || showGuest || panelPin || editPin
             Snow(running = resumed() && motion && !menus)
         }
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = shown }) {
@@ -569,7 +605,9 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     if (showTimer) TimerMenu(ui) { showTimer = false }
     if (showUpdate) update?.let { UpdateDialog(it, accent) { showUpdate = false } }
     if (showDebugging) DebuggingDialog(accent) { showDebugging = false; debugging = Debugging.shown(ctx) }
+    if (showGuest) GuestDialog(cfg, accent) { showGuest = false }
     if (backNews.isNotEmpty() && !showUpdate) CameBackDialog(backNews, accent) { CameBack.seen(ctx, back); backNews = emptyList() }
+    if (note != null && !showUpdate && !showDebugging && !showGuest && backNews.isEmpty() && !idle) note?.let { n -> NoteDialog(n, accent) { TvNote.clear(ctx) } }
     if (panelPin) Dialog(onDismissRequest = { panelPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         PinPad(tr("Enter the PIN for Quick settings"), Lock.PANEL, accent) { panelPin = false; showPanel = true }
     }
@@ -1933,6 +1971,28 @@ private fun IdlePhotos() {
         if (p != null) Image(p, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
     }
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.7f))))
+}
+
+/**
+ * The Slideshow screensaver (SlidesDream): the idle screen's photos with the time, the date and what's playing.
+ * The words move a few dp each minute so they don't stay on the same pixels all night.
+ */
+@Composable
+internal fun SlideshowSaver() {
+    val track by NowPlaying.track.collectAsState()
+    var now by remember { mutableStateOf(Date()) }
+    LaunchedEffect(Unit) { while (true) { now = Date(); delay(1000L - System.currentTimeMillis() % 1000) } }
+    val minute = (now.time / 60_000L).toInt()
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        IdlePhotos()
+        Column(Modifier.align(Alignment.BottomStart).padding(start = SAFE_X + (minute % 5 * 4).dp, bottom = SAFE_Y + 12.dp + (minute % 3 * 4).dp)) {
+            Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(now), color = TEXT, fontSize = 64.sp, fontFamily = CLOCK, fontWeight = FontWeight.Light, maxLines = 1, softWrap = false)
+            Text(DateFormat.getDateInstance(DateFormat.FULL).format(now), color = MUTED, fontSize = 18.sp, fontFamily = CLOCK)
+            track?.takeIf { it.playing }?.let { t ->
+                Text(listOf(t.title, t.artist).filter { it.isNotBlank() }.joinToString(" · "), color = MUTED, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp).widthIn(max = 560.dp))
+            }
+        }
+    }
 }
 
 /** The sleep timer's choices, from the top bar icon. */

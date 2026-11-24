@@ -37,7 +37,7 @@ export const LOGCAT_LINES = 3000
 // The PIN never leaves the TV, but a launcher that one day reports a secret must not put it in a report.
 const SECRET = /(^|_)(pin|password|passcode|secret|token)(_|$)/i
 // Where the owner lives and what they call themselves.
-const PRIVATE = ['greeting', 'weather_place', 'weather_lat', 'weather_lon']
+const PRIVATE = ['greeting', 'weather_place', 'weather_lat', 'weather_lon', 'wifi_name']
 
 /** CleanMyTV Home's settings for a report: secrets left out, the greeting and home location hidden. */
 export function reportConfig(cfg: Record<string, unknown>): Record<string, unknown> {

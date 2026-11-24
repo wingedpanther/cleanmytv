@@ -25,8 +25,9 @@ export const DEFAULTS: HomeConfig = {
   rows: [], folders: [], new_apps_to: '', dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false, power_on_target: '', power_on_wait: 0,
   accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35, snow: false,
   edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, bing_caption: true, theme_memory: true, lock_editor: false, update_check: true, keyboard_guard: true, number_keys: true, home_twice: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
-  order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, tilt: false,
+  order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, focus_usual: false, tilt: false,
   icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, intro: true, wallpaper_from: '',
+  wifi_name: '', wifi_password: '', wifi_security: 'WPA', guest_apps: [],
   lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge',
   fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0,
   slide_minutes: 0, slide_from: 'mine', other_apps: false, live_tv: true,
@@ -50,6 +51,7 @@ const CHOICES = {
   lock_show: ['badge', 'hide'],
   slide_from: ['mine', 'theme'],
   idle_style: ['corner', 'center', 'photos'],
+  wifi_security: ['WPA', 'WEP', 'nopass'],
   font: ['default', 'condensed', 'serif', 'casual']
 } as const
 
@@ -57,7 +59,7 @@ const LISTS = {
   sections: ['nowplaying', 'recent', 'screentime', 'dock', 'watchnext', 'rows', 'folders', 'grid']
 } as const
 
-const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'customize', 'timer', 'screentime'] as const
+const QUICK = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'customize', 'timer', 'screentime', 'guest'] as const
 /** App shortcuts the top bar takes, as the launcher's HomeConfig.MAX_QUICK_APPS. */
 export const MAX_QUICK_APPS = 6
 const quickApp = (q: unknown): boolean => typeof q === 'string' && q.startsWith('app:') && T.PACKAGE_RE.test(q.slice(4))
@@ -76,7 +78,7 @@ const RANGES = {
   shade_top: [0, 100], shade_top_reach: [0, 100], shade_bottom: [0, 100], shade_bottom_reach: [0, 100], wash: [0, 100], wash_reach: [10, 100]
 } as const
 
-const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night', 'power_on_input', 'edit_on_tv', 'bing_daily', 'bing_caption', 'theme_memory', 'lock_editor', 'update_check', 'keyboard_guard', 'number_keys', 'home_twice', 'snow', 'weather_hours', 'weather_days', 'bedtime_on', 'input_tiles', 'lock_screentime'] as const
+const BOOLS = ['show_names', 'name_focus', 'follow_colour', 'pin_focus', 'focus_usual', 'tilt', 'intro', 'lock_on', 'lock_system', 'fire_wall', 'fire_sound', 'fire_wall_sound', 'other_apps', 'live_tv', 'visualiser', 'viz_peaks', 'buttons_on', 'memory', 'day_night', 'power_on_input', 'edit_on_tv', 'bing_daily', 'bing_caption', 'theme_memory', 'lock_editor', 'update_check', 'keyboard_guard', 'number_keys', 'home_twice', 'snow', 'weather_hours', 'weather_days', 'bedtime_on', 'input_tiles', 'lock_screentime'] as const
 const KEY_SERVICE = `${HOME_PKG}/${HOME_PKG}.KeyService`
 /** Lets the launcher see other apps' media sessions; on only while the Now playing section is. */
 const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
@@ -297,6 +299,7 @@ export function parse(out: string): HomeConfig {
   // Without these the Fireplace card never knew the fireplace was on the TV, so it had no Take it off (#144).
   if (typeof o.fire_on_tv === 'boolean') cfg.fire_on_tv = o.fire_on_tv
   if (typeof o.slides_on_tv === 'number') cfg.slides_on_tv = o.slides_on_tv
+  if (typeof o.note_on_tv === 'string') cfg.note_on_tv = o.note_on_tv
   if (typeof o.can_change_settings === 'boolean') cfg.can_change_settings = o.can_change_settings
   if (Array.isArray(o.looks_saved)) cfg.looks_saved = o.looks_saved.filter((l): l is LookSlot => l === 'day' || l === 'night')
   // Older launchers don't report this; leave it unset so the editor doesn't mark everything unavailable.
@@ -350,7 +353,7 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
     if (typeof o.wallpaper_from === 'string' && (o.wallpaper_from === '' || THEME_PICTURE.test(o.wallpaper_from))) out.wallpaper_from = o.wallpaper_from
     else bad('wallpaper_from must be "<theme id>:<picture>" or empty')
   }
-  for (const k of ['order', 'hidden', 'lock_apps', 'switched_off'] as const) {
+  for (const k of ['order', 'hidden', 'lock_apps', 'switched_off', 'guest_apps'] as const) {
     if (o[k] === undefined) continue
     if (Array.isArray(o[k]) && (o[k] as unknown[]).length <= 500 && (o[k] as unknown[]).every((p) => typeof p === 'string' && T.PACKAGE_RE.test(p))) out[k] = [...new Set(o[k] as string[])]
     else bad(`${k} must be a list of package names`)
@@ -402,6 +405,12 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
     if (typeof o.greeting === 'string') out.greeting = plain(o.greeting, 40)
     else bad('greeting must be text')
   }
+  // As typed: a Wi-Fi name or password can have any characters, spaces at the ends included.
+  for (const [k, max] of [['wifi_name', 32], ['wifi_password', 63]] as const) {
+    if (o[k] === undefined) continue
+    if (typeof o[k] === 'string' && (o[k] as string).length <= max && !/[\u0000-\u001f]/.test(o[k] as string)) out[k] = o[k] as string
+    else bad(`${k} must be text up to ${max} characters`)
+  }
   if (o.names !== undefined) {
     const v = o.names
     const ok = v && typeof v === 'object' && !Array.isArray(v) &&
@@ -428,7 +437,7 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
   return out as Partial<HomeConfig>
 }
 
-const PRIVATE_SETTINGS = ['greeting', 'weather_place', 'weather_lat', 'weather_lon']
+const PRIVATE_SETTINGS = ['greeting', 'weather_place', 'weather_lat', 'weather_lon', 'wifi_name', 'wifi_password']
 
 /** The JSON goes over as base64, so a greeting with quotes or emoji never needs shell quoting. */
 function call(method: string, arg?: string, task = 'theme'): Promise<string> {
@@ -436,7 +445,7 @@ function call(method: string, arg?: string, task = 'theme'): Promise<string> {
   const cmd = `content call --uri ${URI} --method ${method}${arg !== undefined ? ` --arg ${arg}` : ''}`
   // Every answer carries all the settings, which include the home location and the greeting, so answers
   // stay out of the log. So do set64's arguments, which are those settings in base64.
-  if ((!arg || arg.length <= 200) && method !== 'set64' && method !== 'lock_pin') log(task, 'cmd', cmd)
+  if ((!arg || arg.length <= 200) && method !== 'set64' && method !== 'lock_pin' && method !== 'note_set') log(task, 'cmd', cmd)
   return T.tv().shell(cmd)
 }
 
@@ -702,6 +711,22 @@ export async function setSlides(jpegs: string[]): Promise<HomeConfig> {
   return parse(await call('slides_end'))
 }
 
+/** Makes the Slideshow screensaver (Home 1.13.16 on) the TV's screensaver: the slideshow's photos with the clock, over any app. */
+export async function slidesSaver(): Promise<{ ok: boolean; summary: string; warnings: string[] }> {
+  const has = await T.sh('theme', `dumpsys package ${HOME_PKG} | grep -c SlidesDream`)
+  if (!(Number(has.trim()) > 0)) throw new UiError('Update CleanMyTV Home on the Overview tab to use this.')
+  await T.sh('theme', `settings put secure screensaver_components ${SLIDES_DREAM}; settings put secure screensaver_enabled 1`)
+  return { ok: true, summary: t("The slideshow is the TV's screensaver now. It starts after the TV's screensaver time."), warnings: [] }
+}
+const SLIDES_DREAM = `${HOME_PKG}/.SlidesDream`
+
+/** Leaves a note on Home until someone presses OK on it; an empty one takes it down. As the launcher's TvNote.MAX. */
+export async function setNote(text: string): Promise<HomeConfig> {
+  const line = typeof text === 'string' ? text.trim().slice(0, 200) : ''
+  log('theme', 'cmd', line ? 'leave a note on the TV' : 'take the note down')
+  return parse(line ? await call('note_set', Buffer.from(line).toString('base64')) : await call('note_clear'))
+}
+
 /** As the launcher's Slides.MAX. */
 export const MAX_SLIDES = 12
 
@@ -802,7 +827,7 @@ export async function setConfig(change: Partial<HomeConfig>): Promise<HomeConfig
   log('theme', 'cmd', `set ${JSON.stringify(checked, (k, v) => (PRIVATE_SETTINGS.includes(k) ? '(hidden)' : v))}`)
   const cfg = keep(parse(await call('set64', Buffer.from(json).toString('base64'))))
   if (change.sections) await nowPlayingAccess(cfg.sections.includes('nowplaying'))
-  if (change.sections) await usageAccess(wantsUsage(cfg))
+  if (change.sections || change.focus_usual !== undefined) await usageAccess(wantsUsage(cfg))
   // A Home that updated itself never had the install's grant. Never taken back: Android stops Home to do that.
   if (change.sections && cfg.sections.includes('watchnext')) await watchNextAccess('theme')
   // Going back to the input at power on (#94) is the remote-button service's job too.
@@ -935,9 +960,9 @@ async function nowPlayingAccess(on: boolean): Promise<void> {
 }
 
 /** Recently used and Screen time read which apps the TV had in front. */
-const wantsUsage = (cfg: HomeConfig): boolean => cfg.sections.includes('recent') || cfg.sections.includes('screentime')
+const wantsUsage = (cfg: HomeConfig): boolean => cfg.sections.includes('recent') || cfg.sections.includes('screentime') || cfg.focus_usual
 
-/** Lets the launcher see which apps the TV opened, for Recently used and Screen time; on only while one of them is. */
+/** Lets the launcher see which apps the TV opened, for Recently used, Screen time and the usual app; on only while one of them is. */
 async function usageAccess(on: boolean): Promise<void> {
   await T.sh('theme', `appops set ${HOME_PKG} GET_USAGE_STATS ${on ? 'allow' : 'default'}`).catch(() => '')
 }

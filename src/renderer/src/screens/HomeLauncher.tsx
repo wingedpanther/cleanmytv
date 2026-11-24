@@ -337,7 +337,13 @@ export function HomeLauncher({ markDone, refreshTvs, status, homeSeen, openTab }
               <FireplaceCard cfg={cfg} set={set} setCfg={setCfg} onResult={setResult} sdk={status.probe?.sdk} />
             </>
           )}
-          {ready && tab === 'widgets' && <WidgetsTab cfg={cfg} set={set} />}
+          {ready && tab === 'widgets' && (
+            <>
+              <WidgetsTab cfg={cfg} set={set} />
+              <NoteCard cfg={cfg} setCfg={setCfg} onResult={setResult} />
+              {apps && <GuestCard cfg={cfg} set={set} apps={apps} />}
+            </>
+          )}
           {ready && tab === 'music' && <MusicTab cfg={cfg} set={set} />}
           {ready && tab === 'lock' && apps && <LockTab cfg={cfg} set={set} apps={apps} setCfg={setCfg} onError={(e) => setResult({ ok: false, summary: errorText(e), warnings: [] })} />}
           {ready && tab === 'screentime' && apps && <ScreenTimeTab cfg={cfg} set={set} apps={apps} />}
@@ -1254,6 +1260,7 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
         </p>
         {cfg.focus === 'lift' && <Toggle label={t('Lean toward the move')} hint={t('The tile tilts a little the way you pressed, then settles.')} checked={cfg.tilt} onChange={(v) => set({ tilt: v })} />}
         <Toggle label={t('Keep the focused tile in place')} hint={t('The row slides under it, one step in from the left.')} checked={cfg.pin_focus} onChange={(v) => set({ pin_focus: v })} />
+        <Toggle label={t('Start on the app I usually open')} hint={t('Home opens with the focus on the app you open most at this time of day, if it sits near the start of a row. The order stays.')} checked={cfg.focus_usual} onChange={(v) => set({ focus_usual: v })} />
         <Toggle label={t("Background takes the app's colour")} hint={t("A tint of the focused app's colour washes in from the top.")} checked={cfg.follow_colour} onChange={(v) => set({ follow_colour: v })} />
       </div>
 
@@ -2152,10 +2159,107 @@ function DayNightCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: Se
   )
 }
 
+const WIFI_SECURITY = (): [HomeConfig['wifi_security'], string][] => [['WPA', t('WPA, WPA2 or WPA3')], ['WEP', 'WEP'], ['nopass', t('No password')]]
+
+/** Guest Wi-Fi: a QR code on the TV that phones join from, and guest mode, which shows only the apps picked here. */
+function GuestCard({ cfg, set, apps }: { cfg: HomeConfig; set: SetFn; apps: TvApp[] }): ReactNode {
+  const [show, setShow] = useState(false)
+  const [q, setQ] = useState('')
+  const picked = new Set(cfg.guest_apps)
+  const shown = apps.filter((a) => !q || a.label.toLowerCase().includes(q.toLowerCase()) || a.pkg.includes(q.toLowerCase()))
+  const toggle = (pkg: string): void => set({ guest_apps: picked.has(pkg) ? cfg.guest_apps.filter((p) => p !== pkg) : [...cfg.guest_apps, pkg] })
+  return (
+    <div className="card">
+      <h2>{t('Guests')}</h2>
+      <p className="muted">{t('The Guest Wi-Fi icon in the top bar shows a QR code that phones scan to join your Wi-Fi, with the name and password written out. Guest mode, from the same icon, shows only the apps you pick here until the TV goes to sleep.')}</p>
+      <Toggle label={t('Guest Wi-Fi icon in the top bar')} checked={cfg.quick.includes('guest')} onChange={(v) => set({ quick: v ? [...cfg.quick, 'guest'] : cfg.quick.filter((id) => id !== 'guest') })} />
+      <label className="field">
+        <span>{t('Wi-Fi name')}</span>
+        <input type="text" maxLength={32} value={cfg.wifi_name} onChange={(e) => set({ wifi_name: e.target.value }, 700)} />
+      </label>
+      <div className="seg" style={{ margin: '4px 0 12px' }}>
+        {WIFI_SECURITY().map(([id, label]) => (
+          <button key={id} className={cfg.wifi_security === id ? 'on' : ''} onClick={() => set({ wifi_security: id })}>{label}</button>
+        ))}
+      </div>
+      {cfg.wifi_security !== 'nopass' && (
+        <label className="field">
+          <span>{t('Password')}</span>
+          <span className="hint">{t('It stays on the TV and this computer, and shows on the TV only when someone opens Guest Wi-Fi.')}</span>
+          <span className="row">
+            <input type={show ? 'text' : 'password'} maxLength={63} value={cfg.wifi_password} style={{ flex: 1 }} onChange={(e) => set({ wifi_password: e.target.value }, 700)} />
+            <button className="btn small ghost" onClick={() => setShow(!show)}>{show ? t('Hide') : t('Show')}</button>
+          </span>
+        </label>
+      )}
+      <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>{t('Apps in guest mode')}</p>
+      <p className="small muted">{cfg.guest_apps.length ? t('{n} {n|app|apps} picked. They keep their places on Home.', { n: cfg.guest_apps.length }) : t('Pick at least one app to turn guest mode on from the TV.')}</p>
+      <input type="search" placeholder={t('Find an app')} value={q} onChange={(e) => setQ(e.target.value)} style={{ margin: '8px 0 12px', width: '100%' }} aria-label={t('Find an app')} />
+      <div className="list-picker" style={{ maxHeight: 280 }}>
+        {shown.map((a) => (
+          <label key={a.pkg} className="row" style={{ gap: 10, cursor: 'pointer' }}>
+            <input type="checkbox" checked={picked.has(a.pkg)} onChange={() => toggle(a.pkg)} />
+            <span>{a.label}</span>
+            <span className="small muted mono">{a.pkg}</span>
+          </label>
+        ))}
+        {!shown.length && <p className="small muted">{t('No app matches.')}</p>}
+      </div>
+    </div>
+  )
+}
+
+/** A line on Home until someone presses OK on it. The phone page can leave one too. */
+function NoteCard({ cfg, setCfg, onResult }: { cfg: HomeConfig; setCfg: (c: HomeConfig) => void; onResult: (r: ApplyResult) => void }): ReactNode {
+  const [text, setText] = useState('')
+  const [phase, setPhase] = usePhase()
+  const on = cfg.note_on_tv ?? ''
+  const send = async (line: string): Promise<void> => {
+    setPhase('busy')
+    try {
+      setCfg(await window.cytv.setTvNote(line))
+      setPhase('done')
+      if (line) setText('')
+    } catch (e) {
+      setPhase('failed')
+      onResult({ ok: false, summary: errorText(e), warnings: [] })
+    }
+  }
+  return (
+    <div className="card">
+      <h2>{t('Note on the TV')}</h2>
+      <p className="muted">{t('A line that stays on Home until someone presses OK on it. You can also leave one from your phone: on the TV, Customize Home, Themes and wallpaper, From your phone.')}</p>
+      {cfg.note_on_tv === undefined ? (
+        <p className="small muted">{t('Update CleanMyTV Home on the Overview tab to use this.')}</p>
+      ) : (
+        <>
+          {on && (
+            <div className="row" style={{ marginBottom: 12 }}>
+              <span>{t('On the TV now: “{text}”', { text: on })}</span>
+              <button className="btn ghost" onClick={() => void send('')}>{t('Take it down')}</button>
+            </div>
+          )}
+          <div className="row">
+            <input type="text" value={text} maxLength={200} placeholder={t("Dinner's in the oven")} style={{ flex: 1, minWidth: 240 }} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && text.trim()) void send(text) }} />
+            <ActionButton phase={phase} label={on ? t('Replace it') : t('Put it on the TV')} busyLabel={t('Sending')} doneLabel={t('On the TV')} disabled={!text.trim()} onClick={() => void send(text)} />
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function SlideshowCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: SetFn; setCfg: (c: HomeConfig) => void; onResult: (r: ApplyResult) => void }): ReactNode {
   const [phase, setPhase] = usePhase()
   const file = useRef<HTMLInputElement>(null)
   const mine = cfg.slides_on_tv ?? 0
+  const saver = async (): Promise<void> => {
+    try {
+      onResult(await window.cytv.slidesSaver())
+    } catch (e) {
+      onResult({ ok: false, summary: errorText(e), warnings: [] })
+    }
+  }
   const send = async (files: File[]): Promise<void> => {
     setPhase('busy')
     try {
@@ -2205,6 +2309,11 @@ function SlideshowCard({ cfg, set, setCfg, onResult }: { cfg: HomeConfig; set: S
         {SLIDE_TIMES.map(([m, label]) => (
           <button key={m} className={cfg.slide_minutes === m ? 'on' : ''} disabled={m > 0 && cfg.slide_from === 'mine' && mine === 0} onClick={() => set({ slide_minutes: m })}>{label}</button>
         ))}
+      </div>
+      <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>{t('Screensaver')}</p>
+      <div className="row">
+        <button className="btn ghost" onClick={() => void saver()}>{t('Make it the screensaver')}</button>
+        <span className="small muted">{t('The photos with the clock and what is playing, over any app, after the TV\'s screensaver time.')}</span>
       </div>
     </div>
   )

@@ -46,7 +46,11 @@ object NowPlaying {
     private fun active(m: MediaSessionManager): List<MediaController> =
         appContext?.let { runCatching { m.getActiveSessions(component(it)) }.getOrNull() }.orEmpty()
 
+    /** Home and the Slideshow screensaver each start and stop it; it listens while either is on screen. */
+    private var users = 0
+
     fun start(ctx: Context) {
+        if (users++ > 0) return
         appContext = ctx.applicationContext
         val m = ctx.getSystemService(MediaSessionManager::class.java) ?: return
         try {
@@ -61,6 +65,7 @@ object NowPlaying {
     }
 
     fun stop() {
+        if (users == 0 || --users > 0) return
         runCatching { manager?.removeOnActiveSessionsChangedListener(sessions) }
         controller?.unregisterCallback(callback)
         controller = null

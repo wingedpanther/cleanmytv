@@ -267,6 +267,8 @@ const handlers: Omit<Handlers, 'onLog' | 'onProgress' | 'onStatus'> = {
   themePackEnd: (order) => home.themePackEnd(order),
   themePackRemove: () => home.themePackRemove(),
   setSlides: (jpegs) => home.setSlides(jpegs),
+  slidesSaver: () => home.slidesSaver(),
+  setTvNote: (text) => home.setNote(text),
   fireplace: (action) => home.fireplace(action === 'put' || action === 'saver' || action === 'remove' ? action : 'show'),
   homeKeys: () => home.keys(),
   screenTime: () => home.screenTime(),

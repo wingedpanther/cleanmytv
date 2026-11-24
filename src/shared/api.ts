@@ -224,7 +224,7 @@ export interface HomeStatus {
 
 export type HomeLayout = 'shelf' | 'split' | 'rail' | 'kidu' | 'bau'
 export type HomeSection = 'nowplaying' | 'recent' | 'screentime' | 'dock' | 'watchnext' | 'rows' | 'folders' | 'grid'
-export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes' | 'fireplace' | 'memory' | 'customize' | 'timer' | 'screentime'
+export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes' | 'fireplace' | 'memory' | 'customize' | 'timer' | 'screentime' | 'guest'
 /** A saved look for the day and night switch. */
 export type LookSlot = 'day' | 'night'
 /** A top-bar icon: a quick-settings action, or `app:<package>` for an app shortcut (CleanMyTV Home 1.2.0 and later). */
@@ -371,6 +371,8 @@ export interface HomeConfig {
   follow_colour: boolean
   /** The focused tile stays put and its row slides under it. */
   pin_focus: boolean
+  /** Home opens with the focus on the app usually opened at this hour. Needs usage access, which CleanMyTV grants. */
+  focus_usual: boolean
   /** With lift: the tile leans toward the move, then settles. */
   tilt: boolean
   /** banner: each app's own TV banner. The rest redraw every app's logo the same way (launcher 1.5.0). */
@@ -413,6 +415,12 @@ export interface HomeConfig {
   clock: 'time_date' | 'time' | 'off'
   /** A name for "Good evening, …"; empty for none. */
   greeting: string
+  /** The Wi-Fi for the Guest Wi-Fi QR code. Private: kept out of the log and reports. */
+  wifi_name: string
+  wifi_password: string
+  wifi_security: 'WPA' | 'WEP' | 'nopass'
+  /** The apps guest mode shows. */
+  guest_apps: string[]
   /** Minutes without a button press before Home shows only the wallpaper and clock, 0 (off) to 60. */
   idle_minutes: number
   /** Weather next to the clock; off while blank. */
@@ -466,6 +474,8 @@ export interface HomeConfig {
   fire_on_tv?: boolean
   /** Read only: how many slideshow pictures are on the TV. */
   slides_on_tv?: number
+  /** Read only: the note on Home, empty when there's none. */
+  note_on_tv?: string
   /** Read only: the launcher may change TV settings (Quick settings panel). */
   can_change_settings?: boolean
   /** Read only: which looks are saved for the day and night switch. */
@@ -779,6 +789,10 @@ export interface CytvApi {
   fireplace(action: 'put' | 'show' | 'saver' | 'remove'): Promise<ApplyResult>
   /** Replaces the slideshow's pictures (prepared JPEGs in base64); an empty list clears them. */
   setSlides(jpegs: string[]): Promise<HomeConfig>
+  /** Makes the slideshow the TV's screensaver. */
+  slidesSaver(): Promise<ApplyResult>
+  /** Leaves a note on Home until someone presses OK; an empty one takes it down. */
+  setTvNote(text: string): Promise<HomeConfig>
   /** The last buttons the TV received, newest last. */
   homeKeys(): Promise<KeyPress[]>
   /** Every day of Screen time CleanMyTV Home has. */

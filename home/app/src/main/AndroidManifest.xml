@@ -149,6 +149,16 @@
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
             android:screenOrientation="landscape" />
         <service
+            android:name=".SlidesDream"
+            android:exported="true"
+            android:label="@string/slides_label"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+        <service
             android:name=".FireplaceDream"
             android:exported="true"
             android:label="@string/fireplace_label"

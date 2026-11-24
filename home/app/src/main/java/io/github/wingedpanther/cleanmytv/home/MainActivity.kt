@@ -40,6 +40,11 @@ class MainActivity : ComponentActivity() {
         override fun onReceive(c: Context, i: Intent) { appsVersion.intValue++ }
     }
 
+    /** Guest mode ends when the TV sleeps. The key service does the same, for when Home isn't running. */
+    private val asleep = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) { Guest.end(c) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val created = SystemClock.uptimeMillis()
         super.onCreate(savedInstanceState)
@@ -47,6 +52,9 @@ class MainActivity : ComponentActivity() {
         KeyService.ensureOn(this)
         Keyboard.watch(this)
         Fire.syncDream(this)
+        TvNote.load(this)
+        Guest.load(this)
+        registerReceiver(asleep, IntentFilter(Intent.ACTION_SCREEN_OFF))
         open.value = intent.getStringExtra(OPEN)
         setContent {
             val cfg by ConfigStore.config.collectAsState()
@@ -66,6 +74,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         unregisterReceiver(packages)
+        unregisterReceiver(asleep)
         super.onDestroy()
     }
 

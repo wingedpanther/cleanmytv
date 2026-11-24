@@ -79,6 +79,7 @@ val SETTINGS_INDEX: List<Findable> = run {
         Findable("Focus", "lift glow outline highlight selected tile", K),
         Findable("Tilt", "lean motion 3d", K),
         Findable("Keep the focused tile in place", "stationary still slide row under", K),
+        Findable("Start on the app I usually open", "focus start usual habit time of day hour favourite most used", K),
         Findable("Background takes the app's colour", "tint follow colour color wash", K),
         Findable("App icons", "banners colour mono duotone logo style", K),
         Findable("Tile shape", "square squircle round wide circle", K),
