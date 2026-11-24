@@ -453,6 +453,35 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
         </div>
       </div>
     )
+  } else if (cfg.layout === 'glass') {
+    // As on the TV: the focused dock app's headline, and the dock in a glass tray. Amber unless the owner set an accent.
+    const m = model(apps, cfg)
+    const dock = m.dock.slice(0, 6)
+    const accent = cfg.accent.toUpperCase() === '#4CAF50' ? '#FF9F0A' : cfg.accent
+    const pane = { background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.16)' }
+    body = (
+      <div style={{ height: '100%', boxSizing: 'border-box', padding: `${SAFE_Y}px ${SAFE_X}px`, display: 'flex', flexDirection: 'column', color: '#FFFFFF',
+        background: cfg.has_wallpaper ? undefined : 'radial-gradient(550px 320px at 80% 14%, rgba(255,255,255,0.22), rgba(255,255,255,0) 62%), radial-gradient(750px 450px at 6% 104%, #4A3560, rgba(74,53,96,0) 70%), linear-gradient(160deg, #2B3A55, #0B0D12 64%)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', height: 28 }}>
+          <Clock cfg={cfg} size={18} dateSize={12} align="left" />
+          <div style={{ flex: 1 }} />
+          <span style={{ ...pane, height: 28, padding: '0 13px', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+            Wi-Fi <span style={{ width: 6, height: 6, borderRadius: 3, background: accent }} /> {t('Debugging on')}
+          </span>
+        </div>
+        <div style={{ marginTop: 30, fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.72)' }}>{t('Continue in {app}', { app: dock[0]?.label ?? 'Plex' })}</div>
+        <div style={{ fontSize: 52, fontWeight: 700, letterSpacing: '-0.035em', lineHeight: 1.05 }}>The Salt Road</div>
+        <div style={{ marginTop: 9, fontSize: 14, color: 'rgba(255,255,255,0.86)' }}>S2 E4 · 31 min</div>
+        <div style={{ marginTop: 13, width: 260, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.24)' }}><div style={{ width: '58%', height: '100%', borderRadius: 2, background: accent }} /></div>
+        <div style={{ flex: 1 }} />
+        <div style={{ alignSelf: 'center', display: 'flex', gap: 12, padding: 14, borderRadius: 24, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)' }}>
+          {[...dock.map((a) => a.label), t('All apps')].map((name, i) => (
+            <span key={name + i} style={{ width: 104, height: 59, borderRadius: 12, display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 700, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', padding: '0 6px', boxSizing: 'border-box',
+              ...(i === 0 ? { background: '#FFFFFF', color: '#1D1D1F', transform: 'translateY(-5px) scale(1.14)', boxShadow: '0 17px 30px rgba(0,0,0,0.55)' } : pane) }}>{name}</span>
+          ))}
+        </div>
+      </div>
+    )
   } else {
     body = (
       <div style={{ height: '100%', padding: `${SAFE_Y}px ${SAFE_X}px 0`, overflow: 'hidden', background: `linear-gradient(${shade(cfg, cfg.shade_top)}, transparent ${cfg.shade_top_reach}%)` }}>

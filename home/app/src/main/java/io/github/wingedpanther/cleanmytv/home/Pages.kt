@@ -151,8 +151,8 @@ internal fun searchTv(ctx: Context, query: String, apps: List<TvApp>, dock: Set<
     return hits
 }
 
-private val LETTERS = listOf("abcdefg", "hijklmn", "opqrstu", "vwxyz-.")
-private val DIGITS = listOf("1234567", "890&'+!", "?:/@#()", "\"_=*,;%")
+internal val LETTERS = listOf("abcdefg", "hijklmn", "opqrstu", "vwxyz-.")
+internal val DIGITS = listOf("1234567", "890&'+!", "?:/@#()", "\"_=*,;%")
 
 /**
  * Search this TV: a keyboard for the remote on the left, the big query over a rule, and what it finds on the
@@ -160,6 +160,7 @@ private val DIGITS = listOf("1234567", "890&'+!", "?:/@#()", "\"_=*,;%")
  */
 @Composable
 internal fun FindPage(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, onApp: (TvApp) -> Unit, onClose: () -> Unit) {
+    if (cfg.layout == "glass") return GlassFind(cfg, apps, dock, onApp, onClose)
     val ctx = LocalContext.current
     val look = remember(cfg.layout, cfg.accent) { PageLook.of(cfg) }
     var query by remember { mutableStateOf("") }
@@ -238,7 +239,7 @@ internal fun FindPage(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, onA
     }
 }
 
-private const val MAX_QUERY = 30
+internal const val MAX_QUERY = 30
 
 /** The legend's shapes: a yellow circle for apps, a blue square for Home's settings, a red triangle for the TV's. */
 @Composable
@@ -292,10 +293,16 @@ private fun HitRow(h: Hit, look: PageLook) {
 /** One app's facts for the All apps page: its tab, where it came from, and the line under the grid. */
 internal class AppFacts(val tab: String, val sideloaded: Boolean, val system: Boolean, val line: String)
 
-/** The tabs, in order; each shows only when it has apps. */
-private val TABS = listOf("all", "media", "games", "tools", "other", "sideloaded", "system")
+/** Whether an app with [f] belongs under tab [t]; before its facts are read, only under All. */
+internal fun inTab(t: String, f: AppFacts?): Boolean {
+    f ?: return t == "all"
+    return when (t) { "all" -> true; "sideloaded" -> f.sideloaded; "system" -> f.system; else -> f.tab == t && !f.system }
+}
 
-private fun tabName(id: String) = when (id) {
+/** The tabs, in order; each shows only when it has apps. */
+internal val TABS = listOf("all", "media", "games", "tools", "other", "sideloaded", "system")
+
+internal fun tabName(id: String) = when (id) {
     "all" -> tr("All"); "media" -> tr("Media"); "games" -> tr("Games"); "tools" -> tr("Tools")
     "other" -> tr("Other"); "sideloaded" -> tr("Sideloaded"); else -> tr("System")
 }
@@ -344,6 +351,7 @@ internal fun appFacts(ctx: Context, pkg: String): AppFacts? = runCatching {
  */
 @Composable
 internal fun AppsPage(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Unit, onMenu: (TvApp) -> Unit, onClose: () -> Unit) {
+    if (cfg.layout == "glass") return GlassApps(cfg, apps, onOpen, onMenu, onClose)
     val ctx = LocalContext.current
     val look = remember(cfg.layout, cfg.accent) { PageLook.of(cfg) }
     val real = remember(apps) { apps.filter { !InputTiles.isInput(it.pkg) }.sortedBy { it.label.lowercase() } }
@@ -351,8 +359,7 @@ internal fun AppsPage(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Uni
     var tab by remember { mutableStateOf("all") }
     var focusedApp by remember { mutableStateOf<TvApp?>(null) }
     fun inTab(t: String, a: TvApp): Boolean {
-        val f = facts[a.pkg] ?: return t == "all"
-        return when (t) { "all" -> true; "sideloaded" -> f.sideloaded; "system" -> f.system; else -> f.tab == t && !f.system }
+        return inTab(t, facts[a.pkg])
     }
     val tabs = TABS.filter { t -> t == "all" || real.any { inTab(t, it) } }
     val shown = real.filter { inTab(tab, it) }

@@ -1479,5 +1479,8 @@
   "not set": "не задан",
   "Restore didn't finish.": "Восстановление не завершилось.",
   "Restore didn't finish. Still off: {pkgs}.": "Восстановление не завершилось. Всё ещё отключены: {pkgs}.",
-  "the TV stopped answering. It may be off or off the network.": "телевизор перестал отвечать. Возможно, он выключен или отключён от сети."
+  "the TV stopped answering. It may be off or off the network.": "телевизор перестал отвечать. Возможно, он выключен или отключён от сети.",
+  "Continue in {app}": "Продолжить в {app}",
+  "Debugging on": "Отладка включена",
+  "What the focused dock app has to continue, in large type, and the dock in a glass tray. Amber unless you pick an accent.": "Что можно продолжить в выбранном приложении дока, крупным шрифтом, и док на стеклянной панели. Янтарный, пока вы не выберете свой цвет акцента."
 }

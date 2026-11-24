@@ -195,7 +195,7 @@ private fun deviceLine(ctx: android.content.Context): String {
 }
 
 /** "3840×2160 · 60 Hz · HDR" from the display's current mode; null if the TV won't say. */
-private fun displayLine(ctx: android.content.Context): String? = runCatching {
+internal fun displayLine(ctx: android.content.Context): String? = runCatching {
     val d = ctx.getSystemService(android.hardware.display.DisplayManager::class.java).getDisplay(android.view.Display.DEFAULT_DISPLAY)
     val m = d.mode
     @Suppress("DEPRECATION")

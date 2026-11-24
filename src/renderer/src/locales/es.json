@@ -1479,5 +1479,8 @@
   "not set": "sin definir",
   "Restore didn't finish.": "La restauración no terminó.",
   "Restore didn't finish. Still off: {pkgs}.": "La restauración no terminó. Siguen desactivados: {pkgs}.",
-  "the TV stopped answering. It may be off or off the network.": "el TV dejó de responder. Puede que esté apagado o fuera de la red."
+  "the TV stopped answering. It may be off or off the network.": "el TV dejó de responder. Puede que esté apagado o fuera de la red.",
+  "Continue in {app}": "Seguir en {app}",
+  "Debugging on": "Depuración activada",
+  "What the focused dock app has to continue, in large type, and the dock in a glass tray. Amber unless you pick an accent.": "Lo que la app del dock seleccionada tiene para seguir viendo, en letra grande, y el dock en una bandeja de cristal. Ámbar, salvo que elijas un color de acento."
 }

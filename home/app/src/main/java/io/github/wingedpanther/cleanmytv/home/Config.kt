@@ -351,7 +351,7 @@ data class HomeConfig(
                 powerOnInput = bool("power_on_input", base.powerOnInput),
                 powerOnTarget = if (o.has("power_on_target")) o.optString("power_on_target").takeIf { it.isEmpty() || INPUT_ID.matches(it) } ?: base.powerOnTarget else base.powerOnTarget,
                 powerOnWait = if (o.has("power_on_wait")) o.optInt("power_on_wait", -1).takeIf { it in POWER_ON_WAITS } ?: base.powerOnWait else base.powerOnWait,
-                layout = choice("layout", base.layout, setOf("shelf", "split", "rail", "bau")),
+                layout = choice("layout", base.layout, setOf("shelf", "split", "rail", "bau", "glass")),
                 sections = strings("sections", SECTIONS) ?: base.sections,
                 topSpace = int("top_space", base.topSpace, 0, 80),
                 quick = o.optJSONArray("quick")?.let { a ->

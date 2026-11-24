@@ -190,7 +190,7 @@ private fun IntroLayer(intro: Animatable<Float, *>) {
 }
 
 /** Everything the layouts draw, worked out once from the apps on the TV and the settings. */
-private class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<String> = emptyList(), watching: List<WatchItem> = emptyList(), usual: List<String> = emptyList(), guest: Boolean = false, watchRemoved: Map<String, Long> = emptyMap()) {
+internal class Home(all: List<TvApp>, val cfg: HomeConfig, recentPkgs: List<String> = emptyList(), watching: List<WatchItem> = emptyList(), usual: List<String> = emptyList(), guest: Boolean = false, watchRemoved: Map<String, Long> = emptyMap()) {
     // "Hide locked apps": they stay out of every section, and only open from elsewhere with the PIN.
     // Guest mode: only the guest apps, wherever the owner put them.
     private val apps = (if (cfg.lockOn && cfg.lockShow == "hide") all.filter { it.pkg !in cfg.lockApps } else all)
@@ -374,7 +374,8 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         usualAt = asked
     }
     val home = remember(apps, cfg, recentPkgs, wantRecent, watching, usual, guest, watchRemoved) { Home(apps, cfg, if (wantRecent) recentPkgs else emptyList(), watching, usual, guest, watchRemoved) }
-    val accent = Color(cfg.accent)
+    // Glass brings amber unless the owner picked an accent of their own.
+    val accent = if (cfg.layout == "glass") glassAccent(cfg) else Color(cfg.accent)
     // Quick-settings icons this TV can actually open; Inputs only on TVs that have inputs.
     val all = remember { quickActions() }
     // App shortcuts use the app's icon; a TV app's banner is too wide for the round button.
@@ -416,6 +417,9 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     // Long press on a tile: its menu, and Move, which hands the arrow keys to the tile until OK or Back.
     var menuFor by remember { mutableStateOf<Pair<String, TvApp>?>(null) }
     var moving by remember { mutableStateOf<Moving?>(null) }
+    // The order and rows as they were when the move started: Back puts them back.
+    var moveFrom by remember { mutableStateOf<Pair<List<String>, List<Group>>?>(null) }
+    LaunchedEffect(moving == null) { moveFrom = if (moving != null) cfg.order to cfg.rows else null }
     // After a move, Home leaves focus on the app that moved instead of going back to the first tile.
     var keepFocus by remember { mutableStateOf(false) }
     LaunchedEffect(appsVersion) { moving = null; keepFocus = false }
@@ -526,14 +530,25 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             lastPress = System.currentTimeMillis()
             if (moving != null) {
                 val inGrid = movingKey?.startsWith("grid:") == true
+                val glassDock = cfg.layout == "glass" && movingKey?.startsWith("dock:") == true
                 if (e.type == KeyEventType.KeyDown) when (e.key) {
                     Key.DirectionLeft -> step(-1)
                     Key.DirectionRight -> step(1)
                     Key.DirectionUp -> if (inGrid) step(-cfg.columns)
-                    Key.DirectionDown -> if (inGrid) step(cfg.columns)
+                    Key.DirectionDown -> if (inGrid) step(cfg.columns) else if (glassDock) moving?.let { m ->
+                        // Glass: Down takes the app out of the dock, to just after the last app left in it.
+                        val all = (home.dock + home.grid).map { it.pkg }.filter { it != m.pkg }
+                        val at = (home.dock.size).coerceAtMost(all.size)
+                        ConfigStore.update(ctx, JSONObject().put("order", JSONArray(all.take(at) + m.pkg + all.drop(at))))
+                        moving = null; keepFocus = false
+                    }
                     else -> {}
                 }
-                if (e.type == KeyEventType.KeyUp && e.key in DONE_KEYS) { moving = null; keepFocus = true }
+                if (e.type == KeyEventType.KeyUp && (e.key == Key.Back || e.key == Key.Escape)) {
+                    // Back cancels: the apps go back where they were.
+                    moveFrom?.let { (order, rows) -> ConfigStore.update(ctx, JSONObject().put("order", JSONArray(order)).put("rows", HomeConfig.groupsJson(rows))) }
+                    moving = null; keepFocus = true
+                } else if (e.type == KeyEventType.KeyUp && e.key in DONE_KEYS) { moving = null; keepFocus = true }
                 return@onPreviewKeyEvent true
             }
             if (e.type == KeyEventType.KeyDown) Motion.seen(e.key)
@@ -553,7 +568,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         } else wallpaper?.let {
             Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = cfg.wallpaperDim / 100f)))
-        }
+        } ?: run { if (cfg.layout == "glass") GlassBackdrop() }
         IntroLayer(intro)
         // The focused app's colour washes in from the top; the wallpaper still shows through.
         // Drawn in the draw phase, so the fading colour doesn't redraw the whole screen each frame.
@@ -574,6 +589,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
                 "split" -> SplitLayout(home, ui, quick, onQuick)
                 "rail" -> RailLayout(home, ui, quick, onQuick)
                 "bau" -> BauLayout(home, ui, quick, onQuick)
+                "glass" -> GlassLayout(home, ui, quick, onQuick, onAllApps = { showAllApps = true }, moving)
                 else -> ShelfLayout(home, ui, quick, onQuick)
             }
             shownCaption?.let { BingCaption(it, visualiser, cfg, Modifier.align(Alignment.BottomEnd).padding(start = SAFE_X, end = SAFE_X, bottom = SAFE_Y)) }
@@ -587,7 +603,8 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = SAFE_Y).graphicsLayer { alpha = tipShown }
                 .background(PANEL, RoundedCornerShape(12.dp)).padding(horizontal = 18.dp, vertical = 10.dp)
         )
-        moving?.let { m ->
+        // Glass says it in its own headline.
+        moving?.takeIf { cfg.layout != "glass" || it.kind != "main" }?.let { m ->
             Text(
                 tr("Moving {app}. Use the arrows, then OK.", "app" to m.label),
                 color = TEXT, fontSize = 16.sp,
@@ -607,7 +624,10 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         }
         AppMenu(app, ui, onMove = kind?.let { k -> { menuFor = null; openFolder = null; moving = Moving(k, app.pkg, app.label) } }) { menuFor = null }
     }
-    if (showPanel) SettingsPanel(accent, bau = cfg.layout == "bau", onFind = { showFind = true }) { showPanel = false }
+    if (showPanel) {
+        if (cfg.layout == "glass") GlassControl(accent, onFind = { showFind = true }) { showPanel = false }
+        else SettingsPanel(accent, bau = cfg.layout == "bau", onFind = { showFind = true }) { showPanel = false }
+    }
     if (showThemes) ThemeCarousel(accent) { showThemes = false }
     if (showTimer) TimerMenu(ui) { showTimer = false }
     if (showUpdate) update?.let { UpdateDialog(it, accent) { showUpdate = false } }
@@ -712,7 +732,7 @@ private fun Sunrise(p: Float) {
 }
 
 /** What every tile and section needs to know. */
-private class Ui(
+internal class Ui(
     val cfg: HomeConfig,
     val accent: Color,
     val focus: FocusRequester,
@@ -1403,10 +1423,10 @@ private fun Tile(section: String, app: TvApp, ui: Ui, size: Modifier, big: Boole
 }
 
 /** Opens an app, through the PIN pad when it's locked. */
-private fun launch(ctx: android.content.Context, app: TvApp) = open(ctx, app.pkg, app.launch)
+internal fun launch(ctx: android.content.Context, app: TvApp) = open(ctx, app.pkg, app.launch)
 
 /** Opens [target] in [pkg], through the PIN pad when it's locked; [fallback] when [target] won't start. */
-private fun open(ctx: android.content.Context, pkg: String, target: android.content.Intent, fallback: android.content.Intent? = null) {
+internal fun open(ctx: android.content.Context, pkg: String, target: android.content.Intent, fallback: android.content.Intent? = null) {
     val gate = when {
         Lock.needsPin(ctx, pkg) -> LockActivity.intent(ctx, pkg, target)
         Limits.over(ctx, pkg) -> LockActivity.intent(ctx, pkg, target, limit = true)
@@ -2003,7 +2023,7 @@ private fun FolderOverlay(name: String, list: List<TvApp>, ui: Ui, onClose: () -
 }
 
 /** An app being moved with the arrow keys: "main" for the dock and All apps, or "row<i>". */
-private data class Moving(val kind: String, val pkg: String, val label: String)
+internal data class Moving(val kind: String, val pkg: String, val label: String)
 
 private val DONE_KEYS = setOf(Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.Back, Key.Escape)
 private val OK_KEYS = setOf(Key.DirectionCenter, Key.Enter, Key.NumPadEnter)
