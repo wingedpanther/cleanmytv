@@ -200,13 +200,9 @@ internal fun GlassLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: 
 private fun GlassHome(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (QuickAction) -> Unit, onAllApps: () -> Unit, moving: Moving?, seen: Int) {
     val ctx = LocalContext.current
     val dock = home.dock.take(GLASS_DOCK)
-    // Most sideloaded apps never write Watch Next: then the headline says when the app was last open, and the
-    // shelf shows recently opened apps instead of cards.
+    // Most sideloaded apps never write Watch Next: then the headline says when the app was last open, and
+    // there is no shelf.
     val used by produceState(emptyMap<String, Long>(), seen, dock.map { it.pkg }) { value = withContext(Dispatchers.IO) { Recent.lastUsed(ctx, dock.map { it.pkg }) } }
-    val recent by produceState(emptyList<TvApp>(), seen, dock.map { it.pkg }) {
-        val all = (home.dock + home.grid).associateBy { it.pkg }
-        value = withContext(Dispatchers.IO) { Recent.apps(ctx, all.keys) }.filter { p -> dock.none { it.pkg == p } }.mapNotNull { all[it] }.take(SLOTS)
-    }
     var current by remember { mutableStateOf(dock.firstOrNull()) }
     val movingApp = moving?.takeIf { m -> m.kind == "main" && dock.any { it.pkg == m.pkg } }
     // Home's first focus can be in a section Glass doesn't draw: then it starts on the first dock app.
@@ -219,7 +215,7 @@ private fun GlassHome(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Qu
         // The app last focused in the dock, or the first one once that app has left the dock.
         val shownApp = current?.takeIf { c -> dock.any { it.pkg == c.pkg } } ?: dock.firstOrNull()
         val head = headItem(shownApp, home)
-        val slots = shelfSlots(head, home, recent, dock)
+        val slots = shelfSlots(head, home)
         val hasShelf = movingApp == null && slots.isNotEmpty()
         val top = remember { FocusRequester() }
         val shelf = remember { FocusRequester() }
@@ -333,48 +329,30 @@ private fun GlassHeadline(app: TvApp, item: WatchItem?, home: Home, ui: Ui, last
 /** Four slots on the shelf, as on the board. */
 private const val SLOTS = 4
 
-/** One card on the shelf and the group whose label it sits under. */
-private class Slot(val group: String, val watch: WatchItem? = null, val app: TvApp? = null)
-
 /**
- * What fills the shelf, in labelled groups so nothing reads as the focused app's when it isn't: what there is to
- * continue, the headline's item first, then apps opened lately, then other apps, so all four slots are filled
- * whenever the TV has the apps.
+ * The shelf holds only things to continue, the headline's item first, so OK on it resumes. Apps stay in the dock
+ * and All apps: the owner didn't want recent apps standing in for cards.
  */
-private fun shelfSlots(head: WatchItem?, home: Home, recent: List<TvApp>, dock: List<TvApp>): List<Slot> {
-    // The headline's item is the first card, so OK on it resumes; every card carries its app's name.
-    val watching = (listOfNotNull(head) + home.watch.filter { it !== head }).map { Slot(tr("Continue watching"), watch = it) }
-    val opened = recent.map { Slot(tr("Recently opened"), app = it) }
-    val taken = (dock + recent).map { it.pkg }.toSet()
-    val rest = home.grid.filter { it.pkg !in taken && !InputTiles.isInput(it.pkg) }.map { Slot(tr("Apps"), app = it) }
-    return (watching + opened + rest).take(SLOTS)
-}
+private fun shelfSlots(head: WatchItem?, home: Home): List<WatchItem> = (listOfNotNull(head) + home.watch.filter { it !== head }).take(SLOTS)
 
 /** The headline's item: the focused app's own, else the newest from any app. */
 private fun headItem(app: TvApp?, home: Home): WatchItem? = home.watch.firstOrNull { it.pkg == app?.pkg } ?: home.watch.firstOrNull()
 
-/** The shelf: four slots across the full width, grouped under their labels. */
+/** The shelf: up to four cards, each a quarter of the row wide, from the left. */
 @Composable
-private fun GlassCards(slots: List<Slot>, ui: Ui, home: Home, first: FocusRequester, nav: Modifier) {
-    if (slots.isEmpty()) return
+private fun GlassCards(items: List<WatchItem>, ui: Ui, home: Home, first: FocusRequester, nav: Modifier) {
+    if (items.isEmpty()) return
     BoxWithConstraints(Modifier.padding(top = 26.dp).fillMaxWidth()) {
         val w = (maxWidth - 16.dp * (SLOTS - 1)) / SLOTS
-        Row(Modifier.focusGroup(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            var at = 0
-            for ((label, group) in slots.groupBy { it.group }) {
-                val start = at
-                Column {
-                    Text(label, color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.width(w).padding(bottom = 10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        group.forEachIndexed { i, slot ->
-                            // The shelf's first card is where Down from the top bar lands.
-                            val m = (if (start + i == 0) nav.focusRequester(first) else nav).width(w)
-                            slot.watch?.let { GlassCard(it, home.app(it.pkg), ui, m) } ?: slot.app?.let { GlassAppCard(it, ui, m) }
-                        }
-                    }
+        Column {
+            Text(tr("Continue watching"), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.width(w).padding(bottom = 10.dp))
+            Row(Modifier.focusGroup(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                items.forEachIndexed { i, item ->
+                    // The shelf's first card is where Down from the top bar lands.
+                    val m = (if (i == 0) nav.focusRequester(first) else nav).width(w)
+                    GlassCard(item, home.app(item.pkg), ui, m)
                 }
-                at += group.size
             }
         }
     }
@@ -383,22 +361,6 @@ private fun GlassCards(slots: List<Slot>, ui: Ui, home: Home, first: FocusReques
 /** The board's glass for a card with no picture: light at the top left, darker at the foot. */
 private val CARD_GLASS = Brush.linearGradient(0f to Color.White.copy(alpha = 0.22f), 1f to Color.White.copy(alpha = 0.04f))
 private val CARD_FOOT = Brush.verticalGradient(0.3f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.72f))
-
-/** An app on the shelf: its banner when it has one, else the board's glass with its name and kind. */
-@Composable
-private fun GlassAppCard(app: TvApp, ui: Ui, modifier: Modifier) {
-    val ctx = LocalContext.current
-    GlassTile(14.dp, modifier.height(118.dp), focusScale = 1.08f, keepFill = true, onFocus = { ui.onFocusApp(app) },
-        onLongClick = { ui.onAppMenu("recent", app) }, onClick = { launch(ctx, app) }) { _ ->
-        if (app.banner) Image(app.art, app.label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        else Box(Modifier.fillMaxSize().background(CARD_GLASS).background(CARD_FOOT)) {
-            Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 13.dp, vertical = 11.dp)) {
-                Text(app.label, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.01).em, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(remember(app.pkg) { bauKind(ctx, app.pkg) } ?: tr("App"), color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-            }
-        }
-    }
-}
 
 @Composable
 private fun GlassCard(item: WatchItem, app: TvApp?, ui: Ui, modifier: Modifier) {
