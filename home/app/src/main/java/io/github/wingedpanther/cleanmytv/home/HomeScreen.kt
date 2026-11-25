@@ -663,9 +663,10 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         // Glass says it in its own headline, Teletext on its Arrange page. Bauhaus: square, cream and lower case.
         moving?.takeIf { (cfg.layout != "glass" && !text) || it.kind != "main" }?.let { m ->
             val note = tr("Moving {app}. Use the arrows, then OK.", "app" to m.label)
+            // In the left column under the date, where it covers no app.
             if (cfg.layout == "bau") Text(
                 note.lowercase(), color = BAU_INK, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = SAFE_Y).background(BAU_CREAM).border(1.5.dp, BAU_INK).padding(horizontal = 18.dp, vertical = 10.dp)
+                modifier = Modifier.align(Alignment.TopStart).padding(start = SAFE_X, top = 136.dp).width(276.dp).background(BAU_CREAM).border(1.5.dp, BAU_INK).padding(horizontal = 18.dp, vertical = 10.dp)
             )
             else Text(
                 note, color = TEXT, fontSize = 16.sp,
@@ -1201,8 +1202,9 @@ private fun BauCell(name: String, sub: String?, mark: Pair<Int, Color>, ui: Ui, 
         Column(Modifier.fillMaxSize().padding(horizontal = if (height > 100.dp) 15.dp else 12.dp, vertical = if (height > 100.dp) 14.dp else 10.dp), verticalArrangement = Arrangement.SpaceBetween) {
             BauGlyph(mark.first, mark.second, markSize)
             Column {
-                // Two lines, so "open shelf" isn't cut to "open sh…" in the six-across strip.
-                Text(name.lowercase(), color = if (focused) BAU_INK else BAU_CREAM, fontSize = nameSize, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                // Two lines, so "open shelf" isn't cut to "open sh…" in the six-across strip. A one-word name stays
+                // on one line and ends in "…": a second line would break it mid-word.
+                Text(name.lowercase(), color = if (focused) BAU_INK else BAU_CREAM, fontSize = nameSize, fontWeight = FontWeight.ExtraBold, maxLines = if (' ' in name.trim()) 2 else 1, overflow = TextOverflow.Ellipsis,
                     style = TextStyle(letterSpacing = nameSize * -0.02f, lineHeight = nameSize * 1.05f))
                 sub?.let { Text(it.lowercase(), color = if (focused) BAU_DIM else BAU_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }

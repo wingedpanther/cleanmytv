@@ -340,9 +340,12 @@ internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick
     }
     // The lines after the dock: numbered straight on from it, so five dock apps make All apps 6.
     val pages = listOf(tr("All apps") to a.apps, tr("Search") to a.find, tr("Quick settings") to a.settings, tr("Customize Home") to a.customize)
+    // Down from the last line goes to the first colour word; the usual search picked the one under the line's middle.
+    val apps = remember { FocusRequester() }
     TextPage(tr("Home"), room, TT_BLUE, TT_YELLOW, "1/1",
         if (RemoteKeys.digits) tr("Press a number to open it, or move with the arrows.") else tr("Move with the arrows. OK opens it."),
         listOf(ColourWord(tr("Apps"), a.apps), ColourWord(tr("Search"), a.find), ColourWord(tr("Settings"), a.settings), a.inputs?.let { ColourWord(tr("Inputs"), it) }),
+        firstWord = apps,
         // Six dock apps and four more lines fill the page to the hint.
         gap = if (dock.size >= TEXT_DOCK) 0.dp else 15.dp,
         keys = { e ->
@@ -372,7 +375,8 @@ internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick
                 }
                 val first = if (dock.isEmpty() && ownStart) Modifier.focusRequester(start) else Modifier
                 pages.forEachIndexed { k, (label, go) ->
-                    TextLine("${(dock.size + k + 1) % 10}", label, "", if (k == 0) first else Modifier, toRight = toWatch, onClick = go)
+                    TextLine("${(dock.size + k + 1) % 10}", label, "", (if (k == 0) first else Modifier).then(if (k == pages.lastIndex) Modifier.focusProperties { down = apps } else Modifier),
+                        toRight = toWatch, onClick = go)
                 }
             }
             Spacer(Modifier.width(36.dp))

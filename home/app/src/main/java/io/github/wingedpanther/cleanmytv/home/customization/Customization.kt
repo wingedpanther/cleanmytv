@@ -144,11 +144,12 @@ fun CustomizationDialog(
         }
     }
 
-    // Direct Full-Screen Overlay with 7% transparent PANEL_BG
+    // Full screen over Home, and solid: through any see-through backing Glass's headline and Teletext's lines
+    // showed between the rows.
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(PANEL_BG.copy(alpha = 0.93f))
+            .background(PANEL_BG)
             .onPreviewKeyEvent { e ->
                 if (e.key == Key.Back) {
                     if (e.type == KeyEventType.KeyDown) {
