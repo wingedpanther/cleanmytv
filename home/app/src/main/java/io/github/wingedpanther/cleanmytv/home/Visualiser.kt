@@ -34,6 +34,8 @@ class Visualiser {
 
     @Volatile var bars = 32
     @Volatile var sensitivity = 1f
+    /** Set while Home is in front. Some TVs break the next app's video while anything listens to the output mix (#140). */
+    @Volatile var inFront = false
 
     private var viz: Visualizer? = null
     private var audio: AudioManager? = null
@@ -44,7 +46,7 @@ class Visualiser {
     private var soundFrames = 0
 
     fun start(ctx: Context) {
-        if (viz != null) return
+        if (viz != null || !inFront) return
         if (ctx.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             _state.value = State.NO_PERMISSION
             return

@@ -81,7 +81,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        if (ConfigStore.config.value.visualiser) visualiser.start(this)
         NowPlaying.start(this)
     }
 
@@ -89,10 +88,18 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         appsVersion.intValue++
         Keyboard.check(this)
+        visualiser.inFront = true
+        if (ConfigStore.config.value.visualiser) visualiser.start(this)
+    }
+
+    // The music bars let go before the next app starts, not after it has drawn (#140).
+    override fun onPause() {
+        visualiser.inFront = false
+        visualiser.stop()
+        super.onPause()
     }
 
     override fun onStop() {
-        visualiser.stop()
         NowPlaying.stop()
         super.onStop()
     }
