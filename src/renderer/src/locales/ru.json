@@ -250,6 +250,7 @@
   "Closed.": "Закрыт.",
   "Code": "Код",
   "code {code}": "код {code}",
+  "scan code {scan}": "скан-код {scan}",
   "Colour": "Цвет",
   "Coming back later": "Если понадобится вернуться позже",
   "command too long for this TV ({size} > {max} bytes).": "команда слишком длинная для этого телевизора ({size} > {max} байт).",

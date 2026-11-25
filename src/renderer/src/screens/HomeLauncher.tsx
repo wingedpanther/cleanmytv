@@ -1630,9 +1630,13 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
     return () => { stop = true }
   }, [listening])
 
-  const mapped = new Set(cfg.buttons.map((b) => b.code))
+  // A button is its key code plus, when the TV gives one, its scan code: Sony sends one key code for several (#148).
+  const same = (a: { code: number; scan?: number }, b: { code: number; scan?: number }): boolean => a.code === b.code && (a.scan ?? 0) === (b.scan ?? 0)
+  const mapped = (k: KeyPress): boolean => cfg.buttons.some((b) => same(b, k))
+  const shared = (code: number): boolean => new Set([...cfg.buttons, ...heard].filter((b) => b.code === code).map((b) => b.scan ?? 0)).size > 1
+  const scanNote = (b: { code: number; scan?: number }): string => (b.scan && shared(b.code) ? ` · ${t('scan code {scan}', { scan: b.scan })}` : '')
   const update = (buttons: HomeButton[]): void => set({ buttons })
-  const label = (code: number): string => (names[code] ? `${keyName(names[code])} · ${code}` : t('Button {code}', { code }))
+  const label = (b: HomeButton): string => (names[b.code] ? `${keyName(names[b.code])} · ${b.code}` : t('Button {code}', { code: b.code })) + scanNote(b)
   const xiaomi = /xiaomi|redmi/i.test(props.brand ?? '')
   const miDone = cfg.buttons_on && cfg.buttons.some((b) => b.code === MI_BUTTON && b.action === 'home')
 
@@ -1705,10 +1709,10 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
               <li key={k.seq}>
                 <span className="grow">
                   <b>{keyName(k.name)}</b>
-                  <span className="muted small">{t('code {code}', { code: k.code })}</span>
+                  <span className="muted small">{t('code {code}', { code: k.code }) + scanNote(k)}</span>
                 </span>
-                <button className="btn small" disabled={mapped.has(k.code)} onClick={() => update([...cfg.buttons, { code: k.code, action: 'settings' }])}>
-                  {mapped.has(k.code) ? t('Added') : t('Give it a job')}
+                <button className="btn small" disabled={mapped(k)} onClick={() => update([...cfg.buttons, { code: k.code, ...(k.scan ? { scan: k.scan } : {}), action: 'settings' }])}>
+                  {mapped(k) ? t('Added') : t('Give it a job')}
                 </button>
               </li>
             ))}
@@ -1723,13 +1727,13 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
         ) : (
           <ul className="order-list button-list">
             {cfg.buttons.map((b, i) => (
-              <li key={b.code}>
+              <li key={`${b.code}:${b.scan ?? 0}`}>
                 <span className="grow">
-                  <b>{label(b.code)}</b>
+                  <b>{label(b)}</b>
                 </span>
                 <select
                   value={b.action}
-                  aria-label={t('Job for {button}', { button: label(b.code) })}
+                  aria-label={t('Job for {button}', { button: label(b) })}
                   onChange={(e) => {
                     const action = e.target.value as ButtonAction
                     update(cfg.buttons.map((x, j) => (j === i ? { ...x, action, app: action === 'app' ? (x.app ?? apps[0]?.pkg) : undefined } : x)))
@@ -1752,7 +1756,7 @@ function ButtonsTab(props: { cfg: HomeConfig; set: SetFn; apps: TvApp[]; setCfg:
                 )}
                 <select
                   value={b.hold ?? 'none'}
-                  aria-label={t('Job for holding {button} down', { button: label(b.code) })}
+                  aria-label={t('Job for holding {button} down', { button: label(b) })}
                   title={t('Held down')}
                   onChange={(e) => {
                     const hold = e.target.value as ButtonAction

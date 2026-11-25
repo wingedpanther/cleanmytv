@@ -250,6 +250,7 @@
   "Closed.": "Cerrado.",
   "Code": "Código",
   "code {code}": "código {code}",
+  "scan code {scan}": "código de escaneo {scan}",
   "Colour": "Color",
   "Coming back later": "Volver más tarde",
   "command too long for this TV ({size} > {max} bytes).": "comando demasiado largo para este TV ({size} > {max} bytes).",

@@ -243,12 +243,16 @@ export interface HomeButton {
   hold?: ButtonAction
   /** Package to open when hold is 'app'. */
   hold_app?: string
+  /** Scan code from the remote's driver (launcher 1.13.24). Tells apart buttons that share a key code, like Sony's (#148). */
+  scan?: number
 }
 
 /** A button the TV received, from the launcher's button finder. */
 export interface KeyPress {
   seq: number
   code: number
+  /** Left out by launchers before 1.13.24, and when the driver gives none. */
+  scan?: number
   name: string
 }
 

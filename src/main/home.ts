@@ -87,6 +87,8 @@ const NOW_LISTENER = `${HOME_PKG}/${HOME_PKG}.NowPlayingListener`
 export const MIN_SDK = 26
 // Above Android's own codes: TCL remotes send 4001 and up (#47).
 const MAX_KEY = 65535
+// Scan codes run past key codes: USB remotes report HID usages like 0xc0223.
+const MAX_SCAN = 0xffffff
 const BUTTON_ACTIONS = ['settings', 'wifi', 'inputs', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'timer', 'next_wallpaper', 'brightness', 'home', 'launcher', 'back', 'none', 'app']
 /** A built-in theme's picture, as "<theme id>:<picture>". */
 const THEME_PICTURE = /^[a-z0-9-]{1,40}:[0-9]$/
@@ -399,12 +401,15 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
     const ok = Array.isArray(v) && v.length <= 30 && v.every((b) =>
       b && typeof b === 'object' && Number.isInteger(b.code) && b.code >= 1 && b.code <= MAX_KEY && BUTTON_ACTIONS.includes(b.action) &&
       (b.action !== 'app' || (typeof b.app === 'string' && T.PACKAGE_RE.test(b.app))) &&
-      (b.hold === undefined || (BUTTON_ACTIONS.includes(b.hold) && (b.hold !== 'app' || (typeof b.hold_app === 'string' && T.PACKAGE_RE.test(b.hold_app))))))
+      (b.hold === undefined || (BUTTON_ACTIONS.includes(b.hold) && (b.hold !== 'app' || (typeof b.hold_app === 'string' && T.PACKAGE_RE.test(b.hold_app))))) &&
+      (b.scan === undefined || (Number.isInteger(b.scan) && b.scan >= 0 && b.scan <= MAX_SCAN)))
     if (ok) {
-      const seen = new Set<number>()
-      out.buttons = (v as HomeButton[]).filter((b) => !seen.has(b.code) && seen.add(b.code)).map((b) => ({
+      const seen = new Set<string>()
+      const key = (b: HomeButton): string => `${b.code}:${b.scan ?? 0}`
+      out.buttons = (v as HomeButton[]).filter((b) => !seen.has(key(b)) && seen.add(key(b))).map((b) => ({
         code: b.code, action: b.action, ...(b.action === 'app' ? { app: b.app } : {}),
-        ...(b.hold && b.hold !== 'none' ? { hold: b.hold, ...(b.hold === 'app' ? { hold_app: b.hold_app } : {}) } : {})
+        ...(b.hold && b.hold !== 'none' ? { hold: b.hold, ...(b.hold === 'app' ? { hold_app: b.hold_app } : {}) } : {}),
+        ...(b.scan ? { scan: b.scan } : {})
       }))
     } else bad('buttons must be up to 30 key codes (1 to 65535), each with a known action')
   }
@@ -530,7 +535,9 @@ export async function keys(): Promise<KeyPress[]> {
   if (!m) throw new UiError("CleanMyTV Home didn't list the buttons: {output}", { output: out.trim().slice(0, 200) || 'no output' })
   return (JSON.parse(m[1]) as unknown[]).flatMap((k) => {
     const o = k as Record<string, unknown>
-    return Number.isInteger(o.seq) && Number.isInteger(o.code) ? [{ seq: o.seq as number, code: o.code as number, name: typeof o.name === 'string' ? o.name.slice(0, 40) : `KEYCODE_${o.code}` }] : []
+    if (!Number.isInteger(o.seq) || !Number.isInteger(o.code)) return []
+    const scan = Number.isInteger(o.scan) && (o.scan as number) > 0 && (o.scan as number) <= MAX_SCAN ? { scan: o.scan as number } : {}
+    return [{ seq: o.seq as number, code: o.code as number, ...scan, name: typeof o.name === 'string' ? o.name.slice(0, 40) : `KEYCODE_${o.code}` }]
   })
 }
 

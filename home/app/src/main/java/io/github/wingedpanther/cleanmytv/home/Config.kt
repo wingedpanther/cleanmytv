@@ -12,11 +12,25 @@ import java.io.File
 fun buttonsJson(buttons: List<ButtonMap>) = JSONArray(buttons.map { b ->
     JSONObject().put("code", b.code).put("action", b.action).apply {
         b.app?.let { put("app", it) }; b.hold?.let { put("hold", it) }; b.holdApp?.let { put("hold_app", it) }
+        if (b.scan > 0) put("scan", b.scan)
     }
 })
 
-/** A remote button's job when pressed, and optionally a second one when held down ([hold], [holdApp]). */
-data class ButtonMap(val code: Int, val action: String, val app: String? = null, val hold: String? = null, val holdApp: String? = null)
+/**
+ * A remote button's job when pressed, and optionally a second one when held down ([hold], [holdApp]).
+ * [scan] is the scan code the remote's driver reported, 0 when unknown: Sony sends one key code for
+ * several buttons (#148), and only the scan code tells them apart.
+ */
+data class ButtonMap(val code: Int, val action: String, val app: String? = null, val hold: String? = null, val holdApp: String? = null, val scan: Int = 0)
+
+/**
+ * The job for a press. A button alone on its key code matches whatever the scan code, as before; buttons
+ * sharing one go by scan code, and one saved without a scan code takes the rest.
+ */
+fun List<ButtonMap>.forKey(code: Int, scan: Int): ButtonMap? {
+    val same = filter { it.code == code }
+    return if (same.size <= 1) same.firstOrNull() else same.firstOrNull { it.scan == scan } ?: same.firstOrNull { it.scan == 0 }
+}
 
 /** A named group of apps: a row on the home screen, or a folder. */
 data class Group(val name: String, val apps: List<String>)
@@ -342,10 +356,11 @@ data class HomeConfig(
                     val hold = b.optString("hold").takeIf { it in BUTTON_ACTIONS && it != "none" }
                     val holdApp = b.optString("hold_app").takeIf { PKG.matches(it) }
                     val holdOk = hold != null && (hold != "app" || holdApp != null)
+                    val scan = b.optInt("scan", 0).coerceAtLeast(0)
                     if (code !in 1..65535 || action !in BUTTON_ACTIONS || (action == "app" && app == null)) null
                     else ButtonMap(code, action, if (action == "app") app else null,
-                        hold.takeIf { holdOk }, holdApp.takeIf { holdOk && hold == "app" })
-                }.distinctBy { it.code }
+                        hold.takeIf { holdOk }, holdApp.takeIf { holdOk && hold == "app" }, scan)
+                }.distinctBy { it.code to it.scan }
             }
             val rows = groups("rows", 8) ?: base.rows
             return base.copy(

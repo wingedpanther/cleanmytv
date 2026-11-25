@@ -179,6 +179,10 @@ describe('CleanMyTV Home', () => {
     expect(cfg.buttons).toEqual([{ code: 83, action: 'settings' }, { code: 183, action: 'app', app: 'com.netflix.ninja' }])
     // TCL remotes send vendor codes like 4001 (#47).
     expect((await H.setConfig({ buttons: [{ code: 4001, action: 'settings' }] })).buttons).toEqual([{ code: 4001, action: 'settings' }])
+    // Sony sends one key code for several buttons; the scan code tells them apart (#148).
+    const sony = [{ code: 296, scan: 405, action: 'home' as const }, { code: 296, scan: 406, action: 'settings' as const }, { code: 296, scan: 405, action: 'back' as const }]
+    expect((await H.setConfig({ buttons: sony })).buttons).toEqual(sony.slice(0, 2))
+    await expect(H.setConfig({ buttons: [{ code: 296, scan: -1, action: 'settings' }] })).rejects.toThrow(/buttons/)
     await expect(H.setConfig({ buttons: [{ code: 70000, action: 'settings' }] })).rejects.toThrow(/buttons/)
     await expect(H.setConfig({ buttons: [{ code: 0, action: 'settings' }] })).rejects.toThrow(/buttons/)
     await expect(H.setConfig({ buttons: [{ code: 5, action: 'reboot' as never }] })).rejects.toThrow(/buttons/)
@@ -188,7 +192,11 @@ describe('CleanMyTV Home', () => {
     expect(tv.settings.get('accessibility_enabled')).toBe('1')
     expect((await H.setRemoteButtons(false)).buttons_on).toBe(false)
     expect(tv.settings.get('enabled_accessibility_services')).toBe('com.other/.Svc')
-    expect(await H.keys()).toEqual([{ seq: 7, code: 83, name: 'KEYCODE_NOTIFICATION' }])
+    expect(await H.keys()).toEqual([
+      { seq: 7, code: 83, name: 'KEYCODE_NOTIFICATION' },
+      { seq: 8, code: 296, scan: 405, name: 'KEYCODE_VIDEO_APP_8' },
+      { seq: 9, code: 296, name: 'KEYCODE_VIDEO_APP_8' }
+    ])
   })
 
   it('uploads a wallpaper in pieces and removes it', async () => {

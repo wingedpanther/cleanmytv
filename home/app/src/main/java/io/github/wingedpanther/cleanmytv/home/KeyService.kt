@@ -27,25 +27,28 @@ import org.json.JSONObject
 
 /** The last buttons the TV received, for the desktop app's button finder. */
 object KeyLog {
-    private val keys = ArrayDeque<Triple<Int, Int, String>>() // seq, code, name
+    private class Press(val seq: Int, val code: Int, val scan: Int)
+    private val keys = ArrayDeque<Press>()
     private var seq = 0
 
     @Synchronized
-    fun add(code: Int) {
-        keys.addLast(Triple(++seq, code, KeyEvent.keyCodeToString(code)))
+    fun add(code: Int, scan: Int) {
+        keys.addLast(Press(++seq, code, scan))
         while (keys.size > 30) keys.removeFirst()
     }
 
     @Synchronized
-    fun json(): JSONArray = JSONArray(keys.map { (s, c, n) -> JSONObject().put("seq", s).put("code", c).put("name", n) })
+    fun json(): JSONArray = JSONArray(keys.map {
+        JSONObject().put("seq", it.seq).put("code", it.code).put("scan", it.scan).put("name", KeyEvent.keyCodeToString(it.code))
+    })
 
     /** Where the log is now, so the on-TV button finder only looks at presses after it. */
     @Synchronized
     fun mark(): Int = seq
 
-    /** Key codes pressed after [mark], oldest first. */
+    /** Key and scan codes pressed after [mark], oldest first. */
     @Synchronized
-    fun since(mark: Int): List<Int> = keys.filter { it.first > mark }.map { it.second }
+    fun since(mark: Int): List<Pair<Int, Int>> = keys.filter { it.seq > mark }.map { it.code to it.scan }
 }
 
 /**
@@ -129,12 +132,12 @@ class KeyService : AccessibilityService() {
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
-        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) KeyLog.add(event.keyCode)
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) KeyLog.add(event.keyCode, event.scanCode)
         // The bedtime note is up: any button keeps the TV on, and does nothing else.
         if (Bedtime.warning && event.action == KeyEvent.ACTION_DOWN) { keepAwake(); swallowUp = event.keyCode; return true }
         if (event.action == KeyEvent.ACTION_UP && event.keyCode == swallowUp) { swallowUp = -1; return true }
         val cfg = ConfigStore.config.value
-        val map = if (cfg.buttonsOn) cfg.buttons.firstOrNull { it.code == event.keyCode } else null
+        val map = if (cfg.buttonsOn) cfg.buttons.forKey(event.keyCode, event.scanCode) else null
         if (map == null) {
             if (event.keyCode in VOLUME_KEYS && System.currentTimeMillis() >= listenUntil) pauseForVolume()
             return false

@@ -84,8 +84,8 @@ private fun keyName(code: Int): String {
 @Composable
 fun ButtonsCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
     var finding by remember { mutableStateOf(false) }
-    // A found button waiting for its job, and the job waiting for its app.
-    var code by remember { mutableStateOf<Int?>(null) }
+    // A found button (key and scan code) waiting for its job, and the job waiting for its app.
+    var found by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var pickApp by remember { mutableStateOf(false) }
     // Whether the job being picked is the one for holding the button down.
     var forHold by remember { mutableStateOf(false) }
@@ -97,16 +97,21 @@ fun ButtonsCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
         if (action == "app") tr("Open {app}", "app" to (apps.firstOrNull { it.pkg == app }?.label ?: app.toString()))
         else actions().firstOrNull { it.first == action }?.second ?: action
     }
-    // A new press job keeps the hold job, and a new hold job keeps the press job.
-    val pick = { c: Int, action: String, app: String? ->
-        val old = config.buttons.firstOrNull { it.code == c }
+    // A new press job keeps the hold job, and a new hold job keeps the press job. One saved without a scan
+    // code is the same button, and learns it now.
+    val pick = { c: Int, scan: Int, action: String, app: String? ->
+        val old = config.buttons.firstOrNull { it.code == c && (it.scan == scan || it.scan == 0) }
         val next = when {
-            !forHold -> ButtonMap(c, action, app, old?.hold, old?.holdApp)
-            action == "none" -> ButtonMap(c, old?.action ?: "none", old?.app)
-            else -> ButtonMap(c, old?.action ?: "none", old?.app, action, app)
+            !forHold -> ButtonMap(c, action, app, old?.hold, old?.holdApp, scan)
+            action == "none" -> ButtonMap(c, old?.action ?: "none", old?.app, scan = scan)
+            else -> ButtonMap(c, old?.action ?: "none", old?.app, action, app, scan)
         }
-        save(config.buttons.filter { it.code != c } + next)
-        pickApp = false; code = null; forHold = false
+        save(config.buttons.filter { it != old } + next)
+        pickApp = false; found = null; forHold = false
+    }
+    // Buttons that share a key code (#148) show their scan codes, or they'd read the same.
+    val name = { b: ButtonMap ->
+        if (b.scan > 0 && config.buttons.count { it.code == b.code } > 1) "${keyName(b.code)} · ${b.scan}" else keyName(b.code)
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -127,13 +132,13 @@ fun ButtonsCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(keyName(b.code), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Text(name(b), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                         Text(label(b.action, b.app), color = MUTED_COLOR, fontSize = 13.sp)
                         b.hold?.let { Text(tr("Held down: {job}", "job" to label(it, b.holdApp)), color = MUTED_COLOR, fontSize = 13.sp) }
                     }
-                    TvSecondaryButton(text = tr("Change"), onClick = { forHold = false; code = b.code })
-                    TvSecondaryButton(text = tr("When held"), onClick = { forHold = true; code = b.code })
-                    TvDestructiveButton(text = tr("Remove"), onClick = { save(config.buttons.filter { it.code != b.code }) })
+                    TvSecondaryButton(text = tr("Change"), onClick = { forHold = false; found = b.code to b.scan })
+                    TvSecondaryButton(text = tr("When held"), onClick = { forHold = true; found = b.code to b.scan })
+                    TvDestructiveButton(text = tr("Remove"), onClick = { save(config.buttons.filter { it != b }) })
                 }
             }
             ServiceNote(tr("mapped buttons do nothing"))
@@ -155,16 +160,16 @@ fun ButtonsCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
         )
     }
 
-    if (finding) FindButton(onDismiss = { finding = false }) { found -> finding = false; code = found }
-    code?.let { c ->
+    if (finding) FindButton(onDismiss = { finding = false }) { c, scan -> finding = false; found = c to scan }
+    found?.let { (c, scan) ->
         if (pickApp) {
-            Choose(tr("Which app should {button} open?", "button" to keyName(c)), apps.map { it.pkg to it.label }, onDismiss = { pickApp = false; code = null; forHold = false }) { pkg ->
-                pick(c, "app", pkg)
+            Choose(tr("Which app should {button} open?", "button" to keyName(c)), apps.map { it.pkg to it.label }, onDismiss = { pickApp = false; found = null; forHold = false }) { pkg ->
+                pick(c, scan, "app", pkg)
             }
         } else {
             val title = if (forHold) tr("What should holding {button} down do?", "button" to keyName(c)) else tr("What should {button} do?", "button" to keyName(c))
-            Choose(title, actions().filter { it.first != "memory" || Memory.canClean }, onDismiss = { code = null; forHold = false }) { action ->
-                if (action == "app") pickApp = true else pick(c, action, null)
+            Choose(title, actions().filter { it.first != "memory" || Memory.canClean }, onDismiss = { found = null; forHold = false }) { action ->
+                if (action == "app") pickApp = true else pick(c, scan, action, null)
             }
         }
     }
@@ -175,7 +180,7 @@ fun ButtonsCustomization(config: HomeConfig, ctx: Context, apps: List<TvApp>) {
  * them. The editor's own window catches the rest. The arrows, OK and Back don't count.
  */
 @Composable
-private fun FindButton(onDismiss: () -> Unit, onFound: (Int) -> Unit) {
+private fun FindButton(onDismiss: () -> Unit, onFound: (code: Int, scan: Int) -> Unit) {
     val focus = remember { FocusRequester() }
     var note by remember { mutableStateOf("") }
     LaunchedEffect(Unit) {
@@ -184,7 +189,7 @@ private fun FindButton(onDismiss: () -> Unit, onFound: (Int) -> Unit) {
         KeyService.listen()
         repeat(240) {
             delay(500)
-            KeyLog.since(mark).lastOrNull { it !in NAVIGATION }?.let { onFound(it); return@LaunchedEffect }
+            KeyLog.since(mark).lastOrNull { it.first !in NAVIGATION }?.let { onFound(it.first, it.second); return@LaunchedEffect }
         }
         onDismiss()
     }
@@ -195,7 +200,7 @@ private fun FindButton(onDismiss: () -> Unit, onFound: (Int) -> Unit) {
                 when {
                     k == KeyEvent.KEYCODE_BACK -> { if (e.type == KeyEventType.KeyUp) onDismiss(); true }
                     k in NAVIGATION -> { if (e.type == KeyEventType.KeyUp) note = tr("The arrows and OK move around Home, so they keep their job."); true }
-                    else -> { if (e.type == KeyEventType.KeyUp) onFound(k); true }
+                    else -> { if (e.type == KeyEventType.KeyUp) onFound(k, e.nativeKeyEvent.scanCode); true }
                 }
             },
             contentAlignment = Alignment.Center

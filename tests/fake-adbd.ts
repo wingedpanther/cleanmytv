@@ -281,7 +281,7 @@ function sh(tv: FakeTv, cmd: string): string {
       return `Result: Bundle[{screentime=${JSON.stringify({ allowed: true, today: st.today, first, days })}}]\n`
     } else if (m[1] === 'screentime_clear') { if (tv.homeScreenTime) tv.homeScreenTime.days = []; return 'Result: Bundle[{screentime={}}]\n' }
     else if (m[1] === 'keyboard') tv.homeKeyboard = Buffer.from(m[2], 'base64').toString('utf8')
-    else if (m[1] === 'keys') return `Result: Bundle[{keys=${JSON.stringify([{ seq: 7, code: 83, name: 'KEYCODE_NOTIFICATION' }, { seq: 'x', code: 1 }])}}]\n`
+    else if (m[1] === 'keys') return `Result: Bundle[{keys=${JSON.stringify([{ seq: 7, code: 83, name: 'KEYCODE_NOTIFICATION' }, { seq: 'x', code: 1 }, { seq: 8, code: 296, scan: 405, name: 'KEYCODE_VIDEO_APP_8' }, { seq: 9, code: 296, scan: 0, name: 'KEYCODE_VIDEO_APP_8' }])}}]\n`
     else if (m[1] === 'apps') return `Result: Bundle[{apps=${JSON.stringify([...tv.leanback.map((p) => ({ pkg: p, label: p.split('.').pop(), tv: true })), { pkg: 'bad;pkg', label: 'x', tv: true }])}}]\n`
     else if (!u && !['get', 'pack_begin', 'pack_meta', 'slides_begin', 'slides_end', 'fire_ready'].includes(m[1])) return `Error: unknown method: ${m[1]}\n`
     return `Result: Bundle[{config=${JSON.stringify({ ...tv.homeConfig, has_wallpaper: tv.files.has('/data/data/home/wallpaper.jpg'), configured: !tv.homeFresh })}}]\n`

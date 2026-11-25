@@ -99,7 +99,7 @@ class MainActivity : ComponentActivity() {
 
     // Buttons Home sees go to the button finder too, for TVs where the key service is off. Nothing is swallowed.
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) KeyLog.add(event.keyCode)
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) KeyLog.add(event.keyCode, event.scanCode)
         return super.dispatchKeyEvent(event)
     }
 
