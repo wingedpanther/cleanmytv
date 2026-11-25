@@ -67,6 +67,21 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
             onSelect = { ConfigStore.update(ctx, JSONObject().put("layout", it)) }
         )
 
+        if (config.layout == "glass") {
+            TvRadioGroup(
+                title = tr("Backdrop"),
+                options = listOf("wallpaper" to tr("My wallpaper"), "slate" to tr("Glass slate")),
+                current = config.glassBackdrop,
+                onSelect = { ConfigStore.update(ctx, JSONObject().put("glass_backdrop", it)) }
+            )
+            TvSwitch(
+                title = tr("Banners in the Glass dock"),
+                subtitle = tr("Off: app names on glass, white when focused"),
+                checked = config.glassBanners,
+                onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("glass_banners", it)) }
+            )
+        }
+
         TvSlider(
             title = tr("Space above the apps"),
             value = config.topSpace,

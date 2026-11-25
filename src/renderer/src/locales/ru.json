@@ -1484,6 +1484,12 @@
   "Debugging on": "Отладка включена",
   "What the focused dock app has to continue, in large type, and the dock in a glass tray. Amber unless you pick an accent.": "Что можно продолжить в выбранном приложении дока, крупным шрифтом, и док на стеклянной панели. Янтарный, пока вы не выберете свой цвет акцента.",
   "Numbered pages of text on black, like an old broadcast text service. A number key opens a line. Its own colours and type: wallpaper, accent and font don't apply.": "Нумерованные страницы текста на чёрном, как старый телетекст. Цифра на пульте открывает строку. Свои цвета и шрифт: обои, акцент и шрифт не действуют.",
-  "Press a number to open it, or move with the arrows.": "Нажмите цифру, чтобы открыть, или выберите стрелками.",
-  "Teletext keeps its own monospace type. The font here is for the other layouts.": "Teletext использует свой моноширинный шрифт. Шрифт здесь действует в других макетах."
+  "Move with the arrows. OK opens it.": "Стрелки двигают. OK открывает.",
+  "Teletext keeps its own monospace type. The font here is for the other layouts.": "Teletext использует свой моноширинный шрифт. Шрифт здесь действует в других макетах.",
+  "Glass keeps the TV's usual sans. The font here is for the other layouts.": "Glass оставляет обычный шрифт телевизора. Шрифт здесь действует в других макетах.",
+  "Banners in the Glass dock": "Баннеры в доке Glass",
+  "Off, the dock and All apps show app names on glass, which turn white when focused.": "Если выключено, док и «Все приложения» показывают названия на стекле, белые при фокусе.",
+  "Backdrop": "Фон",
+  "My wallpaper": "Мои обои",
+  "Glass slate": "Сланец Glass"
 }

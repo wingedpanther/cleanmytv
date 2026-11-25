@@ -821,6 +821,17 @@ function LayoutTab({ apps, cfg, set, sdk }: { apps: TvApp[]; cfg: HomeConfig; se
             </button>
           ))}
         </div>
+        {cfg.layout === 'glass' && (
+          <div style={{ marginTop: 14 }}>
+            <p style={{ margin: '0 0 8px', fontWeight: 600 }}>{t('Backdrop')}</p>
+            <div className="seg" style={{ marginBottom: 12 }}>
+              {([['wallpaper', t('My wallpaper')], ['slate', t('Glass slate')]] as const).map(([id, label]) => (
+                <button key={id} className={cfg.glass_backdrop === id ? 'on' : ''} onClick={() => set({ glass_backdrop: id })}>{label}</button>
+              ))}
+            </div>
+            <Toggle label={t('Banners in the Glass dock')} hint={t('Off, the dock and All apps show app names on glass, which turn white when focused.')} checked={cfg.glass_banners} onChange={(v) => set({ glass_banners: v })} />
+          </div>
+        )}
         {cfg.layout === 'shelf' && (
           <div style={{ marginTop: 14 }}>
             <Slider label={t('Space above the apps')} hint={t('Open wallpaper between the top bar and the first row.')} value={cfg.top_space} min={0} max={80} unit="%" onChange={(v) => set({ top_space: v }, 250)} />
@@ -1267,7 +1278,7 @@ function LookTab(props: { cfg: HomeConfig; set: SetFn; busy: boolean; wallpaper:
 
       <div className="card">
         <h2>{t('Font')}</h2>
-        <p className="muted">{cfg.layout === 'teletext' ? t('Teletext keeps its own monospace type. The font here is for the other layouts.') : t('For names, headings and menus on the TV. The clock keeps its own.')}</p>
+        <p className="muted">{cfg.layout === 'teletext' ? t('Teletext keeps its own monospace type. The font here is for the other layouts.') : cfg.layout === 'glass' ? t('Glass keeps the TV\'s usual sans. The font here is for the other layouts.') : t('For names, headings and menus on the TV. The clock keeps its own.')}</p>
         <div className="seg" style={{ marginBottom: 18 }}>
           {([['default', t('Usual')], ['condensed', t('Condensed')], ['serif', t('Serif')], ['casual', t('Casual')]] as const).map(([id, label]) => (
             <button key={id} className={cfg.font === id ? 'on' : ''} onClick={() => set({ font: id })} style={{ fontFamily: FONT_CSS[id] }}>{label}</button>

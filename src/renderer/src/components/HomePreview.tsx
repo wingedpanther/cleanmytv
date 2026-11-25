@@ -461,7 +461,8 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
     const pane = { background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.16)' }
     body = (
       <div style={{ height: '100%', boxSizing: 'border-box', padding: `${SAFE_Y}px ${SAFE_X}px`, display: 'flex', flexDirection: 'column', color: '#FFFFFF',
-        background: cfg.has_wallpaper ? undefined : 'radial-gradient(550px 320px at 80% 14%, rgba(255,255,255,0.22), rgba(255,255,255,0) 62%), radial-gradient(750px 450px at 6% 104%, #4A3560, rgba(74,53,96,0) 70%), linear-gradient(160deg, #2B3A55, #0B0D12 64%)' }}>
+        // Over a wallpaper, a scrim from the left and the bottom so the headline and tray read.
+        background: cfg.has_wallpaper ? 'linear-gradient(90deg, rgba(0,0,0,0.45), rgba(0,0,0,0) 50%), linear-gradient(0deg, rgba(0,0,0,0.55), rgba(0,0,0,0) 200px)' : 'radial-gradient(550px 320px at 80% 14%, rgba(255,255,255,0.22), rgba(255,255,255,0) 62%), radial-gradient(750px 450px at 6% 104%, #4A3560, rgba(74,53,96,0) 70%), linear-gradient(160deg, #2B3A55, #0B0D12 64%)' }}>
         <div style={{ display: 'flex', alignItems: 'center', height: 28 }}>
           <Clock cfg={cfg} size={18} dateSize={12} align="left" />
           <div style={{ flex: 1 }} />
@@ -473,6 +474,13 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
         <div style={{ fontSize: 52, fontWeight: 700, letterSpacing: '-0.035em', lineHeight: 1.05 }}>The Salt Road</div>
         <div style={{ marginTop: 9, fontSize: 14, color: 'rgba(255,255,255,0.86)' }}>S2 E4 · 31 min</div>
         <div style={{ marginTop: 13, width: 260, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.24)' }}><div style={{ width: '58%', height: '100%', borderRadius: 2, background: accent }} /></div>
+        <div style={{ marginTop: 26, fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.72)' }}>{t('Continue watching')}</div>
+        <div style={{ marginTop: 10, display: 'flex', gap: 16 }}>
+          {['The Salt Road', 'Low Tide', 'Night Trains', 'Paper Lanterns'].map((name) => (
+            <span key={name} style={{ flex: 1, height: 118, borderRadius: 14, border: '1px solid rgba(255,255,255,0.16)', boxSizing: 'border-box', display: 'flex', alignItems: 'flex-end', padding: '11px 13px', fontSize: 14, fontWeight: 600,
+              background: 'linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.72)), linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.04))' }}>{name}</span>
+          ))}
+        </div>
         <div style={{ flex: 1 }} />
         <div style={{ alignSelf: 'center', display: 'flex', gap: 12, padding: 14, borderRadius: 24, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)' }}>
           {[...dock.map((a) => a.label), t('All apps')].map((name, i) => (
@@ -499,7 +507,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
     body = (
       <div style={{ height: '100%', boxSizing: 'border-box', padding: `${SAFE_Y}px 40px`, display: 'flex', flexDirection: 'column', background: '#000000', color: tt.white, fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: 20, fontWeight: 500 }}>
         <div style={{ ...row, display: 'flex', gap: 20, padding: '0 8px', fontWeight: 700 }}>
-          <span>P100</span><span style={{ color: tt.green }}>{t('Home').toUpperCase()}</span>
+          <span style={{ color: tt.green }}>{t('Home').toUpperCase()}</span>
           <span style={{ marginLeft: 'auto', color: tt.cyan }}>Wed 25 Nov</span><span style={{ color: tt.yellow }}>21:47:05</span>
         </div>
         <div style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: tt.blue, color: tt.yellow, fontWeight: 700 }}>
@@ -509,9 +517,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
           <div style={{ width: 500, flex: 'none' }}>
             <div style={{ ...row, padding: '0 8px', color: tt.cyan, fontWeight: 700 }}>INDEX</div>
             {m.dock.slice(0, 6).map((a, i) => line(i + 1, a.label, '', i === 0))}
-            {line(7, t('All apps'), 'P200', false)}
-            {line(8, t('Search'), 'P300', false)}
-            {line(9, t('Quick settings'), 'P400', false)}
+            {[t('All apps'), t('Search'), t('Quick settings'), t('Customize Home')].map((name, k) => line((Math.min(m.dock.length, 6) + k + 1) % 10, name, '', false))}
           </div>
           <div style={{ flex: 1, minWidth: 0, padding: '0 8px' }}>
             <div style={{ ...row, color: tt.magenta, fontWeight: 700 }}>CONTINUE</div>
@@ -525,7 +531,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
             <div style={row}>Debugging <span style={{ background: tt.red, fontWeight: 700, padding: '0 6px' }}>ON</span></div>
           </div>
         </div>
-        <div style={{ ...row, padding: '0 8px', color: tt.cyan }}>{t('Press a number to open it, or move with the arrows.')}</div>
+        <div style={{ ...row, padding: '0 8px', color: tt.cyan }}>{t('Move with the arrows. OK opens it.')}</div>
         <div style={{ display: 'flex', marginTop: 6 }}>
           {words.map(([w, bg, ink]) => <span key={w} style={{ ...row, flex: 1, padding: '0 12px', background: bg, color: ink, fontWeight: 700 }}>{w}</span>)}
         </div>
@@ -558,7 +564,7 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
   }
   return (
     <div ref={box} className="home-preview" style={{ height: H * scale }} aria-label={t('Preview of the TV home screen')}>
-      <div style={{ width: W, height: H, transform: `scale(${scale})`, transformOrigin: '0 0', color: '#F0EBE5', fontFamily: PREVIEW_FONT[cfg.font] ?? PREVIEW_FONT.default, ...ground }}>{body}</div>
+      <div style={{ width: W, height: H, transform: `scale(${scale})`, transformOrigin: '0 0', color: '#F0EBE5', fontFamily: cfg.layout === 'glass' ? PREVIEW_FONT.default : PREVIEW_FONT[cfg.font] ?? PREVIEW_FONT.default, ...ground }}>{body}</div>
       <span className="home-preview-note">{t('Sample time and greeting · app art shows on the TV')}</span>
     </div>
   )

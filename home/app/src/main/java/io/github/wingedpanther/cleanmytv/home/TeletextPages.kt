@@ -53,7 +53,7 @@ private const val PER_PAGE = 20
 private const val PER_COLUMN = 10
 
 /**
- * All apps in Teletext, page 200: A to Z in two columns of ten, numbered from 10, so two digits open any of the
+ * All apps in Teletext: A to Z in two columns of ten, numbered from 10, so two digits open any of the
  * first ninety. Right from the right column and Left from the left one turn sub-pages. With [onPick], OK picks
  * an app for the dock instead of opening it.
  */
@@ -86,10 +86,11 @@ internal fun TextApps(apps: List<TvApp>, dock: Set<String>, onOpen: (TvApp) -> U
     val hint = when {
         typed.isNotEmpty() -> tr("{n}_ Now the second digit.", "n" to typed)
         onPick != null -> tr("Pick an app for the dock.")
-        else -> tr("Two digits open an app. Right turns the page. Hold OK for more.")
+        RemoteKeys.digits -> tr("Two digits open an app. Right turns the page. Hold OK for more.")
+        else -> tr("Right turns the page. Hold OK for more.")
     }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        TextPage("P200", tr("Apps"), if (onPick != null) tr("Add to the dock") else tr("All apps"), TT_GREEN, TT_BLACK, "${page + 1}/$pages", hint, words, firstWord = red,
+        TextPage(tr("Apps"), if (onPick != null) tr("Add to the dock") else tr("All apps"), TT_GREEN, TT_BLACK, "${page + 1}/$pages", hint, words, firstWord = red,
             keys = { e ->
                 if (e.type != KeyEventType.KeyDown) return@TextPage false
                 val d = digitKey(e.key)
@@ -133,8 +134,8 @@ internal fun TextApps(apps: List<TvApp>, dock: Set<String>, onOpen: (TvApp) -> U
 }
 
 /**
- * Search this TV in Teletext, page 300: the query with a block cursor, the alphabet on one line, then numbered
- * results, two rows each. Number keys open results here, so digits are typed through 123.
+ * Search this TV in Teletext: the query with a block cursor, the alphabet on one line, then numbered results,
+ * two rows each. Number keys open results here, so digits are typed through 123. The letter row wraps both ways.
  */
 @Composable
 internal fun TextFind(apps: List<TvApp>, dock: Set<String>, onApp: (TvApp) -> Unit, onClose: () -> Unit) {
@@ -142,6 +143,7 @@ internal fun TextFind(apps: List<TvApp>, dock: Set<String>, onApp: (TvApp) -> Un
     var query by remember { mutableStateOf("") }
     var digits by remember { mutableStateOf(false) }
     val first = remember { FocusRequester() }
+    val last = remember { FocusRequester() }
     val hits = remember(query, apps) { searchTv(ctx, query, apps, dock, emptyMap()) { onClose(); onApp(it) } }
     fun type(s: String) { query = (query + s).take(MAX_QUERY) }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
@@ -152,8 +154,12 @@ internal fun TextFind(apps: List<TvApp>, dock: Set<String>, onApp: (TvApp) -> Un
         ColourWord(if (digits) "abc" else "123") { digits = !digits },
     )
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        TextPage("P300", tr("Search"), tr("Find"), TT_MAGENTA, TT_BLACK, if (query.isBlank()) "" else tr("{n} found", "n" to hits.size),
-            if (query.isBlank()) tr("Pick letters or type. Number keys open results.") else tr("Press a number to open a result."), words,
+        val hint = when {
+            query.isBlank() -> if (RemoteKeys.digits) tr("Pick letters or type. Number keys open results.") else tr("Pick letters, or type on a keyboard.")
+            RemoteKeys.digits -> tr("Press a number to open a result.")
+            else -> tr("Down goes to the results. OK opens one.")
+        }
+        TextPage(tr("Search"), tr("Find"), TT_MAGENTA, TT_BLACK, if (query.isBlank()) "" else tr("{n} found", "n" to hits.size), hint, words,
             keys = { e ->
                 if (e.type != KeyEventType.KeyDown) return@TextPage false
                 val d = digitKey(e.key)
@@ -166,14 +172,24 @@ internal fun TextFind(apps: List<TvApp>, dock: Set<String>, onApp: (TvApp) -> Un
                 }
             }) {
             Row(Modifier.height(TT_ROW).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(tr("Find:") + " ", color = TT_CYAN, maxLines = 1)
+                Text(tr("Enter:") + " ", color = TT_CYAN, maxLines = 1)
                 Text(query, fontWeight = FontWeight.Bold, maxLines = 1)
                 Box(Modifier.padding(start = 3.dp).width(12.dp).height(22.dp).background(TT_WHITE))
             }
             val keys = if (digits) DIGITS.joinToString("").take(26) else "abcdefghijklmnopqrstuvwxyz"
             Row(Modifier.fillMaxWidth().padding(top = 3.dp).height(TT_ROW)) {
                 keys.forEachIndexed { i, ch ->
-                    TextFocus(Modifier.weight(1f).height(TT_ROW).then(if (i == 0) Modifier.focusRequester(first) else Modifier), onClick = { type(ch.toString()) }) { f ->
+                    val end = i == keys.length - 1
+                    val wrap = Modifier.onPreviewKeyEvent { e ->
+                        when {
+                            e.type != KeyEventType.KeyDown -> false
+                            i == 0 && e.key == Key.DirectionLeft -> runCatching { last.requestFocus() }.isSuccess
+                            end && e.key == Key.DirectionRight -> runCatching { first.requestFocus() }.isSuccess
+                            else -> false
+                        }
+                    }
+                    TextFocus(Modifier.weight(1f).height(TT_ROW).then(if (i == 0) Modifier.focusRequester(first) else if (end) Modifier.focusRequester(last) else Modifier).then(wrap),
+                        onClick = { type(ch.toString()) }) { f ->
                         Text(ch.toString(), color = if (f) TT_BLACK else TT_WHITE, fontWeight = if (f) FontWeight.Bold else FontWeight.Medium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                     }
                 }
@@ -202,8 +218,8 @@ private const val BRIGHTNESS_LINE = 8
 private class SetLine(val label: String, val value: String, val on: Boolean? = null, val bar: TvSettings.Choice? = null, val step: ((Int) -> Unit)? = null, val act: () -> Unit)
 
 /**
- * Quick settings in Teletext, page 400: a full page of numbered lines. A number flips a switch or steps a picker,
- * Left and Right change the focused one, and a THIS TV column says what the TV is.
+ * Quick settings in Teletext: a full page of numbered lines, the last one Customize Home. A number flips a switch
+ * or steps a picker, Left and Right change the focused one, and a THIS TV column says what the TV is.
  */
 @Composable
 internal fun TextSettings(onEditor: () -> Unit, onClose: () -> Unit) {
@@ -240,6 +256,7 @@ internal fun TextSettings(onEditor: () -> Unit, onClose: () -> Unit) {
                 step = { d -> val i = (cur + d).coerceIn(0, steps.size - 1); if (i != cur) SleepTimer.set(ctx, steps[i]) }) { SleepTimer.set(ctx, steps[(cur + 1) % steps.size]) },
             SetLine(volume.label, volume.options.getOrElse(volume.current) { "" }, bar = volume, step = stepper(volume)) { open(volume.fallback) },
             SetLine(brightness.label, brightness.options.getOrElse(brightness.current) { "" }, bar = brightness, step = stepper(brightness)) { open(brightness.fallback) },
+            SetLine(tr("Customize Home"), "") { onClose(); onEditor() },
         )
     }
     val about = remember { thisTv(ctx) }
@@ -251,15 +268,17 @@ internal fun TextSettings(onEditor: () -> Unit, onClose: () -> Unit) {
         ColourWord(tr("All settings")) { open(Intent(Settings.ACTION_SETTINGS)) },
     )
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        TextPage("P400", tr("Settings"), tr("Quick settings"), TT_CYAN, TT_BLACK, "1/1", tr("Press a number to switch it, or OK on a line to change it."), words,
+        TextPage(tr("Settings"), tr("Quick settings"), TT_CYAN, TT_BLACK, "1/1",
+            if (RemoteKeys.digits) tr("Press a number to switch it, or OK on a line to change it.") else tr("OK on a line changes it. Left and right step it."), words,
             keys = { e ->
                 val n = if (e.type == KeyEventType.KeyDown) digitKey(e.key) else null
-                n?.let { lines.getOrNull(it - 1) }?.let { it.act(); true } ?: false
+                // 1 to 9 are the first nine lines, and 0 the tenth.
+                n?.let { lines.getOrNull((it + 9) % 10) }?.let { it.act(); true } ?: false
             }) {
             Row {
                 Column(Modifier.width(530.dp)) {
                     lines.forEachIndexed { i, l ->
-                        TextLine("${i + 1}", l.label, l.value,
+                        TextLine("${(i + 1) % 10}", l.label, l.value,
                             Modifier.then(if (i == 0) Modifier.focusRequester(first) else Modifier).onPreviewKeyEvent { e ->
                                 val step = l.step
                                 if (step == null || e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
@@ -275,7 +294,7 @@ internal fun TextSettings(onEditor: () -> Unit, onClose: () -> Unit) {
                         TextHead(l.label, TT_YELLOW)
                         val part = if (c.options.size > 1) c.current / (c.options.size - 1f) else 0f
                         Blocks(Math.round(part * 16), 16, TT_YELLOW, 11.dp)
-                        TextRow(if (c.set != null) tr("Left and right change it") else tr("OK opens the TV's settings"), TT_CYAN)
+                        TextRow(if (c.set != null) tr("Left and right change it") else tr("OK opens settings"), TT_CYAN)
                     }
                     TextHead(tr("This TV"), TT_GREEN)
                     about.forEachIndexed { i, s -> TextRow(s, if (i == 0) TT_WHITE else TT_CYAN) }

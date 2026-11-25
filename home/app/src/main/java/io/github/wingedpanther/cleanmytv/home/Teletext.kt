@@ -60,10 +60,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /*
- * Teletext: every screen is a numbered page of text lines in one monospace face on black. No icons, banners or
- * cards. A line's number on the remote opens it, and the four colour buttons are the words on the bottom row.
- * The D-pad reaches all of it, since many remotes have neither number nor colour keys. The layout brings its
- * own colours and type: wallpaper, accent and the Home font don't apply while it's on.
+ * Teletext: every screen is a page of text lines in one monospace face on black. No icons, banners or cards.
+ * A line's number on the remote opens it, and the four colour buttons are the words on the bottom row. The
+ * D-pad reaches all of it, since many remotes have neither number nor colour keys: the numbers only show once
+ * Home has seen a number key (see RemoteKeys). The layout brings its own colours and type: wallpaper, accent
+ * and the Home font don't apply while it's on.
  */
 
 internal val TT_BLACK = Color(0xFF000000)
@@ -85,7 +86,7 @@ internal val TT_ROW = 30.dp
 internal val TT_NUM = 48.dp
 private const val DOTS = "................................................................................"
 
-/** Six dock apps take lines 1 to 6; 7, 8 and 9 are the other pages. */
+/** Up to six dock apps take the first lines; the other pages and Customize follow on, so 0 is the tenth line. */
 internal const val TEXT_DOCK = 6
 
 /** One of the four words on the bottom row, in red, green, yellow and blue order. */
@@ -109,23 +110,25 @@ internal fun tvName(ctx: android.content.Context): String =
     runCatching { Settings.Global.getString(ctx.contentResolver, "device_name") }.getOrNull()?.takeIf { it.isNotBlank() } ?: android.os.Build.MODEL
 
 /**
- * A page: its number, name, date and clock on the first row, the title on a coloured band, the body, one hint
- * in cyan, and the four colour words. [picked] draws one word as focused while the arrows belong to a move.
+ * A page: its name, date and clock on the first row, the title on a coloured band, the body, one hint in cyan,
+ * and the four colour words. [picked] draws one word as focused while the arrows belong to a move.
  */
 @Composable
 internal fun TextPage(
-    page: String, name: String, title: String, band: Color, bandInk: Color, counter: String, hint: String,
-    words: List<ColourWord?>, modifier: Modifier = Modifier, picked: Int? = null, firstWord: FocusRequester? = null, keys: (KeyEvent) -> Boolean = { false },
+    name: String, title: String, band: Color, bandInk: Color, counter: String, hint: String,
+    words: List<ColourWord?>, modifier: Modifier = Modifier, picked: Int? = null, firstWord: FocusRequester? = null, gap: Dp = 15.dp, keys: (KeyEvent) -> Boolean = { false },
     body: @Composable ColumnScope.() -> Unit,
 ) {
+    val ctx = LocalContext.current
+    remember { RemoteKeys.load(ctx) }
     CompositionLocalProvider(LocalTextStyle provides TextStyle(fontFamily = TT_FONT, fontSize = 20.sp, lineHeight = 30.sp, fontWeight = FontWeight.Medium, color = TT_WHITE)) {
         Column(modifier.fillMaxSize().background(TT_BLACK).padding(horizontal = TT_X, vertical = TT_Y).onPreviewKeyEvent { e ->
+            if (e.type == KeyEventType.KeyDown) RemoteKeys.seen(ctx, e.key)
             if (e.type == KeyEventType.KeyDown) colourKey(e.key)?.let { i -> words.getOrNull(i)?.let { it.act(); return@onPreviewKeyEvent true } }
             keys(e)
         }) {
             Row(Modifier.fillMaxWidth().height(TT_ROW).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(page, fontWeight = FontWeight.Bold)
-                Text(name.uppercase(), color = TT_GREEN, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(start = 20.dp))
+                Text(name.uppercase(), color = TT_GREEN, fontWeight = FontWeight.Bold, maxLines = 1)
                 Spacer(Modifier.weight(1f))
                 TextClock()
             }
@@ -133,7 +136,7 @@ internal fun TextPage(
                 Text(title.uppercase(), color = bandInk, fontSize = 44.sp, lineHeight = 60.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 Text(counter, color = bandInk, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(start = 16.dp))
             }
-            Column(Modifier.weight(1f).fillMaxWidth().padding(top = 15.dp)) { body() }
+            Column(Modifier.weight(1f).fillMaxWidth().padding(top = gap)) { body() }
             Text(hint, color = TT_CYAN, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.height(TT_ROW).padding(horizontal = 8.dp))
             Row(Modifier.fillMaxWidth().padding(top = 6.dp).height(TT_ROW)) {
                 for (i in 0..3) Word(words.getOrNull(i), i, picked == i, Modifier.weight(1f).then(if (i == 0 && firstWord != null) Modifier.focusRequester(firstWord) else Modifier))
@@ -159,7 +162,8 @@ private fun TextClock() {
 
 @Composable
 private fun Word(w: ColourWord?, i: Int, picked: Boolean, modifier: Modifier) {
-    if (w == null) { Box(modifier.fillMaxHeight().background(WORD_BG[i])); return }
+    // A word this page doesn't use is a dim block, so no bright empty key asks to be pressed.
+    if (w == null) { Box(modifier.fillMaxHeight().background(TT_DIM)); return }
     TextFocus(modifier.fillMaxHeight(), bg = if (picked) TT_CYAN else WORD_BG[i], onClick = w.act) { f ->
         // German and Russian words run long: past 16 letters they drop a size so they still fit their quarter.
         Text(w.label, color = if (f || picked) TT_BLACK else WORD_INK[i], fontSize = if (w.label.length > 16) 16.sp else 20.sp, fontWeight = FontWeight.Bold,
@@ -185,6 +189,7 @@ internal fun TextFocus(
 /**
  * A numbered line: the number in yellow, an optional kind word, the name, blue leader dots, and the value at the
  * right. Focused, the whole line is a cyan bar with black bold text. [marked] paints it yellow, for a move.
+ * Until the remote has shown it has number keys, the number's column stays, empty, so nothing shifts.
  */
 @Composable
 internal fun TextLine(
@@ -197,7 +202,7 @@ internal fun TextLine(
         val on = f || marked
         val weight = if (on) FontWeight.Bold else FontWeight.Medium
         Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(number.orEmpty(), color = if (on) TT_BLACK else TT_YELLOW, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.width(TT_NUM))
+            Text(if (RemoteKeys.digits) number.orEmpty() else "", color = if (on) TT_BLACK else TT_YELLOW, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.width(TT_NUM))
             kind?.let { (word, c) -> Text(word, color = if (on) TT_BLACK else c, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.width(kindWidth)) }
             Leader(name, value, if (on) TT_BLACK else TT_WHITE, if (on) TT_BLACK else TT_BLUE, if (on) TT_BLACK else valueInk, weight, Modifier.weight(1f))
             badge?.let { Badge(it, Modifier.padding(start = 10.dp)) }
@@ -213,8 +218,8 @@ internal fun Badge(on: Boolean, modifier: Modifier = Modifier) {
 }
 
 /**
- * The name, the dots and the value on one line. The value is measured first, then the name is cut with an
- * ellipsis so at least three dots stay between them, and the dots fill what's left.
+ * The name, the dots and the value on one line. The name gets the room first, keeping three dots' worth; the
+ * value is cut to what's left, and the dots fill the rest in whole characters, flush against the value.
  */
 @Composable
 private fun Leader(name: String, value: String, ink: Color, dots: Color, valueInk: Color, weight: FontWeight, modifier: Modifier) {
@@ -225,14 +230,17 @@ private fun Leader(name: String, value: String, ink: Color, dots: Color, valueIn
     }, modifier) { ms, c ->
         val gap = 8.dp.roundToPx()
         val minDots = 40.dp.roundToPx()
-        val v = ms[2].measure(Constraints(maxWidth = c.maxWidth / 2))
-        val n = ms[0].measure(Constraints(maxWidth = (c.maxWidth - v.width - minDots - 2 * gap).coerceAtLeast(0)))
-        val run = (c.maxWidth - n.width - v.width - 2 * gap).coerceAtLeast(0)
+        // Plex Mono is 0.6 em a letter; with the 0.15 em spacing a dot takes 0.75 of the 20 sp size.
+        val dot = 15.sp.toPx()
+        val n = ms[0].measure(Constraints(maxWidth = (c.maxWidth - minDots - 2 * gap).coerceAtLeast(0)))
+        val v = ms[2].measure(Constraints(maxWidth = (c.maxWidth - n.width - minDots - 2 * gap).coerceAtLeast(0)))
+        val room = (c.maxWidth - n.width - v.width - 2 * gap).coerceAtLeast(0)
+        val run = (kotlin.math.floor(room / dot) * dot).toInt()
         val d = ms[1].measure(Constraints(minWidth = run, maxWidth = run))
         val h = maxOf(n.height, v.height, d.height)
         layout(c.maxWidth, h) {
             n.place(0, (h - n.height) / 2)
-            d.place(n.width + gap, (h - d.height) / 2)
+            d.place(c.maxWidth - v.width - gap - run, (h - d.height) / 2)
             v.place(c.maxWidth - v.width, (h - v.height) / 2)
         }
     }
@@ -264,7 +272,7 @@ internal fun Blocks(filled: Int, of: Int, on: Color, block: Dp, modifier: Modifi
 /** What Teletext's Home needs from the screen around it: the other pages, and the four actions of a dock move. */
 internal class TextActions(
     val apps: () -> Unit, val find: () -> Unit, val settings: () -> Unit, val inputs: (() -> Unit)?,
-    val takeOut: () -> Unit, val done: () -> Unit, val add: () -> Unit, val cancel: () -> Unit,
+    val takeOut: () -> Unit, val done: () -> Unit, val add: () -> Unit, val cancel: () -> Unit, val customize: () -> Unit,
 )
 
 /** "S2 E4", or whichever of those the app gave. */
@@ -292,9 +300,9 @@ internal fun usedWhen(at: Long, now: Long = System.currentTimeMillis()): String 
 }
 
 /**
- * Home in Teletext, page 100: the dock as lines 1 to 6, then All apps, Search and Quick settings. At the right,
- * what there is to continue, the weather when it's on, and the network and debugging. While a dock app moves,
- * the page becomes 110, Arrange the dock, and [pick] is the colour word the arrows have reached.
+ * Home in Teletext: the dock as lines 1 to 6, then All apps, Search, Quick settings and Customize Home. At the
+ * right, what there is to continue, the weather when it's on, and the network and debugging. While a dock app
+ * moves, the page becomes Arrange the dock, and [pick] is the colour word the arrows have reached.
  */
 @Composable
 internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick: Int?, a: TextActions) {
@@ -320,15 +328,22 @@ internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick
         listOf(backTo, ui.focus, start).firstOrNull { runCatching { it.requestFocus() }.isSuccess }
         back = null
     }
-    val pages = listOf(a.apps, a.find, a.settings)
-    TextPage("P100", tr("Home"), room, TT_BLUE, TT_YELLOW, "1/1", tr("Press a number to open it, or move with the arrows."),
+    // The lines after the dock: numbered straight on from it, so five dock apps make All apps 6.
+    val pages = listOf(tr("All apps") to a.apps, tr("Search") to a.find, tr("Quick settings") to a.settings, tr("Customize Home") to a.customize)
+    TextPage(tr("Home"), room, TT_BLUE, TT_YELLOW, "1/1",
+        if (RemoteKeys.digits) tr("Press a number to open it, or move with the arrows.") else tr("Move with the arrows. OK opens it."),
         listOf(ColourWord(tr("Apps"), a.apps), ColourWord(tr("Search"), a.find), ColourWord(tr("Settings"), a.settings), a.inputs?.let { ColourWord(tr("Inputs"), it) }),
+        // Six dock apps and four more lines fill the page to the hint.
+        gap = if (dock.size >= TEXT_DOCK) 0.dp else 15.dp,
         keys = { e ->
             val n = if (e.type == KeyEventType.KeyDown) digitKey(e.key) else null
             when {
-                n == null || n == 0 -> false
-                n <= TEXT_DOCK -> dock.getOrNull(n - 1)?.let { launch(ctx, it); true } ?: false
-                else -> { pages[n - TEXT_DOCK - 1](); true }
+                n == null -> false
+                else -> {
+                    val line = if (n == 0) 10 else n
+                    if (line <= dock.size) { launch(ctx, dock[line - 1]); true }
+                    else pages.getOrNull(line - dock.size - 1)?.let { it.second(); true } ?: false
+                }
             }
         }) {
         Row {
@@ -343,9 +358,9 @@ internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick
                         onFocus = { ui.onFocusApp(app) }, onLongClick = { ui.onAppMenu("dock", app) }) { launch(ctx, app) }
                 }
                 val first = if (dock.isEmpty() && ownStart) Modifier.focusRequester(start) else Modifier
-                TextLine("7", tr("All apps"), "P200", first, valueInk = TT_CYAN, onClick = a.apps)
-                TextLine("8", tr("Search"), "P300", valueInk = TT_CYAN, onClick = a.find)
-                TextLine("9", tr("Quick settings"), "P400", valueInk = TT_CYAN, onClick = a.settings)
+                pages.forEachIndexed { k, (label, go) ->
+                    TextLine("${(dock.size + k + 1) % 10}", label, "", if (k == 0) first else Modifier, onClick = go)
+                }
             }
             Spacer(Modifier.width(36.dp))
             Column(Modifier.weight(1f)) {
@@ -379,14 +394,14 @@ internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick
 }
 
 /**
- * Arrange the dock, page 110: the six dock lines with the moving one in yellow. Up and Down move it, OK drops it,
+ * Arrange the dock: the six dock lines with the moving one in yellow. Up and Down move it, OK drops it,
  * Back cancels; Left and Right reach the colour words, since the arrows belong to the move.
  */
 @Composable
 private fun TextArrange(m: Moving, dock: List<TvApp>, ui: Ui, pick: Int?, a: TextActions) {
     val place = dock.indexOfFirst { it.pkg == m.pkg } + 1
     val was = remember(m.pkg) { place }
-    TextPage("P110", tr("Arrange"), tr("Arrange"), TT_YELLOW, TT_BLACK, tr("{n} of {all}", "n" to place, "all" to dock.size),
+    TextPage(tr("Arrange"), tr("Arrange"), TT_YELLOW, TT_BLACK, tr("{n} of {all}", "n" to place, "all" to dock.size),
         tr("Moving {app}. The other apps shift to make room.", "app" to m.label),
         listOf(ColourWord(tr("Take out"), a.takeOut), ColourWord(tr("Done"), a.done), ColourWord(tr("Add an app"), a.add), ColourWord(tr("Cancel"), a.cancel)),
         picked = pick) {
@@ -398,7 +413,7 @@ private fun TextArrange(m: Moving, dock: List<TvApp>, ui: Ui, pick: Int?, a: Tex
                     TextLine("${i + 1}", app.label, if (moves) tr("Moving").uppercase() else "", if (moves) ui.focusFor("dock", app) else Modifier,
                         valueInk = TT_BLACK, marked = moves) {}
                 }
-                TextRow(tr("The number is the key that opens it."), TT_CYAN)
+                if (RemoteKeys.digits) TextRow(tr("The number is the key that opens it."), TT_CYAN)
             }
             Spacer(Modifier.width(36.dp))
             Column(Modifier.weight(1f)) {
@@ -416,12 +431,12 @@ private fun TextArrange(m: Moving, dock: List<TvApp>, ui: Ui, pick: Int?, a: Tex
 }
 
 /**
- * A menu as a page: numbered lines, a number or OK picks one, and red goes back. Hold OK on an app and the
- * Inputs list use it in Teletext.
+ * A menu as a page: numbered lines, a number or OK picks one, and the first colour word goes back. Hold OK on
+ * an app and the Inputs list use it in Teletext.
  */
 @Composable
-internal fun TextMenu(page: String, name: String, title: String, items: List<Pair<String, () -> Unit>>, focus: FocusRequester, onClose: () -> Unit) {
-    TextPage(page, name, title, TT_WHITE, TT_BLACK, "1/1", tr("Press a number, or OK on a line."), listOf(ColourWord(tr("Back"), onClose)),
+internal fun TextMenu(name: String, title: String, items: List<Pair<String, () -> Unit>>, focus: FocusRequester, onClose: () -> Unit) {
+    TextPage(name, title, TT_WHITE, TT_BLACK, "1/1", if (RemoteKeys.digits) tr("Press a number, or OK on a line.") else tr("OK on a line picks it."), listOf(ColourWord(tr("Back"), onClose)),
         keys = { e ->
             val n = if (e.type == KeyEventType.KeyDown) digitKey(e.key) else null
             n?.let { items.getOrNull(it - 1) }?.let { it.second(); true } ?: false

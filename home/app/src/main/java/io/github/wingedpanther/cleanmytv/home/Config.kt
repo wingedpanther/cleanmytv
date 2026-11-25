@@ -71,6 +71,8 @@ data class HomeConfig(
     val pinFocus: Boolean = false, // the focused tile stays put and the row slides under it
     val focusUsual: Boolean = false, // Home opens on the app usually opened at this hour (Usual)
     val tilt: Boolean = false, // with lift: the tile leans toward the move, then settles
+    val glassBanners: Boolean = false, // Glass's dock and All apps show banners instead of name tiles
+    val glassBackdrop: String = "wallpaper", // Glass over the owner's wallpaper, or over its own slate ("slate")
     // Icons: "banner" is the app's own TV banner; the rest redraw every app's logo the same way
     val iconStyle: String = "banner", // banner, colour, mono, duo
     val tileShape: String = "wide", // wide, square, squircle, round; banner tiles are always wide
@@ -197,6 +199,8 @@ data class HomeConfig(
         .put("pin_focus", pinFocus)
         .put("focus_usual", focusUsual)
         .put("tilt", tilt)
+        .put("glass_banners", glassBanners)
+        .put("glass_backdrop", glassBackdrop)
         .put("icon_style", iconStyle)
         .put("tile_shape", tileShape)
         .put("tile_glass", tileGlass)
@@ -386,6 +390,8 @@ data class HomeConfig(
                 pinFocus = bool("pin_focus", base.pinFocus),
                 focusUsual = bool("focus_usual", base.focusUsual),
                 tilt = bool("tilt", base.tilt),
+                glassBanners = bool("glass_banners", base.glassBanners),
+                glassBackdrop = choice("glass_backdrop", base.glassBackdrop, setOf("wallpaper", "slate")),
                 iconStyle = choice("icon_style", base.iconStyle, setOf("banner", "colour", "mono", "duo")),
                 tileShape = choice("tile_shape", base.tileShape, setOf("wide", "square", "squircle", "round")),
                 tileGlass = int("tile_glass", base.tileGlass, 0, 60),

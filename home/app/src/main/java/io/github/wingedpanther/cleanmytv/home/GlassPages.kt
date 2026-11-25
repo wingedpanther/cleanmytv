@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,12 +40,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -58,6 +59,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -70,27 +72,20 @@ import kotlinx.coroutines.withContext
 private val PAGE_X = 48.dp
 private val PAGE_Y = 27.dp
 
-/** A focusable piece of glass: white with near-black text when focused, a little larger, never a ring. */
+/** A focusable piece of glass, Home's tile on the pages: white when focused, larger, 3 dp up, a soft shadow. */
 @Composable
-private fun Pane(radius: Dp, modifier: Modifier, scale: Float = 1.1f, onFocus: () -> Unit = {}, onLongClick: (() -> Unit)? = null, onClick: () -> Unit, content: @Composable (Boolean) -> Unit) {
-    var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(radius)
-    Surface(
-        onClick = onClick, onLongClick = onLongClick,
-        modifier = modifier.pointer(onLongClick = onLongClick, onClick = onClick).onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus() }
-            .then(if (focused) Modifier.shadow(20.dp, shape) else Modifier),
-        shape = ClickableSurfaceDefaults.shape(shape), scale = ClickableSurfaceDefaults.scale(focusedScale = scale),
-        border = ClickableSurfaceDefaults.border(border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(1.dp, GLASS_EDGE), shape = shape)),
-        colors = ClickableSurfaceDefaults.colors(containerColor = GLASS_FILL, focusedContainerColor = Color.White),
-    ) { content(focused) }
-}
+private fun Pane(radius: Dp, modifier: Modifier, scale: Float = 1.1f, keepFill: Boolean = false, onFocus: () -> Unit = {}, onLongClick: (() -> Unit)? = null, onClick: () -> Unit, content: @Composable (Boolean) -> Unit) =
+    GlassTile(radius, modifier, focusScale = scale, lift = 3.dp, keepFill = keepFill, onFocus = onFocus, onLongClick = onLongClick, onClick = onClick, content = content)
+
+/** A result's second line: nothing when it only repeats the kind, else with a capital first letter. */
+private fun subLine(h: Hit): String = if (h.kind == Hit.APP && h.sub == tr("app")) "" else h.sub.replaceFirstChar { it.uppercase() }
 
 /**
  * All apps in Glass: a large title, the kinds in a segmented capsule, and a grid of six where only the focused
- * app has a caption. Hold OK has the same menu as on Home.
+ * app has a caption, centred under it. Hold OK has the same menu as on Home. Behind it, Home's own background.
  */
 @Composable
-internal fun GlassApps(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Unit, onMenu: (TvApp) -> Unit, onClose: () -> Unit) {
+internal fun GlassApps(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Unit, onMenu: (TvApp) -> Unit, backdrop: ImageBitmap?, onClose: () -> Unit) {
     val ctx = LocalContext.current
     val real = remember(apps) { apps.filter { !InputTiles.isInput(it.pkg) }.sortedBy { it.label.lowercase() } }
     val facts by produceState(emptyMap<String, AppFacts>(), real) { value = withContext(Dispatchers.IO) { real.mapNotNull { a -> appFacts(ctx, a.pkg)?.let { a.pkg to it } }.toMap() } }
@@ -102,10 +97,10 @@ internal fun GlassApps(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Un
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize()) {
-            GlassBackdrop()
+            GlassPageBackdrop(backdrop)
             Column(Modifier.fillMaxSize().padding(horizontal = PAGE_X, vertical = PAGE_Y)) {
                 Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(tr("Apps"), color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text(tr("Apps"), color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.035).em, modifier = Modifier.weight(1f))
                     Row(Modifier.clip(RoundedCornerShape(18.dp)).background(GLASS_TRAY).border(1.dp, GLASS_TRAY_EDGE, RoundedCornerShape(18.dp)).padding(3.dp).focusGroup(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                         tabs.forEach { t ->
                             Segment(tabName(t), t == tab) { tab = t }
@@ -116,23 +111,27 @@ internal fun GlassApps(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Un
                     horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(29.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 6.dp, bottom = 24.dp)) {
                     items(shown, key = { it.pkg }) { a ->
+                        // The same rule as the dock: names on glass, banners only when the owner asked for them,
+                        // and a banner keeps its picture when focused.
+                        val banner = a.banner && cfg.glassBanners
                         Box(Modifier.height(74.dp)) {
-                            Pane(13.dp, Modifier.fillMaxSize().then(if (a == shown.firstOrNull()) Modifier.focusRequester(first) else Modifier),
+                            Pane(13.dp, Modifier.fillMaxSize().then(if (a == shown.firstOrNull()) Modifier.focusRequester(first) else Modifier), keepFill = banner,
                                 onFocus = { focused = a.pkg }, onLongClick = { onMenu(a) }, onClick = { onClose(); onOpen(a) }) { f ->
-                                if (a.banner && cfg.iconStyle == "banner" && !f) Image(a.art, a.label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                if (banner) Image(a.art, a.label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                                 else Box(Modifier.fillMaxSize().padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
-                                    Text(a.label, color = if (f) GLASS_INK else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    Text(a.label, color = if (f) GLASS_INK else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.01).em,
+                                        textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 }
                             }
+                            // In the row gap under the focused tile: its name under a banner, else where it came from.
+                            if (focused == a.pkg) Text(if (banner) a.label else facts[a.pkg]?.line ?: a.label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+                                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().offset(y = 23.dp))
                         }
                     }
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    val a = real.firstOrNull { it.pkg == focused }
-                    if (a != null) {
-                        Text(a.label, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        Text(facts[a.pkg]?.line.orEmpty(), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp).weight(1f))
-                    } else Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.weight(1f))
                     Text(tr("Hold OK"), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clip(RoundedCornerShape(11.dp)).background(Color.White.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 3.dp))
                     Text(tr("Hide, app info, uninstall"), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
@@ -158,15 +157,17 @@ private fun Segment(label: String, on: Boolean, onClick: () -> Unit) {
 }
 
 /**
- * Search this TV in Glass: the field at the top, the alphabet in one line under it, then the best match on its
- * own card at the left and the rest at the right. Number keys and a keyboard type too.
+ * Search this TV in Glass: the field at the top with Say it at its end, the alphabet in one line under it, then
+ * the best match on its own card at the left and the rest at the right. Number keys and a keyboard type too.
+ * The letter row wraps both ways, through Space, Delete and 123.
  */
 @Composable
-internal fun GlassFind(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, onApp: (TvApp) -> Unit, onClose: () -> Unit) {
+internal fun GlassFind(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, onApp: (TvApp) -> Unit, backdrop: ImageBitmap?, onClose: () -> Unit) {
     val ctx = LocalContext.current
     var query by remember { mutableStateOf("") }
     var digits by remember { mutableStateOf(false) }
     val first = remember { FocusRequester() }
+    val last = remember { FocusRequester() }
     val kinds = remember(apps) { emptyMap<String, String>() }
     val hits = remember(query, apps) { searchTv(ctx, query, apps, dock, kinds) { onClose(); onApp(it) } }
     val speech = remember { Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM).takeIf { it.resolveActivity(ctx.packageManager) != null } }
@@ -186,7 +187,7 @@ internal fun GlassFind(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, on
                 else -> false
             }
         }) {
-            GlassBackdrop()
+            GlassPageBackdrop(backdrop)
             Column(Modifier.fillMaxSize().padding(horizontal = PAGE_X, vertical = PAGE_Y)) {
                 Row(Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(26.dp)).background(GLASS_FILL).border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(26.dp)).padding(horizontal = 18.dp),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -195,17 +196,24 @@ internal fun GlassFind(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, on
                     Box(Modifier.padding(start = 2.dp).width(2.dp).height(28.dp).background(accent, RoundedCornerShape(1.dp)))
                     Spacer(Modifier.weight(1f))
                     Text(if (query.isBlank()) tr("Apps, the TV's settings and Home's") else tr("{n} on this TV", "n" to hits.size), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    if (speech != null) Box(Modifier.padding(start = 12.dp)) { Capsule(tr("Say it")) { runCatching { listen.launch(speech) } } }
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 14.dp).height(42.dp).focusGroup(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     // One line: the letters alone, as the design has them; - and . are a keyboard press away.
                     val keys = if (digits) DIGITS.joinToString("").take(26) else "abcdefghijklmnopqrstuvwxyz"
                     Row(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        keys.forEachIndexed { i, ch -> Letter(ch.toString(), if (i == 0) Modifier.focusRequester(first) else Modifier) { type(ch.toString()) } }
+                        keys.forEachIndexed { i, ch ->
+                            val wrap = if (i == 0) Modifier.focusRequester(first).onPreviewKeyEvent { e ->
+                                e.type == KeyEventType.KeyDown && e.key == Key.DirectionLeft && runCatching { last.requestFocus() }.isSuccess
+                            } else Modifier
+                            Letter(ch.toString(), wrap) { type(ch.toString()) }
+                        }
                     }
                     Capsule(tr("Space")) { type(" ") }
                     Capsule(tr("Delete")) { query = query.dropLast(1) }
-                    Capsule(if (digits) "abc" else "123") { digits = !digits }
-                    if (speech != null) Capsule(tr("Say it")) { runCatching { listen.launch(speech) } }
+                    Capsule(if (digits) "abc" else "123", Modifier.focusRequester(last).onPreviewKeyEvent { e ->
+                        e.type == KeyEventType.KeyDown && e.key == Key.DirectionRight && runCatching { first.requestFocus() }.isSuccess
+                    }) { digits = !digits }
                 }
                 Row(Modifier.weight(1f).padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                     val top = hits.firstOrNull()
@@ -232,7 +240,7 @@ private fun Letter(ch: String, modifier: Modifier, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         modifier = modifier.pointer(onClick = onClick).size(24.dp).onFocusChanged { focused = it.isFocused },
-        shape = ClickableSurfaceDefaults.shape(CircleShape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1.5f),
+        shape = ClickableSurfaceDefaults.shape(CircleShape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1.3f),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White),
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -242,8 +250,8 @@ private fun Letter(ch: String, modifier: Modifier, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Capsule(label: String, onClick: () -> Unit) {
-    Pane(13.dp, Modifier.height(26.dp), scale = 1.08f, onClick = onClick) { f ->
+private fun Capsule(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Pane(13.dp, modifier.height(26.dp), scale = 1.08f, onClick = onClick) { f ->
         Box(Modifier.fillMaxHeight().padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
             Text(label, color = if (f) GLASS_INK else Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         }
@@ -261,8 +269,8 @@ private fun TopCard(h: Hit, apps: List<TvApp>) {
                 if (app != null) Image(app.art, app.label, Modifier.fillMaxSize(), contentScale = if (app.banner) ContentScale.Crop else ContentScale.Fit)
                 else Text(h.title.take(1).uppercase(), color = ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
             }
-            Text(h.title, color = ink, fontSize = 28.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 18.dp))
-            Text(h.sub, color = ink.copy(alpha = 0.78f), fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
+            Text(h.title, color = ink, fontSize = 28.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp, letterSpacing = (-0.035).em, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 18.dp))
+            Text(subLine(h), color = ink.copy(alpha = 0.78f), fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
             Spacer(Modifier.weight(1f))
             Text(h.action.replaceFirstChar { it.uppercase() }, color = ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.clip(RoundedCornerShape(17.dp)).background(if (f) GLASS_INK.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.16f)).padding(horizontal = 18.dp, vertical = 8.dp))
@@ -278,7 +286,7 @@ private fun ResultRow(h: Hit) {
             Text(when (h.kind) { Hit.APP -> tr("App"); Hit.HOME -> tr("Home"); else -> tr("Setting") }, color = ink.copy(alpha = 0.72f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(62.dp))
             Column(Modifier.weight(1f)) {
                 Text(h.title, color = ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(h.sub, color = ink.copy(alpha = 0.72f), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                subLine(h).takeIf { it.isNotEmpty() }?.let { Text(it, color = ink.copy(alpha = 0.72f), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
             Text(h.action.replaceFirstChar { it.uppercase() }, color = ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 10.dp))
         }

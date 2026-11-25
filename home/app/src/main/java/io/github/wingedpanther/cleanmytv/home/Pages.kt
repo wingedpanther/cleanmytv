@@ -47,6 +47,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -159,8 +160,8 @@ internal val DIGITS = listOf("1234567", "890&'+!", "?:/@#()", "\"_=*,;%")
  * right. Number keys and a real keyboard type too, and the mic key says it when the TV can turn speech into text.
  */
 @Composable
-internal fun FindPage(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, onApp: (TvApp) -> Unit, onClose: () -> Unit) {
-    if (cfg.layout == "glass") return GlassFind(cfg, apps, dock, onApp, onClose)
+internal fun FindPage(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, onApp: (TvApp) -> Unit, backdrop: ImageBitmap? = null, onClose: () -> Unit) {
+    if (cfg.layout == "glass") return GlassFind(cfg, apps, dock, onApp, backdrop, onClose)
     val ctx = LocalContext.current
     val look = remember(cfg.layout, cfg.accent) { PageLook.of(cfg) }
     var query by remember { mutableStateOf("") }
@@ -350,8 +351,8 @@ internal fun appFacts(ctx: Context, pkg: String): AppFacts? = runCatching {
  * focused app's version, size and source underneath. Hold OK has the same menu as on Home.
  */
 @Composable
-internal fun AppsPage(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Unit, onMenu: (TvApp) -> Unit, onClose: () -> Unit) {
-    if (cfg.layout == "glass") return GlassApps(cfg, apps, onOpen, onMenu, onClose)
+internal fun AppsPage(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Unit, onMenu: (TvApp) -> Unit, backdrop: ImageBitmap? = null, onClose: () -> Unit) {
+    if (cfg.layout == "glass") return GlassApps(cfg, apps, onOpen, onMenu, backdrop, onClose)
     val ctx = LocalContext.current
     val look = remember(cfg.layout, cfg.accent) { PageLook.of(cfg) }
     val real = remember(apps) { apps.filter { !InputTiles.isInput(it.pkg) }.sortedBy { it.label.lowercase() } }

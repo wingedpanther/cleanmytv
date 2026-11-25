@@ -1484,6 +1484,12 @@
   "Debugging on": "Debugging an",
   "What the focused dock app has to continue, in large type, and the dock in a glass tray. Amber unless you pick an accent.": "Was die gewählte Dock-App zum Weiterschauen hat, in großer Schrift, und das Dock in einer Glasschale. Bernstein, solange du keine Akzentfarbe wählst.",
   "Numbered pages of text on black, like an old broadcast text service. A number key opens a line. Its own colours and type: wallpaper, accent and font don't apply.": "Nummerierte Textseiten auf Schwarz, wie ein alter Videotext. Eine Zifferntaste öffnet eine Zeile. Eigene Farben und Schrift: Hintergrund, Akzent und Schrift gelten hier nicht.",
-  "Press a number to open it, or move with the arrows.": "Zahl drücken zum Öffnen, oder mit den Pfeilen wählen.",
-  "Teletext keeps its own monospace type. The font here is for the other layouts.": "Teletext behält seine eigene Festbreitenschrift. Die Schrift hier gilt für die anderen Layouts."
+  "Move with the arrows. OK opens it.": "Mit den Pfeilen bewegen. OK öffnet.",
+  "Teletext keeps its own monospace type. The font here is for the other layouts.": "Teletext behält seine eigene Festbreitenschrift. Die Schrift hier gilt für die anderen Layouts.",
+  "Glass keeps the TV's usual sans. The font here is for the other layouts.": "Glass behält die übliche Schrift des Fernsehers. Die Schrift hier gilt für die anderen Layouts.",
+  "Banners in the Glass dock": "Banner im Glass-Dock",
+  "Off, the dock and All apps show app names on glass, which turn white when focused.": "Aus zeigen das Dock und Alle Apps die App-Namen auf Glas, weiß bei Fokus.",
+  "Backdrop": "Hintergrund",
+  "My wallpaper": "Mein Hintergrundbild",
+  "Glass slate": "Glass-Schiefer"
 }

@@ -375,6 +375,10 @@ export interface HomeConfig {
   focus_usual: boolean
   /** With lift: the tile leans toward the move, then settles. */
   tilt: boolean
+  /** Glass's dock and All apps show banners instead of name tiles (launcher 1.13.23). */
+  glass_banners: boolean
+  /** Glass over the owner's wallpaper, or over its own slate (launcher 1.13.23). */
+  glass_backdrop: 'wallpaper' | 'slate'
   /** banner: each app's own TV banner. The rest redraw every app's logo the same way (launcher 1.5.0). */
   icon_style: 'banner' | 'colour' | 'mono' | 'duo'
   /** Tile outline for the icon styles; banners stay wide. */

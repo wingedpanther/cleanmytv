@@ -534,10 +534,12 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         moving = null; keepFocus = true
     }
     val text = cfg.layout == "teletext"
+    // Glass over the owner's photo: darker glass and a scrim, since white glass vanishes over a bright picture.
+    val glassOnPhoto = cfg.layout == "glass" && cfg.glassBackdrop == "wallpaper" && (fireWall || wallpaper != null)
     val textActions = TextActions(
         apps = { showAllApps = true }, find = { showFind = true }, settings = { openPanel() }, inputs = { showInputs = true }.takeIf { inputs.isNotEmpty() },
         takeOut = { takeOut() }, done = { moving = null; keepFocus = true }, add = { moving = null; keepFocus = true; pickForDock = true; showAllApps = true },
-        cancel = { cancelMove() },
+        cancel = { cancelMove() }, customize = { openEditor() },
     )
     var focusColour by remember { mutableStateOf<Color?>(null) }
     val tint by animateColorAsState(focusColour ?: Color.Transparent, tween(600), label = "tint")
@@ -552,6 +554,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     Box(
         Modifier.fillMaxSize().background(if (text) TT_BLACK else Color(cfg.background)).onPreviewKeyEvent { e ->
             lastPress = System.currentTimeMillis()
+            if (e.type == KeyEventType.KeyDown) RemoteKeys.seen(ctx, e.key)
             if (moving != null && text && movingKey?.startsWith("dock:") == true) {
                 // Teletext's Arrange page: Up and Down move the app within the dock, Left and Right reach the colour words.
                 val place = home.dock.indexOfFirst { it.pkg == moving?.pkg }
@@ -593,36 +596,41 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             }
         }
     ) {
-        // Teletext is black, with no wallpaper, colour wash or snow.
+        // Teletext is black, with no wallpaper, colour wash or snow. Glass has no wash or snow either, and its own
+        // slate when there's no wallpaper or the owner picked it; over a wallpaper it lays a scrim so the headline
+        // and tray read.
+        val glass = cfg.layout == "glass"
         if (text) Unit
+        else if (glass && cfg.glassBackdrop == "slate") GlassBackdrop()
         else if (fireWall) {
             FireWallpaper(cfg, motion)
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = cfg.wallpaperDim / 100f)))
         } else wallpaper?.let {
             Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = cfg.wallpaperDim / 100f)))
-        } ?: run { if (cfg.layout == "glass") GlassBackdrop() }
+        } ?: run { if (glass) GlassBackdrop() }
+        if (glassOnPhoto) GlassScrim()
         IntroLayer(intro)
         // The focused app's colour washes in from the top; the wallpaper still shows through.
         // Drawn in the draw phase, so the fading colour doesn't redraw the whole screen each frame.
-        if (!text && cfg.followColour && cfg.wash > 0) Box(Modifier.fillMaxSize().drawBehind {
+        if (!text && !glass && cfg.followColour && cfg.wash > 0) Box(Modifier.fillMaxSize().drawBehind {
             drawRect(Brush.verticalGradient(0f to tint.copy(alpha = tint.alpha * cfg.wash / 100f), cfg.washReach / 100f to Color.Transparent))
         })
-        if (!text && cfg.snow) {
+        if (!text && !glass && cfg.snow) {
             // Still while anything is open over Home, and with the TV's animations off.
             val menus = openFolder != null || menuFor != null || showInputs || showPanel || showThemes || showTimer || showUpdate || showDebugging || showGuest || watchMenu != null || showFind || showAllApps || panelPin || editPin
             Snow(running = resumed() && motion && !menus)
         }
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = shown }) {
             // Rows sit over the lower half of the photo; a ground-tinted shade keeps their names readable.
-            if (!text && cfg.shadeBottom > 0 && cfg.shadeBottomReach > 0) {
+            if (!text && !glass && cfg.shadeBottom > 0 && cfg.shadeBottomReach > 0) {
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(1f - cfg.shadeBottomReach / 100f to Color.Transparent, 1f to scrim(cfg, cfg.shadeBottom / 100f))))
             }
             when (cfg.layout) {
                 "split" -> SplitLayout(home, ui, quick, onQuick)
                 "rail" -> RailLayout(home, ui, quick, onQuick)
                 "bau" -> BauLayout(home, ui, quick, onQuick)
-                "glass" -> GlassLayout(home, ui, quick, onQuick, onAllApps = { showAllApps = true }, moving)
+                "glass" -> GlassLayout(home, ui, quick, onQuick, onAllApps = { showAllApps = true }, moving, appsVersion, glassOnPhoto)
                 "teletext" -> TeletextLayout(home, ui, appsVersion, moving, textPick, textActions)
                 else -> ShelfLayout(home, ui, quick, onQuick)
             }
@@ -631,8 +639,14 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         }
         if (shown < 1f) IdleScreen(ui, Modifier.fillMaxSize().graphicsLayer { alpha = 1f - shown })
         val tipShown by animateFloatAsState(if (tip && !idle && moving == null && !text) 1f else 0f, tween(400), label = "tip")
+        // The tip also says where Customize is, when the top bar has a way in.
+        val tipText = when {
+            quick.any { it.id == "customize" } -> tr("Tip: hold OK on an app to move it or hide it. The rest is in Customize, at the top.")
+            cfg.editOnTv && quick.any { it.id == "panel" } -> tr("Tip: hold OK on an app to move it or hide it. Customize Home is in Quick settings.")
+            else -> tr("Tip: hold OK on an app to move it or hide it")
+        }
         if (tipShown > 0f) Text(
-            tr("Tip: hold OK on an app to move it or hide it"),
+            tipText,
             color = TEXT, fontSize = 16.sp,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = SAFE_Y).graphicsLayer { alpha = tipShown }
                 .background(PANEL, RoundedCornerShape(12.dp)).padding(horizontal = 18.dp, vertical = 10.dp)
@@ -659,9 +673,9 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         AppMenu(app, ui, onMove = kind?.let { k -> { menuFor = null; openFolder = null; moving = Moving(k, app.pkg, app.label) } }) { menuFor = null }
     }
     if (showPanel) {
-        if (cfg.layout == "glass") GlassControl(accent, onFind = { showFind = true }) { showPanel = false }
+        if (cfg.layout == "glass") GlassControl(onFind = { showFind = true }, onEditor = { openEditor() }.takeIf { cfg.editOnTv }) { showPanel = false }
         else if (text) TextSettings(onEditor = { openEditor() }) { showPanel = false }
-        else SettingsPanel(accent, bau = cfg.layout == "bau", onFind = { showFind = true }) { showPanel = false }
+        else SettingsPanel(accent, bau = cfg.layout == "bau", onFind = { showFind = true }, onEditor = { openEditor() }.takeIf { cfg.editOnTv }) { showPanel = false }
     }
     if (showThemes) ThemeCarousel(accent) { showThemes = false }
     if (showTimer) TimerMenu(ui) { showTimer = false }
@@ -673,16 +687,19 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     val dockPkgs = home.dock.map { it.pkg }.toSet()
     if (showFind) {
         if (text) TextFind(pageApps, dockPkgs, onApp = { launch(ctx, it) }) { showFind = false }
-        else FindPage(cfg, pageApps, dockPkgs, onApp = { launch(ctx, it) }) { showFind = false }
+        else FindPage(cfg, pageApps, dockPkgs, onApp = { launch(ctx, it) }, backdrop = wallpaper.takeIf { cfg.glassBackdrop == "wallpaper" }) { showFind = false }
     }
     if (showAllApps) {
         if (text) TextApps(pageApps, dockPkgs, onOpen = { launch(ctx, it) }, onMenu = { if (!guest) pageMenu = it }, onFind = { showFind = true },
             onPick = if (pickForDock) { app -> addToDock(ctx, home, cfg, app.pkg) } else null) { showAllApps = false; pickForDock = false }
-        else AppsPage(cfg, pageApps, onOpen = { launch(ctx, it) }, onMenu = { if (!guest) pageMenu = it }) { showAllApps = false }
+        else AppsPage(cfg, pageApps, onOpen = { launch(ctx, it) }, onMenu = { if (!guest) pageMenu = it }, backdrop = wallpaper.takeIf { cfg.glassBackdrop == "wallpaper" }) { showAllApps = false }
     }
     pageMenu?.let { app -> AppMenu(app, ui, onMove = null) { pageMenu = null } }
     watchMenu?.let { item ->
-        WatchMenu(item, accent, onRemove = { WatchNext.remove(ctx, item); watchRemoved = watchRemoved + (item.key to System.currentTimeMillis()); watchMenu = null }) { watchMenu = null }
+        val remove = { WatchNext.remove(ctx, item); watchRemoved = watchRemoved + (item.key to System.currentTimeMillis()); watchMenu = null }
+        if (cfg.layout == "glass") GlassMenuDialog(item.title, tr("It comes back if you watch it again."),
+            listOf(tr("Remove from Continue watching") to remove, tr("Cancel") to { watchMenu = null })) { watchMenu = null }
+        else WatchMenu(item, accent, onRemove = remove) { watchMenu = null }
     }
     if (backNews.isNotEmpty() && !showUpdate) CameBackDialog(backNews, accent) { CameBack.seen(ctx, back); backNews = emptyList() }
     if (note != null && !showUpdate && !showDebugging && !showGuest && backNews.isEmpty() && !idle) note?.let { n -> NoteDialog(n, accent) { TvNote.clear(ctx) } }
@@ -2079,7 +2096,7 @@ private fun FolderOverlay(name: String, list: List<TvApp>, ui: Ui, onClose: () -
 internal data class Moving(val kind: String, val pkg: String, val label: String)
 
 private val DONE_KEYS = setOf(Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.Back, Key.Escape)
-private val OK_KEYS = setOf(Key.DirectionCenter, Key.Enter, Key.NumPadEnter)
+internal val OK_KEYS = setOf(Key.DirectionCenter, Key.Enter, Key.NumPadEnter)
 
 /**
  * What a long press on a tile offers (Discord request): Move, Hide, App info (where Android keeps Force stop
@@ -2109,7 +2126,7 @@ private fun AppMenu(app: TvApp, ui: Ui, onMove: (() -> Unit)?, onClose: () -> Un
     var fresh by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
-            Modifier.fillMaxSize().background(scrim(ui.cfg, 0.85f)).onPreviewKeyEvent { e ->
+            Modifier.fillMaxSize().background(if (ui.cfg.layout == "glass") Color.Black.copy(alpha = 0.5f) else scrim(ui.cfg, 0.85f)).onPreviewKeyEvent { e ->
                 when {
                     e.key !in OK_KEYS -> false
                     e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0 -> { fresh = true; false }
@@ -2118,7 +2135,8 @@ private fun AppMenu(app: TvApp, ui: Ui, onMove: (() -> Unit)?, onClose: () -> Un
             },
             contentAlignment = Alignment.Center
         ) {
-            if (ui.cfg.layout == "teletext") TextMenu("P120", tr("Menu"), app.label, items, focus, onClose)
+            if (ui.cfg.layout == "teletext") TextMenu(tr("Menu"), app.label, items, focus, onClose)
+            else if (ui.cfg.layout == "glass") GlassMenu(app.label, null, items, focus)
             else Column(Modifier.width(360.dp).background(PANEL, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(app.label, color = TEXT, fontSize = 22.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 6.dp))
                 items.forEachIndexed { i, (label, act) ->
@@ -2146,7 +2164,10 @@ private fun InputsOverlay(inputs: List<Pair<String, String>>, ui: Ui, onClose: (
     val ctx = LocalContext.current
     val focus = remember { FocusRequester() }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        if (ui.cfg.layout == "teletext") TextMenu("P130", tr("Inputs"), ui.cfg.names["inputs"] ?: tr("Inputs"), inputs.map { (id, label) -> label to { onClose(); openInput(ctx, id) } }, focus, onClose)
+        if (ui.cfg.layout == "teletext") TextMenu(tr("Inputs"), ui.cfg.names["inputs"] ?: tr("Inputs"), inputs.map { (id, label) -> label to { onClose(); openInput(ctx, id) } }, focus, onClose)
+        else if (ui.cfg.layout == "glass") Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+            GlassMenu(ui.cfg.names["inputs"] ?: tr("Inputs"), null, inputs.map { (id, label) -> label to { onClose(); openInput(ctx, id) } }, focus)
+        }
         else Box(Modifier.fillMaxSize().background(scrim(ui.cfg, 0.9f)), contentAlignment = Alignment.Center) {
             Column(Modifier.width(400.dp).background(PANEL, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(ui.cfg.names["inputs"] ?: tr("Inputs"), color = TEXT, fontSize = 24.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(bottom = 6.dp))

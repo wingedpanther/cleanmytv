@@ -62,7 +62,7 @@ private val P_PANEL = Color(0xF51C2A1F)
  * sheet with switches for the rows that are on or off.
  */
 @Composable
-fun SettingsPanel(accent: Color, bau: Boolean = false, onFind: () -> Unit = {}, onClose: () -> Unit) {
+fun SettingsPanel(accent: Color, bau: Boolean = false, onFind: () -> Unit = {}, onEditor: (() -> Unit)? = null, onClose: () -> Unit) {
     val ctx = LocalContext.current
     var tick by remember { mutableIntStateOf(0) }
     var armOff by remember { mutableStateOf(false) }
@@ -173,12 +173,14 @@ fun SettingsPanel(accent: Color, bau: Boolean = false, onFind: () -> Unit = {}, 
                         }
                     }
                     if (!bau) {
+                        onEditor?.let { go -> item("customize") { PanelRow(tr("Customize Home"), tr("Open"), null, accent) { onClose(); go() } } }
                         item("all") { PanelRow(tr("All settings"), tr("Open"), null, accent) { open(Intent(Settings.ACTION_SETTINGS)) } }
                         if (KeyService.running != null) item("standby") { PanelRow(tr("Standby"), "", tr("Turns the TV off"), accent) { onClose(); KeyService.sleep(ctx) } }
                     }
                 }
                 // Bau ends on two outlined buttons, as the design has them.
                 if (bau) Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    onEditor?.let { go -> BauButton(tr("Customize"), Modifier.weight(1f)) { onClose(); go() } }
                     BauButton(tr("All settings"), Modifier.weight(1f)) { open(Intent(Settings.ACTION_SETTINGS)) }
                     if (KeyService.running != null) BauButton(tr("Standby"), Modifier.weight(1f)) { onClose(); KeyService.sleep(ctx) }
                 }

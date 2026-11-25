@@ -55,6 +55,8 @@ fun LookCustomization(config: HomeConfig, ctx: Context) {
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         // Teletext draws its own black pages in one monospace face.
         if (config.layout == "teletext") Alert(text = tr("Teletext has its own colours and type. The font, wallpaper and accent here apply to the other layouts."), modifier = Modifier.fillMaxWidth())
+        // Glass keeps the system sans, as its design has it.
+        if (config.layout == "glass") Alert(text = tr("Glass keeps the TV's usual sans. The font here applies to the other layouts."), modifier = Modifier.fillMaxWidth())
         TvRadioGroup(
             title = tr("Font"),
             options = listOf("default" to tr("Usual"), "condensed" to tr("Condensed"), "serif" to tr("Serif"), "casual" to tr("Casual")),

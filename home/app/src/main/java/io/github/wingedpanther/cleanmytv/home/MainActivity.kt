@@ -58,7 +58,8 @@ class MainActivity : ComponentActivity() {
         open.value = intent.getStringExtra(OPEN)
         setContent {
             val cfg by ConfigStore.config.collectAsState()
-            HomeFont(cfg.font) { HomeScreen(visualiser, appsVersion.intValue, open) }
+            // Glass and Teletext bring their own type; Teletext sets its own face on each page.
+            HomeFont(if (cfg.layout == "glass") "default" else cfg.font) { HomeScreen(visualiser, appsVersion.intValue, open) }
         }
         // Home is the bottom of the stack: Back here stays here instead of closing Home (#69). Folders,
         // Inputs and the panels are dialogs, so Back still closes those first.
