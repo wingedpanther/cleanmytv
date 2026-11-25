@@ -63,6 +63,8 @@
   "After its minutes for the day, an app needs the PIN, which gives it the rest of the day. Home counts the time itself, and the count starts again at midnight.": "Tras agotar sus minutos diarios, una aplicación requerirá el PIN para seguir utilizándose el resto del día. Inicio contabiliza el tiempo de uso y el contador se reinicia a medianoche.",
   "After the restart no home screen came up (Home resolves to nothing).": "Tras el reinicio no apareció ninguna pantalla de inicio (Inicio no apunta a nada).",
   "After the restart no home screen came up (Home resolves to {home}).": "Tras el reinicio no apareció ninguna pantalla de inicio (Inicio apunta a {home}).",
+  "After the restart the TV gave Home back to {pkg}.": "Tras el reinicio, el TV devolvió Home a {pkg}.",
+  "CleanMyTV Home is still installed. Make it Home again on the Home screen step, switch {pkg} off in Clean up, then do the restart check again.": "CleanMyTV Home sigue instalado. Vuelve a ponerlo como Home en el paso Pantalla de inicio, desactiva {pkg} en Limpieza y repite la comprobación tras reinicio.",
   "Again": "De nuevo",
   "All apps": "Todas las aplicaciones",
   "All apps title": "Título de «Todas las aplicaciones»",

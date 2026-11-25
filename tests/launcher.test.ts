@@ -568,6 +568,18 @@ describe('CleanMyTV Home', () => {
     expect(tv.home).toBe('com.google.android.apps.tv.launcherx/.home.HomeActivity')
   })
 
+  it('fails when the TV hands Home back to its own launcher at the restart (#149)', async () => {
+    const was = tv.home
+    tv.home = 'io.github.wingedpanther.cleanmytv.home/.MainActivity'
+    tv.bootHome = 'com.google.android.apps.tv.launcherx/.home.HomeActivity'
+    const r = await bootCheck(instant)
+    tv.bootHome = undefined
+    expect(r).toMatchObject({ ok: false, reconnected: true })
+    expect(r.summary).toMatch(/gave Home back to com.google.android.apps.tv.launcherx/)
+    expect(r.advice).toMatch(/switch com.google.android.apps.tv.launcherx off in Clean up/)
+    tv.home = was
+  })
+
   it("doesn't take Settings' FallbackHome for a home screen after the restart", async () => {
     tv.packages.set('com.android.tv.settings', 'enabled')
     tv.home = 'com.android.tv.settings/.FallbackHome'

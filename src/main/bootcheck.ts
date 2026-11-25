@@ -5,7 +5,7 @@ import { Socket } from 'node:net'
 import * as T from './tv'
 import { log } from './log'
 import { NOT_LAUNCHERS } from './debloat'
-import { rollback, stockOnTv } from './launcher'
+import { HOME_PKG, rollback, stockOnTv } from './launcher'
 import type { BootCheckResult } from '@shared/api'
 import { t, UiError } from './i18n'
 
@@ -45,6 +45,9 @@ export async function bootCheck(deps: BootCheckDeps = realDeps): Promise<BootChe
   const [ip, p] = target.split(':')
   const port = Number(p) || 5555
 
+  // Some TVs hand Home back to their own launcher at every boot (#149): that launcher comes up fine, so
+  // only knowing Home was ours before the restart tells it apart from a pass.
+  const before = (await T.homeComponent().catch(() => null))?.split('/')[0]
   log(TASK, 'cmd', 'reboot')
   await T.tv().shell('reboot').catch(() => '')
   T.disconnect()
@@ -72,6 +75,15 @@ export async function bootCheck(deps: BootCheckDeps = realDeps): Promise<BootChe
     return (await T.tv().shell(`pidof ${pkg}`)).trim() !== ''
   })
   const home = seen.home
+  const pkg = home?.split('/')[0]
+  if (before === HOME_PKG && pkg && pkg !== HOME_PKG && !NOT_LAUNCHERS.includes(pkg)) {
+    log(TASK, 'error', `Home was ${HOME_PKG} before the restart and is ${home} after it`)
+    return {
+      ok: false, reconnected: true,
+      summary: t('After the restart the TV gave Home back to {pkg}.', { pkg }),
+      advice: t('CleanMyTV Home is still installed. Make it Home again on the Home screen step, switch {pkg} off in Clean up, then do the restart check again.', { pkg })
+    }
+  }
   if (running) {
     log(TASK, 'ok', `The TV restarted and ${home} is running.`)
     return { ok: true, reconnected: true, summary: t('The TV restarted and its home screen came up ({pkg}).', { pkg: home?.split('/')[0] ?? '' }) }

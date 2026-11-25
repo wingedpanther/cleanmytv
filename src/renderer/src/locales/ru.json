@@ -63,6 +63,8 @@
   "After its minutes for the day, an app needs the PIN, which gives it the rest of the day. Home counts the time itself, and the count starts again at midnight.": "Когда время на день вышло, приложение просит PIN-код, и после него открыто до конца дня. CleanMyTV Home сам считает время, а в полночь счёт начинается заново.",
   "After the restart no home screen came up (Home resolves to nothing).": "После перезапуска главный экран не открылся (кнопка «Домой» никуда не ведёт).",
   "After the restart no home screen came up (Home resolves to {home}).": "После перезапуска главный экран не открылся (кнопка «Домой» ведёт в {home}).",
+  "After the restart the TV gave Home back to {pkg}.": "После перезагрузки телевизор вернул Home приложению {pkg}.",
+  "CleanMyTV Home is still installed. Make it Home again on the Home screen step, switch {pkg} off in Clean up, then do the restart check again.": "CleanMyTV Home всё ещё установлен. Снова сделайте его Home на шаге «Главный экран», отключите {pkg} в разделе «Очистка» и повторите проверку перезагрузки.",
   "Again": "Ещё раз",
   "All apps": "Все приложения",
   "All apps title": "Заголовок «All apps»",

@@ -95,6 +95,8 @@ export interface FakeTv {
   uninstalledForUser?: string[]
   /** Packages that never stay running (pidof finds nothing), like a launcher crashing at boot. */
   crashing?: string[]
+  /** The Home a restart hands back, like a Xiaomi TV giving it to its own launcher at every boot (#149). */
+  bootHome?: string
   /** App-ops set with `appops set`, as "<package> <op>" to mode. */
   appops?: Map<string, string>
   /** appops answers with a SecurityException, as on TVs that lock it down. */
@@ -179,7 +181,7 @@ function sh(tv: FakeTv, cmd: string): string {
     return claims.filter((c) => tv.packages.get(c.split('/')[0]) === 'enabled').map((c) => `  ${c}`).join('\n') + '\n'
   }
   if ((m = /^pidof (\S+)$/.exec(cmd))) return tv.packages.get(m[1]) === 'enabled' && !tv.crashing?.includes(m[1]) ? '4321\n' : ''
-  if (cmd === 'reboot') return ''
+  if (cmd === 'reboot') { if (tv.bootHome) tv.home = tv.bootHome; return '' }
   if (cmd === 'dumpsys wifi') return `WifiConfigManager ... ${tv.wifiOwners} ...\n`
   if ((m = /^settings get global (\S+)$/.exec(cmd))) return (tv.settings.get(m[1]) ?? 'null') + '\n'
   if ((m = /^pm disable-user --user 0 (\S+)$/.exec(cmd))) {
