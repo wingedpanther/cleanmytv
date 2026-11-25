@@ -53,6 +53,15 @@ object Recent {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
+    /** When each of [pkgs] was last in front, from usage access; empty without it. */
+    fun lastUsed(ctx: Context, pkgs: Collection<String>): Map<String, Long> = runCatching {
+        if (!allowed(ctx)) return emptyMap()
+        val usm = ctx.getSystemService(UsageStatsManager::class.java) ?: return emptyMap()
+        val now = System.currentTimeMillis()
+        usm.queryAndAggregateUsageStats(now - 60 * 24 * 3600 * 1000L, now)
+            .filterKeys { it in pkgs }.mapValues { it.value.lastTimeUsed }.filterValues { it > 0 }
+    }.getOrDefault(emptyMap())
+
     private fun fromUsage(ctx: Context): List<String> = runCatching {
         val usm = ctx.getSystemService(UsageStatsManager::class.java) ?: return emptyList()
         val now = System.currentTimeMillis()

@@ -482,6 +482,55 @@ export function HomePreview({ apps, cfg }: { apps: TvApp[]; cfg: HomeConfig }): 
         </div>
       </div>
     )
+  } else if (cfg.layout === 'teletext') {
+    // As on the TV: page 100 in one monospace face on black, the dock as numbered lines, four colour words at the bottom.
+    const m = model(apps, cfg)
+    const tt = { white: '#F2F2F2', yellow: '#FFE600', cyan: '#19E3FF', green: '#2BE04A', magenta: '#FF4DD8', red: '#E6212B', blue: '#1437D6' }
+    const row = { height: 30, lineHeight: '30px', whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }
+    const line = (n: number, name: string, value: string, on: boolean): ReactNode => (
+      <div key={n} style={{ ...row, display: 'flex', padding: '0 8px', background: on ? tt.cyan : undefined, color: on ? '#000000' : tt.white, fontWeight: on ? 700 : 500 }}>
+        <span style={{ width: 48, flex: 'none', color: on ? '#000000' : tt.yellow, fontWeight: 700 }}>{n}</span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+        <span style={{ flex: 1, minWidth: 40, margin: '0 8px', overflow: 'hidden', color: on ? '#000000' : tt.blue, letterSpacing: '0.15em' }}>{'.'.repeat(60)}</span>
+        <span style={{ color: on ? '#000000' : tt.cyan }}>{value}</span>
+      </div>
+    )
+    const words: [string, string, string][] = [[t('Apps'), tt.red, tt.white], [t('Search'), tt.green, '#000000'], [t('Settings'), tt.yellow, '#000000'], [t('Inputs'), tt.blue, tt.white]]
+    body = (
+      <div style={{ height: '100%', boxSizing: 'border-box', padding: `${SAFE_Y}px 40px`, display: 'flex', flexDirection: 'column', background: '#000000', color: tt.white, fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: 20, fontWeight: 500 }}>
+        <div style={{ ...row, display: 'flex', gap: 20, padding: '0 8px', fontWeight: 700 }}>
+          <span>P100</span><span style={{ color: tt.green }}>{t('Home').toUpperCase()}</span>
+          <span style={{ marginLeft: 'auto', color: tt.cyan }}>Wed 25 Nov</span><span style={{ color: tt.yellow }}>21:47:05</span>
+        </div>
+        <div style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: tt.blue, color: tt.yellow, fontWeight: 700 }}>
+          <span style={{ flex: 1, fontSize: 44 }}>LIVING ROOM</span><span>1/1</span>
+        </div>
+        <div style={{ display: 'flex', gap: 36, marginTop: 15, flex: 1, minHeight: 0 }}>
+          <div style={{ width: 500, flex: 'none' }}>
+            <div style={{ ...row, padding: '0 8px', color: tt.cyan, fontWeight: 700 }}>INDEX</div>
+            {m.dock.slice(0, 6).map((a, i) => line(i + 1, a.label, '', i === 0))}
+            {line(7, t('All apps'), 'P200', false)}
+            {line(8, t('Search'), 'P300', false)}
+            {line(9, t('Quick settings'), 'P400', false)}
+          </div>
+          <div style={{ flex: 1, minWidth: 0, padding: '0 8px' }}>
+            <div style={{ ...row, color: tt.magenta, fontWeight: 700 }}>CONTINUE</div>
+            <div style={row}>The Salt Road</div>
+            <div style={{ ...row, color: tt.cyan }}>S2 E4, 31 min left</div>
+            <div style={{ display: 'flex', gap: 3, height: 30, alignItems: 'center' }}>
+              {Array.from({ length: 10 }, (_, i) => <span key={i} style={{ width: 22, height: 18, background: i < 6 ? tt.green : '#3A3A3A' }} />)}
+            </div>
+            <div style={{ ...row, color: tt.green, fontWeight: 700 }}>STATUS</div>
+            <div style={row}>Wi-Fi</div>
+            <div style={row}>Debugging <span style={{ background: tt.red, fontWeight: 700, padding: '0 6px' }}>ON</span></div>
+          </div>
+        </div>
+        <div style={{ ...row, padding: '0 8px', color: tt.cyan }}>{t('Press a number to open it, or move with the arrows.')}</div>
+        <div style={{ display: 'flex', marginTop: 6 }}>
+          {words.map(([w, bg, ink]) => <span key={w} style={{ ...row, flex: 1, padding: '0 12px', background: bg, color: ink, fontWeight: 700 }}>{w}</span>)}
+        </div>
+      </div>
+    )
   } else {
     body = (
       <div style={{ height: '100%', padding: `${SAFE_Y}px ${SAFE_X}px 0`, overflow: 'hidden', background: `linear-gradient(${shade(cfg, cfg.shade_top)}, transparent ${cfg.shade_top_reach}%)` }}>

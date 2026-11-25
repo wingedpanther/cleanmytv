@@ -222,7 +222,7 @@ export interface HomeStatus {
   googleKept?: boolean
 }
 
-export type HomeLayout = 'shelf' | 'split' | 'rail' | 'bau' | 'glass'
+export type HomeLayout = 'shelf' | 'split' | 'rail' | 'bau' | 'glass' | 'teletext'
 export type HomeSection = 'nowplaying' | 'recent' | 'screentime' | 'dock' | 'watchnext' | 'rows' | 'folders' | 'grid'
 export type QuickId = 'settings' | 'wifi' | 'inputs' | 'bluetooth' | 'display' | 'apps' | 'sleep' | 'search' | 'music' | 'panel' | 'themes' | 'fireplace' | 'memory' | 'customize' | 'timer' | 'screentime' | 'guest' | 'find' | 'allapps'
 /** A saved look for the day and night switch. */

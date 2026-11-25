@@ -1482,5 +1482,8 @@
   "the TV stopped answering. It may be off or off the network.": "der TV antwortet nicht mehr. Vielleicht ist er aus oder nicht mehr im Netzwerk.",
   "Continue in {app}": "Weiter in {app}",
   "Debugging on": "Debugging an",
-  "What the focused dock app has to continue, in large type, and the dock in a glass tray. Amber unless you pick an accent.": "Was die gewählte Dock-App zum Weiterschauen hat, in großer Schrift, und das Dock in einer Glasschale. Bernstein, solange du keine Akzentfarbe wählst."
+  "What the focused dock app has to continue, in large type, and the dock in a glass tray. Amber unless you pick an accent.": "Was die gewählte Dock-App zum Weiterschauen hat, in großer Schrift, und das Dock in einer Glasschale. Bernstein, solange du keine Akzentfarbe wählst.",
+  "Numbered pages of text on black, like an old broadcast text service. A number key opens a line. Its own colours and type: wallpaper, accent and font don't apply.": "Nummerierte Textseiten auf Schwarz, wie ein alter Videotext. Eine Zifferntaste öffnet eine Zeile. Eigene Farben und Schrift: Hintergrund, Akzent und Schrift gelten hier nicht.",
+  "Press a number to open it, or move with the arrows.": "Zahl drücken zum Öffnen, oder mit den Pfeilen wählen.",
+  "Teletext keeps its own monospace type. The font here is for the other layouts.": "Teletext behält seine eigene Festbreitenschrift. Die Schrift hier gilt für die anderen Layouts."
 }

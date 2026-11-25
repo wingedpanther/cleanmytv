@@ -347,7 +347,8 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     }
     // Continue watching: read when Home comes back, and when an app changes the list while Home is in front.
     // Changes while an app plays are left for the read when Home comes back, so playback isn't disturbed.
-    val wantWatch = "watchnext" in cfg.sections
+    // Glass and Teletext show what there is to continue whether or not the row is on.
+    val wantWatch = "watchnext" in cfg.sections || cfg.layout == "glass" || cfg.layout == "teletext"
     var watching by remember { mutableStateOf<List<WatchItem>>(emptyList()) }
     var watchRemoved by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
     var watchChanged by remember { mutableIntStateOf(0) }
@@ -419,7 +420,11 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var moving by remember { mutableStateOf<Moving?>(null) }
     // The order and rows as they were when the move started: Back puts them back.
     var moveFrom by remember { mutableStateOf<Pair<List<String>, List<Group>>?>(null) }
-    LaunchedEffect(moving == null) { moveFrom = if (moving != null) cfg.order to cfg.rows else null }
+    // Teletext: the colour word the arrows have reached while a dock app moves.
+    var textPick by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(moving == null) { moveFrom = if (moving != null) cfg.order to cfg.rows else null; textPick = null }
+    // Teletext's "Add an app": All apps picks an app for the dock instead of opening it.
+    var pickForDock by remember { mutableStateOf(false) }
     // After a move, Home leaves focus on the app that moved instead of going back to the first tile.
     var keepFocus by remember { mutableStateOf(false) }
     LaunchedEffect(appsVersion) { moving = null; keepFocus = false }
@@ -515,6 +520,25 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         }
         ConfigStore.update(ctx, change)
     }
+    // Out of the dock, to just after the last app left in it.
+    fun takeOut() {
+        val m = moving ?: return
+        val all = (home.dock + home.grid).map { it.pkg }.filter { it != m.pkg }
+        val at = (home.dock.size).coerceAtMost(all.size)
+        ConfigStore.update(ctx, JSONObject().put("order", JSONArray(all.take(at) + m.pkg + all.drop(at))))
+        moving = null; keepFocus = false
+    }
+    // Back puts the apps where they were before the move.
+    fun cancelMove() {
+        moveFrom?.let { (order, rows) -> ConfigStore.update(ctx, JSONObject().put("order", JSONArray(order)).put("rows", HomeConfig.groupsJson(rows))) }
+        moving = null; keepFocus = true
+    }
+    val text = cfg.layout == "teletext"
+    val textActions = TextActions(
+        apps = { showAllApps = true }, find = { showFind = true }, settings = { openPanel() }, inputs = { showInputs = true }.takeIf { inputs.isNotEmpty() },
+        takeOut = { takeOut() }, done = { moving = null; keepFocus = true }, add = { moving = null; keepFocus = true; pickForDock = true; showAllApps = true },
+        cancel = { cancelMove() },
+    )
     var focusColour by remember { mutableStateOf<Color?>(null) }
     val tint by animateColorAsState(focusColour ?: Color.Transparent, tween(600), label = "tint")
     // The Bing caption, while the picture it belongs to is the one on screen.
@@ -526,8 +550,23 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         captioned = shownCaption != null, screenTime = screenTime, screenTimeSeen = screenSeen && wantScreen)
 
     Box(
-        Modifier.fillMaxSize().background(Color(cfg.background)).onPreviewKeyEvent { e ->
+        Modifier.fillMaxSize().background(if (text) TT_BLACK else Color(cfg.background)).onPreviewKeyEvent { e ->
             lastPress = System.currentTimeMillis()
+            if (moving != null && text && movingKey?.startsWith("dock:") == true) {
+                // Teletext's Arrange page: Up and Down move the app within the dock, Left and Right reach the colour words.
+                val place = home.dock.indexOfFirst { it.pkg == moving?.pkg }
+                val words = listOf(textActions.takeOut, textActions.done, textActions.add, textActions.cancel)
+                if (e.type == KeyEventType.KeyDown) when {
+                    e.key == Key.DirectionUp -> { textPick = null; if (place > 0) step(-1) }
+                    e.key == Key.DirectionDown -> { textPick = null; if (place < minOf(home.dock.size, TEXT_DOCK) - 1) step(1) }
+                    e.key == Key.DirectionLeft -> textPick = ((textPick ?: 4) + 3) % 4
+                    e.key == Key.DirectionRight -> textPick = ((textPick ?: -1) + 1) % 4
+                    colourKey(e.key) != null -> words[colourKey(e.key)!!]()
+                }
+                if (e.type == KeyEventType.KeyUp && (e.key == Key.Back || e.key == Key.Escape)) cancelMove()
+                else if (e.type == KeyEventType.KeyUp && e.key in OK_KEYS) textPick?.let { words[it]() } ?: textActions.done()
+                return@onPreviewKeyEvent true
+            }
             if (moving != null) {
                 val inGrid = movingKey?.startsWith("grid:") == true
                 val glassDock = cfg.layout == "glass" && movingKey?.startsWith("dock:") == true
@@ -535,34 +574,28 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
                     Key.DirectionLeft -> step(-1)
                     Key.DirectionRight -> step(1)
                     Key.DirectionUp -> if (inGrid) step(-cfg.columns)
-                    Key.DirectionDown -> if (inGrid) step(cfg.columns) else if (glassDock) moving?.let { m ->
-                        // Glass: Down takes the app out of the dock, to just after the last app left in it.
-                        val all = (home.dock + home.grid).map { it.pkg }.filter { it != m.pkg }
-                        val at = (home.dock.size).coerceAtMost(all.size)
-                        ConfigStore.update(ctx, JSONObject().put("order", JSONArray(all.take(at) + m.pkg + all.drop(at))))
-                        moving = null; keepFocus = false
-                    }
+                    // Glass: Down takes the app out of the dock.
+                    Key.DirectionDown -> if (inGrid) step(cfg.columns) else if (glassDock) takeOut()
                     else -> {}
                 }
-                if (e.type == KeyEventType.KeyUp && (e.key == Key.Back || e.key == Key.Escape)) {
-                    // Back cancels: the apps go back where they were.
-                    moveFrom?.let { (order, rows) -> ConfigStore.update(ctx, JSONObject().put("order", JSONArray(order)).put("rows", HomeConfig.groupsJson(rows))) }
-                    moving = null; keepFocus = true
-                } else if (e.type == KeyEventType.KeyUp && e.key in DONE_KEYS) { moving = null; keepFocus = true }
+                if (e.type == KeyEventType.KeyUp && (e.key == Key.Back || e.key == Key.Escape)) cancelMove()
+                else if (e.type == KeyEventType.KeyUp && e.key in DONE_KEYS) { moving = null; keepFocus = true }
                 return@onPreviewKeyEvent true
             }
             if (e.type == KeyEventType.KeyDown) Motion.seen(e.key)
             when {
                 idle && e.type == KeyEventType.KeyDown -> { idle = false; swallowUp = true; true }
                 swallowUp && e.type == KeyEventType.KeyUp -> { swallowUp = false; true }
-                // 1 to 9 open the dock's first nine apps, on remotes that have number keys.
-                cfg.numberKeys && e.type == KeyEventType.KeyDown && dockNumber(e.key) != null ->
+                // 1 to 9 open the dock's first nine apps, on remotes that have number keys. Teletext has its own.
+                !text && cfg.numberKeys && e.type == KeyEventType.KeyDown && dockNumber(e.key) != null ->
                     home.dock.getOrNull(dockNumber(e.key)!! - 1)?.let { launch(ctx, it); true } ?: false
                 else -> false
             }
         }
     ) {
-        if (fireWall) {
+        // Teletext is black, with no wallpaper, colour wash or snow.
+        if (text) Unit
+        else if (fireWall) {
             FireWallpaper(cfg, motion)
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = cfg.wallpaperDim / 100f)))
         } else wallpaper?.let {
@@ -572,17 +605,17 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
         IntroLayer(intro)
         // The focused app's colour washes in from the top; the wallpaper still shows through.
         // Drawn in the draw phase, so the fading colour doesn't redraw the whole screen each frame.
-        if (cfg.followColour && cfg.wash > 0) Box(Modifier.fillMaxSize().drawBehind {
+        if (!text && cfg.followColour && cfg.wash > 0) Box(Modifier.fillMaxSize().drawBehind {
             drawRect(Brush.verticalGradient(0f to tint.copy(alpha = tint.alpha * cfg.wash / 100f), cfg.washReach / 100f to Color.Transparent))
         })
-        if (cfg.snow) {
+        if (!text && cfg.snow) {
             // Still while anything is open over Home, and with the TV's animations off.
             val menus = openFolder != null || menuFor != null || showInputs || showPanel || showThemes || showTimer || showUpdate || showDebugging || showGuest || watchMenu != null || showFind || showAllApps || panelPin || editPin
             Snow(running = resumed() && motion && !menus)
         }
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = shown }) {
             // Rows sit over the lower half of the photo; a ground-tinted shade keeps their names readable.
-            if (cfg.shadeBottom > 0 && cfg.shadeBottomReach > 0) {
+            if (!text && cfg.shadeBottom > 0 && cfg.shadeBottomReach > 0) {
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(1f - cfg.shadeBottomReach / 100f to Color.Transparent, 1f to scrim(cfg, cfg.shadeBottom / 100f))))
             }
             when (cfg.layout) {
@@ -590,21 +623,22 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
                 "rail" -> RailLayout(home, ui, quick, onQuick)
                 "bau" -> BauLayout(home, ui, quick, onQuick)
                 "glass" -> GlassLayout(home, ui, quick, onQuick, onAllApps = { showAllApps = true }, moving)
+                "teletext" -> TeletextLayout(home, ui, appsVersion, moving, textPick, textActions)
                 else -> ShelfLayout(home, ui, quick, onQuick)
             }
-            shownCaption?.let { BingCaption(it, visualiser, cfg, Modifier.align(Alignment.BottomEnd).padding(start = SAFE_X, end = SAFE_X, bottom = SAFE_Y)) }
-            if (cfg.visualiser) Bars(visualiser, cfg, accent, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
+            if (!text) shownCaption?.let { BingCaption(it, visualiser, cfg, Modifier.align(Alignment.BottomEnd).padding(start = SAFE_X, end = SAFE_X, bottom = SAFE_Y)) }
+            if (cfg.visualiser && !text) Bars(visualiser, cfg, accent, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
         }
         if (shown < 1f) IdleScreen(ui, Modifier.fillMaxSize().graphicsLayer { alpha = 1f - shown })
-        val tipShown by animateFloatAsState(if (tip && !idle && moving == null) 1f else 0f, tween(400), label = "tip")
+        val tipShown by animateFloatAsState(if (tip && !idle && moving == null && !text) 1f else 0f, tween(400), label = "tip")
         if (tipShown > 0f) Text(
             tr("Tip: hold OK on an app to move it or hide it"),
             color = TEXT, fontSize = 16.sp,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = SAFE_Y).graphicsLayer { alpha = tipShown }
                 .background(PANEL, RoundedCornerShape(12.dp)).padding(horizontal = 18.dp, vertical = 10.dp)
         )
-        // Glass says it in its own headline.
-        moving?.takeIf { cfg.layout != "glass" || it.kind != "main" }?.let { m ->
+        // Glass says it in its own headline, Teletext on its Arrange page.
+        moving?.takeIf { (cfg.layout != "glass" && !text) || it.kind != "main" }?.let { m ->
             Text(
                 tr("Moving {app}. Use the arrows, then OK.", "app" to m.label),
                 color = TEXT, fontSize = 16.sp,
@@ -626,6 +660,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     }
     if (showPanel) {
         if (cfg.layout == "glass") GlassControl(accent, onFind = { showFind = true }) { showPanel = false }
+        else if (text) TextSettings(onEditor = { openEditor() }) { showPanel = false }
         else SettingsPanel(accent, bau = cfg.layout == "bau", onFind = { showFind = true }) { showPanel = false }
     }
     if (showThemes) ThemeCarousel(accent) { showThemes = false }
@@ -635,8 +670,16 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     if (showGuest) GuestDialog(cfg, accent) { showGuest = false }
     // Search this TV and the All apps page see what Home shows: no locked apps with "Hide locked apps", only the guest apps in guest mode.
     val pageApps = remember(byPkg, cfg.lockOn, cfg.lockShow, cfg.lockApps) { byPkg.values.filter { !(cfg.lockOn && cfg.lockShow == "hide" && it.pkg in cfg.lockApps) } }
-    if (showFind) FindPage(cfg, pageApps, home.dock.map { it.pkg }.toSet(), onApp = { launch(ctx, it) }) { showFind = false }
-    if (showAllApps) AppsPage(cfg, pageApps, onOpen = { launch(ctx, it) }, onMenu = { if (!guest) pageMenu = it }) { showAllApps = false }
+    val dockPkgs = home.dock.map { it.pkg }.toSet()
+    if (showFind) {
+        if (text) TextFind(pageApps, dockPkgs, onApp = { launch(ctx, it) }) { showFind = false }
+        else FindPage(cfg, pageApps, dockPkgs, onApp = { launch(ctx, it) }) { showFind = false }
+    }
+    if (showAllApps) {
+        if (text) TextApps(pageApps, dockPkgs, onOpen = { launch(ctx, it) }, onMenu = { if (!guest) pageMenu = it }, onFind = { showFind = true },
+            onPick = if (pickForDock) { app -> addToDock(ctx, home, cfg, app.pkg) } else null) { showAllApps = false; pickForDock = false }
+        else AppsPage(cfg, pageApps, onOpen = { launch(ctx, it) }, onMenu = { if (!guest) pageMenu = it }) { showAllApps = false }
+    }
     pageMenu?.let { app -> AppMenu(app, ui, onMove = null) { pageMenu = null } }
     watchMenu?.let { item ->
         WatchMenu(item, accent, onRemove = { WatchNext.remove(ctx, item); watchRemoved = watchRemoved + (item.key to System.currentTimeMillis()); watchMenu = null }) { watchMenu = null }
@@ -649,6 +692,16 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     if (editPin) Dialog(onDismissRequest = { editPin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         PinPad(tr("Enter the PIN to customize Home"), Lock.EDITOR, accent) { editPin = false; openEditorNow(ctx) }
     }
+}
+
+/**
+ * Teletext's "Add an app": [pkg] goes after the last app in the dock, or takes the last place when the dock is
+ * full, and comes out of Hidden if it was there.
+ */
+private fun addToDock(ctx: android.content.Context, home: Home, cfg: HomeConfig, pkg: String) {
+    val all = (home.dock + home.grid).map { it.pkg }.filter { it != pkg }
+    val at = minOf(home.dock.count { it.pkg != pkg }, cfg.dockSize - 1, TEXT_DOCK - 1).coerceAtLeast(0)
+    ConfigStore.update(ctx, JSONObject().put("order", JSONArray(all.take(at) + pkg + all.drop(at))).put("hidden", JSONArray(cfg.hidden - pkg)))
 }
 
 /** 1 for the 1 key, on the main keys or the number pad; null for any other key. */
@@ -2065,7 +2118,8 @@ private fun AppMenu(app: TvApp, ui: Ui, onMove: (() -> Unit)?, onClose: () -> Un
             },
             contentAlignment = Alignment.Center
         ) {
-            Column(Modifier.width(360.dp).background(PANEL, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (ui.cfg.layout == "teletext") TextMenu("P120", tr("Menu"), app.label, items, focus, onClose)
+            else Column(Modifier.width(360.dp).background(PANEL, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(app.label, color = TEXT, fontSize = 22.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 6.dp))
                 items.forEachIndexed { i, (label, act) ->
                     val shape = RoundedCornerShape(12.dp)
@@ -2092,7 +2146,8 @@ private fun InputsOverlay(inputs: List<Pair<String, String>>, ui: Ui, onClose: (
     val ctx = LocalContext.current
     val focus = remember { FocusRequester() }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Box(Modifier.fillMaxSize().background(scrim(ui.cfg, 0.9f)), contentAlignment = Alignment.Center) {
+        if (ui.cfg.layout == "teletext") TextMenu("P130", tr("Inputs"), ui.cfg.names["inputs"] ?: tr("Inputs"), inputs.map { (id, label) -> label to { onClose(); openInput(ctx, id) } }, focus, onClose)
+        else Box(Modifier.fillMaxSize().background(scrim(ui.cfg, 0.9f)), contentAlignment = Alignment.Center) {
             Column(Modifier.width(400.dp).background(PANEL, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(ui.cfg.names["inputs"] ?: tr("Inputs"), color = TEXT, fontSize = 24.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(bottom = 6.dp))
                 inputs.forEachIndexed { i, (id, label) ->
