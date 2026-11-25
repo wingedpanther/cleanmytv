@@ -86,8 +86,11 @@ internal fun TextApps(apps: List<TvApp>, dock: Set<String>, onOpen: (TvApp) -> U
     val hint = when {
         typed.isNotEmpty() -> tr("{n}_ Now the second digit.", "n" to typed)
         onPick != null -> tr("Pick an app for the dock.")
-        RemoteKeys.digits -> tr("Two digits open an app. Right turns the page. Hold OK for more.")
-        else -> tr("Right turns the page. Hold OK for more.")
+        // Right only turns a page when there is a second one.
+        RemoteKeys.digits && pages > 1 -> tr("Two digits open an app. Right turns the page. Hold OK for more.")
+        RemoteKeys.digits -> tr("Two digits open an app. Hold OK for more.")
+        pages > 1 -> tr("Right turns the page. Hold OK for more.")
+        else -> tr("Hold OK for more.")
     }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         TextPage(tr("Apps"), if (onPick != null) tr("Add to the dock") else tr("All apps"), TT_GREEN, TT_BLACK, "${page + 1}/$pages", hint, words, firstWord = red,
@@ -111,7 +114,7 @@ internal fun TextApps(apps: List<TvApp>, dock: Set<String>, onOpen: (TvApp) -> U
                             val f = facts[a.pkg]
                             val (value, ink) = when {
                                 a.pkg in dock -> tr("dock") to TT_GREEN
-                                f?.sideloaded == true -> tr("side") to TT_MAGENTA
+                                f?.sideloaded == true -> tr("sideloaded") to TT_MAGENTA
                                 else -> "" to TT_WHITE
                             }
                             TextLine((at + 10).takeIf { it <= 99 }?.toString(), a.label, value,
@@ -123,7 +126,7 @@ internal fun TextApps(apps: List<TvApp>, dock: Set<String>, onOpen: (TvApp) -> U
                                         else -> false
                                     }
                                 },
-                                valueInk = ink, onLongClick = { if (onPick == null) onMenu(a) }) { go(a) }
+                                valueInk = ink, sideways = true, onLongClick = { if (onPick == null) onMenu(a) }) { go(a) }
                         }
                     }
                     if (col == 0) Spacer(Modifier.width(36.dp))
@@ -144,7 +147,7 @@ internal fun TextFind(apps: List<TvApp>, dock: Set<String>, onApp: (TvApp) -> Un
     var digits by remember { mutableStateOf(false) }
     val first = remember { FocusRequester() }
     val last = remember { FocusRequester() }
-    val hits = remember(query, apps) { searchTv(ctx, query, apps, dock, emptyMap()) { onClose(); onApp(it) } }
+    val hits = remember(query, apps) { searchTv(ctx, query, apps, dock, emptyMap(), onClose) { onClose(); onApp(it) } }
     fun type(s: String) { query = (query + s).take(MAX_QUERY) }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
     val words = listOf(
@@ -202,7 +205,8 @@ internal fun TextFind(apps: List<TvApp>, dock: Set<String>, onApp: (TvApp) -> Un
                     item(h.kind.toString() + h.title) {
                         val kind = when (h.kind) { Hit.APP -> kinds[0] to TT_YELLOW; Hit.HOME -> kinds[1] to TT_CYAN; else -> kinds[2] to TT_MAGENTA }
                         TextLine((i + 1).takeIf { it <= 9 }?.toString(), h.title, h.action, kind = kind, kindWidth = kindWidth, onClick = h.go)
-                        Text(h.sub, color = TT_META, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        // The grid's one size, like every other line here; the grey tells it apart.
+                        Text(h.sub, color = TT_META, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.height(TT_ROW).padding(start = TT_NUM + kindWidth + 8.dp, end = 8.dp))
                     }
                 }

@@ -56,9 +56,11 @@ object Debugging {
 fun DebuggingDialog(accent: Color, onClose: () -> Unit) {
     val ctx = LocalContext.current
     val first = remember { FocusRequester() }
+    val keep = remember { FocusRequester() }
     var stuck by remember { mutableStateOf(false) }
-    // Again when Turn it off gives way to Open Developer options, so the focus stays in the dialog.
-    LaunchedEffect(stuck) { runCatching { first.requestFocus() } }
+    // It opens on Keep it on: one stray OK on Turn it off would cut the desktop app off. When Turn it off gives
+    // way to Open Developer options, the focus goes there, so it stays in the dialog.
+    LaunchedEffect(stuck) { runCatching { (if (stuck) first else keep).requestFocus() } }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.82f)), contentAlignment = Alignment.Center) {
             Column(Modifier.width(620.dp).background(HomeColours.panel.copy(alpha = 0.95f), RoundedCornerShape(20.dp)).padding(26.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -73,7 +75,7 @@ fun DebuggingDialog(accent: Color, onClose: () -> Unit) {
                         TvSettings.debuggingOff(ctx)
                         if (TvSettings.debuggingOn(ctx)) stuck = true else onClose()
                     }
-                    UpdateButton(tr("Keep it on"), accent) { Debugging.keep(ctx); onClose() }
+                    UpdateButton(tr("Keep it on"), accent, Modifier.focusRequester(keep)) { Debugging.keep(ctx); onClose() }
                 }
             }
         }

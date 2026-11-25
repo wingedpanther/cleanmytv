@@ -440,12 +440,11 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var showAllApps by remember { mutableStateOf(false) }
     var pageMenu by remember { mutableStateOf<TvApp?>(null) }
     val note by TvNote.note.collectAsState()
-    // The tip about holding OK, on the first few days (see Hints), for 12 seconds.
+    // The tip about holding OK, on the first few days (see Hints), for 8 seconds. The timer hangs on the tip
+    // itself: Home coming back or an app installing restarts the check, and used to cancel the timer with it.
     var tip by remember { mutableStateOf(false) }
-    LaunchedEffect(appsVersion) {
-        if (!withContext(Dispatchers.IO) { Hints.take(ctx) }) return@LaunchedEffect
-        tip = true; delay(12_000); tip = false
-    }
+    LaunchedEffect(appsVersion) { if (withContext(Dispatchers.IO) { Hints.take(ctx) }) tip = true }
+    LaunchedEffect(tip) { if (tip) { delay(8_000); tip = false } }
     var panelPin by remember { mutableStateOf(false) }
     val openPanel = { if (Lock.needsPin(ctx, Lock.PANEL)) panelPin = true else showPanel = true }
     // App lock asks for the PIN here when its "Customize Home" switch is on.
@@ -629,8 +628,9 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             when (cfg.layout) {
                 "split" -> SplitLayout(home, ui, quick, onQuick)
                 "rail" -> RailLayout(home, ui, quick, onQuick)
-                "bau" -> BauLayout(home, ui, quick, onQuick)
-                "glass" -> GlassLayout(home, ui, quick, onQuick, onAllApps = { showAllApps = true }, moving, appsVersion, glassOnPhoto)
+                // Search is only in Quick settings (Control centre in Glass) in these two, so it always leads.
+                "bau" -> BauLayout(home, ui, listOfNotNull(all["panel"]?.takeIf { !guest }) + quick.filter { it.id != "panel" }, onQuick)
+                "glass" -> GlassLayout(home, ui, listOfNotNull(all["panel"]?.copy(label = tr("Control centre"))?.takeIf { !guest }) + quick.filter { it.id != "panel" }, onQuick, onAllApps = { showAllApps = true }, moving, appsVersion, glassOnPhoto)
                 "teletext" -> TeletextLayout(home, ui, appsVersion, moving, textPick, textActions)
                 else -> ShelfLayout(home, ui, quick, onQuick)
             }
@@ -645,17 +645,30 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             cfg.editOnTv && quick.any { it.id == "panel" } -> tr("Tip: hold OK on an app to move it or hide it. Customize Home is in Quick settings.")
             else -> tr("Tip: hold OK on an app to move it or hide it")
         }
-        if (tipShown > 0f) Text(
-            tipText,
-            color = TEXT, fontSize = 16.sp,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = SAFE_Y).graphicsLayer { alpha = tipShown }
-                .background(PANEL, RoundedCornerShape(12.dp)).padding(horizontal = 18.dp, vertical = 10.dp)
-        )
-        // Glass says it in its own headline, Teletext on its Arrange page.
-        moving?.takeIf { (cfg.layout != "glass" && !text) || it.kind != "main" }?.let { m ->
-            Text(
-                tr("Moving {app}. Use the arrows, then OK.", "app" to m.label),
+        // Glass puts it in a capsule above the tray, so it never covers the dock; Bauhaus in its cream.
+        if (tipShown > 0f) when (cfg.layout) {
+            "glass" -> GlassTip(tipText, glassOnPhoto, Modifier.align(Alignment.BottomCenter).graphicsLayer { alpha = tipShown })
+            "bau" -> Text(
+                tipText.lowercase(), color = BAU_INK, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = SAFE_Y).graphicsLayer { alpha = tipShown }
+                    .background(BAU_CREAM).border(1.5.dp, BAU_INK).padding(horizontal = 18.dp, vertical = 10.dp)
+            )
+            else -> Text(
+                tipText,
                 color = TEXT, fontSize = 16.sp,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = SAFE_Y).graphicsLayer { alpha = tipShown }
+                    .background(PANEL, RoundedCornerShape(12.dp)).padding(horizontal = 18.dp, vertical = 10.dp)
+            )
+        }
+        // Glass says it in its own headline, Teletext on its Arrange page. Bauhaus: square, cream and lower case.
+        moving?.takeIf { (cfg.layout != "glass" && !text) || it.kind != "main" }?.let { m ->
+            val note = tr("Moving {app}. Use the arrows, then OK.", "app" to m.label)
+            if (cfg.layout == "bau") Text(
+                note.lowercase(), color = BAU_INK, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = SAFE_Y).background(BAU_CREAM).border(1.5.dp, BAU_INK).padding(horizontal = 18.dp, vertical = 10.dp)
+            )
+            else Text(
+                note, color = TEXT, fontSize = 16.sp,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = SAFE_Y).background(PANEL, RoundedCornerShape(12.dp)).padding(horizontal = 18.dp, vertical = 10.dp)
             )
         }
@@ -691,10 +704,20 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     }
     if (showAllApps) {
         if (text) TextApps(pageApps, dockPkgs, onOpen = { launch(ctx, it) }, onMenu = { if (!guest) pageMenu = it }, onFind = { showFind = true },
-            onPick = if (pickForDock) { app -> addToDock(ctx, home, cfg, app.pkg) } else null) { showAllApps = false; pickForDock = false }
+            onPick = if (pickForDock) { app -> addToDock(ctx, home, cfg, app.pkg, TEXT_DOCK) } else null) { showAllApps = false; pickForDock = false }
         else AppsPage(cfg, pageApps, onOpen = { launch(ctx, it) }, onMenu = { if (!guest) pageMenu = it }, backdrop = wallpaper.takeIf { cfg.glassBackdrop == "wallpaper" }) { showAllApps = false }
     }
-    pageMenu?.let { app -> AppMenu(app, ui, onMove = null) { pageMenu = null } }
+    pageMenu?.let { app ->
+        // All apps has no Move in Glass and Bauhaus: an app outside the dock gets there from its menu. When the
+        // dock is full, the menu names the app it replaces.
+        val cap = if (cfg.layout == "glass") minOf(cfg.dockSize, GLASS_DOCK) else cfg.dockSize
+        val toDock = if (cfg.layout !in setOf("glass", "bau") || app.pkg in dockPkgs || cap == 0) null else {
+            val out = home.dock.take(cap).takeIf { it.size >= cap }?.last()
+            val what = if (cfg.layout == "bau") tr("Add to favourites") else tr("Add to the dock")
+            (if (out != null) tr("{action}, in place of {app}", "action" to what, "app" to out.label) else what) to { pageMenu = null; addToDock(ctx, home, cfg, app.pkg, cap) }
+        }
+        AppMenu(app, ui, onMove = null, toDock = toDock) { pageMenu = null }
+    }
     watchMenu?.let { item ->
         val remove = { WatchNext.remove(ctx, item); watchRemoved = watchRemoved + (item.key to System.currentTimeMillis()); watchMenu = null }
         if (cfg.layout == "glass") GlassMenuDialog(item.title, tr("It comes back if you watch it again."),
@@ -712,12 +735,12 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
 }
 
 /**
- * Teletext's "Add an app": [pkg] goes after the last app in the dock, or takes the last place when the dock is
- * full, and comes out of Hidden if it was there.
+ * Teletext's "Add an app", and "Add to the dock" in the app menu: [pkg] goes after the last app in the dock, or
+ * takes the last place when the [cap] apps the layout shows are there, and comes out of Hidden if it was there.
  */
-private fun addToDock(ctx: android.content.Context, home: Home, cfg: HomeConfig, pkg: String) {
+private fun addToDock(ctx: android.content.Context, home: Home, cfg: HomeConfig, pkg: String, cap: Int) {
     val all = (home.dock + home.grid).map { it.pkg }.filter { it != pkg }
-    val at = minOf(home.dock.count { it.pkg != pkg }, cfg.dockSize - 1, TEXT_DOCK - 1).coerceAtLeast(0)
+    val at = minOf(home.dock.count { it.pkg != pkg }, cfg.dockSize - 1, cap - 1).coerceAtLeast(0)
     ConfigStore.update(ctx, JSONObject().put("order", JSONArray(all.take(at) + pkg + all.drop(at))).put("hidden", JSONArray(cfg.hidden - pkg)))
 }
 
@@ -964,6 +987,31 @@ private fun BauLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Qu
     }
 }
 
+/** Bauhaus's own menu, as Glass and Teletext have theirs: a square cream sheet, black rules, lower case. */
+@Composable
+internal fun BauMenu(title: String, items: List<Pair<String, () -> Unit>>, focus: FocusRequester) {
+    Column(Modifier.width(380.dp).background(BAU_CREAM).border(1.5.dp, BAU_INK)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(14.dp).background(BAU_RED))
+            Text(title.lowercase(), color = BAU_INK, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 12.dp))
+        }
+        items.forEachIndexed { i, (label, act) ->
+            var focused by remember { mutableStateOf(false) }
+            Box(Modifier.fillMaxWidth().height(1.5.dp).background(BAU_INK))
+            Surface(
+                onClick = act,
+                modifier = Modifier.pointer { act() }.then(if (i == 0) Modifier.focusRequester(focus) else Modifier).fillMaxWidth().height(52.dp).onFocusChanged { focused = it.isFocused },
+                shape = ClickableSurfaceDefaults.shape(androidx.compose.ui.graphics.RectangleShape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = BAU_INK)
+            ) {
+                Box(Modifier.fillMaxSize().padding(horizontal = 20.dp), contentAlignment = Alignment.CenterStart) {
+                    Text(label.lowercase(), color = if (focused) BAU_CREAM else BAU_INK, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+}
+
 internal val BAU_INK = Color(0xFF141414)
 internal val BAU_CREAM = Color(0xFFF2EEE3)
 internal val BAU_MUTED = Color(0xFFA8A398)
@@ -1055,7 +1103,8 @@ private fun BauQuickRow(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit) 
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(a.label.lowercase(), color = if (focused) BAU_INK else BAU_CREAM, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            QuickGlyph(a, ui, focused, 16.dp)
+            // Black on the cream of a focused line; the accent's ink could match the cream and vanish.
+            QuickGlyph(a, ui, focused, 16.dp, ink = if (focused) BAU_INK else BAU_CREAM)
         }
     }
 }
@@ -1152,7 +1201,8 @@ private fun BauCell(name: String, sub: String?, mark: Pair<Int, Color>, ui: Ui, 
         Column(Modifier.fillMaxSize().padding(horizontal = if (height > 100.dp) 15.dp else 12.dp, vertical = if (height > 100.dp) 14.dp else 10.dp), verticalArrangement = Arrangement.SpaceBetween) {
             BauGlyph(mark.first, mark.second, markSize)
             Column {
-                Text(name.lowercase(), color = if (focused) BAU_INK else BAU_CREAM, fontSize = nameSize, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                // Two lines, so "open shelf" isn't cut to "open sh…" in the six-across strip.
+                Text(name.lowercase(), color = if (focused) BAU_INK else BAU_CREAM, fontSize = nameSize, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = TextStyle(letterSpacing = nameSize * -0.02f, lineHeight = nameSize * 1.05f))
                 sub?.let { Text(it.lowercase(), color = if (focused) BAU_DIM else BAU_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
@@ -1906,10 +1956,10 @@ private fun QuickButton(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit) 
  * a glyph leaves inside its box, so app icons sit on the same centre line and look the same size.
  */
 @Composable
-private fun QuickGlyph(a: QuickAction, ui: Ui, focused: Boolean, size: Dp) {
+private fun QuickGlyph(a: QuickAction, ui: Ui, focused: Boolean, size: Dp, ink: Color? = null) {
     val art = a.art
     if (art != null) Image(art, a.label, Modifier.size(size + 4.dp).clip(CircleShape))
-    else Image(iconFor(a, ui.cfg), a.label, Modifier.size(size), colorFilter = ColorFilter.tint(if (focused) buttonInk(ui) else TEXT))
+    else Image(iconFor(a, ui.cfg), a.label, Modifier.size(size), colorFilter = ColorFilter.tint(ink ?: if (focused) buttonInk(ui) else TEXT))
 }
 
 @Composable
@@ -2104,7 +2154,7 @@ internal val OK_KEYS = setOf(Key.DirectionCenter, Key.Enter, Key.NumPadEnter)
  * another app, so that one goes through App info.
  */
 @Composable
-private fun AppMenu(app: TvApp, ui: Ui, onMove: (() -> Unit)?, onClose: () -> Unit) {
+private fun AppMenu(app: TvApp, ui: Ui, onMove: (() -> Unit)?, toDock: Pair<String, () -> Unit>? = null, onClose: () -> Unit) {
     val ctx = LocalContext.current
     val focus = remember { FocusRequester() }
     val installed = remember(app.pkg) {
@@ -2117,6 +2167,7 @@ private fun AppMenu(app: TvApp, ui: Ui, onMove: (() -> Unit)?, onClose: () -> Un
     val pkgUri = android.net.Uri.fromParts("package", app.pkg, null)
     val items = buildList<Pair<String, () -> Unit>> {
         onMove?.let { add(tr("Move") to it) }
+        toDock?.let(::add)
         add(tr("Hide from Home") to { onClose(); ConfigStore.update(ctx, JSONObject().put("hidden", JSONArray((ui.cfg.hidden + app.pkg).distinct()))) })
         add(tr("App info") to { open(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkgUri)) })
         if (installed) add(tr("Uninstall") to { open(android.content.Intent(android.content.Intent.ACTION_DELETE, pkgUri)) })
@@ -2126,7 +2177,7 @@ private fun AppMenu(app: TvApp, ui: Ui, onMove: (() -> Unit)?, onClose: () -> Un
     var fresh by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
-            Modifier.fillMaxSize().background(if (ui.cfg.layout == "glass") Color.Black.copy(alpha = 0.5f) else scrim(ui.cfg, 0.85f)).onPreviewKeyEvent { e ->
+            Modifier.fillMaxSize().background(when (ui.cfg.layout) { "glass" -> Color.Black.copy(alpha = 0.5f); "bau" -> BAU_INK.copy(alpha = 0.85f); else -> scrim(ui.cfg, 0.85f) }).onPreviewKeyEvent { e ->
                 when {
                     e.key !in OK_KEYS -> false
                     e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0 -> { fresh = true; false }
@@ -2137,6 +2188,7 @@ private fun AppMenu(app: TvApp, ui: Ui, onMove: (() -> Unit)?, onClose: () -> Un
         ) {
             if (ui.cfg.layout == "teletext") TextMenu(tr("Menu"), app.label, items, focus, onClose)
             else if (ui.cfg.layout == "glass") GlassMenu(app.label, null, items, focus)
+            else if (ui.cfg.layout == "bau") BauMenu(app.label, items, focus)
             else Column(Modifier.width(360.dp).background(PANEL, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(app.label, color = TEXT, fontSize = 22.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 6.dp))
                 items.forEachIndexed { i, (label, act) ->

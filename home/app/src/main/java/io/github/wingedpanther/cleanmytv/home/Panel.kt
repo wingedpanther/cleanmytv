@@ -193,7 +193,7 @@ fun SettingsPanel(accent: Color, bau: Boolean = false, onFind: () -> Unit = {}, 
 
 /** "Living room TV · Android TV 14": the TV's name, as set in its settings, and its Android version. */
 private fun deviceLine(ctx: android.content.Context): String {
-    val name = runCatching { Settings.Global.getString(ctx.contentResolver, "device_name") }.getOrNull()?.takeIf { it.isNotBlank() } ?: android.os.Build.MODEL
+    val name = tvName(ctx) ?: android.os.Build.MODEL.replace('_', ' ')
     return "$name · Android TV ${android.os.Build.VERSION.RELEASE}"
 }
 

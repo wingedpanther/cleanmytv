@@ -62,7 +62,7 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
         // --- Layout Mode & Top Space ---
         TvRadioGroup(
             title = tr("Layout"),
-            options = listOf("shelf" to tr("Shelf"), "split" to tr("Split"), "rail" to tr("Rail"), "bau" to "Bau", "glass" to tr("Glass"), "teletext" to "Teletext"),
+            options = listOf("shelf" to tr("Shelf"), "split" to tr("Split"), "rail" to tr("Rail"), "bau" to "Bauhaus", "glass" to tr("Glass"), "teletext" to "Teletext"),
             current = config.layout,
             onSelect = { ConfigStore.update(ctx, JSONObject().put("layout", it)) }
         )

@@ -21,7 +21,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -78,7 +83,11 @@ private fun Pane(radius: Dp, modifier: Modifier, scale: Float = 1.1f, keepFill: 
     GlassTile(radius, modifier, focusScale = scale, lift = 3.dp, keepFill = keepFill, onFocus = onFocus, onLongClick = onLongClick, onClick = onClick, content = content)
 
 /** A result's second line: nothing when it only repeats the kind, else with a capital first letter. */
-private fun subLine(h: Hit): String = if (h.kind == Hit.APP && h.sub == tr("app")) "" else h.sub.replaceFirstChar { it.uppercase() }
+private fun subLine(h: Hit): String = when {
+    h.kind == Hit.APP && h.sub == tr("app") -> ""
+    h.sub == tr("tv settings") -> tr("TV settings")
+    else -> h.sub.replaceFirstChar { it.uppercase() }
+}
 
 /**
  * All apps in Glass: a large title, the kinds in a segmented capsule, and a grid of six where only the focused
@@ -124,9 +133,15 @@ internal fun GlassApps(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Un
                                 }
                             }
                             // In the row gap under the focused tile: its name under a banner, else where it came from.
-                            if (focused == a.pkg) Text(if (banner) a.label else facts[a.pkg]?.line ?: a.label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
-                                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().offset(y = 23.dp))
+                            // It may run past the tile, so it starts at the left edge in the first column and
+                            // ends at the right one in the last, and stays on the screen.
+                            if (focused == a.pkg) {
+                                val col = shown.indexOf(a) % 6
+                                val side = when (col) { 0 -> Alignment.Start; 5 -> Alignment.End; else -> Alignment.CenterHorizontally }
+                                Text(if (banner) a.label else facts[a.pkg]?.line ?: a.label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().wrapContentWidth(side, unbounded = true).widthIn(max = 420.dp).offset(y = 23.dp))
+                            }
                         }
                     }
                 }
@@ -134,7 +149,7 @@ internal fun GlassApps(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Un
                     Spacer(Modifier.weight(1f))
                     Text(tr("Hold OK"), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clip(RoundedCornerShape(11.dp)).background(Color.White.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 3.dp))
-                    Text(tr("Hide, app info, uninstall"), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
+                    Text(tr("Dock, hide, app info, uninstall"), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
                 }
             }
         }
@@ -168,8 +183,16 @@ internal fun GlassFind(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, on
     var digits by remember { mutableStateOf(false) }
     val first = remember { FocusRequester() }
     val last = remember { FocusRequester() }
+    // Focus paths set by hand: Down from any key goes to the top result, Right from there to More, and Up from
+    // either back to the key it came from. The keys sit in one wide line, so the usual search picks badly.
+    val topCard = remember { FocusRequester() }
+    val more = remember { FocusRequester() }
+    val keyFocus = remember { List(26) { FocusRequester() } }
+    val space = remember { FocusRequester() }
+    val delete = remember { FocusRequester() }
+    var cameFrom by remember { mutableStateOf<FocusRequester?>(null) }
     val kinds = remember(apps) { emptyMap<String, String>() }
-    val hits = remember(query, apps) { searchTv(ctx, query, apps, dock, kinds) { onClose(); onApp(it) } }
+    val hits = remember(query, apps) { searchTv(ctx, query, apps, dock, kinds, onClose) { onClose(); onApp(it) } }
     val speech = remember { Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM).takeIf { it.resolveActivity(ctx.packageManager) != null } }
     val listen = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { query = it.lowercase().take(MAX_QUERY) }
@@ -201,31 +224,41 @@ internal fun GlassFind(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, on
                 Row(Modifier.fillMaxWidth().padding(top = 14.dp).height(42.dp).focusGroup(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     // One line: the letters alone, as the design has them; - and . are a keyboard press away.
                     val keys = if (digits) DIGITS.joinToString("").take(26) else "abcdefghijklmnopqrstuvwxyz"
+                    val hasTop = hits.isNotEmpty()
+                    fun key(r: FocusRequester) = Modifier.focusRequester(r).onFocusChanged { if (it.isFocused) cameFrom = r }
+                        .focusProperties { down = if (hasTop) topCard else FocusRequester.Cancel }
                     Row(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         keys.forEachIndexed { i, ch ->
-                            val wrap = if (i == 0) Modifier.focusRequester(first).onPreviewKeyEvent { e ->
+                            val r = if (i == 0) first else keyFocus[i]
+                            val wrap = if (i == 0) Modifier.onPreviewKeyEvent { e ->
                                 e.type == KeyEventType.KeyDown && e.key == Key.DirectionLeft && runCatching { last.requestFocus() }.isSuccess
                             } else Modifier
-                            Letter(ch.toString(), wrap) { type(ch.toString()) }
+                            Letter(ch.toString(), wrap.then(key(r))) { type(ch.toString()) }
                         }
                     }
-                    Capsule(tr("Space")) { type(" ") }
-                    Capsule(tr("Delete")) { query = query.dropLast(1) }
-                    Capsule(if (digits) "abc" else "123", Modifier.focusRequester(last).onPreviewKeyEvent { e ->
+                    Capsule(tr("Space"), key(space)) { type(" ") }
+                    Capsule(tr("Delete"), key(delete)) { query = query.dropLast(1) }
+                    Capsule(if (digits) "abc" else "123", key(last).onPreviewKeyEvent { e ->
                         e.type == KeyEventType.KeyDown && e.key == Key.DirectionRight && runCatching { first.requestFocus() }.isSuccess
                     }) { digits = !digits }
                 }
                 Row(Modifier.weight(1f).padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                     val top = hits.firstOrNull()
+                    val back = cameFrom ?: first
                     Column(Modifier.width(280.dp).fillMaxHeight()) {
-                        Text(tr("Top result"), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 9.dp))
-                        if (top != null) TopCard(top, apps)
+                        // Room under the labels for the focused card and row to grow into.
+                        Text(tr("Top result"), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 14.dp))
+                        if (top != null) TopCard(top, apps, Modifier.focusRequester(topCard).focusProperties {
+                            up = back; right = if (hits.size > 1) more else FocusRequester.Cancel
+                        })
                         else Text(if (query.isBlank()) tr("Type a name. It finds apps, the TV's settings and Home's own.") else tr("Nothing on this TV is called that."), color = GLASS_MUTED, fontSize = 14.sp)
                     }
-                    Column(Modifier.weight(1f).fillMaxHeight()) {
-                        Text(tr("More"), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 9.dp))
-                        LazyColumn(Modifier.fillMaxSize().focusGroup(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                            items(hits.drop(1), key = { it.kind.toString() + it.title }) { h -> ResultRow(h) }
+                    if (hits.size > 1) Column(Modifier.weight(1f).fillMaxHeight()) {
+                        Text(tr("More"), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 10.dp))
+                        LazyColumn(Modifier.fillMaxSize().focusGroup(), contentPadding = PaddingValues(vertical = 4.dp, horizontal = 6.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                            itemsIndexed(hits.drop(1), key = { _, h -> h.kind.toString() + h.title }) { i, h ->
+                                ResultRow(h, Modifier.focusProperties { left = topCard; if (i == 0) up = back }.then(if (i == 0) Modifier.focusRequester(more) else Modifier))
+                            }
                         }
                     }
                 }
@@ -260,12 +293,13 @@ private fun Capsule(label: String, modifier: Modifier = Modifier, onClick: () ->
 
 /** The best match on its own glass card: the app's banner when it's an app, its name large, and Open. */
 @Composable
-private fun TopCard(h: Hit, apps: List<TvApp>) {
+private fun TopCard(h: Hit, apps: List<TvApp>, modifier: Modifier) {
     val app = if (h.kind == Hit.APP) apps.firstOrNull { it.label == h.title } else null
-    Pane(20.dp, Modifier.fillMaxWidth().height(280.dp), scale = 1.03f, onClick = h.go) { f ->
+    Pane(20.dp, modifier.fillMaxWidth().height(280.dp), scale = 1.03f, onClick = h.go) { f ->
         val ink = if (f) GLASS_INK else Color.White
         Column(Modifier.fillMaxSize().padding(20.dp)) {
-            Box(Modifier.width(132.dp).height(74.dp).clip(RoundedCornerShape(13.dp)).background(Color.White.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+            // On the white focused card the tile goes a shade darker, so the letter keeps its ground.
+            Box(Modifier.width(132.dp).height(74.dp).clip(RoundedCornerShape(13.dp)).background(if (f) GLASS_INK.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
                 if (app != null) Image(app.art, app.label, Modifier.fillMaxSize(), contentScale = if (app.banner) ContentScale.Crop else ContentScale.Fit)
                 else Text(h.title.take(1).uppercase(), color = ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
             }
@@ -279,8 +313,8 @@ private fun TopCard(h: Hit, apps: List<TvApp>) {
 }
 
 @Composable
-private fun ResultRow(h: Hit) {
-    Pane(15.dp, Modifier.fillMaxWidth().height(56.dp), scale = 1.02f, onClick = h.go) { f ->
+private fun ResultRow(h: Hit, modifier: Modifier) {
+    Pane(15.dp, modifier.fillMaxWidth().height(56.dp), scale = 1.02f, onClick = h.go) { f ->
         val ink = if (f) GLASS_INK else Color.White
         Row(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(when (h.kind) { Hit.APP -> tr("App"); Hit.HOME -> tr("Home"); else -> tr("Setting") }, color = ink.copy(alpha = 0.72f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(62.dp))

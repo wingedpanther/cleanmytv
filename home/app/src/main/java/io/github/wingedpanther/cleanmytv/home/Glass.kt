@@ -232,11 +232,12 @@ private fun GlassHome(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Qu
                 GlassDockTile(app, ui, movingApp?.pkg == app.pkg, dimmed = movingApp != null && movingApp.pkg != app.pkg,
                     Modifier.then(ui.focusFor("dock", app)).then(if (i == 0 && ownStart) Modifier.focusRequester(start) else Modifier)
                         .then(if (app.pkg == shownApp?.pkg) Modifier.focusRequester(dockBack) else Modifier)
-                        .focusProperties { up = if (hasShelf) shelf else top }) { current = app }
+                        .focusProperties { up = if (hasShelf) shelf else top; if (i == 0) left = FocusRequester.Cancel }) { current = app }
             }
             // All apps stays in place during a move, so the tray keeps its width.
             Box(Modifier.graphicsLayer { alpha = if (movingApp != null) 0.5f else 1f }) {
-                GlassTile(12.dp, Modifier.width(104.dp).height(59.dp), onClick = onAllApps) { f ->
+                // The ends of the tray stop the arrows; the usual search jumped from here up to the top bar.
+                GlassTile(12.dp, Modifier.width(104.dp).height(59.dp).focusProperties { right = FocusRequester.Cancel; up = if (hasShelf) shelf else top }, onClick = onAllApps) { f ->
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(tr("All apps"), color = if (f) GLASS_INK else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.01).em)
                     }
@@ -246,8 +247,16 @@ private fun GlassHome(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Qu
     }
 }
 
+/** Home's first-run tip in a glass capsule just above the tray, clear of the dock. */
+@Composable
+internal fun GlassTip(text: String, onPhoto: Boolean, modifier: Modifier) {
+    val fill = if (onPhoto) PHOTO_TILE else GLASS_FILL
+    Text(text, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium,
+        modifier = modifier.padding(bottom = GLASS_Y + 101.dp).glass(18.dp, fill).padding(horizontal = 18.dp, vertical = 8.dp))
+}
+
 /** Six apps in the tray, then All apps. */
-private const val GLASS_DOCK = 6
+internal const val GLASS_DOCK = 6
 
 @Composable
 private fun GlassTopBar(ui: Ui, quick: List<QuickAction>, onQuick: (QuickAction) -> Unit, top: FocusRequester, down: () -> FocusRequester) {
@@ -263,9 +272,11 @@ private fun GlassTopBar(ui: Ui, quick: List<QuickAction>, onQuick: (QuickAction)
         }
         Spacer(Modifier.weight(1f))
         val capsule = if (LocalGlassOnPhoto.current) PHOTO_TILE else GLASS_FILL
+        // The icons have no labels: while one has focus, the status capsule says what it opens.
+        var named by remember { mutableStateOf<String?>(null) }
         Row(Modifier.height(28.dp).glass(14.dp, capsule).padding(horizontal = 13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
-            Text(network, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-            if (debugging) {
+            Text(named ?: network, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+            if (debugging && named == null) {
                 Box(Modifier.width(1.dp).height(12.dp).background(Color.White.copy(alpha = 0.28f)))
                 Box(Modifier.size(6.dp).background(glassAccent(ui.cfg), CircleShape))
                 Text(tr("Debugging on"), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
@@ -275,7 +286,8 @@ private fun GlassTopBar(ui: Ui, quick: List<QuickAction>, onQuick: (QuickAction)
         // white circle. Five at most; the rest are in Control centre.
         if (quick.isNotEmpty()) Row(Modifier.padding(start = 10.dp).height(28.dp).glass(14.dp, capsule).focusGroup()) {
             quick.take(5).forEachIndexed { i, a ->
-                QuickIcon(a, ui, Modifier.then(if (i == 0) Modifier.focusRequester(top) else Modifier).focusProperties { this.down = down() }) { onQuick(a) }
+                QuickIcon(a, ui, Modifier.then(if (i == 0) Modifier.focusRequester(top) else Modifier).focusProperties { this.down = down() }
+                    .onFocusChanged { if (it.isFocused) named = a.label else if (named == a.label) named = null }) { onQuick(a) }
             }
         }
     }
@@ -470,7 +482,7 @@ internal fun GlassControl(onFind: () -> Unit, onEditor: (() -> Unit)?, onClose: 
             ) {
                 Row(Modifier.padding(horizontal = 3.dp).padding(bottom = 4.dp), verticalAlignment = Alignment.Bottom) {
                     Text(tr("Control centre"), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Text(remember { tvName(ctx) }, color = GLASS_MUTED, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp))
+                    Text(remember { tvName(ctx).orEmpty() }, color = GLASS_MUTED, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp))
                 }
                 val left = sleepAt?.let { ((it - System.currentTimeMillis() + 59_999) / 60_000L).toInt() }?.takeIf { it > 0 }
                 val modules = listOfNotNull(

@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -105,9 +106,15 @@ private val DIGIT_KEYS = listOf(Key.Zero, Key.One, Key.Two, Key.Three, Key.Four,
 /** 0 to 9 for a number key, on the main keys or the number pad; null for any other key. */
 internal fun digitKey(k: Key): Int? = DIGIT_KEYS.indexOf(k).takeIf { it >= 0 }?.let { it % 10 }
 
-/** The TV's name, as the owner set it, for the Home page's title. */
-internal fun tvName(ctx: android.content.Context): String =
-    runCatching { Settings.Global.getString(ctx.contentResolver, "device_name") }.getOrNull()?.takeIf { it.isNotBlank() } ?: android.os.Build.MODEL
+/**
+ * The TV's name, as the owner set it, with underscores as spaces. Null when it has none, or only the raw model
+ * code some boxes leave there ("sdk_google_atv64_arm64").
+ */
+internal fun tvName(ctx: android.content.Context): String? {
+    val n = runCatching { Settings.Global.getString(ctx.contentResolver, "device_name") }.getOrNull()?.trim()?.takeIf { it.isNotBlank() } ?: return null
+    val codes = listOf(android.os.Build.MODEL, android.os.Build.DEVICE, android.os.Build.PRODUCT).map { it.lowercase() }
+    return if ('_' in n && n.lowercase() in codes) null else n.replace('_', ' ')
+}
 
 /**
  * A page: its name, date and clock on the first row, the title on a coloured band, the body, one hint in cyan,
@@ -190,14 +197,17 @@ internal fun TextFocus(
  * A numbered line: the number in yellow, an optional kind word, the name, blue leader dots, and the value at the
  * right. Focused, the whole line is a cyan bar with black bold text. [marked] paints it yellow, for a move.
  * Until the remote has shown it has number keys, the number's column stays, empty, so nothing shifts.
+ * Left and Right do nothing on a line unless [sideways] (the two-column All apps), or Right goes to [toRight]:
+ * the usual search found the colour words at the bottom and the list lost its place.
  */
 @Composable
 internal fun TextLine(
     number: String?, name: String, value: String, modifier: Modifier = Modifier, valueInk: Color = TT_GREEN,
-    kind: Pair<String, Color>? = null, kindWidth: Dp = 96.dp, marked: Boolean = false, badge: Boolean? = null,
+    kind: Pair<String, Color>? = null, kindWidth: Dp = 96.dp, marked: Boolean = false, badge: Boolean? = null, sideways: Boolean = false, toRight: FocusRequester? = null,
     onFocus: () -> Unit = {}, onLongClick: (() -> Unit)? = null, onClick: () -> Unit,
 ) {
-    TextFocus(modifier.fillMaxWidth().height(TT_ROW), bg = if (marked) TT_YELLOW else Color.Transparent, focusBg = if (marked) TT_YELLOW else TT_CYAN,
+    val held = if (sideways) Modifier else Modifier.focusProperties { left = FocusRequester.Cancel; right = toRight ?: FocusRequester.Cancel }
+    TextFocus(modifier.then(held).fillMaxWidth().height(TT_ROW), bg = if (marked) TT_YELLOW else Color.Transparent, focusBg = if (marked) TT_YELLOW else TT_CYAN,
         onFocus = onFocus, onLongClick = onLongClick, onClick = onClick) { f ->
         val on = f || marked
         val weight = if (on) FontWeight.Bold else FontWeight.Medium
@@ -316,7 +326,7 @@ internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick
     val used by produceState(emptyMap<String, Long>(), seen, dock.map { it.pkg }) { value = withContext(Dispatchers.IO) { Recent.lastUsed(ctx, dock.map { it.pkg }) } }
     val debugging by produceState(false, seen) { value = withContext(Dispatchers.IO) { TvSettings.debuggingOn(ctx) } }
     val network = remember(seen) { TvSettings.network(ctx).substringBefore(" · ") }
-    val room = remember(seen) { tvName(ctx) }
+    val room = remember(seen) { tvName(ctx) ?: tr("Home") }
     // Home's first focus can be in a section Teletext doesn't draw: then it starts on line 1.
     val start = remember { FocusRequester() }
     val ownStart = ui.focusKey?.startsWith("dock:") != true
@@ -346,6 +356,9 @@ internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick
                 }
             }
         }) {
+        // Right from the index goes to what there is to continue, when there is something.
+        val watchLine = remember { FocusRequester() }
+        val toWatch = watchLine.takeIf { home.watch.isNotEmpty() }
         Row {
             Column(Modifier.width(500.dp)) {
                 TextHead(tr("Index"), TT_CYAN)
@@ -355,11 +368,11 @@ internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick
                         ?: used[app.pkg]?.let { usedWhen(it) } ?: ""
                     TextLine("${i + 1}", app.label, value, Modifier.then(ui.focusFor("dock", app)).then(if (i == 0 && ownStart) Modifier.focusRequester(start) else Modifier)
                         .then(if (app.pkg == back) Modifier.focusRequester(backTo) else Modifier),
-                        onFocus = { ui.onFocusApp(app) }, onLongClick = { ui.onAppMenu("dock", app) }) { launch(ctx, app) }
+                        toRight = toWatch, onFocus = { ui.onFocusApp(app) }, onLongClick = { ui.onAppMenu("dock", app) }) { launch(ctx, app) }
                 }
                 val first = if (dock.isEmpty() && ownStart) Modifier.focusRequester(start) else Modifier
                 pages.forEachIndexed { k, (label, go) ->
-                    TextLine("${(dock.size + k + 1) % 10}", label, "", if (k == 0) first else Modifier, onClick = go)
+                    TextLine("${(dock.size + k + 1) % 10}", label, "", if (k == 0) first else Modifier, toRight = toWatch, onClick = go)
                 }
             }
             Spacer(Modifier.width(36.dp))
@@ -367,7 +380,7 @@ internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick
                 home.watch.firstOrNull()?.let { w ->
                     val app = home.app(w.pkg)
                     TextHead(tr("Continue"), TT_MAGENTA)
-                    TextFocus(Modifier.fillMaxWidth().height(TT_ROW), onLongClick = { ui.onWatchMenu(w) },
+                    TextFocus(Modifier.focusRequester(watchLine).fillMaxWidth().height(TT_ROW), onLongClick = { ui.onWatchMenu(w) },
                         onClick = { (WatchNext.intent(ctx, w) ?: app?.launch)?.let { open(ctx, w.pkg, it, app?.launch) } }) { f ->
                         Text(w.title, color = if (f) TT_BLACK else TT_WHITE, fontWeight = if (f) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 8.dp))
                     }
@@ -421,7 +434,7 @@ private fun TextArrange(m: Moving, dock: List<TvApp>, ui: Ui, pick: Int?, a: Tex
                 TextRow(tr("Up, Down  move"))
                 TextRow(tr("OK  done"))
                 TextRow(tr("Back  cancel"))
-                TextRow(tr("Left, Right  buttons"))
+                TextRow(tr("Left, Right  bottom keys"))
                 TextHead(tr("Now"), TT_GREEN)
                 TextRow(tr("{app} is {n} of {all}", "app" to m.label, "n" to place, "all" to dock.size))
                 TextRow(tr("It was {n} of {all}", "n" to was, "all" to dock.size), TT_CYAN)

@@ -121,9 +121,10 @@ private fun start(ctx: Context, i: Intent) =
 
 /**
  * What [query] finds on this TV: apps by name, then each one's info screen, the TV's settings screens and
- * Home's own settings. Files would need storage access, which Home doesn't ask for.
+ * Home's own settings. Files would need storage access, which Home doesn't ask for. [onEditor] closes the
+ * search page first: the editor is see-through, and the page would show under it.
  */
-internal fun searchTv(ctx: Context, query: String, apps: List<TvApp>, dock: Set<String>, kinds: Map<String, String>, onApp: (TvApp) -> Unit): List<Hit> {
+internal fun searchTv(ctx: Context, query: String, apps: List<TvApp>, dock: Set<String>, kinds: Map<String, String>, onEditor: () -> Unit, onApp: (TvApp) -> Unit): List<Hit> {
     val q = query.trim().lowercase()
     if (q.isEmpty()) return emptyList()
     val found = apps.filter { q in it.label.lowercase() }.sortedBy { if (it.label.lowercase().startsWith(q)) 0 else 1 }.take(6)
@@ -146,6 +147,7 @@ internal fun searchTv(ctx: Context, query: String, apps: List<TvApp>, dock: Set<
     }
     for (f in searchSettings(q).take(4)) {
         hits += Hit(Hit.HOME, tr(f.name), tr("home › {section}", "section" to f.where.label), tr("open")) {
+            onEditor()
             start(ctx, Intent(ctx, CustomizationActivity::class.java).putExtra(CustomizationActivity.FIND, f.name))
         }
     }
@@ -168,7 +170,7 @@ internal fun FindPage(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, onA
     var digits by remember { mutableStateOf(false) }
     val first = remember { FocusRequester() }
     val kinds by produceState(emptyMap<String, String>(), apps) { value = withContext(Dispatchers.IO) { apps.associate { it.pkg to (kindWord(ctx, it.pkg) ?: "") }.filterValues { it.isNotEmpty() } } }
-    val hits = remember(query, apps, kinds) { searchTv(ctx, query, apps, dock, kinds) { onClose(); onApp(it) } }
+    val hits = remember(query, apps, kinds) { searchTv(ctx, query, apps, dock, kinds, onClose) { onClose(); onApp(it) } }
     val speech = remember { Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM).takeIf { it.resolveActivity(ctx.packageManager) != null } }
     val listen = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { query = it.lowercase().take(MAX_QUERY) }
@@ -279,7 +281,8 @@ private fun HitRow(h: Hit, look: PageLook) {
             Row(Modifier.weight(1f).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 HitMark(h.kind, 24.dp)
                 Column(Modifier.weight(1f).padding(start = 22.dp)) {
-                    Text(look.case(h.title), color = ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    // Settings' names run long ("Start on the app I usually open"): two lines before they're cut.
+                    Text(look.case(h.title), color = ink, fontSize = 19.sp, lineHeight = 21.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(look.case(h.sub), color = if (focused) look.onFocus.copy(alpha = 0.7f) else look.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Text(look.case(h.action), color = ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 12.dp, end = 8.dp))
@@ -388,7 +391,7 @@ internal fun AppsPage(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Uni
                         modifier = Modifier.padding(start = 14.dp).weight(1f))
                 } ?: Spacer(Modifier.weight(1f))
                 Text(look.case(tr("Hold OK")), color = look.text, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.border(1.dp, look.text).padding(horizontal = 6.dp, vertical = 3.dp))
-                Text(look.case(tr("move, hide, app info, uninstall")), color = look.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 10.dp))
+                Text(look.case(tr("favourites, hide, app info, uninstall")), color = look.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 10.dp))
             }
         }
     }
