@@ -70,7 +70,7 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
         if (config.layout == "glass") {
             TvRadioGroup(
                 title = tr("Backdrop"),
-                options = listOf("wallpaper" to tr("My wallpaper"), "slate" to tr("Glass slate")),
+                options = listOf("slate" to tr("Glass slate"), "wallpaper" to tr("My wallpaper")),
                 current = config.glassBackdrop,
                 onSelect = { ConfigStore.update(ctx, JSONObject().put("glass_backdrop", it)) }
             )

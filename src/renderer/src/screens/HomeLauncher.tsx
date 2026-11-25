@@ -825,7 +825,7 @@ function LayoutTab({ apps, cfg, set, sdk }: { apps: TvApp[]; cfg: HomeConfig; se
           <div style={{ marginTop: 14 }}>
             <p style={{ margin: '0 0 8px', fontWeight: 600 }}>{t('Backdrop')}</p>
             <div className="seg" style={{ marginBottom: 12 }}>
-              {([['wallpaper', t('My wallpaper')], ['slate', t('Glass slate')]] as const).map(([id, label]) => (
+              {([['slate', t('Glass slate')], ['wallpaper', t('My wallpaper')]] as const).map(([id, label]) => (
                 <button key={id} className={cfg.glass_backdrop === id ? 'on' : ''} onClick={() => set({ glass_backdrop: id })}>{label}</button>
               ))}
             </div>

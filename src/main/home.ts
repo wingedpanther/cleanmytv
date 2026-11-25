@@ -25,7 +25,7 @@ export const DEFAULTS: HomeConfig = {
   rows: [], folders: [], new_apps_to: '', dock_scale: 100, tile_scale: 100, buttons_on: false, buttons: [], stock_redirect: '', power_on_input: false, power_on_target: '', power_on_wait: 0,
   accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35, snow: false,
   edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, bing_caption: true, theme_memory: true, lock_editor: false, update_check: true, keyboard_guard: true, number_keys: true, home_twice: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
-  order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, focus_usual: false, tilt: false, glass_banners: false, glass_backdrop: 'wallpaper',
+  order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, focus_usual: false, tilt: false, glass_banners: false, glass_backdrop: 'slate',
   icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, intro: true, wallpaper_from: '',
   wifi_name: '', wifi_password: '', wifi_security: 'WPA', guest_apps: [],
   lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge',

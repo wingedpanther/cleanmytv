@@ -86,7 +86,7 @@ data class HomeConfig(
     val focusUsual: Boolean = false, // Home opens on the app usually opened at this hour (Usual)
     val tilt: Boolean = false, // with lift: the tile leans toward the move, then settles
     val glassBanners: Boolean = false, // Glass's dock and All apps show banners instead of name tiles
-    val glassBackdrop: String = "wallpaper", // Glass over the owner's wallpaper, or over its own slate ("slate")
+    val glassBackdrop: String = "slate", // Glass over its own slate, or over the owner's wallpaper ("wallpaper")
     // Icons: "banner" is the app's own TV banner; the rest redraw every app's logo the same way
     val iconStyle: String = "banner", // banner, colour, mono, duo
     val tileShape: String = "wide", // wide, square, squircle, round; banner tiles are always wide
