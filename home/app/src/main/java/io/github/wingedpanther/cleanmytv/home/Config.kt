@@ -215,6 +215,7 @@ data class HomeConfig(
         .put("tilt", tilt)
         .put("glass_banners", glassBanners)
         .put("glass_backdrop", glassBackdrop)
+        .put("glass_backdrop_v", 2) // see ConfigStore.load
         .put("icon_style", iconStyle)
         .put("tile_shape", tileShape)
         .put("tile_glass", tileGlass)
@@ -516,6 +517,9 @@ object ConfigStore {
             val known = saved.optJSONArray("sections_known")?.let { a -> (0 until a.length()).map { a.optString(it) }.toSet() }
             val sections = HomeConfig.addNewSections(_config.value.sections, known)
             if (sections != _config.value.sections) update(ctx, JSONObject().put("sections", JSONArray(sections)), remember = false)
+            // Glass's backdrop became the slate by default in 1.13.28, but the builds before saved "wallpaper"
+            // along with everything else. Those TVs switch to the slate once; a choice made after that sticks.
+            if (!saved.has("glass_backdrop_v")) update(ctx, JSONObject().put("glass_backdrop", "slate"), remember = false)
         }
     }
 
