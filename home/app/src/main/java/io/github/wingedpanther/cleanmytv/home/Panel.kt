@@ -35,6 +35,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -54,7 +55,7 @@ import kotlinx.coroutines.launch
 
 private val P_TEXT = Color(0xFFF0EBE5)
 private val P_MUTED = Color(0xFFD7CFC4)
-private val P_PANEL = Color(0xF51C2A1F)
+private val P_PANEL: Color get() = HomeColours.ground.copy(alpha = 0.96f)
 
 /**
  * Quick settings, down the right edge: the settings people change most, set right here with left and right.
@@ -261,13 +262,15 @@ private fun PanelRow(label: String, value: String, hint: String?, accent: Color,
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.05f), focusedContainerColor = accent.copy(alpha = 0.9f))
     ) {
+        // A light accent, like white, takes dark text on the focused row.
+        val text = if (focused && accent.luminance() > 0.36f) Color(0xFF1C1C1C) else P_TEXT
         Row(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(label, color = P_TEXT, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (hint != null) Text(hint, color = P_MUTED.copy(alpha = 0.8f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(label, color = text, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (hint != null) Text(hint, color = if (text == P_TEXT) P_MUTED.copy(alpha = 0.8f) else text.copy(alpha = 0.75f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.width(10.dp))
-            Text((if (arrows && focused) "‹  " else "") + value + (if (arrows && focused) "  ›" else ""), color = P_TEXT.copy(alpha = 0.9f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(170.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+            Text((if (arrows && focused) "‹  " else "") + value + (if (arrows && focused) "  ›" else ""), color = text.copy(alpha = 0.9f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(170.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
         }
     }
 }

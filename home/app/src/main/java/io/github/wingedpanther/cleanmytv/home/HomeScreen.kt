@@ -150,13 +150,13 @@ import java.util.Date
 // CleanMyTV's dark world: warm off-white and sand text on the green-black ground.
 private val TEXT = Color(0xFFF0EBE5)
 private val MUTED = Color(0xFFD7CFC4)
-private val TILE = Color(0xE62D3A2E)
-private val TILE_FOCUSED = Color(0xFF3A4A3B)
+private val TILE: Color get() = HomeColours.panel.copy(alpha = 0.9f)
+private val TILE_FOCUSED: Color get() = HomeColours.raised
 
 /** A focused row in Home's menus: the accent, mixed into the tile so the light text still reads (#112). */
 private fun menuFocus(ui: Ui): Color = lerp(TILE, ui.accent, 0.45f)
 private val GROUND = Color(0xFF1C2A1F)
-private val PANEL = Color(0xFF2D3A2E)
+private val PANEL: Color get() = HomeColours.panel
 
 // The desktop app's face, for the clock and date: tabular figures that don't jitter as the minutes turn.
 private val CLOCK = FontFamily(Font(R.font.jetbrains_mono_light, FontWeight.Light), Font(R.font.jetbrains_mono_regular, FontWeight.Normal))

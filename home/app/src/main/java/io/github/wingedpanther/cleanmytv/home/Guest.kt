@@ -96,7 +96,7 @@ fun GuestDialog(cfg: HomeConfig, accent: Color, onClose: () -> Unit) {
     }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.82f)), contentAlignment = Alignment.Center) {
-            Row(Modifier.background(Color(0xF22D3A2E), RoundedCornerShape(20.dp)).padding(26.dp), horizontalArrangement = Arrangement.spacedBy(26.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.background(HomeColours.panel.copy(alpha = 0.95f), RoundedCornerShape(20.dp)).padding(26.dp), horizontalArrangement = Arrangement.spacedBy(26.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (code != null) Box(Modifier.size(230.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(12.dp)) { Qr(code) }
                 Column(Modifier.width(340.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(tr("Guest Wi-Fi"), color = Color(0xFFF0EBE5), fontSize = 22.sp, fontWeight = FontWeight.Medium)

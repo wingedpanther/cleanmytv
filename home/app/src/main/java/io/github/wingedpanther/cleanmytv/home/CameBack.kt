@@ -60,7 +60,7 @@ fun CameBackDialog(back: List<String>, accent: Color, onClose: () -> Unit) {
     val names = remember(back) { back.map { CameBack.label(ctx, it) }.sorted() }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.82f)), contentAlignment = Alignment.Center) {
-            Column(Modifier.width(620.dp).background(Color(0xF22D3A2E), RoundedCornerShape(20.dp)).padding(26.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.width(620.dp).background(HomeColours.panel.copy(alpha = 0.95f), RoundedCornerShape(20.dp)).padding(26.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(tr("Some apps came back"), color = Color(0xFFF0EBE5), fontSize = 22.sp, fontWeight = FontWeight.Medium)
                 Text(
                     tr("{n} apps CleanMyTV switched off are on again, probably after a system update.", "n" to names.size.toString()),

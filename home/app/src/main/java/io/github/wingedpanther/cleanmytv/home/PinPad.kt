@@ -60,7 +60,7 @@ import kotlinx.coroutines.Dispatchers
 
 private val PAD_TEXT = Color(0xFFF0EBE5)
 private val PAD_MUTED = Color(0xFFD7CFC4)
-private val PAD_PANEL = Color(0xF22D3A2E)
+private val PAD_PANEL: Color get() = HomeColours.panel.copy(alpha = 0.95f)
 
 private val DIGIT_KEYS = mapOf(
     Key.Zero to '0', Key.One to '1', Key.Two to '2', Key.Three to '3', Key.Four to '4',

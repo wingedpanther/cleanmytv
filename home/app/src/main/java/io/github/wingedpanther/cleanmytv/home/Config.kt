@@ -512,6 +512,7 @@ object ConfigStore {
         runCatching {
             val saved = JSONObject(f.readText())
             _config.value = HomeConfig.fromJson(saved)
+            HomeColours.follow(_config.value.background)
             val known = saved.optJSONArray("sections_known")?.let { a -> (0 until a.length()).map { a.optString(it) }.toSet() }
             val sections = HomeConfig.addNewSections(_config.value.sections, known)
             if (sections != _config.value.sections) update(ctx, JSONObject().put("sections", JSONArray(sections)), remember = false)
@@ -534,6 +535,7 @@ object ConfigStore {
         val swapped = runCatching { tmp.writeText(text); tmp.renameTo(file(ctx)) }.getOrDefault(false)
         if (!swapped) { tmp.delete(); file(ctx).writeText(text) }
         _config.value = next
+        HomeColours.follow(next.background)
         if (remember && json.keys().asSequence().any { it in ThemePack.MEMORY_KEYS }) runCatching { ThemePack.remember(ctx) }
         return next
     }

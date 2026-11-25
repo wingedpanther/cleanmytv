@@ -38,7 +38,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import kotlinx.coroutines.launch
 
-private val UPDATE_PANEL = Color(0xF22D3A2E)
+private val UPDATE_PANEL: Color get() = HomeColours.panel.copy(alpha = 0.95f)
 private val UPDATE_TEXT = Color(0xFFF0EBE5)
 private val UPDATE_MUTED = Color(0xFFD7CFC4)
 

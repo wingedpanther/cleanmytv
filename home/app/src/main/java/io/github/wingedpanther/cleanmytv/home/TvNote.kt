@@ -71,7 +71,7 @@ fun NoteDialog(note: TvNote.Note, accent: Color, onOk: () -> Unit) {
     else tr("Left on {day} at {time}", "day" to DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(note.at)), "time" to time)
     Dialog(onDismissRequest = {}, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
-            Column(Modifier.width(620.dp).background(Color(0xF22D3A2E), RoundedCornerShape(20.dp)).padding(26.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.width(620.dp).background(HomeColours.panel.copy(alpha = 0.95f), RoundedCornerShape(20.dp)).padding(26.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(tr("A note"), color = accent, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 Text(note.text, color = Color(0xFFF0EBE5), fontSize = 28.sp, lineHeight = 36.sp)
                 Text(left, color = Color(0xFFD7CFC4), fontSize = 14.sp)

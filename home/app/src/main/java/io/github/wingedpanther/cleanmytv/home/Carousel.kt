@@ -135,7 +135,7 @@ fun ThemeCarousel(accent: Color, onClose: () -> Unit) {
 @Composable
 private fun Card(ctx: Context, theme: PackTheme, v: Int, w: Dp, sample: Int, modifier: Modifier) {
     val img = picture(ctx, theme.id, v, sample)
-    Box(modifier.size(w, w * 9 / 16).clip(RoundedCornerShape(14.dp)).background(Color(0xFF1C2A1F))) {
+    Box(modifier.size(w, w * 9 / 16).clip(RoundedCornerShape(14.dp)).background(HomeColours.ground)) {
         img?.let { Image(it, theme.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
     }
 }
