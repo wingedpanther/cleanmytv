@@ -303,7 +303,10 @@ object ScreenTime {
         val days = days(ctx, from) ?: return JSONObject().put("allowed", false)
         val list = JSONArray()
         days.take(PAGE).forEach { d -> list.put(d.json().put("day", d.day.toString())) }
+        // Every app on these days gets its name, so the desktop app needn't show a package name for one it
+        // can't find in Home's own list, like the screensaver.
         val names = JSONObject()
+        days.take(PAGE).flatMap { it.apps.keys }.toSet().forEach { p -> names.put(p, ScreenTimeApps.name(ctx, p)) }
         inputNames(ctx).forEach { (k, v) -> names.put(k, v) }
         return JSONObject().put("allowed", true).put("today", today.toString()).put("first", firstDay(ctx)?.toString() ?: today.toString()).put("days", list).put("names", names)
     }

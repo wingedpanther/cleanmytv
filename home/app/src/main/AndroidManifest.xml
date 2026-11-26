@@ -35,6 +35,9 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- Recently used: the desktop app grants usage access over ADB only while that row is on. -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
+    <!-- Screen time names every app the TV ran, also the ones with no icon in the app list, like the
+         screensaver or Chromecast built-in, which Android 11+ hides from the queries below. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
     <!-- Continue watching: the TV provider's Watch Next list. The first lets Home open the provider at all;
          the second, which CleanMyTV grants over ADB, lets it see other apps' entries and not only its own. -->
     <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" />

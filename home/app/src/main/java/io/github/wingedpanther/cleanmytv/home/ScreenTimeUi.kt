@@ -1,6 +1,7 @@
 package io.github.wingedpanther.cleanmytv.home
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -93,16 +94,32 @@ class ScreenSummary(val week: List<DayUse>, val top: List<UsedApp>, val lastWeek
 object ScreenTimeApps {
     private val known = HashMap<String, Pair<String, ImageBitmap?>>()
 
-    /** Names and icons, looked up once. An app since removed keeps its package name. */
+    /**
+     * Names and icons, looked up once, also for apps the clean-up switched off or took away for this user. An
+     * app removed for good gets a name made from its package, not the package itself.
+     */
     @Synchronized
     fun info(ctx: Context, pkg: String): Pair<String, ImageBitmap?> = known.getOrPut(pkg) {
         if (InputTiles.isInput(pkg)) return@getOrPut (ScreenTime.inputNames(ctx)[pkg] ?: tr("Input")) to null
         val pm = ctx.packageManager
         runCatching {
-            val ai = pm.getApplicationInfo(pkg, 0)
-            pm.getApplicationLabel(ai).toString() to runCatching { pm.getApplicationIcon(ai).toBitmap(96, 96).asImageBitmap() }.getOrNull()
-        }.getOrDefault(pkg to null)
+            val ai = appInfo(ctx, pkg)
+            pm.getApplicationLabel(ai).toString().trim().ifEmpty { readable(pkg) } to runCatching { pm.getApplicationIcon(ai).toBitmap(96, 96).asImageBitmap() }.getOrNull()
+        }.getOrDefault(readable(pkg) to null)
     }
+
+    /** Just the name, with no icon to load: for the desktop app's Screen time. */
+    fun name(ctx: Context, pkg: String): String = known[pkg]?.first
+        ?: runCatching { ctx.packageManager.getApplicationLabel(appInfo(ctx, pkg)).toString().trim().ifEmpty { readable(pkg) } }.getOrDefault(readable(pkg))
+
+    @Suppress("DEPRECATION")
+    private fun appInfo(ctx: Context, pkg: String) =
+        ctx.packageManager.getApplicationInfo(pkg, PackageManager.MATCH_DISABLED_COMPONENTS or PackageManager.MATCH_UNINSTALLED_PACKAGES)
+
+    /** "com.google.android.apps.tv.dreamx" reads "Dreamx": the last part of the name that isn't a version or "android". */
+    fun readable(pkg: String): String =
+        pkg.split('.').lastOrNull { it.length > 2 && it !in setOf("android", "tv", "app", "apps", "stable", "beta", "release") && !it.all(Char::isDigit) }
+            ?.replaceFirstChar { it.uppercase() } ?: pkg
 
     /** The apps on for a minute or more, longest first. */
     fun top(ctx: Context, apps: Map<String, Long>, n: Int = Int.MAX_VALUE): List<UsedApp> =
