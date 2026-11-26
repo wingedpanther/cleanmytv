@@ -24,6 +24,12 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.tv.material3.LocalTextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.Icons
@@ -400,16 +406,33 @@ internal fun AppsPage(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Uni
     val tabs = TABS.filter { t -> t == "all" || real.any { inTab(t, it) } }
     val shown = real.filter { inTab(tab, it) }
     val first = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+    LaunchedEffect(Unit) { focusWhenReady(first) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.fillMaxSize().background(look.ground).padding(horizontal = PAGE_X, vertical = PAGE_Y)) {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(look.case(tr("All apps")), color = look.text, fontSize = 64.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, modifier = Modifier.offset(y = 10.dp))
-                Spacer(Modifier.weight(1f))
-                // Search opens over this page; Back from it comes back here, on this entry (H14).
-                Row(Modifier.focusGroup().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.Bottom) {
-                    SearchEntry(look, onFind)
-                    tabs.forEach { t -> TabChip(look.case(tabName(t)), real.count { inTab(t, it) }, t == tab, look) { tab = t } }
+                Text(look.case(tr("All apps")), color = look.text, fontSize = 64.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, modifier = Modifier.offset(y = 10.dp).padding(end = 28.dp))
+                // The tabs never wrap. With a wide font or five tabs, Search drops to its magnifier, then the
+                // tabs close up (Q1). Search opens over this page; Back from it comes back here (H14).
+                BoxWithConstraints(Modifier.weight(1f).padding(bottom = 10.dp), contentAlignment = Alignment.BottomEnd) {
+                    val measurer = rememberTextMeasurer()
+                    val base = LocalTextStyle.current
+                    val density = LocalDensity.current
+                    val chips = tabs.map { t -> Triple(t, look.case(tabName(t)), real.count { inTab(t, it) }) }
+                    val search = look.case(if (look.bau) tr("Search") else tr("Search apps"))
+                    val room = remember(chips, search, base, constraints.maxWidth) {
+                        fun w(s: String, sp: Int, weight: FontWeight) = measurer.measure(s, base.merge(TextStyle(fontSize = sp.sp, fontWeight = weight)), maxLines = 1, softWrap = false).size.width
+                        with(density) {
+                            val tabsW = chips.sumOf { (_, n, c) -> w(n, 16, FontWeight.ExtraBold) + w(" $c", 15, FontWeight.SemiBold) + 8.dp.roundToPx() }
+                            val icon = (16 + 2 * 12 + 2).dp.roundToPx()
+                            val words = 6.dp.roundToPx() + w(search, 16, FontWeight.ExtraBold)
+                            fun fits(gap: Int, label: Boolean) = tabsW + icon + (if (label) words else 0) + chips.size * gap.dp.roundToPx() <= constraints.maxWidth
+                            when { fits(20, true) -> 20 to true; fits(20, false) -> 20 to false; else -> 12 to false }
+                        }
+                    }
+                    Row(Modifier.focusGroup(), horizontalArrangement = Arrangement.spacedBy(room.first.dp), verticalAlignment = Alignment.Bottom) {
+                        SearchEntry(look, search, words = room.second, onFind)
+                        chips.forEach { (t, n, c) -> TabChip(n, c, t == tab, look) { tab = t } }
+                    }
                 }
             }
             Spacer(Modifier.height(26.dp))
@@ -431,9 +454,15 @@ internal fun AppsPage(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Uni
     }
 }
 
-/** Search in the All apps header: in Bauhaus a word like the tabs, elsewhere a pill. */
+/** Focus [r] once its item is laid out. On a first open a page's grid can draw a few frames late, and focus
+ * then fell on the header instead of the first app (Q2). */
+internal suspend fun focusWhenReady(r: FocusRequester) {
+    repeat(30) { if (runCatching { r.requestFocus() }.getOrDefault(false)) return; withFrameNanos { } }
+}
+
+/** Search in the All apps header: in Bauhaus a word like the tabs, elsewhere a pill; only the magnifier without [words]. */
 @Composable
-private fun SearchEntry(look: PageLook, onClick: () -> Unit) {
+private fun SearchEntry(look: PageLook, label: String, words: Boolean, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = if (look.bau) RectangleShape else RoundedCornerShape(16.dp)
     Surface(
@@ -444,8 +473,8 @@ private fun SearchEntry(look: PageLook, onClick: () -> Unit) {
     ) {
         val ink = if (focused) look.onFocus else look.text
         Row(Modifier.padding(horizontal = if (look.bau) 4.dp else 12.dp, vertical = if (look.bau) 3.dp else 6.dp).padding(bottom = if (look.bau) 7.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
-            Image(Icons.Outlined.Search, null, Modifier.size(16.dp), colorFilter = ColorFilter.tint(ink))
-            Text(look.case(if (look.bau) tr("Search") else tr("Search apps")), color = ink, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 6.dp))
+            Image(Icons.Outlined.Search, label, Modifier.size(16.dp), colorFilter = ColorFilter.tint(ink))
+            if (words) Text(label, color = ink, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 6.dp))
         }
     }
 }
@@ -462,8 +491,8 @@ private fun TabChip(name: String, count: Int, on: Boolean, look: PageLook, onCli
         val ink = if (focused) look.onFocus else look.text
         Column(Modifier.width(IntrinsicSize.Max).padding(horizontal = 4.dp, vertical = 3.dp)) {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(name, color = ink, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
-                Text(" $count", color = if (focused) ink.copy(alpha = 0.7f) else look.muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(name, color = ink, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
+                Text(" $count", color = if (focused) ink.copy(alpha = 0.7f) else look.muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
             }
             Box(Modifier.padding(top = 4.dp).fillMaxWidth().height(3.dp).background(if (on) ink else Color.Transparent))
         }

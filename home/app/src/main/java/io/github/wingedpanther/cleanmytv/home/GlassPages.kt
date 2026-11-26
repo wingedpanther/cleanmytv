@@ -104,7 +104,7 @@ internal fun GlassApps(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Un
     val tabs = TABS.filter { t -> t == "all" || real.any { inTab(t, facts[it.pkg]) } }
     val shown = real.filter { inTab(tab, facts[it.pkg]) }
     val first = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+    LaunchedEffect(Unit) { focusWhenReady(first) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize()) {
             GlassPageBackdrop(backdrop)
