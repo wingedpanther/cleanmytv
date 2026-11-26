@@ -79,7 +79,8 @@ internal object Frost {
 
 /**
  * A pane of frosted glass behind this element, [inset] in from its edges, with corners of [radius]. [amount] is
- * the percent of white, as `tile_glass` uses; [dim] darkens the frosted picture as the wallpaper is darkened.
+ * the percent of white, as `tile_glass` uses; [dim] darkens the frosted picture as the wallpaper is darkened,
+ * and a fixed touch of smoke keeps text on it readable.
  * A light line on the top edge catches the light. Draws behind only, so the layout and the focus zoom don't move.
  */
 internal fun Modifier.frosted(amount: Int, radius: Dp, insetX: Dp = 0.dp, insetY: Dp = 0.dp, dim: Float = 0f): Modifier = composed {
@@ -101,6 +102,8 @@ internal fun Modifier.frosted(amount: Int, radius: Dp, insetX: Dp = 0.dp, insetY
                     IntOffset(((screen.width - dw) / 2 - at.x).roundToInt(), ((screen.height - dh) / 2 - at.y).roundToInt()),
                     IntSize(dw.roundToInt(), dh.roundToInt()), filterQuality = FilterQuality.Low)
                 if (dim > 0f) drawRect(Color.Black.copy(alpha = dim))
+                // A little smoke under the white, so white and grey text on the pane still read over a bright picture.
+                drawRect(Color.Black.copy(alpha = 0.18f))
             }
             drawRect(Color.White.copy(alpha = amount / 100f))
             drawRect(Color.White.copy(alpha = (amount / 100f + 0.25f).coerceAtMost(1f)), Offset(left, top), Size(pane.width, 1.dp.toPx()))

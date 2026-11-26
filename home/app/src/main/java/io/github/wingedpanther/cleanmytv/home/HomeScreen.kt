@@ -1142,13 +1142,13 @@ private fun BauSections(home: Home, ui: Ui, modifier: Modifier) {
     fun LazyListScope.part(key: String, under: String? = null, content: @Composable () -> Unit) =
         item(key) { Box(Modifier.whole(key in whole && (under == null || under in whole))) { content() } }
     // Ruled in cream: the cream shows through 1 dp gaps. The rule over a row stays when the row fades, so the
-    // row above keeps its foot.
+    // row above keeps its foot; a section's first row has no row above, so its rule fades with it.
     fun <T> LazyListScope.cells(key: String, items: List<T>, columns: Int, height: Dp, cell: @Composable (T, Modifier) -> Unit) {
         val rows = items.chunked(columns.coerceAtLeast(1))
         rows.forEachIndexed { r, row ->
             item("$key-$r") {
                 Column(Modifier.fillMaxWidth()) {
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(BAU_CREAM))
+                    Box((if (r == 0) Modifier.whole("$key-$r" in whole) else Modifier).fillMaxWidth().height(1.dp).background(BAU_CREAM))
                     Row(Modifier.whole("$key-$r" in whole).fillMaxWidth().background(BAU_CREAM).padding(start = 1.dp, end = 1.dp, bottom = if (r == rows.lastIndex) 1.dp else 0.dp),
                         horizontalArrangement = Arrangement.spacedBy(1.dp)) {
                         row.forEach { cell(it, Modifier.weight(1f)) }
@@ -1354,7 +1354,8 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
                     // A pane of frosted glass the width of the row behind the dock, 14 dp out from the tiles (#151).
                     val pane = if (cfg.dockGlass > 0 && cfg.layout == "shelf")
                         Modifier.frosted(cfg.dockGlass, 26.dp, insetX = start + BLEED - 14.dp, insetY = 4.dp, dim = cfg.wallpaperDim / 100f) else Modifier
-                    Box(pane) { TileRow("dock", home.dock, ui, dockW, big = true, rowSpec, rowPad) }
+                    // The pane spans the row even when a few small tiles leave most of it empty.
+                    Box(if (pane == Modifier) Modifier else Modifier.fillMaxWidth().then(pane)) { TileRow("dock", home.dock, ui, dockW, big = true, rowSpec, rowPad) }
                 }
                 "watchnext" -> if (home.watch.isNotEmpty()) {
                     item("watchnext-title") { SectionTitle(tr("Continue watching"), still) }
