@@ -88,7 +88,9 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
             )
         }
 
-        TvSlider(
+        // Glass and Teletext place their own rows, so they leave out the space and these sections (W5).
+        val simple = config.layout == "glass" || config.layout == "teletext"
+        if (!simple) TvSlider(
             title = tr("Space above the apps"),
             value = config.topSpace,
             min = 0, max = 80, unit = "%",
@@ -120,7 +122,7 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
                     allItems = SECTIONS_ALL,
                     activeItems = config.sections,
                     getLabel = { id ->
-                        when (id) {
+                        val name = when (id) {
                             "nowplaying" -> tr("Now playing")
                             "recent" -> tr("Recently used")
                             "screentime" -> tr("Screen time")
@@ -131,6 +133,7 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
                             "grid" -> config.names["all_apps"] ?: tr("All apps")
                             else -> id.replaceFirstChar { it.uppercase() }
                         }
+                        if (simple && id in setOf("recent", "rows", "folders", "grid")) tr("{name}, not used by this layout", "name" to name) else name
                     },
                     onUpdateActive = { newList ->
                         val turnedOn = "watchnext" in newList && "watchnext" !in config.sections

@@ -440,6 +440,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     var showGuest by remember { mutableStateOf(false) }
     var watchMenu by remember { mutableStateOf<WatchItem?>(null) }
     var showFind by remember { mutableStateOf(false) }
+    var showToday by remember { mutableStateOf(false) }
     var showAllApps by remember { mutableStateOf(false) }
     var pageMenu by remember { mutableStateOf<TvApp?>(null) }
     val note by TvNote.note.collectAsState()
@@ -541,7 +542,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     val textActions = TextActions(
         apps = { showAllApps = true }, find = { showFind = true }, settings = { openPanel() }, inputs = { showInputs = true }.takeIf { inputs.isNotEmpty() },
         takeOut = { takeOut() }, done = { moving = null; keepFocus = true }, add = { moving = null; keepFocus = true; pickForDock = true; showAllApps = true },
-        cancel = { cancelMove() }, customize = { openEditor() },
+        cancel = { cancelMove() }, customize = { openEditor() }, today = { showToday = true },
     )
     var focusColour by remember { mutableStateOf<Color?>(null) }
     val tint by animateColorAsState(focusColour ?: Color.Transparent, tween(600), label = "tint")
@@ -705,6 +706,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     // Search this TV and the All apps page see what Home shows: no locked apps with "Hide locked apps", only the guest apps in guest mode.
     val pageApps = remember(byPkg, cfg.lockOn, cfg.lockShow, cfg.lockApps) { byPkg.values.filter { !(cfg.lockOn && cfg.lockShow == "hide" && it.pkg in cfg.lockApps) } }
     val dockPkgs = home.dock.map { it.pkg }.toSet()
+    if (showToday && text) TextToday(ui, onApps = { showAllApps = true }, onSettings = { openPanel() }) { showToday = false }
     if (showFind) {
         if (text) TextFind(pageApps, dockPkgs, onApp = { launch(ctx, it) }) { showFind = false }
         else FindPage(cfg, pageApps, dockPkgs, onApp = { launch(ctx, it) }, backdrop = wallpaper.takeIf { cfg.glassBackdrop == "wallpaper" }) { showFind = false }
@@ -1864,10 +1866,7 @@ private fun HourLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: 
     val hours = ui.weather?.hours?.takeIf { ui.cfg.weatherHours && it.isNotEmpty() } ?: return
     val ctx = LocalContext.current
     // "21:00" or "9 PM", as the TV keeps its clock.
-    val format = remember(ctx) {
-        val skeleton = if (android.text.format.DateFormat.is24HourFormat(ctx)) "Hm" else "ha"
-        java.text.SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(java.util.Locale.getDefault(), skeleton), java.util.Locale.getDefault())
-    }
+    val format = remember(ctx) { hourFormat(ctx) }
     val icon = with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.2f }
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         hours.forEach { h ->
@@ -1929,7 +1928,7 @@ private fun MemoryLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier
 }
 
 /** WMO weather codes, as Open-Meteo reports them, to a drawn icon. */
-private fun weatherIcon(code: Int, day: Boolean): ImageVector = when (code) {
+internal fun weatherIcon(code: Int, day: Boolean): ImageVector = when (code) {
     0 -> if (day) Icons.Outlined.WbSunny else Icons.Outlined.NightsStay
     1, 2 -> if (day) Icons.Outlined.WbCloudy else Icons.Outlined.NightsStay
     3 -> Icons.Outlined.Cloud
@@ -2023,10 +2022,7 @@ private fun RailItem(icon: ImageVector, label: String, ui: Ui, expanded: Boolean
 @Composable
 private fun Greeting(cfg: HomeConfig, size: androidx.compose.ui.unit.TextUnit) {
     if (cfg.greeting.isBlank()) return
-    // Read again each minute: Home can stay open from morning into the evening.
-    var hour by remember { mutableIntStateOf(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) }
-    LaunchedEffect(Unit) { while (true) { delay(60_000L - System.currentTimeMillis() % 60_000L); hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY) } }
-    val part = when (hour) { in 5..11 -> tr("Good morning"); in 12..17 -> tr("Good afternoon"); else -> tr("Good evening") }
+    val part = dayPart()
     // The name in a light shade of the accent, light enough to read on any wallpaper.
     val name = lerp(Color(cfg.accent), Color.White, 0.45f)
     Text(buildAnnotatedString { append("$part, "); withStyle(SpanStyle(color = name)) { append(cfg.greeting) } }, color = TEXT, fontSize = size, fontWeight = FontWeight.Medium, maxLines = 2)

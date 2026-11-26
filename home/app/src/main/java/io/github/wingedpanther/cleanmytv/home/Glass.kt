@@ -29,6 +29,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.ManageSearch
 import androidx.compose.material.icons.outlined.Shield
@@ -221,7 +224,7 @@ private fun GlassHome(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Qu
         // The app last focused in the dock, or the first one once that app has left the dock.
         val shownApp = current?.takeIf { c -> dock.any { it.pkg == c.pkg } } ?: dock.firstOrNull()
         val head = headItem(shownApp, home)
-        val slots = shelfSlots(head, home)
+        val slots = shelfSlots(head, home, ui)
         val hasShelf = movingApp == null && slots.isNotEmpty()
         val top = remember { FocusRequester() }
         val shelf = remember { FocusRequester() }
@@ -271,12 +274,16 @@ private fun GlassTopBar(ui: Ui, quick: List<QuickAction>, onQuick: (QuickAction)
     LaunchedEffect(Unit) { while (true) { now = Date(); delay(60_000L - System.currentTimeMillis() % 60_000L) } }
     val debugging by produceState(false) { value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { TvSettings.debuggingOn(ctx) } }
     val network = remember(now) { TvSettings.network(ctx).substringBefore(" · ") }
-    Row(Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (ui.cfg.clock != "off") {
-            Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(now), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-            if (ui.cfg.clock == "time_date") Text(DateFormat.getDateInstance(DateFormat.FULL).format(now), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 9.dp))
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        // The clock, then the greeting and the weather on a second line (W1). With the clock off, that line
+        // moves up into its place.
+        Column(Modifier.weight(1f)) {
+            if (ui.cfg.clock != "off") Row(Modifier.height(28.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(now), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                if (ui.cfg.clock == "time_date") Text(DateFormat.getDateInstance(DateFormat.FULL).format(now), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 9.dp))
+            }
+            GlassSubLine(ui, Modifier.height(if (ui.cfg.clock != "off") 18.dp else 28.dp))
         }
-        Spacer(Modifier.weight(1f))
         val capsule = if (LocalGlassOnPhoto.current) PHOTO_TILE else GLASS_FILL
         // The icons have no labels: while one has focus, the status capsule says what it opens.
         var named by remember { mutableStateOf<String?>(null) }
@@ -295,6 +302,24 @@ private fun GlassTopBar(ui: Ui, quick: List<QuickAction>, onQuick: (QuickAction)
                 QuickIcon(a, ui, Modifier.then(if (i == 0) Modifier.focusRequester(top) else Modifier).focusProperties { this.down = down() }
                     .onFocusChanged { if (it.isFocused) named = a.label else if (named == a.label) named = null }) { onQuick(a) }
             }
+        }
+    }
+}
+
+/** "Good evening, Sam | 9°, light rain · 11° / 6° · Lisbon". Either half alone when the other is off; neither, no line. */
+@Composable
+private fun GlassSubLine(ui: Ui, modifier: Modifier) {
+    val hello = greetingLine(ui.cfg)
+    val w = ui.weather?.takeIf { ui.cfg.weatherPlace.isNotBlank() }
+    if (hello == null && w == null) return
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        hello?.let { Text(it, color = Color.White.copy(alpha = 0.86f), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)) }
+        if (hello != null && w != null) Box(Modifier.padding(horizontal = 8.dp).width(1.dp).height(11.dp).background(Color.White.copy(alpha = 0.28f)))
+        w?.let {
+            val ink = Color.White.copy(alpha = 0.72f)
+            Image(weatherIcon(it.code, it.day), null, Modifier.size(14.dp), colorFilter = ColorFilter.tint(ink))
+            Text("${it.temp}°, ${weatherWords(it.code)} · ${it.high}° / ${it.low}° · ${ui.cfg.weatherPlace}${if (it.metNo) " · MET Norway" else ""}",
+                color = ink, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 5.dp))
         }
     }
 }
@@ -348,29 +373,155 @@ private fun GlassHeadline(app: TvApp, item: WatchItem?, home: Home, ui: Ui, last
 /** Four slots on the shelf, as on the board. */
 private const val SLOTS = 4
 
+/** A card on the shelf: something to continue, or a widget (W2). */
+private sealed interface Slot {
+    data class Watch(val item: WatchItem) : Slot
+    data object Playing : Slot
+    data object Screen : Slot
+    data object Forecast : Slot
+}
+
 /**
- * The shelf holds only things to continue, the headline's item first, so OK on it resumes. Apps stay in the dock
- * and All apps: the owner didn't want recent apps standing in for cards.
+ * The shelf: the widgets the owner turned on, in the Sections order, one slot each, with the weather last; things
+ * to continue fill what is left, the headline's item first, so OK on it resumes. Apps stay in the dock and All
+ * apps: the owner didn't want recent apps standing in for cards.
  */
-private fun shelfSlots(head: WatchItem?, home: Home): List<WatchItem> = (listOfNotNull(head) + home.watch.filter { it !== head }).take(SLOTS)
+private fun shelfSlots(head: WatchItem?, home: Home, ui: Ui): List<Slot> {
+    val cfg = ui.cfg
+    val forecast = ui.weather?.let { w -> (cfg.weatherHours && w.hours.isNotEmpty()) || (cfg.weatherDays && w.days.isNotEmpty()) } == true
+    val widgets = buildList {
+        for (s in cfg.sections) when (s) {
+            "nowplaying" -> if (ui.track != null) add(Slot.Playing)
+            "screentime" -> if (ui.screenTimeSeen) add(Slot.Screen)
+        }
+        if (forecast) add(Slot.Forecast)
+    }.take(SLOTS)
+    val watch = (listOfNotNull(head) + home.watch.filter { it !== head }).take(SLOTS - widgets.size).map { Slot.Watch(it) }
+    // Continue sits where Watch Next is in the Sections list, else before the weather.
+    val at = cfg.sections.indexOf("watchnext").takeIf { it >= 0 }?.let { w ->
+        widgets.count { it != Slot.Forecast && cfg.sections.indexOf(if (it == Slot.Playing) "nowplaying" else "screentime") < w }
+    } ?: widgets.count { it != Slot.Forecast }
+    return widgets.take(at) + watch + widgets.drop(at)
+}
 
 /** The headline's item: the focused app's own, else the newest from any app. */
 private fun headItem(app: TvApp?, home: Home): WatchItem? = home.watch.firstOrNull { it.pkg == app?.pkg } ?: home.watch.firstOrNull()
 
 /** The shelf: up to four cards, each a quarter of the row wide, from the left. */
 @Composable
-private fun GlassCards(items: List<WatchItem>, ui: Ui, home: Home, first: FocusRequester, nav: Modifier) {
+private fun GlassCards(items: List<Slot>, ui: Ui, home: Home, first: FocusRequester, nav: Modifier) {
     if (items.isEmpty()) return
     BoxWithConstraints(Modifier.padding(top = 26.dp).fillMaxWidth()) {
         val w = (maxWidth - 16.dp * (SLOTS - 1)) / SLOTS
-        Column {
-            Text(tr("Continue watching"), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.width(w).padding(bottom = 10.dp))
-            Row(Modifier.focusGroup(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                items.forEachIndexed { i, item ->
-                    // The shelf's first card is where Down from the top bar lands.
-                    val m = (if (i == 0) nav.focusRequester(first) else nav).width(w)
-                    GlassCard(item, home.app(item.pkg), ui, m)
+        // Each card says what it is on its top line, so the shelf needs no heading.
+        Row(Modifier.focusGroup(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            items.forEachIndexed { i, slot ->
+                // The shelf's first card is where Down from the top bar lands.
+                val focus = if (i == 0) nav.focusRequester(first) else nav
+                val size = Modifier.width(w).height(118.dp)
+                when (slot) {
+                    is Slot.Watch -> GlassCard(slot.item, home.app(slot.item.pkg), ui, size.then(focus))
+                    Slot.Playing -> ui.track?.let { GlassPlaying(it, size, focus, nav) }
+                    Slot.Screen -> GlassScreenTime(ui, size.then(focus))
+                    Slot.Forecast -> GlassForecast(ui, size.then(focus))
+                }
+            }
+        }
+    }
+}
+
+/** A widget card's top line, in the place a continue card puts its app. */
+@Composable
+private fun CardLabel(text: String, focused: Boolean) =
+    Text(text, color = if (focused) GLASS_INK.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.72f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+
+/** Now playing: the app, title and artist, and play/pause and next. OK on the card plays or pauses; Right reaches Next. */
+@Composable
+private fun GlassPlaying(t: Track, size: Modifier, focus: Modifier, nav: Modifier) {
+    val card = remember { FocusRequester() }
+    val next = remember { FocusRequester() }
+    Box(size) {
+        GlassTile(14.dp, Modifier.fillMaxSize().then(focus).focusRequester(card).focusProperties { right = next }, focusScale = 1.08f, onClick = { NowPlaying.playPause() }) { f ->
+            val ink = if (f) GLASS_INK else Color.White
+            Column(Modifier.fillMaxSize().padding(horizontal = 13.dp, vertical = 11.dp)) {
+                CardLabel(listOf(tr("Now playing"), t.app).filter { it.isNotBlank() }.joinToString(" · "), f)
+                Text(t.title, color = ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
+                if (t.artist.isNotBlank()) Text(t.artist, color = ink.copy(alpha = 0.78f), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.weight(1f))
+                // Play or pause is the card itself; the circle only shows which.
+                CardRound(if (t.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (t.playing) tr("Pause") else tr("Play"), f)
+            }
+        }
+        GlassTile(14.dp, Modifier.align(Alignment.BottomStart).padding(start = 13.dp + 28.dp + 7.dp, bottom = 11.dp).size(28.dp).then(nav).focusRequester(next).focusProperties { left = card },
+            focusScale = 1.1f, lift = 0.dp, shadow = false, onClick = { NowPlaying.next() }) { f ->
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Image(Icons.Outlined.SkipNext, tr("Next"), Modifier.size(14.dp), colorFilter = ColorFilter.tint(if (f) GLASS_INK else Color.White))
+            }
+        }
+    }
+}
+
+@Composable
+private fun CardRound(icon: ImageVector, label: String, focused: Boolean) {
+    Box(Modifier.size(28.dp).glass(14.dp, if (focused) GLASS_INK.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.16f), if (focused) GLASS_INK.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.22f)), contentAlignment = Alignment.Center) {
+        Image(icon, label, Modifier.size(14.dp), colorFilter = ColorFilter.tint(if (focused) GLASS_INK else Color.White))
+    }
+}
+
+/** Screen time today in big type, yesterday under it, and the week's days as bars, today in the accent. OK opens the dashboard. */
+@Composable
+private fun GlassScreenTime(ui: Ui, modifier: Modifier) {
+    val ctx = LocalContext.current
+    val (today, yesterday) = screenMinutes(ui.screenTime) ?: (0 to null)
+    val week = ui.screenTime?.week.orEmpty().takeLast(7).map { it.total }
+    val most = (week.maxOrNull() ?: 0L).coerceAtLeast(1L)
+    GlassTile(14.dp, modifier, focusScale = 1.08f, onClick = { ScreenTimeApps.open(ctx) }) { f ->
+        val ink = if (f) GLASS_INK else Color.White
+        Column(Modifier.fillMaxSize().padding(horizontal = 13.dp, vertical = 11.dp)) {
+            CardLabel(tr("Screen time today"), f)
+            Text(Limits.words(today), color = ink, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.02).em, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
+            Spacer(Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(yesterday?.let { tr("Yesterday {time}", "time" to shortTime(it)) }.orEmpty(), color = ink.copy(alpha = 0.78f), fontSize = 12.sp, fontWeight = FontWeight.Medium,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Row(Modifier.height(36.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Bottom) {
+                    week.forEachIndexed { i, ms ->
+                        val today = i == week.lastIndex
+                        Box(Modifier.width(7.dp).height(maxOf(4.dp, 36.dp * (ms.toFloat() / most))).clip(RoundedCornerShape(3.5.dp))
+                            .background(if (today) glassAccent(ui.cfg) else ink.copy(alpha = 0.46f)))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The next four hours, or with only the daily forecast on, the next four days: the temperature now and the sky. */
+@Composable
+private fun GlassForecast(ui: Ui, modifier: Modifier) {
+    val ctx = LocalContext.current
+    val w = ui.weather ?: return
+    val hours = ui.cfg.weatherHours && w.hours.isNotEmpty()
+    val clock = remember(ctx) { hourFormat(ctx) }
+    val dayName = remember { java.time.format.DateTimeFormatter.ofPattern("EEE", java.util.Locale.getDefault()) }
+    val cols = if (hours) w.hours.take(4).map { clock.format(Date.from(it.at)) to "${it.temp}°" } else w.days.take(4).map { it.date.format(dayName) to "${it.high}°" }
+    val place = ui.cfg.weatherPlace.takeIf { it.isNotBlank() }
+    GlassTile(14.dp, modifier, focusScale = 1.08f, onClick = {}) { f ->
+        val ink = if (f) GLASS_INK else Color.White
+        Column(Modifier.fillMaxSize().padding(horizontal = 13.dp, vertical = 11.dp)) {
+            CardLabel(listOfNotNull(if (hours) tr("Next hours") else tr("Next days"), place).joinToString(" · "), f)
+            Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.Bottom) {
+                Text("${w.temp}°", color = ink, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.02).em, maxLines = 1)
+                Text(weatherWords(w.code), color = ink.copy(alpha = 0.78f), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 6.dp, bottom = 3.dp))
+            }
+            Spacer(Modifier.weight(1f))
+            Row {
+                cols.forEach { (at, temp) ->
+                    Column(Modifier.weight(1f)) {
+                        Text(at, color = ink.copy(alpha = 0.72f), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                        Text(temp, color = ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    }
                 }
             }
         }
@@ -393,11 +544,17 @@ private fun GlassCard(item: WatchItem, app: TvApp?, ui: Ui, modifier: Modifier) 
         Box(Modifier.fillMaxSize().then(if (picture == null) Modifier.background(CARD_GLASS) else Modifier)) {
             picture?.let { Image(it, item.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
             Box(Modifier.fillMaxSize().background(CARD_FOOT))
+            // Always the app's name on top, so a card never passes for another app's.
+            Text(listOfNotNull(tr("Continue"), app?.label).joinToString(" · "), color = Color.White.copy(alpha = 0.86f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.TopStart).padding(horizontal = 13.dp, vertical = 11.dp))
             Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 13.dp, vertical = 11.dp)) {
                 Text(item.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                // Always the app's name, so a card never passes for another app's.
-                val meta = listOfNotNull(app?.label, WatchNext.episodeLine(item)).joinToString(" · ").ifEmpty { null }
-                if (meta != null) Text(meta, color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                WatchNext.episodeLine(item)?.let { Text(it, color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                item.progress?.let { p ->
+                    Box(Modifier.padding(top = 7.dp).fillMaxWidth().height(3.dp).clip(RoundedCornerShape(1.5.dp)).background(Color.White.copy(alpha = 0.24f))) {
+                        Box(Modifier.fillMaxHeight().fillMaxWidth(p).background(glassAccent(ui.cfg)))
+                    }
+                }
             }
         }
     }

@@ -321,3 +321,79 @@ private fun thisTv(ctx: android.content.Context): List<String> {
     val up = if (minutes < 48 * 60) tr("On for {time}", "time" to Limits.words(if (minutes < 60) minutes else minutes / 60 * 60)) else tr("On for {n} days", "n" to minutes / (24 * 60))
     return listOfNotNull(android, space, up)
 }
+
+/**
+ * Today, P150 (W4): the greeting on a yellow band, the weather at the left (now, the next hours, the next days),
+ * and at the right screen time with today's top apps, then what is playing; OK there plays or pauses. A part
+ * with nothing to show is left out. Back goes Home.
+ */
+@Composable
+internal fun TextToday(ui: Ui, onApps: () -> Unit, onSettings: () -> Unit, onClose: () -> Unit) {
+    val ctx = LocalContext.current
+    val hello = greetingLine(ui.cfg)
+    val w = ui.weather
+    val screen = screenMinutes(ui.screenTime)?.takeIf { ui.screenTimeSeen }
+    val top = ui.screenTime?.top.orEmpty().take(3).takeIf { screen != null }.orEmpty()
+    val track = ui.track
+    val music = remember { FocusRequester() }
+    val red = remember { FocusRequester() }
+    LaunchedEffect(track != null) { delay(30); runCatching { if (track != null) music.requestFocus() else red.requestFocus() } }
+    val dayName = remember { java.time.format.DateTimeFormatter.ofPattern("EEE", java.util.Locale.getDefault()) }
+    val words = listOf(
+        ColourWord(tr("Home"), onClose),
+        ColourWord(tr("Apps")) { onClose(); onApps() },
+        ColourWord(tr("Settings"), onSettings),
+        ColourWord(tr("Screen time")) { ScreenTimeApps.open(ctx) },
+    )
+    val hint = if (track != null) tr("OK pauses the music. Blue opens the full screen time.") else tr("Blue opens the full screen time.")
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        TextPage(tr("Today"), hello ?: tr("Today"), TT_YELLOW, TT_BLACK, "1/1", hint, words, firstWord = red) {
+            if (w == null && screen == null && track == null) {
+                TextRow(tr("Nothing here yet. Weather, screen time and music show up here when they are on."), TT_META)
+                return@TextPage
+            }
+            Row {
+                if (w != null) Column(Modifier.weight(1f)) {
+                    TextHead(tr("Weather"), TT_YELLOW)
+                    if (ui.cfg.weatherPlace.isNotBlank()) TextRow(ui.cfg.weatherPlace, TT_CYAN)
+                    TextRow(tr("Now  {temp}° {sky}", "temp" to w.temp, "sky" to weatherWords(w.code)))
+                    if (w.hours.isNotEmpty()) TextRow(w.hours.take(4).joinToString("  ") { "${textHour(ctx, it.at)} ${it.temp}°" }, TT_CYAN)
+                    w.days.take(4).forEach { d ->
+                        Row(Modifier.height(TT_ROW).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Leader(d.date.format(dayName), "${d.high}° ${weatherWords(d.code)}", TT_WHITE, TT_BLUE, TT_GREEN, FontWeight.Medium, Modifier.weight(1f))
+                        }
+                    }
+                }
+                if (w != null && (screen != null || track != null)) Spacer(Modifier.width(36.dp))
+                if (screen != null || track != null) Column(Modifier.weight(1f)) {
+                    screen?.let { (today, yesterday) ->
+                        TextHead(tr("Screen time"), TT_GREEN)
+                        Row(Modifier.height(TT_ROW).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(tr("Today {time}", "time" to shortTime(today)), maxLines = 1)
+                            yesterday?.let { Text(tr("Yesterday {time}", "time" to shortTime(it)), color = TT_CYAN, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 20.dp)) }
+                        }
+                        val most = (top.maxOfOrNull { it.ms } ?: 0L).coerceAtLeast(1L)
+                        top.forEach { app ->
+                            Row(Modifier.height(TT_ROW), verticalAlignment = Alignment.CenterVertically) {
+                                Text(app.label, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(145.dp).padding(start = 8.dp))
+                                Blocks(((app.ms * 12 + most / 2) / most).toInt().coerceIn(1, 12), 12, TT_GREEN, 11.dp)
+                                Text(Limits.words((app.ms / 60_000L).toInt()), color = TT_GREEN, maxLines = 1)
+                            }
+                        }
+                    }
+                    track?.let { t ->
+                        TextHead(tr("Now playing"), TT_MAGENTA)
+                        TextFocus(Modifier.focusRequester(music).fillMaxWidth().height(TT_ROW), onClick = { NowPlaying.playPause() }) { f ->
+                            Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(t.title, color = if (f) TT_BLACK else TT_WHITE, fontWeight = if (f) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                Text((if (t.playing) tr("Pause") else tr("Play")).lowercase(), color = if (f) TT_BLACK else TT_CYAN, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
+                            }
+                        }
+                        val by = listOf(t.artist, t.app.takeIf { it.isNotBlank() }?.let { tr("on {app}", "app" to it) }).filter { !it.isNullOrBlank() }.joinToString(", ")
+                        if (by.isNotEmpty()) TextRow(by, TT_CYAN)
+                    }
+                }
+            }
+        }
+    }
+}

@@ -759,6 +759,9 @@ const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, num
   { id: 'bau', label: 'Bauhaus', hint: t('A big bold clock and three shapes on the left, the top bar icons listed under them. Apps on the right.'), mini: [[6, 8, 22, 20, false], [6, 32, 14, 6, true], [6, 66, 22, 24, true], [34, 8, 60, 26, false], [34, 42, 60, 18, true]] }
 ]
 
+/** Glass and Teletext draw the dock, Continue watching and the widgets, and leave these sections out. */
+const SIMPLE_LAYOUTS: string[] = ['glass', 'teletext']
+const UNUSED_IN_SIMPLE: HomeSection[] = ['recent', 'rows', 'folders', 'grid']
 const SECTION_LABEL: Record<HomeSection, string> = { nowplaying: t('Now playing'), recent: t('Recently used'), screentime: t('Screen time'), dock: t('Dock'), watchnext: t('Continue watching'), rows: t('Rows'), folders: t('Folders'), grid: t('All apps') }
 const ALL_SECTIONS: HomeSection[] = ['nowplaying', 'recent', 'screentime', 'dock', 'watchnext', 'rows', 'folders', 'grid']
 const ALL_QUICK: QuickId[] = ['inputs', 'wifi', 'bluetooth', 'display', 'apps', 'sleep', 'search', 'music', 'panel', 'themes', 'fireplace', 'memory', 'timer', 'screentime', 'customize', 'settings']
@@ -844,7 +847,7 @@ function LayoutTab({ apps, cfg, set, sdk }: { apps: TvApp[]; cfg: HomeConfig; se
         <div className="card">
           <h2>{t('Sections')}</h2>
           <p className="muted small">{t('Top to bottom. Untick one to hide it.')}</p>
-          <OrderList all={ALL_SECTIONS} on={cfg.sections} label={(s) => SECTION_LABEL[s]} onChange={(sections) => set({ sections })} />
+          <OrderList all={ALL_SECTIONS} on={cfg.sections} label={(s) => (SIMPLE_LAYOUTS.includes(cfg.layout) && UNUSED_IN_SIMPLE.includes(s) ? t('{name}, not used by this layout', { name: SECTION_LABEL[s] }) : SECTION_LABEL[s])} onChange={(sections) => set({ sections })} />
           <label className="field" style={{ marginTop: 14 }}>
             <span>{t('All apps title')}</span>
             <span className="hint">{t('Your own words for the heading above the grid. Empty keeps "All apps".')}</span>
@@ -1021,6 +1024,7 @@ function LayoutTab({ apps, cfg, set, sdk }: { apps: TvApp[]; cfg: HomeConfig; se
       <div className="grid-2">
         <div className="card">
           <h2>{t('Clock')}</h2>
+          {cfg.layout === 'teletext' && <p className="muted small">{t('Teletext always shows the date and time, so this is not used by this layout.')}</p>}
           <div className="seg">
             {([['time_date', t('Time and date')], ['time', t('Time only')], ['off', t('Off')]] as const).map(([id, label]) => (
               <button key={id} className={cfg.clock === id ? 'on' : ''} onClick={() => set({ clock: id })}>

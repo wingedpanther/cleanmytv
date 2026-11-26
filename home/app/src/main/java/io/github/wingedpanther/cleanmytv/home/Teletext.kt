@@ -124,6 +124,7 @@ internal fun tvName(ctx: android.content.Context): String? {
 internal fun TextPage(
     name: String, title: String, band: Color, bandInk: Color, counter: String, hint: String,
     words: List<ColourWord?>, modifier: Modifier = Modifier, picked: Int? = null, firstWord: FocusRequester? = null, gap: Dp = 15.dp, keys: (KeyEvent) -> Boolean = { false },
+    greeting: String? = null,
     body: @Composable ColumnScope.() -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -136,7 +137,8 @@ internal fun TextPage(
         }) {
             Row(Modifier.fillMaxWidth().height(TT_ROW).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(name.uppercase(), color = TT_GREEN, fontWeight = FontWeight.Bold, maxLines = 1)
-                Spacer(Modifier.weight(1f))
+                // The greeting after the page name, cut before it can reach the date (W3).
+                Text(greeting.orEmpty(), color = TT_WHITE, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(horizontal = 20.dp))
                 TextClock()
             }
             Row(Modifier.fillMaxWidth().height(60.dp).background(band).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -232,7 +234,7 @@ internal fun Badge(on: Boolean, modifier: Modifier = Modifier) {
  * value is cut to what's left, and the dots fill the rest in whole characters, flush against the value.
  */
 @Composable
-private fun Leader(name: String, value: String, ink: Color, dots: Color, valueInk: Color, weight: FontWeight, modifier: Modifier) {
+internal fun Leader(name: String, value: String, ink: Color, dots: Color, valueInk: Color, weight: FontWeight, modifier: Modifier) {
     Layout({
         Text(name, color = ink, fontWeight = weight, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
         Text(DOTS, color = dots, fontWeight = weight, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip, letterSpacing = 0.15.em)
@@ -283,6 +285,7 @@ internal fun Blocks(filled: Int, of: Int, on: Color, block: Dp, modifier: Modifi
 internal class TextActions(
     val apps: () -> Unit, val find: () -> Unit, val settings: () -> Unit, val inputs: (() -> Unit)?,
     val takeOut: () -> Unit, val done: () -> Unit, val add: () -> Unit, val cancel: () -> Unit, val customize: () -> Unit,
+    val today: () -> Unit = {},
 )
 
 /** "S2 E4", or whichever of those the app gave. */
@@ -342,6 +345,7 @@ internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick
     val pages = listOf(tr("All apps") to a.apps, tr("Search") to a.find, tr("Quick settings") to a.settings, tr("Customize Home") to a.customize)
     // Down from the last line goes to the first colour word; the usual search picked the one under the line's middle.
     val apps = remember { FocusRequester() }
+    val hello = greetingLine(ui.cfg)
     TextPage(tr("Home"), room, TT_BLUE, TT_YELLOW, "1/1",
         if (RemoteKeys.digits) tr("Press a number to open it, or move with the arrows.") else tr("Move with the arrows. OK opens it."),
         listOf(ColourWord(tr("Apps"), a.apps), ColourWord(tr("Search"), a.find), ColourWord(tr("Settings"), a.settings), a.inputs?.let { ColourWord(tr("Inputs"), it) }),
@@ -358,10 +362,20 @@ internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick
                     else pages.getOrNull(line - dock.size - 1)?.let { it.second(); true } ?: false
                 }
             }
-        }) {
-        // Right from the index goes to what there is to continue, when there is something.
+        }, greeting = hello) {
+        // The right column, one heading and a line or two per widget, in a fixed order (W3). A widget that is off
+        // or has nothing leaves no gap, and the column stops at ten rows: Now playing goes first.
+        val w = home.watch.firstOrNull()
+        val weather = ui.weather
+        val screen = screenMinutes(ui.screenTime)?.takeIf { ui.screenTimeSeen }
+        val track = ui.track?.takeIf { "nowplaying" in ui.cfg.sections }
+        val rows = (if (w != null) 3 else 0) + (if (weather != null) 2 else 0) + (if (screen != null) 2 else 0) + 1
+        val playing = track?.takeIf { rows + 2 <= 10 }
+        // Right from the index goes to the first line there that takes focus.
         val watchLine = remember { FocusRequester() }
-        val toWatch = watchLine.takeIf { home.watch.isNotEmpty() }
+        val weatherLine = remember { FocusRequester() }
+        val screenLine = remember { FocusRequester() }
+        val toWatch = when { w != null -> watchLine; weather != null -> weatherLine; screen != null -> screenLine; else -> null }
         Row {
             Column(Modifier.width(500.dp)) {
                 TextHead(tr("Index"), TT_CYAN)
@@ -381,32 +395,46 @@ internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick
             }
             Spacer(Modifier.width(36.dp))
             Column(Modifier.weight(1f)) {
-                home.watch.firstOrNull()?.let { w ->
+                // Lines here stop Left and Right at the column's edges, except Left back to the index.
+                val side = Modifier.focusProperties { right = FocusRequester.Cancel }
+                w?.let { w ->
                     val app = home.app(w.pkg)
                     TextHead(tr("Continue"), TT_MAGENTA)
-                    TextFocus(Modifier.focusRequester(watchLine).fillMaxWidth().height(TT_ROW), onLongClick = { ui.onWatchMenu(w) },
+                    TextFocus(side.focusRequester(watchLine).fillMaxWidth().height(TT_ROW), onLongClick = { ui.onWatchMenu(w) },
                         onClick = { (WatchNext.intent(ctx, w) ?: app?.launch)?.let { open(ctx, w.pkg, it, app?.launch) } }) { f ->
                         Text(w.title, color = if (f) TT_BLACK else TT_WHITE, fontWeight = if (f) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 8.dp))
                     }
                     val meta = listOfNotNull(episodeNumber(w), minutesLeft(w)?.let { tr("{time} left", "time" to Limits.words(it)) }).joinToString(", ").ifEmpty { app?.label.orEmpty() }
                     TextRow(meta, TT_CYAN)
-                    w.progress?.let { p -> Blocks((p * 10).toInt().coerceIn(0, 10), 10, TT_GREEN, 22.dp) }
                 }
-                ui.weather?.let { w ->
+                weather?.let { it ->
                     TextHead(tr("Weather"), TT_YELLOW)
-                    TextRow("${w.temp}°  ${w.high}° / ${w.low}°")
-                    TextRow(ui.cfg.weatherPlace, TT_CYAN)
+                    TodayLine("${it.temp}° ${weatherWords(it.code)}  ${it.high}° / ${it.low}°", side.focusRequester(weatherLine), a.today)
                 }
-                TextHead(tr("Status"), TT_GREEN)
-                TextRow(network)
+                screen?.let { (today, _) ->
+                    TextHead(tr("Screen time"), TT_GREEN)
+                    TodayLine(tr("{time} today", "time" to Limits.words(today)), side.focusRequester(screenLine), a.today)
+                }
+                playing?.let { t ->
+                    TextHead(tr("Now playing"), TT_CYAN)
+                    TextRow(listOf(t.title, t.artist).filter { it.isNotBlank() }.joinToString(", "))
+                }
                 Row(Modifier.height(TT_ROW).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(tr("Debugging"), maxLines = 1)
-                    Spacer(Modifier.width(12.dp))
+                    Text(network, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    Text(tr("Debug"), maxLines = 1, modifier = Modifier.padding(start = 20.dp))
                     Text((if (debugging) tr("On") else tr("Off")).uppercase(), color = TT_WHITE, fontWeight = FontWeight.Bold, maxLines = 1,
-                        modifier = Modifier.background(if (debugging) TT_RED else TT_DIM).padding(horizontal = 6.dp))
+                        modifier = Modifier.padding(start = 12.dp).background(if (debugging) TT_RED else TT_DIM).padding(horizontal = 6.dp))
                 }
             }
         }
+    }
+}
+
+/** A widget's line on Home that opens Today with OK. */
+@Composable
+private fun TodayLine(text: String, modifier: Modifier, onClick: () -> Unit) {
+    TextFocus(modifier.fillMaxWidth().height(TT_ROW), onClick = onClick) { f ->
+        Text(text, color = if (f) TT_BLACK else TT_WHITE, fontWeight = if (f) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 8.dp))
     }
 }
 

@@ -71,7 +71,8 @@ fun WidgetCustomization(config: HomeConfig, ctx: Context) {
         }
 
         TvRadioGroup(
-            title = tr("Clock"),
+            // Teletext shows the date and time on every page, whatever this says (W5).
+            title = if (config.layout == "teletext") tr("{name}, not used by this layout", "name" to tr("Clock")) else tr("Clock"),
             options = listOf("time_date" to tr("Time & Date"), "time" to tr("Time Only"), "off" to tr("Off")),
             current = config.clock,
             onSelect = { ConfigStore.update(ctx, JSONObject().put("clock", it)) }
