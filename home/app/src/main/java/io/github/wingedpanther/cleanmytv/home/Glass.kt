@@ -226,7 +226,8 @@ private fun GlassHome(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Qu
         val shownApp = current?.takeIf { c -> dock.any { it.pkg == c.pkg } } ?: dock.firstOrNull()
         val head = headItem(shownApp, home)
         val slots = shelfSlots(head, home, ui)
-        val hasShelf = movingApp == null && slots.isNotEmpty()
+        // The weather card takes no focus (H15): with only that on the shelf, Up and Down skip the shelf.
+        val hasShelf = movingApp == null && slots.any { it != Slot.Forecast }
         val top = remember { FocusRequester() }
         val shelf = remember { FocusRequester() }
         val dockBack = remember { FocusRequester() }
@@ -416,15 +417,20 @@ private fun GlassCards(items: List<Slot>, ui: Ui, home: Home, first: FocusReques
         val w = (maxWidth - 16.dp * (SLOTS - 1)) / SLOTS
         // Each card says what it is on its top line, so the shelf needs no heading.
         Row(Modifier.focusGroup(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            // The shelf's first card that takes focus is where Down from the top bar lands.
+            val lead = items.indexOfFirst { it != Slot.Forecast }
+            val last = items.indexOfLast { it != Slot.Forecast }
             items.forEachIndexed { i, slot ->
-                // The shelf's first card is where Down from the top bar lands.
-                val focus = if (i == 0) nav.focusRequester(first) else nav
+                // The shelf's ends stop Left and Right; the usual search dropped into the dock.
+                val start = if (i == lead) Modifier.focusProperties { left = FocusRequester.Cancel } else Modifier
+                val end = if (i == last) Modifier.focusProperties { right = FocusRequester.Cancel } else Modifier
+                val focus = (if (i == lead) nav.focusRequester(first) else nav).then(start).then(if (slot == Slot.Playing) Modifier else end)
                 val size = Modifier.width(w).height(118.dp)
                 when (slot) {
                     is Slot.Watch -> GlassCard(slot.item, home.app(slot.item.pkg), ui, size.then(focus))
-                    Slot.Playing -> ui.track?.let { GlassPlaying(it, size, focus, nav) }
+                    Slot.Playing -> ui.track?.let { GlassPlaying(it, size, focus, nav, end) }
                     Slot.Screen -> GlassScreenTime(ui, size.then(focus))
-                    Slot.Forecast -> GlassForecast(ui, size.then(focus))
+                    Slot.Forecast -> GlassForecast(ui, size)
                 }
             }
         }
@@ -442,7 +448,7 @@ private fun CardLabel(text: String, focused: Boolean) =
  * so each takes its own OK (N2).
  */
 @Composable
-private fun GlassPlaying(t: Track, size: Modifier, focus: Modifier, nav: Modifier) {
+private fun GlassPlaying(t: Track, size: Modifier, focus: Modifier, nav: Modifier, end: Modifier) {
     val ctx = LocalContext.current
     val card = remember { FocusRequester() }
     val play = remember { FocusRequester() }
@@ -471,7 +477,7 @@ private fun GlassPlaying(t: Track, size: Modifier, focus: Modifier, nav: Modifie
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 CardButton(if (t.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (t.playing) tr("Pause") else tr("Play"), on,
                     nav.focusRequester(play).focusProperties { left = card }) { NowPlaying.playPause() }
-                CardButton(Icons.Outlined.SkipNext, tr("Next"), on, nav) { NowPlaying.next() }
+                CardButton(Icons.Outlined.SkipNext, tr("Next"), on, nav.then(end)) { NowPlaying.next() }
             }
         }
     }
@@ -523,7 +529,7 @@ private fun GlassScreenTime(ui: Ui, modifier: Modifier) {
     }
 }
 
-/** The next four hours, or with only the daily forecast on, the next four days: the temperature now and the sky. */
+/** The next four hours, or with only the daily forecast on, the next four days: the temperature now and the sky. Not focusable. */
 @Composable
 private fun GlassForecast(ui: Ui, modifier: Modifier) {
     val ctx = LocalContext.current
@@ -533,8 +539,11 @@ private fun GlassForecast(ui: Ui, modifier: Modifier) {
     val dayName = remember { java.time.format.DateTimeFormatter.ofPattern("EEE", java.util.Locale.getDefault()) }
     val cols = if (hours) w.hours.take(4).map { clock.format(Date.from(it.at)) to "${it.temp}°" } else w.days.take(4).map { it.date.format(dayName) to "${it.high}°" }
     val place = ui.cfg.weatherPlace.takeIf { it.isNotBlank() }
-    GlassTile(14.dp, modifier, focusScale = 1.08f, onClick = {}) { f ->
-        val ink = if (f) GLASS_INK else Color.White
+    // Only to look at (H15): it has no focus, so Left and Right on the shelf pass over it.
+    val photo = LocalGlassOnPhoto.current
+    Box(modifier.clip(RoundedCornerShape(14.dp)).background(if (photo) PHOTO_TILE else GLASS_FILL).border(1.dp, if (photo) GLASS_TRAY_EDGE else GLASS_EDGE, RoundedCornerShape(14.dp))) {
+        val f = false
+        val ink = Color.White
         Column(Modifier.fillMaxSize().padding(horizontal = 13.dp, vertical = 11.dp)) {
             CardLabel(listOfNotNull(if (hours) tr("Next hours") else tr("Next days"), place).joinToString(" · "), f)
             Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.Bottom) {
