@@ -199,7 +199,7 @@ internal fun GlassFind(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, on
     val hits = remember(query, apps) { searchTv(ctx, query, apps, dock, kinds, onClose) { onClose(); onApp(it) } }
     val speech = remember { Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM).takeIf { it.resolveActivity(ctx.packageManager) != null } }
     val listen = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
-        r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { query = it.lowercase().take(MAX_QUERY) }
+        heard(r)?.let { query = it.lowercase().take(MAX_QUERY) }
     }
     fun type(s: String) { query = (query + s).take(MAX_QUERY) }
     val accent = glassAccent(cfg)
@@ -223,7 +223,7 @@ internal fun GlassFind(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, on
                     Box(Modifier.padding(start = 2.dp).width(2.dp).height(28.dp).background(accent, RoundedCornerShape(1.dp)))
                     Spacer(Modifier.weight(1f))
                     Text(if (query.isBlank()) tr("Apps, the TV's settings and Home's") else tr("{n} on this TV", "n" to hits.size), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    if (speech != null) Box(Modifier.padding(start = 12.dp)) { Capsule(tr("Say it")) { runCatching { listen.launch(speech) } } }
+                    if (speech != null) Box(Modifier.padding(start = 12.dp)) { Capsule(tr("Say it")) { askVoice(listen, speech) } }
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 14.dp).height(42.dp).focusGroup(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     // One line: the letters alone, as the design has them; - and . are a keyboard press away.

@@ -5,10 +5,14 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
+import android.app.SearchManager
 import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -119,6 +123,30 @@ private fun tvSettings(): List<Triple<String, String, String>> = listOf(
 private fun start(ctx: Context, i: Intent) =
     runCatching { ctx.startActivity(Intent(i).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure { Log.w(TAG, "search: $it") }
 
+/** When Search last asked the TV's voice prompt, for the log line in [heard]. */
+private var voiceAsked = 0L
+
+/** Opens the TV's voice prompt for Search. */
+internal fun askVoice(launcher: ActivityResultLauncher<Intent>, speech: Intent) {
+    voiceAsked = SystemClock.uptimeMillis()
+    runCatching { launcher.launch(speech) }.onFailure { Log.w(TAG, "voice: $it") }
+}
+
+/**
+ * The words the voice prompt heard, or null. Some TVs leave the search bar empty after showing the words (K6),
+ * so this logs what came back, and also looks for the words under a query or text extra.
+ */
+internal fun heard(r: ActivityResult): String? {
+    val x = r.data?.extras
+    Log.i(TAG, "voice: result ${r.resultCode} after ${SystemClock.uptimeMillis() - voiceAsked} ms, extras ${x?.keySet()}")
+    val words = r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        ?: r.data?.getStringExtra(SearchManager.QUERY)
+        ?: x?.keySet()?.filter { k -> listOf("result", "query", "text").any { it in k.lowercase() } }?.firstNotNullOfOrNull { k ->
+            @Suppress("DEPRECATION") when (val v = x.get(k)) { is String -> v; is List<*> -> v.firstOrNull() as? String; is Array<*> -> v.firstOrNull() as? String; else -> null }
+        }
+    return words?.trim()?.takeIf { it.isNotEmpty() }
+}
+
 /**
  * What [query] finds on this TV: apps by name, then each one's info screen, the TV's settings screens and
  * Home's own settings. Files would need storage access, which Home doesn't ask for. [onEditor] closes the
@@ -173,7 +201,7 @@ internal fun FindPage(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, onA
     val hits = remember(query, apps, kinds) { searchTv(ctx, query, apps, dock, kinds, onClose) { onClose(); onApp(it) } }
     val speech = remember { Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM).takeIf { it.resolveActivity(ctx.packageManager) != null } }
     val listen = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
-        r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { query = it.lowercase().take(MAX_QUERY) }
+        heard(r)?.let { query = it.lowercase().take(MAX_QUERY) }
     }
     fun type(s: String) { query = (query + s).take(MAX_QUERY) }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
@@ -184,7 +212,7 @@ internal fun FindPage(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, onA
                 val c = e.utf16CodePoint
                 when {
                     e.key == Key.Backspace || e.key == Key.Delete -> { query = query.dropLast(1); true }
-                    (e.key == Key.MediaPlayPause || e.key == Key.Search || e.key == Key.VoiceAssist) && speech != null -> { runCatching { listen.launch(speech) }; true }
+                    (e.key == Key.MediaPlayPause || e.key == Key.Search || e.key == Key.VoiceAssist) && speech != null -> { askVoice(listen, speech); true }
                     c > 0 && !Character.isISOControl(c) && e.key != Key.DirectionCenter && e.key != Key.Enter -> { type(String(Character.toChars(c)).lowercase()); true }
                     else -> false
                 }
@@ -212,7 +240,7 @@ internal fun FindPage(cfg: HomeConfig, apps: List<TvApp>, dock: Set<String>, onA
                         PageKey(if (digits) "abc" else "123", look, Modifier.weight(2f)) { digits = !digits }
                         PageKey(look.case(tr("Delete")), look, Modifier.weight(2f)) { query = query.dropLast(1) }
                     }
-                    if (speech != null) PageKey(look.case(tr("Say it")), look, Modifier.fillMaxWidth()) { runCatching { listen.launch(speech) } }
+                    if (speech != null) PageKey(look.case(tr("Say it")), look, Modifier.fillMaxWidth()) { askVoice(listen, speech) }
                 }
                 Spacer(Modifier.weight(1f))
                 Text(look.case(if (speech != null) tr("Say it types what you say. Back closes this.") else tr("Number keys and a keyboard type too. Back closes this.")),

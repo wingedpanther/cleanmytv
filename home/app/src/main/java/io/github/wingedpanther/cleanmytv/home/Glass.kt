@@ -161,7 +161,7 @@ private fun Modifier.glass(radius: Dp, fill: Color = GLASS_TRAY, edge: Color = G
 
 /**
  * Glass's focus: white with near-black content, a little larger, raised, with a soft shadow. A banner keeps its
- * picture and shows focus by size, lift and shadow alone. The tile grows in its own layer, with the shadow
+ * picture and shows focus by size, lift, shadow and a white ring. The tile grows in its own layer, with the shadow
  * inside it, so the shadow grows with the tile instead of hiding under it.
  */
 @Composable
@@ -184,7 +184,12 @@ internal fun GlassTile(
         border = ClickableSurfaceDefaults.border(border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(1.dp, if (photo) GLASS_TRAY_EDGE else GLASS_EDGE), shape = shape),
             focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(1.dp, if (keepFill) Color.Transparent else Color.White), shape = shape)),
         colors = ClickableSurfaceDefaults.colors(containerColor = fill, focusedContainerColor = if (keepFill) fill else Color.White),
-    ) { content(focused) }
+    ) {
+        content(focused)
+        // A banner keeps its picture when focused, so a white banner looked as picked as the focused one (K5).
+        // Over the banner: a white ring on the focused tile, and a light shade on the rest.
+        if (keepFill) Box(Modifier.matchParentSize().then(if (focused) Modifier.border(3.dp, Color.White, shape) else Modifier.background(Color.Black.copy(alpha = 0.22f))))
+    }
 }
 
 /**

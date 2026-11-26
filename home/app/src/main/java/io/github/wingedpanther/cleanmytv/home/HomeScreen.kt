@@ -1124,7 +1124,9 @@ private fun BauSections(home: Home, ui: Ui, modifier: Modifier) {
     // One item per row of cells, so a row cut by the top or bottom of the screen fades out whole (BA6, K3).
     val list = rememberLazyListState()
     val whole by wholeItems(list)
-    fun LazyListScope.part(key: String, content: @Composable () -> Unit) = item(key) { Box(Modifier.whole(key in whole)) { content() } }
+    // A title shows only with the first row under it ([under]), so no heading stands alone at the foot.
+    fun LazyListScope.part(key: String, under: String? = null, content: @Composable () -> Unit) =
+        item(key) { Box(Modifier.whole(key in whole && (under == null || under in whole))) { content() } }
     // Ruled in cream: the cream shows through 1 dp gaps. The rule over a row stays when the row fades, so the
     // row above keeps its foot.
     fun <T> LazyListScope.cells(key: String, items: List<T>, columns: Int, height: Dp, cell: @Composable (T, Modifier) -> Unit) {
@@ -1155,11 +1157,11 @@ private fun BauSections(home: Home, ui: Ui, modifier: Modifier) {
             "nowplaying" -> ui.track?.let { t -> part("nowplaying") { Box(Modifier.padding(bottom = 8.dp)) { NowPlayingCard(t, ui) } } }
             "screentime" -> if (ui.screenTimeSeen) part("screentime") { Box(Modifier.padding(bottom = 8.dp)) { ScreenTimeCard(ui) } }
             "dock" -> if (home.dock.isNotEmpty()) {
-                part("dock-title") { BauTitle(tr("Favourites"), tr("All apps") + ", " + (home.dock.size + home.grid.size)) }
+                part("dock-title", "dock-0") { BauTitle(tr("Favourites"), tr("All apps") + ", " + (home.dock.size + home.grid.size)) }
                 apps("dock", home.dock, columns = 3, height = 155.dp, mark = 52.dp, nameSize = 20.sp)
             }
             "watchnext" -> if (home.watch.isNotEmpty()) {
-                part("watchnext-title") { BauTitle(tr("Continue"), top = 22.dp) }
+                part("watchnext-title", "watchnext") { BauTitle(tr("Continue"), top = 22.dp) }
                 part("watchnext") {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         home.watch.take(4).forEach { w -> BauWatch(w, home.app(w.pkg), ui, Modifier.weight(1f)) }
@@ -1168,19 +1170,19 @@ private fun BauSections(home: Home, ui: Ui, modifier: Modifier) {
                 }
             }
             "recent" -> if (home.recent.isNotEmpty()) {
-                part("recent-title") { BauTitle(cfg.names["recent"] ?: tr("Recently used"), top = 22.dp) }
+                part("recent-title", "recent-0") { BauTitle(cfg.names["recent"] ?: tr("Recently used"), top = 22.dp) }
                 apps("recent", home.recent, columns = cfg.columns, height = 82.dp, mark = 22.dp, nameSize = 15.sp)
             }
             "rows" -> home.rows.forEachIndexed { i, (name, row) ->
-                part("row$i-title") { BauTitle(name, top = 22.dp) }
+                part("row$i-title", "row$i-0") { BauTitle(name, top = 22.dp) }
                 apps("row$i", row, columns = cfg.columns, height = 82.dp, mark = 22.dp, nameSize = 15.sp)
             }
             "folders" -> if (home.folders.isNotEmpty()) {
-                part("folders-title") { BauTitle(tr("Folders"), top = 22.dp) }
+                part("folders-title", "folders-0") { BauTitle(tr("Folders"), top = 22.dp) }
                 cells("folders", home.folders, cfg.columns, 82.dp) { f, m -> BauCell(f.first, "${f.second.size}", 3 to BAU_YELLOW, ui, 82.dp, 22.dp, 15.sp, m, onClick = { ui.onFolder(f) }) }
             }
             "grid" -> if (home.grid.isNotEmpty()) {
-                part("grid-title") { BauTitle(cfg.names["all_apps"] ?: tr("All apps"), top = 22.dp) }
+                part("grid-title", "grid-0") { BauTitle(cfg.names["all_apps"] ?: tr("All apps"), top = 22.dp) }
                 apps("grid", home.grid, columns = cfg.columns, height = 82.dp, mark = 22.dp, nameSize = 15.sp)
             }
         }
