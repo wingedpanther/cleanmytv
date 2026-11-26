@@ -712,7 +712,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
     if (showAllApps) {
         if (text) TextApps(pageApps, dockPkgs, onOpen = { launch(ctx, it) }, onMenu = { if (!guest) pageMenu = it }, onFind = { showFind = true },
             onPick = if (pickForDock) { app -> addToDock(ctx, home, cfg, app.pkg, TEXT_DOCK) } else null) { showAllApps = false; pickForDock = false }
-        else AppsPage(cfg, pageApps, onOpen = { launch(ctx, it) }, onMenu = { if (!guest) pageMenu = it }, backdrop = wallpaper.takeIf { cfg.glassBackdrop == "wallpaper" }) { showAllApps = false }
+        else AppsPage(cfg, pageApps, onOpen = { launch(ctx, it) }, onMenu = { if (!guest) pageMenu = it }, onFind = { showFind = true }, backdrop = wallpaper.takeIf { cfg.glassBackdrop == "wallpaper" }) { showAllApps = false }
     }
     pageMenu?.let { app ->
         // All apps has no Move in Glass and Bauhaus: an app outside the dock gets there from its menu. When the

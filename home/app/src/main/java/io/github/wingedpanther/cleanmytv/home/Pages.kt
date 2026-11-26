@@ -24,6 +24,10 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -382,8 +386,8 @@ internal fun appFacts(ctx: Context, pkg: String): AppFacts? = runCatching {
  * focused app's version, size and source underneath. Hold OK has the same menu as on Home.
  */
 @Composable
-internal fun AppsPage(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Unit, onMenu: (TvApp) -> Unit, backdrop: ImageBitmap? = null, onClose: () -> Unit) {
-    if (cfg.layout == "glass") return GlassApps(cfg, apps, onOpen, onMenu, backdrop, onClose)
+internal fun AppsPage(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Unit, onMenu: (TvApp) -> Unit, onFind: () -> Unit, backdrop: ImageBitmap? = null, onClose: () -> Unit) {
+    if (cfg.layout == "glass") return GlassApps(cfg, apps, onOpen, onMenu, onFind, backdrop, onClose)
     val ctx = LocalContext.current
     val look = remember(cfg.layout, cfg.accent) { PageLook.of(cfg) }
     val real = remember(apps) { apps.filter { !InputTiles.isInput(it.pkg) }.sortedBy { it.label.lowercase() } }
@@ -402,7 +406,9 @@ internal fun AppsPage(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Uni
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(look.case(tr("All apps")), color = look.text, fontSize = 64.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, modifier = Modifier.offset(y = 10.dp))
                 Spacer(Modifier.weight(1f))
-                Row(Modifier.focusGroup().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                // Search opens over this page; Back from it comes back here, on this entry (H14).
+                Row(Modifier.focusGroup().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.Bottom) {
+                    SearchEntry(look, onFind)
                     tabs.forEach { t -> TabChip(look.case(tabName(t)), real.count { inTab(t, it) }, t == tab, look) { tab = t } }
                 }
             }
@@ -421,6 +427,25 @@ internal fun AppsPage(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Uni
                 Text(look.case(tr("Hold OK")), color = look.text, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.border(1.dp, look.text).padding(horizontal = 6.dp, vertical = 3.dp))
                 Text(look.case(tr("favourites, hide, app info, uninstall")), color = look.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 10.dp))
             }
+        }
+    }
+}
+
+/** Search in the All apps header: in Bauhaus a word like the tabs, elsewhere a pill. */
+@Composable
+private fun SearchEntry(look: PageLook, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = if (look.bau) RectangleShape else RoundedCornerShape(16.dp)
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.pointer(onClick = onClick).onFocusChanged { focused = it.isFocused }.then(if (look.bau) Modifier else Modifier.border(1.dp, look.line, shape)),
+        shape = ClickableSurfaceDefaults.shape(shape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = look.focus),
+    ) {
+        val ink = if (focused) look.onFocus else look.text
+        Row(Modifier.padding(horizontal = if (look.bau) 4.dp else 12.dp, vertical = if (look.bau) 3.dp else 6.dp).padding(bottom = if (look.bau) 7.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
+            Image(Icons.Outlined.Search, null, Modifier.size(16.dp), colorFilter = ColorFilter.tint(ink))
+            Text(look.case(if (look.bau) tr("Search") else tr("Search apps")), color = ink, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 6.dp))
         }
     }
 }

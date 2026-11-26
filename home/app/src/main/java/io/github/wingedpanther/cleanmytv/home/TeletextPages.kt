@@ -79,7 +79,8 @@ internal fun TextApps(apps: List<TvApp>, dock: Set<String>, onOpen: (TvApp) -> U
     fun go(a: TvApp) { onClose(); if (onPick != null) onPick(a) else onOpen(a) }
     val words = listOf(
         ColourWord(tr("Home"), onClose),
-        ColourWord(tr("Search")) { onClose(); onFind() }.takeIf { onPick == null },
+        // Search opens over this page, so Back from it comes back here (H14).
+        ColourWord(tr("Search"), onFind).takeIf { onPick == null },
         ColourWord(if (newest) tr("Sort: newest") else tr("Sort: A to Z")) { newest = !newest; page = 0 },
         ColourWord(tr("Show: {kind}", "kind" to tabName(tab).lowercase())) { tab = tabs[(tabs.indexOf(tab) + 1) % tabs.size]; page = 0 },
     )

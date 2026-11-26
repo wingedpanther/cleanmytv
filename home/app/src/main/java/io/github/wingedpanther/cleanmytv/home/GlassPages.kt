@@ -95,7 +95,7 @@ private fun subLine(h: Hit): String = when {
  * app has a caption, centred under it. Hold OK has the same menu as on Home. Behind it, Home's own background.
  */
 @Composable
-internal fun GlassApps(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Unit, onMenu: (TvApp) -> Unit, backdrop: ImageBitmap?, onClose: () -> Unit) {
+internal fun GlassApps(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Unit, onMenu: (TvApp) -> Unit, onFind: () -> Unit, backdrop: ImageBitmap?, onClose: () -> Unit) {
     val ctx = LocalContext.current
     val real = remember(apps) { apps.filter { !InputTiles.isInput(it.pkg) }.sortedBy { it.label.lowercase() } }
     val facts by produceState(emptyMap<String, AppFacts>(), real) { value = withContext(Dispatchers.IO) { real.mapNotNull { a -> appFacts(ctx, a.pkg)?.let { a.pkg to it } }.toMap() } }
@@ -110,7 +110,10 @@ internal fun GlassApps(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Un
             GlassPageBackdrop(backdrop)
             Column(Modifier.fillMaxSize().padding(horizontal = PAGE_X, vertical = PAGE_Y)) {
                 Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(tr("Apps"), color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.035).em, modifier = Modifier.weight(1f))
+                    Text(tr("Apps"), color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.035).em)
+                    // Search opens over this page; Back from it comes back here, on the pill (H14).
+                    GlassSearchPill(Modifier.padding(start = 24.dp), onFind)
+                    Spacer(Modifier.weight(1f))
                     Row(Modifier.clip(RoundedCornerShape(18.dp)).background(GLASS_TRAY).border(1.dp, GLASS_TRAY_EDGE, RoundedCornerShape(18.dp)).padding(3.dp).focusGroup(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                         tabs.forEach { t ->
                             Segment(tabName(t), t == tab) { tab = t }
@@ -156,6 +159,27 @@ internal fun GlassApps(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Un
                     Text(tr("Dock, hide, app info, uninstall"), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
                 }
             }
+        }
+    }
+}
+
+/** "Search apps" on the same glass as the kind chips; white when focused. */
+@Composable
+private fun GlassSearchPill(modifier: Modifier, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(18.dp)
+    Surface(
+        onClick = onClick,
+        modifier = modifier.pointer(onClick = onClick).height(36.dp).onFocusChanged { focused = it.isFocused },
+        shape = ClickableSurfaceDefaults.shape(shape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
+        border = ClickableSurfaceDefaults.border(border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(1.dp, GLASS_TRAY_EDGE), shape = shape),
+            focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(1.dp, Color.White), shape = shape)),
+        colors = ClickableSurfaceDefaults.colors(containerColor = GLASS_TRAY, focusedContainerColor = Color.White),
+    ) {
+        val ink = if (focused) GLASS_INK else Color.White
+        Row(Modifier.fillMaxHeight().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Image(Icons.Outlined.Search, null, Modifier.size(15.dp), colorFilter = ColorFilter.tint(ink))
+            Text(tr("Search apps"), color = ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 7.dp))
         }
     }
 }
