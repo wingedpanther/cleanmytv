@@ -357,7 +357,11 @@ internal fun TextToday(ui: Ui, onApps: () -> Unit, onSettings: () -> Unit, onClo
                     TextHead(tr("Weather"), TT_YELLOW)
                     if (ui.cfg.weatherPlace.isNotBlank()) TextRow(ui.cfg.weatherPlace, TT_CYAN)
                     TextRow(tr("Now  {temp}° {sky}", "temp" to w.temp, "sky" to weatherWords(w.code)))
-                    if (w.hours.isNotEmpty()) TextRow(w.hours.take(4).joinToString("  ") { "${textHour(ctx, it.at)} ${it.temp}°" }, TT_CYAN)
+                    // Four even cells, each eight letters at most ("10a -10°"), so all four always fit (V1).
+                    if (w.hours.isNotEmpty()) Row(Modifier.height(TT_ROW).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        w.hours.take(4).forEach { Text("${textHour(ctx, it.at)} ${it.temp}°", color = TT_CYAN, maxLines = 1, softWrap = false, modifier = Modifier.weight(1f)) }
+                        repeat(4 - minOf(4, w.hours.size)) { Spacer(Modifier.weight(1f)) }
+                    }
                     w.days.take(4).forEach { d ->
                         Row(Modifier.height(TT_ROW).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Leader(d.date.format(dayName), "${d.high}° ${weatherWords(d.code)}", TT_WHITE, TT_BLUE, TT_GREEN, FontWeight.Medium, Modifier.weight(1f))
@@ -373,11 +377,12 @@ internal fun TextToday(ui: Ui, onApps: () -> Unit, onSettings: () -> Unit, onClo
                             yesterday?.let { Text(tr("Yesterday {time}", "time" to shortTime(it)), color = TT_CYAN, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 20.dp)) }
                         }
                         val most = (top.maxOfOrNull { it.ms } ?: 0L).coerceAtLeast(1L)
+                        // The name takes what the bar and the time leave, so "SmartTube beta" isn't cut beside "SmartTube" (V2).
                         top.forEach { app ->
                             Row(Modifier.height(TT_ROW), verticalAlignment = Alignment.CenterVertically) {
-                                Text(app.label, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(145.dp).padding(start = 8.dp))
-                                Blocks(((app.ms * 12 + most / 2) / most).toInt().coerceIn(1, 12), 12, TT_GREEN, 11.dp)
-                                Text(Limits.words((app.ms / 60_000L).toInt()), color = TT_GREEN, maxLines = 1)
+                                Text(app.label, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                                Blocks(((app.ms * 8 + most / 2) / most).toInt().coerceIn(1, 8), 8, TT_GREEN, 9.dp)
+                                Text(shortTime((app.ms / 60_000L).toInt()), color = TT_GREEN, maxLines = 1, softWrap = false, modifier = Modifier.width(72.dp))
                             }
                         }
                     }

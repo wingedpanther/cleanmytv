@@ -49,11 +49,11 @@ internal fun hourFormat(ctx: Context): SimpleDateFormat {
     return SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(Locale.getDefault(), skeleton), Locale.getDefault())
 }
 
-/** Teletext's short hour: "22h", or "9pm" on a 12-hour clock, so four hours fit one line. */
+/** Teletext's short hour: "22h", or "10a" and "1p" on a 12-hour clock, so an hour and its temperature take eight letters at most. */
 internal fun textHour(ctx: Context, at: java.time.Instant): String {
     val t = at.atZone(java.time.ZoneId.systemDefault())
     return if (android.text.format.DateFormat.is24HourFormat(ctx)) "%02dh".format(t.hour)
-    else "${(t.hour + 11) % 12 + 1}${if (t.hour < 12) "am" else "pm"}"
+    else "${(t.hour + 11) % 12 + 1}${if (t.hour < 12) "a" else "p"}"
 }
 
 /** "2 h 05", or "48 min" under an hour: the short form where room is tight. */
