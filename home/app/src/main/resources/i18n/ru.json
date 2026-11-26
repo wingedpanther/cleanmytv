@@ -827,7 +827,7 @@
   "Yesterday {time}": "Вчера {time}",
   "Next hours": "Ближайшие часы",
   "Next days": "Ближайшие дни",
-  "OK pauses the music. Blue opens the full screen time.": "OK ставит музыку на паузу. Синяя открывает всё экранное время.",
+  "OK opens the music. Yellow pauses it, blue opens the full screen time.": "OK открывает музыку. Жёлтая ставит на паузу, синяя открывает всё экранное время.",
   "Blue opens the full screen time.": "Синяя открывает всё экранное время.",
   "Nothing here yet. Weather, screen time and music show up here when they are on.": "Пока пусто. Погода, экранное время и музыка появятся здесь, когда они включены.",
   "Now  {temp}° {sky}": "Сейчас  {temp}° {sky}",

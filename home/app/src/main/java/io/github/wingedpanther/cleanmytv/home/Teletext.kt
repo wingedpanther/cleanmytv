@@ -417,7 +417,7 @@ internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick
                 }
                 playing?.let { t ->
                     TextHead(tr("Now playing"), TT_CYAN)
-                    TextRow(listOf(t.title, t.artist).filter { it.isNotBlank() }.joinToString(", "))
+                    TodayLine(listOf(t.title, t.artist).filter { it.isNotBlank() }.joinToString(", "), side) { NowPlaying.open(ctx) }
                 }
                 Row(Modifier.height(TT_ROW).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(network, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
@@ -430,7 +430,7 @@ internal fun TeletextLayout(home: Home, ui: Ui, seen: Int, moving: Moving?, pick
     }
 }
 
-/** A widget's line on Home that opens Today with OK. */
+/** A widget's line on Home: OK opens Today, or the music app for Now playing. */
 @Composable
 private fun TodayLine(text: String, modifier: Modifier, onClick: () -> Unit) {
     TextFocus(modifier.fillMaxWidth().height(TT_ROW), onClick = onClick) { f ->

@@ -827,7 +827,7 @@
   "Yesterday {time}": "Gestern {time}",
   "Next hours": "Nächste Stunden",
   "Next days": "Nächste Tage",
-  "OK pauses the music. Blue opens the full screen time.": "OK pausiert die Musik. Blau öffnet die ganze Bildschirmzeit.",
+  "OK opens the music. Yellow pauses it, blue opens the full screen time.": "OK öffnet die Musik. Gelb pausiert sie, Blau öffnet die ganze Bildschirmzeit.",
   "Blue opens the full screen time.": "Blau öffnet die ganze Bildschirmzeit.",
   "Nothing here yet. Weather, screen time and music show up here when they are on.": "Noch nichts da. Wetter, Bildschirmzeit und Musik erscheinen hier, wenn sie an sind.",
   "Now  {temp}° {sky}": "Jetzt  {temp}° {sky}",

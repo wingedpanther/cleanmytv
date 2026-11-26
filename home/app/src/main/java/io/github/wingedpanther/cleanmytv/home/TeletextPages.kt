@@ -324,7 +324,7 @@ private fun thisTv(ctx: android.content.Context): List<String> {
 
 /**
  * Today, P150 (W4): the greeting on a yellow band, the weather at the left (now, the next hours, the next days),
- * and at the right screen time with today's top apps, then what is playing; OK there plays or pauses. A part
+ * and at the right screen time with today's top apps, then what is playing; OK there opens the app. A part
  * with nothing to show is left out. Back goes Home.
  */
 @Composable
@@ -339,13 +339,14 @@ internal fun TextToday(ui: Ui, onApps: () -> Unit, onSettings: () -> Unit, onClo
     val red = remember { FocusRequester() }
     LaunchedEffect(track != null) { delay(30); runCatching { if (track != null) music.requestFocus() else red.requestFocus() } }
     val dayName = remember { java.time.format.DateTimeFormatter.ofPattern("EEE", java.util.Locale.getDefault()) }
+    // With music on, yellow plays or pauses it in place of Settings, and OK on its line opens the app (N3).
     val words = listOf(
         ColourWord(tr("Home"), onClose),
         ColourWord(tr("Apps")) { onClose(); onApps() },
-        ColourWord(tr("Settings"), onSettings),
+        if (track != null) ColourWord(if (track.playing) tr("Pause") else tr("Play")) { NowPlaying.playPause() } else ColourWord(tr("Settings"), onSettings),
         ColourWord(tr("Screen time")) { ScreenTimeApps.open(ctx) },
     )
-    val hint = if (track != null) tr("OK pauses the music. Blue opens the full screen time.") else tr("Blue opens the full screen time.")
+    val hint = if (track != null) tr("OK opens the music. Yellow pauses it, blue opens the full screen time.") else tr("Blue opens the full screen time.")
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         TextPage(tr("Today"), hello ?: tr("Today"), TT_YELLOW, TT_BLACK, "1/1", hint, words, firstWord = red) {
             if (w == null && screen == null && track == null) {
@@ -388,7 +389,7 @@ internal fun TextToday(ui: Ui, onApps: () -> Unit, onSettings: () -> Unit, onClo
                     }
                     track?.let { t ->
                         TextHead(tr("Now playing"), TT_MAGENTA)
-                        TextFocus(Modifier.focusRequester(music).fillMaxWidth().height(TT_ROW), onClick = { NowPlaying.playPause() }) { f ->
+                        TextFocus(Modifier.focusRequester(music).fillMaxWidth().height(TT_ROW), onClick = { NowPlaying.open(ctx) }) { f ->
                             Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(t.title, color = if (f) TT_BLACK else TT_WHITE, fontWeight = if (f) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                 Text((if (t.playing) tr("Pause") else tr("Play")).lowercase(), color = if (f) TT_BLACK else TT_CYAN, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(start = 12.dp))

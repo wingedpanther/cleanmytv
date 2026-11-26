@@ -61,6 +61,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.shadow.Shadow
@@ -435,36 +436,62 @@ private fun GlassCards(items: List<Slot>, ui: Ui, home: Home, first: FocusReques
 private fun CardLabel(text: String, focused: Boolean) =
     Text(text, color = if (focused) GLASS_INK.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.72f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
 
-/** Now playing: the app, title and artist, and play/pause and next. OK on the card plays or pauses; Right reaches Next. */
+/**
+ * Now playing: the app, title and artist, then play/pause and next as two round buttons. OK on the card opens
+ * the app; Right reaches Play or Pause, then Next (N3). The buttons sit under the card's text, not over the card,
+ * so each takes its own OK (N2).
+ */
 @Composable
 private fun GlassPlaying(t: Track, size: Modifier, focus: Modifier, nav: Modifier) {
+    val ctx = LocalContext.current
     val card = remember { FocusRequester() }
-    val next = remember { FocusRequester() }
-    Box(size) {
-        GlassTile(14.dp, Modifier.fillMaxSize().then(focus).focusRequester(card).focusProperties { right = next }, focusScale = 1.08f, onClick = { NowPlaying.playPause() }) { f ->
-            val ink = if (f) GLASS_INK else Color.White
-            Column(Modifier.fillMaxSize().padding(horizontal = 13.dp, vertical = 11.dp)) {
-                CardLabel(listOf(tr("Now playing"), t.app).filter { it.isNotBlank() }.joinToString(" · "), f)
-                Text(t.title, color = ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
-                if (t.artist.isNotBlank()) Text(t.artist, color = ink.copy(alpha = 0.78f), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.weight(1f))
-                // Play or pause is the card itself; the circle only shows which.
-                CardRound(if (t.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (t.playing) tr("Pause") else tr("Play"), f)
+    val play = remember { FocusRequester() }
+    var on by remember { mutableStateOf(false) }
+    val grow by animateFloatAsState(if (on) 1.08f else 1f, tween(160), label = "grow")
+    val rise by animateDpAsState(if (on) 5.dp else 0.dp, tween(160), label = "rise")
+    val shape = RoundedCornerShape(14.dp)
+    val photo = LocalGlassOnPhoto.current
+    Box(size.zIndex(if (on) 1f else 0f).graphicsLayer { translationY = -rise.toPx(); scaleX = grow; scaleY = grow }
+        .then(if (on) Modifier.dropShadow(shape, GLASS_DROP) else Modifier)
+        .clip(shape).background(if (on) Color.White else if (photo) PHOTO_TILE else GLASS_FILL).border(1.dp, if (on) Color.White else if (photo) GLASS_TRAY_EDGE else GLASS_EDGE, shape)) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 13.dp, vertical = 11.dp)) {
+            val ink = if (on) GLASS_INK else Color.White
+            Surface(
+                onClick = { NowPlaying.open(ctx) },
+                modifier = Modifier.pointer { NowPlaying.open(ctx) }.fillMaxWidth().weight(1f).then(focus).focusRequester(card).focusProperties { right = play }.onFocusChanged { on = it.isFocused },
+                shape = ClickableSurfaceDefaults.shape(RectangleShape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1f, pressedScale = 1f),
+                colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
+            ) {
+                Column {
+                    CardLabel(listOf(tr("Now playing"), t.app).filter { it.isNotBlank() }.joinToString(" · "), on)
+                    Text(t.title, color = ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
+                    if (t.artist.isNotBlank()) Text(t.artist, color = ink.copy(alpha = 0.78f), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
-        }
-        GlassTile(14.dp, Modifier.align(Alignment.BottomStart).padding(start = 13.dp + 28.dp + 7.dp, bottom = 11.dp).size(28.dp).then(nav).focusRequester(next).focusProperties { left = card },
-            focusScale = 1.1f, lift = 0.dp, shadow = false, onClick = { NowPlaying.next() }) { f ->
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Image(Icons.Outlined.SkipNext, tr("Next"), Modifier.size(14.dp), colorFilter = ColorFilter.tint(if (f) GLASS_INK else Color.White))
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                CardButton(if (t.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (t.playing) tr("Pause") else tr("Play"), on,
+                    nav.focusRequester(play).focusProperties { left = card }) { NowPlaying.playPause() }
+                CardButton(Icons.Outlined.SkipNext, tr("Next"), on, nav) { NowPlaying.next() }
             }
         }
     }
 }
 
+/** A round button on a card: glass, white when focused; dark lines while the card around it is white. */
 @Composable
-private fun CardRound(icon: ImageVector, label: String, focused: Boolean) {
-    Box(Modifier.size(28.dp).glass(14.dp, if (focused) GLASS_INK.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.16f), if (focused) GLASS_INK.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.22f)), contentAlignment = Alignment.Center) {
-        Image(icon, label, Modifier.size(14.dp), colorFilter = ColorFilter.tint(if (focused) GLASS_INK else Color.White))
+private fun CardButton(icon: ImageVector, label: String, onWhite: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Surface(
+        onClick = onClick,
+        modifier = modifier.pointer(onClick = onClick).size(28.dp).onFocusChanged { focused = it.isFocused },
+        shape = ClickableSurfaceDefaults.shape(CircleShape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1.12f),
+        border = ClickableSurfaceDefaults.border(border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(1.dp, if (onWhite) GLASS_INK.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.22f)), shape = CircleShape),
+            focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(1.dp, Color.White), shape = CircleShape)),
+        colors = ClickableSurfaceDefaults.colors(containerColor = if (onWhite) GLASS_INK.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.16f), focusedContainerColor = Color.White),
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Image(icon, label, Modifier.size(14.dp), colorFilter = ColorFilter.tint(if (focused || onWhite) GLASS_INK else Color.White))
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 package io.github.wingedpanther.cleanmytv.home
 
+import android.app.ActivityOptions
 import android.content.ComponentName
 import android.content.Context
 import android.graphics.Bitmap
@@ -7,10 +8,12 @@ import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.util.Log
+import android.view.KeyEvent
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.scale
@@ -113,10 +116,38 @@ object NowPlaying {
         _track.value = Track(title, artist, app, art, c.playbackState?.state == PlaybackState.STATE_PLAYING)
     }
 
+    // Media keys first: some players ignore transport controls but obey the remote's keys (N1). A player that
+    // turns the key down falls back to the transport controls.
     fun playPause() {
-        val t = controller?.transportControls ?: return
-        if (_track.value?.playing == true) t.pause() else t.play()
+        val c = controller ?: return
+        val playing = _track.value?.playing == true
+        if (!press(c, if (playing) KeyEvent.KEYCODE_MEDIA_PAUSE else KeyEvent.KEYCODE_MEDIA_PLAY)) c.transportControls.run { if (playing) pause() else play() }
     }
 
-    fun next() { controller?.transportControls?.skipToNext() }
+    fun next() {
+        val c = controller ?: return
+        if (!press(c, KeyEvent.KEYCODE_MEDIA_NEXT)) c.transportControls.skipToNext()
+    }
+
+    private fun press(c: MediaController, code: Int): Boolean = runCatching {
+        c.dispatchMediaButtonEvent(KeyEvent(KeyEvent.ACTION_DOWN, code)) && c.dispatchMediaButtonEvent(KeyEvent(KeyEvent.ACTION_UP, code))
+    }.onFailure { Log.w(TAG, "now playing: key $code: $it") }.getOrDefault(false)
+
+    /** Opens what is playing: the screen the session names, else the app's own start (N3). */
+    fun open(ctx: Context) {
+        val c = controller ?: return
+        val shown = c.sessionActivity?.let { pi ->
+            runCatching {
+                // Home is in front, so it may start the player's screen for it.
+                val options = if (Build.VERSION.SDK_INT >= 34) ActivityOptions.makeBasic()
+                    .setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED).toBundle() else null
+                pi.send(ctx, 0, null, null, null, null, options)
+            }.onFailure { Log.w(TAG, "now playing: session screen: $it") }.isSuccess
+        } == true
+        if (shown) return
+        val pm = ctx.packageManager
+        (pm.getLeanbackLaunchIntentForPackage(c.packageName) ?: pm.getLaunchIntentForPackage(c.packageName))?.let { i ->
+            runCatching { ctx.startActivity(i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure { Log.w(TAG, "now playing: open: $it") }
+        }
+    }
 }

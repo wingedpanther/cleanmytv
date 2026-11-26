@@ -1822,20 +1822,34 @@ private fun ScreenTimeCard(ui: Ui) {
     }
 }
 
-/** What another app is playing, with play/pause and next. Only there while a session has something loaded. */
+/**
+ * What another app is playing, with play/pause and next. Only there while a session has something loaded. OK on
+ * the cover and names opens the app (N3).
+ */
 @Composable
 private fun NowPlayingCard(t: Track, ui: Ui) {
+    val ctx = LocalContext.current
     Row(
         Modifier.padding(horizontal = BLEED, vertical = 12.dp).width(520.dp).background(PANEL.copy(alpha = 0.88f), RoundedCornerShape(14.dp)).padding(12.dp).focusGroup(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(64.dp).background(TILE, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-            if (t.art != null) Image(t.art, null, Modifier.fillMaxSize().background(Color.Black, RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
-            else Image(Icons.Outlined.MusicNote, null, Modifier.size(28.dp), colorFilter = ColorFilter.tint(MUTED))
-        }
-        Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-            Text(t.title, color = TEXT, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(listOf(t.artist, t.app).filter { it.isNotBlank() }.joinToString(" · "), color = MUTED, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
+        Surface(
+            onClick = { NowPlaying.open(ctx) },
+            modifier = Modifier.pointer { NowPlaying.open(ctx) }.weight(1f).padding(end = 10.dp),
+            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)), scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+            border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, ui.accent), shape = RoundedCornerShape(10.dp))),
+            colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = 0.08f)),
+        ) {
+            Row(Modifier.padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(64.dp).background(TILE, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                    if (t.art != null) Image(t.art, null, Modifier.fillMaxSize().background(Color.Black, RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+                    else Image(Icons.Outlined.MusicNote, null, Modifier.size(28.dp), colorFilter = ColorFilter.tint(MUTED))
+                }
+                Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                    Text(t.title, color = TEXT, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(listOf(t.artist, t.app).filter { it.isNotBlank() }.joinToString(" · "), color = MUTED, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
+                }
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             RoundButton(if (t.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (t.playing) tr("Pause") else tr("Play"), ui) { NowPlaying.playPause() }
