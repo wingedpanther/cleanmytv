@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -116,14 +117,17 @@ internal fun GlassApps(cfg: HomeConfig, apps: List<TvApp>, onOpen: (TvApp) -> Un
                         }
                     }
                 }
-                LazyVerticalGrid(GridCells.Fixed(6), Modifier.weight(1f).padding(top = 26.dp),
+                // A row cut by the title or the foot fades out instead of showing sliced (K4).
+                val grid = rememberLazyGridState()
+                val whole by wholeItems(grid)
+                LazyVerticalGrid(GridCells.Fixed(6), Modifier.weight(1f).padding(top = 26.dp), state = grid,
                     horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(29.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 6.dp, bottom = 24.dp)) {
                     items(shown, key = { it.pkg }) { a ->
                         // The same rule as the dock: names on glass, banners only when the owner asked for them,
                         // and a banner keeps its picture when focused.
                         val banner = a.banner && cfg.glassBanners
-                        Box(Modifier.height(74.dp)) {
+                        Box(Modifier.height(74.dp).whole(a.pkg in whole)) {
                             Pane(13.dp, Modifier.fillMaxSize().then(if (a == shown.firstOrNull()) Modifier.focusRequester(first) else Modifier), keepFill = banner,
                                 onFocus = { focused = a.pkg }, onLongClick = { onMenu(a) }, onClick = { onClose(); onOpen(a) }) { f ->
                                 if (banner) Image(a.art, a.label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)

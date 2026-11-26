@@ -1492,6 +1492,8 @@
   "Glass keeps the TV's usual sans. The font here is for the other layouts.": "Glass behält die übliche Schrift des Fernsehers. Die Schrift hier gilt für die anderen Layouts.",
   "Banners in the Glass dock": "Banner im Glass-Dock",
   "Off, the dock and All apps show app names on glass, which turn white when focused.": "Aus zeigen das Dock und Alle Apps die App-Namen auf Glas, weiß bei Fokus.",
+  "Big app name": "Großer App-Name",
+  "Off, the big headline shows only something to continue watching, not the focused app.": "Aus zeigt die große Überschrift nur, was du weiterschauen kannst, nicht die fokussierte App.",
   "Backdrop": "Hintergrund",
   "My wallpaper": "Mein Hintergrundbild",
   "Glass slate": "Glass-Schiefer"

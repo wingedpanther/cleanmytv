@@ -211,7 +211,8 @@ private fun GlassHome(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Qu
     LaunchedEffect(ownStart, dock.firstOrNull()?.pkg) { if (ownStart && dock.isNotEmpty()) { delay(60); runCatching { start.requestFocus() } } }
     Column(Modifier.fillMaxSize().padding(horizontal = GLASS_X, vertical = GLASS_Y)) {
         // Focus paths set by hand: a lifted, scaled tile makes its neighbours look lower than it, so the
-        // usual search sends Down sideways along the top bar instead of to the shelf or the dock.
+        // usual search sends Down sideways along the top bar instead of to the shelf or the dock, and
+        // along the dock itself, where Down now stops.
         // The app last focused in the dock, or the first one once that app has left the dock.
         val shownApp = current?.takeIf { c -> dock.any { it.pkg == c.pkg } } ?: dock.firstOrNull()
         val head = headItem(shownApp, home)
@@ -232,12 +233,12 @@ private fun GlassHome(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (Qu
                 GlassDockTile(app, ui, movingApp?.pkg == app.pkg, dimmed = movingApp != null && movingApp.pkg != app.pkg,
                     Modifier.then(ui.focusFor("dock", app)).then(if (i == 0 && ownStart) Modifier.focusRequester(start) else Modifier)
                         .then(if (app.pkg == shownApp?.pkg) Modifier.focusRequester(dockBack) else Modifier)
-                        .focusProperties { up = if (hasShelf) shelf else top; if (i == 0) left = FocusRequester.Cancel }) { current = app }
+                        .focusProperties { up = if (hasShelf) shelf else top; down = FocusRequester.Cancel; if (i == 0) left = FocusRequester.Cancel }) { current = app }
             }
             // All apps stays in place during a move, so the tray keeps its width.
             Box(Modifier.graphicsLayer { alpha = if (movingApp != null) 0.5f else 1f }) {
                 // The ends of the tray stop the arrows; the usual search jumped from here up to the top bar.
-                GlassTile(12.dp, Modifier.width(104.dp).height(59.dp).focusProperties { right = FocusRequester.Cancel; up = if (hasShelf) shelf else top }, onClick = onAllApps) { f ->
+                GlassTile(12.dp, Modifier.width(104.dp).height(59.dp).focusProperties { right = FocusRequester.Cancel; down = FocusRequester.Cancel; up = if (hasShelf) shelf else top }, onClick = onAllApps) { f ->
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(tr("All apps"), color = if (f) GLASS_INK else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.01).em)
                     }
@@ -316,14 +317,15 @@ private fun QuickIcon(a: QuickAction, ui: Ui, modifier: Modifier, onClick: () ->
  */
 @Composable
 private fun GlassHeadline(app: TvApp, item: WatchItem?, home: Home, ui: Ui, lastUsed: Long?) {
-    val ctx = LocalContext.current
+    // An app's name stands alone, with when it was last open under it if Home knows (H12). With "Big app name"
+    // off, only a continue-watching headline shows (H13).
+    if (item == null && !ui.cfg.glassHeadline) return
     Column(Modifier.padding(top = 30.dp)) {
-        Text(if (item != null) tr("Continue in {app}", "app" to (home.app(item.pkg)?.label ?: app.label)) else (remember(app.pkg) { bauKind(ctx, app.pkg) } ?: tr("App")),
-            color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        if (item != null) Text(tr("Continue in {app}", "app" to (home.app(item.pkg)?.label ?: app.label)), color = GLASS_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         Text(item?.title ?: app.label, color = Color.White, fontSize = 52.sp, fontWeight = FontWeight.Bold, lineHeight = 54.sp, letterSpacing = (-0.035).em,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
-        if (item == null) {
-            Text(lastUsed?.let { tr("Opened {when}", "when" to usedWhen(it)) } ?: tr("OK opens it"), color = Color.White.copy(alpha = 0.86f), fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 9.dp))
+        if (item == null && lastUsed != null) {
+            Text(tr("Opened {when}", "when" to usedWhen(lastUsed)), color = Color.White.copy(alpha = 0.86f), fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 9.dp))
         }
         if (item != null) {
             val left = if (item.duration > 0 && item.position > 0) ((item.duration - item.position) / 60_000L).toInt().takeIf { it > 0 } else null

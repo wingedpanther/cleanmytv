@@ -1,5 +1,6 @@
 package io.github.wingedpanther.cleanmytv.home
 
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SettingsEthernet
 import android.graphics.BitmapFactory
 import android.util.Log
@@ -113,6 +114,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.withStyle
@@ -135,6 +137,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Glow
+import androidx.tv.material3.LocalTextStyle
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import kotlinx.coroutines.Dispatchers
@@ -630,7 +633,10 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
                 "rail" -> RailLayout(home, ui, quick, onQuick)
                 // Search is only in Quick settings (Control centre in Glass) in these two, so it always leads.
                 "bau" -> BauLayout(home, ui, listOfNotNull(all["panel"]?.takeIf { !guest }) + quick.filter { it.id != "panel" }, onQuick)
-                "glass" -> GlassLayout(home, ui, listOfNotNull(all["panel"]?.copy(label = tr("Control centre"))?.takeIf { !guest }) + quick.filter { it.id != "panel" }, onQuick, onAllApps = { showAllApps = true }, moving, appsVersion, glassOnPhoto)
+                // Glass also keeps Search second, after Control centre, whatever the owner picked (H11). Guests get
+                // neither, as they get no Control centre.
+                "glass" -> GlassLayout(home, ui, listOfNotNull(all["panel"]?.copy(label = tr("Control centre")), all["find"]?.copy(label = tr("Search"), icon = Icons.Outlined.Search))
+                    .filter { !guest } + quick.filter { it.id != "panel" && it.id != "find" }, onQuick, onAllApps = { showAllApps = true }, moving, appsVersion, glassOnPhoto)
                 "teletext" -> TeletextLayout(home, ui, appsVersion, moving, textPick, textActions)
                 else -> ShelfLayout(home, ui, quick, onQuick)
             }
@@ -1114,17 +1120,47 @@ private fun BauQuickRow(a: QuickAction, ui: Ui, onQuick: (QuickAction) -> Unit) 
 @Composable
 private fun BauSections(home: Home, ui: Ui, modifier: Modifier) {
     val cfg = ui.cfg
-    LazyColumn(modifier, contentPadding = PaddingValues(top = SAFE_Y, bottom = 64.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val ctx = LocalContext.current
+    // One item per row of cells, so a row cut by the top or bottom of the screen fades out whole (BA6, K3).
+    val list = rememberLazyListState()
+    val whole by wholeItems(list)
+    fun LazyListScope.part(key: String, content: @Composable () -> Unit) = item(key) { Box(Modifier.whole(key in whole)) { content() } }
+    // Ruled in cream: the cream shows through 1 dp gaps. The rule over a row stays when the row fades, so the
+    // row above keeps its foot.
+    fun <T> LazyListScope.cells(key: String, items: List<T>, columns: Int, height: Dp, cell: @Composable (T, Modifier) -> Unit) {
+        val rows = items.chunked(columns.coerceAtLeast(1))
+        rows.forEachIndexed { r, row ->
+            item("$key-$r") {
+                Column(Modifier.fillMaxWidth()) {
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(BAU_CREAM))
+                    Row(Modifier.whole("$key-$r" in whole).fillMaxWidth().background(BAU_CREAM).padding(start = 1.dp, end = 1.dp, bottom = if (r == rows.lastIndex) 1.dp else 0.dp),
+                        horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                        row.forEach { cell(it, Modifier.weight(1f)) }
+                        // The rest of a short last row stays dark, as the design's empty cells do.
+                        repeat(columns - row.size) { Box(Modifier.weight(1f).height(height).background(BAU_INK)) }
+                    }
+                }
+            }
+        }
+    }
+    fun LazyListScope.apps(section: String, apps: List<TvApp>, columns: Int, height: Dp, mark: Dp, nameSize: androidx.compose.ui.unit.TextUnit) =
+        cells(section, apps, columns, height) { app, m ->
+            val kind = remember(app.pkg) { bauKind(ctx, app.pkg) }
+            BauCell(app.label, if (Lock.isLocked(ui.cfg, app.pkg)) tr("Locked") else if (height > 100.dp) kind else null, bauMark(app.pkg), ui, height, mark, nameSize,
+                m.then(ui.focusFor(section, app)), moving = ui.movingKey == "$section:${app.pkg}",
+                onFocus = { ui.onFocusApp(app) }, onLongClick = { ui.onAppMenu(section, app) }, onClick = { launch(ctx, app) })
+        }
+    LazyColumn(modifier, state = list, contentPadding = PaddingValues(top = SAFE_Y, bottom = 64.dp)) {
         for (s in cfg.sections) when (s) {
-            "nowplaying" -> ui.track?.let { t -> item("nowplaying") { NowPlayingCard(t, ui) } }
-            "screentime" -> if (ui.screenTimeSeen) item("screentime") { ScreenTimeCard(ui) }
+            "nowplaying" -> ui.track?.let { t -> part("nowplaying") { Box(Modifier.padding(bottom = 8.dp)) { NowPlayingCard(t, ui) } } }
+            "screentime" -> if (ui.screenTimeSeen) part("screentime") { Box(Modifier.padding(bottom = 8.dp)) { ScreenTimeCard(ui) } }
             "dock" -> if (home.dock.isNotEmpty()) {
-                item("dock-title") { BauTitle(tr("Favourites"), tr("All apps") + ", " + (home.dock.size + home.grid.size)) }
-                item("dock") { BauGrid("dock", home.dock, ui, columns = 3, height = 155.dp, mark = 52.dp, nameSize = 20.sp) }
+                part("dock-title") { BauTitle(tr("Favourites"), tr("All apps") + ", " + (home.dock.size + home.grid.size)) }
+                apps("dock", home.dock, columns = 3, height = 155.dp, mark = 52.dp, nameSize = 20.sp)
             }
             "watchnext" -> if (home.watch.isNotEmpty()) {
-                item("watchnext-title") { BauTitle(tr("Continue"), top = 14.dp) }
-                item("watchnext") {
+                part("watchnext-title") { BauTitle(tr("Continue"), top = 22.dp) }
+                part("watchnext") {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         home.watch.take(4).forEach { w -> BauWatch(w, home.app(w.pkg), ui, Modifier.weight(1f)) }
                         repeat(4 - minOf(4, home.watch.size)) { Spacer(Modifier.weight(1f)) }
@@ -1132,22 +1168,20 @@ private fun BauSections(home: Home, ui: Ui, modifier: Modifier) {
                 }
             }
             "recent" -> if (home.recent.isNotEmpty()) {
-                item("recent-title") { BauTitle(cfg.names["recent"] ?: tr("Recently used"), top = 14.dp) }
-                item("recent") { BauGrid("recent", home.recent, ui, columns = cfg.columns, height = 82.dp, mark = 22.dp, nameSize = 15.sp) }
+                part("recent-title") { BauTitle(cfg.names["recent"] ?: tr("Recently used"), top = 22.dp) }
+                apps("recent", home.recent, columns = cfg.columns, height = 82.dp, mark = 22.dp, nameSize = 15.sp)
             }
-            "rows" -> home.rows.forEachIndexed { i, (name, list) ->
-                item("row$i-title") { BauTitle(name, top = 14.dp) }
-                item("row$i") { BauGrid("row$i", list, ui, columns = cfg.columns, height = 82.dp, mark = 22.dp, nameSize = 15.sp) }
+            "rows" -> home.rows.forEachIndexed { i, (name, row) ->
+                part("row$i-title") { BauTitle(name, top = 22.dp) }
+                apps("row$i", row, columns = cfg.columns, height = 82.dp, mark = 22.dp, nameSize = 15.sp)
             }
             "folders" -> if (home.folders.isNotEmpty()) {
-                item("folders-title") { BauTitle(tr("Folders"), top = 14.dp) }
-                item("folders") {
-                    BauCells(home.folders, cfg.columns, 82.dp) { f, m -> BauCell(f.first, "${f.second.size}", 3 to BAU_YELLOW, ui, 82.dp, 22.dp, 15.sp, m, onClick = { ui.onFolder(f) }) }
-                }
+                part("folders-title") { BauTitle(tr("Folders"), top = 22.dp) }
+                cells("folders", home.folders, cfg.columns, 82.dp) { f, m -> BauCell(f.first, "${f.second.size}", 3 to BAU_YELLOW, ui, 82.dp, 22.dp, 15.sp, m, onClick = { ui.onFolder(f) }) }
             }
             "grid" -> if (home.grid.isNotEmpty()) {
-                item("grid-title") { BauTitle(cfg.names["all_apps"] ?: tr("All apps"), top = 14.dp) }
-                item("grid") { BauGrid("grid", home.grid, ui, columns = cfg.columns, height = 82.dp, mark = 22.dp, nameSize = 15.sp) }
+                part("grid-title") { BauTitle(cfg.names["all_apps"] ?: tr("All apps"), top = 22.dp) }
+                apps("grid", home.grid, columns = cfg.columns, height = 82.dp, mark = 22.dp, nameSize = 15.sp)
             }
         }
     }
@@ -1155,34 +1189,9 @@ private fun BauSections(home: Home, ui: Ui, modifier: Modifier) {
 
 @Composable
 private fun BauTitle(name: String, side: String? = null, top: Dp = 0.dp) {
-    Row(Modifier.fillMaxWidth().padding(top = top), verticalAlignment = Alignment.Bottom) {
+    Row(Modifier.fillMaxWidth().padding(top = top, bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
         Text(name.lowercase(), color = BAU_CREAM, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
         side?.let { Text(it.lowercase(), color = BAU_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
-    }
-}
-
-/** Items in rows of [columns], ruled in cream: the grid's cream shows through 1 dp gaps. */
-@Composable
-private fun <T> BauCells(items: List<T>, columns: Int, height: Dp, cell: @Composable (T, Modifier) -> Unit) {
-    Column(Modifier.fillMaxWidth().background(BAU_CREAM).padding(1.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        items.chunked(columns.coerceAtLeast(1)).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                row.forEach { cell(it, Modifier.weight(1f)) }
-                // The rest of a short last row stays dark, as the design's empty cells do.
-                repeat(columns - row.size) { Box(Modifier.weight(1f).height(height).background(BAU_INK)) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun BauGrid(section: String, apps: List<TvApp>, ui: Ui, columns: Int, height: Dp, mark: Dp, nameSize: androidx.compose.ui.unit.TextUnit) {
-    val ctx = LocalContext.current
-    BauCells(apps, columns, height) { app, m ->
-        val kind = remember(app.pkg) { bauKind(ctx, app.pkg) }
-        BauCell(app.label, if (Lock.isLocked(ui.cfg, app.pkg)) tr("Locked") else if (height > 100.dp) kind else null, bauMark(app.pkg), ui, height, mark, nameSize,
-            m.then(ui.focusFor(section, app)), moving = ui.movingKey == "$section:${app.pkg}",
-            onFocus = { ui.onFocusApp(app) }, onLongClick = { ui.onAppMenu(section, app) }, onClick = { launch(ctx, app) })
     }
 }
 
@@ -1202,14 +1211,30 @@ private fun BauCell(name: String, sub: String?, mark: Pair<Int, Color>, ui: Ui, 
         Column(Modifier.fillMaxSize().padding(horizontal = if (height > 100.dp) 15.dp else 12.dp, vertical = if (height > 100.dp) 14.dp else 10.dp), verticalArrangement = Arrangement.SpaceBetween) {
             BauGlyph(mark.first, mark.second, markSize)
             Column {
-                // Two lines, so "open shelf" isn't cut to "open sh…" in the six-across strip. A one-word name stays
-                // on one line and ends in "…": a second line would break it mid-word.
-                Text(name.lowercase(), color = if (focused) BAU_INK else BAU_CREAM, fontSize = nameSize, fontWeight = FontWeight.ExtraBold, maxLines = if (' ' in name.trim()) 2 else 1, overflow = TextOverflow.Ellipsis,
-                    style = TextStyle(letterSpacing = nameSize * -0.02f, lineHeight = nameSize * 1.05f))
+                BauName(name, if (focused) BAU_INK else BAU_CREAM, nameSize)
                 sub?.let { Text(it.lowercase(), color = if (focused) BAU_DIM else BAU_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
     }
+}
+
+/**
+ * A cell's name. Two lines, so "open shelf" isn't cut to "open sh…" in the six-across strip, but never with a
+ * word broken across them: the size steps down to 12 sp until every word fits (K2). A word that still doesn't
+ * fit stays on one line and ends in "…".
+ */
+@Composable
+private fun BauName(name: String, color: Color, size: androidx.compose.ui.unit.TextUnit) = BoxWithConstraints {
+    val measurer = rememberTextMeasurer()
+    val base = LocalTextStyle.current
+    val text = name.lowercase()
+    val words = remember(text) { text.split(' ').filter { it.isNotEmpty() } }
+    fun style(sp: Float) = base.merge(TextStyle(fontSize = sp.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = sp.sp * -0.02f, lineHeight = sp.sp * 1.05f))
+    val fit = remember(text, size, base, constraints.maxWidth) {
+        generateSequence(size.value) { it - 1f }.takeWhile { it >= minOf(size.value, 12f) }
+            .firstOrNull { sp -> words.all { measurer.measure(it, style(sp), maxLines = 1, softWrap = false).size.width <= constraints.maxWidth } }
+    }
+    Text(text, color = color, maxLines = if (fit != null && words.size > 1) 2 else 1, overflow = TextOverflow.Ellipsis, style = style(fit ?: size.value))
 }
 
 /** A film or episode to go back to: a cream rule over its name, its app and time left, and a thick progress bar. */

@@ -75,6 +75,12 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
                 onSelect = { ConfigStore.update(ctx, JSONObject().put("glass_backdrop", it)) }
             )
             TvSwitch(
+                title = tr("Big app name"),
+                subtitle = tr("Off: only things to continue show up there"),
+                checked = config.glassHeadline,
+                onCheckedChange = { ConfigStore.update(ctx, JSONObject().put("glass_headline", it)) }
+            )
+            TvSwitch(
                 title = tr("Banners in the Glass dock"),
                 subtitle = tr("Off: app names on glass, white when focused"),
                 checked = config.glassBanners,

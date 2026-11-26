@@ -829,6 +829,7 @@ function LayoutTab({ apps, cfg, set, sdk }: { apps: TvApp[]; cfg: HomeConfig; se
                 <button key={id} className={cfg.glass_backdrop === id ? 'on' : ''} onClick={() => set({ glass_backdrop: id })}>{label}</button>
               ))}
             </div>
+            <Toggle label={t('Big app name')} hint={t('Off, the big headline shows only something to continue watching, not the focused app.')} checked={cfg.glass_headline} onChange={(v) => set({ glass_headline: v })} />
             <Toggle label={t('Banners in the Glass dock')} hint={t('Off, the dock and All apps show app names on glass, which turn white when focused.')} checked={cfg.glass_banners} onChange={(v) => set({ glass_banners: v })} />
           </div>
         )}

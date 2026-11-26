@@ -87,6 +87,7 @@ data class HomeConfig(
     val tilt: Boolean = false, // with lift: the tile leans toward the move, then settles
     val glassBanners: Boolean = false, // Glass's dock and All apps show banners instead of name tiles
     val glassBackdrop: String = "slate", // Glass over its own slate, or over the owner's wallpaper ("wallpaper")
+    val glassHeadline: Boolean = true, // Glass shows the focused app's name big; a continue-watching headline shows either way
     // Icons: "banner" is the app's own TV banner; the rest redraw every app's logo the same way
     val iconStyle: String = "banner", // banner, colour, mono, duo
     val tileShape: String = "wide", // wide, square, squircle, round; banner tiles are always wide
@@ -215,6 +216,7 @@ data class HomeConfig(
         .put("tilt", tilt)
         .put("glass_banners", glassBanners)
         .put("glass_backdrop", glassBackdrop)
+        .put("glass_headline", glassHeadline)
         .put("glass_backdrop_v", 2) // see ConfigStore.load
         .put("icon_style", iconStyle)
         .put("tile_shape", tileShape)
@@ -408,6 +410,7 @@ data class HomeConfig(
                 tilt = bool("tilt", base.tilt),
                 glassBanners = bool("glass_banners", base.glassBanners),
                 glassBackdrop = choice("glass_backdrop", base.glassBackdrop, setOf("wallpaper", "slate")),
+                glassHeadline = bool("glass_headline", base.glassHeadline),
                 iconStyle = choice("icon_style", base.iconStyle, setOf("banner", "colour", "mono", "duo")),
                 tileShape = choice("tile_shape", base.tileShape, setOf("wide", "square", "squircle", "round")),
                 tileGlass = int("tile_glass", base.tileGlass, 0, 60),

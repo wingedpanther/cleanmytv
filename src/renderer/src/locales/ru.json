@@ -1492,6 +1492,8 @@
   "Glass keeps the TV's usual sans. The font here is for the other layouts.": "Glass оставляет обычный шрифт телевизора. Шрифт здесь действует в других макетах.",
   "Banners in the Glass dock": "Баннеры в доке Glass",
   "Off, the dock and All apps show app names on glass, which turn white when focused.": "Если выключено, док и «Все приложения» показывают названия на стекле, белые при фокусе.",
+  "Big app name": "Крупное название приложения",
+  "Off, the big headline shows only something to continue watching, not the focused app.": "Если выключено, крупный заголовок показывает только то, что можно досмотреть, а не выбранное приложение.",
   "Backdrop": "Фон",
   "My wallpaper": "Мои обои",
   "Glass slate": "Сланец Glass"

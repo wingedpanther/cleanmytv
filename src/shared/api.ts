@@ -383,6 +383,8 @@ export interface HomeConfig {
   glass_banners: boolean
   /** Glass over the owner's wallpaper, or over its own slate (launcher 1.13.23). */
   glass_backdrop: 'wallpaper' | 'slate'
+  /** Glass shows the focused app's name big above the dock; off, only a continue-watching headline (launcher 1.13.36). */
+  glass_headline: boolean
   /** banner: each app's own TV banner. The rest redraw every app's logo the same way (launcher 1.5.0). */
   icon_style: 'banner' | 'colour' | 'mono' | 'duo'
   /** Tile outline for the icon styles; banners stay wide. */
