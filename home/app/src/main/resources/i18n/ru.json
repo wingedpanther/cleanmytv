@@ -834,5 +834,10 @@
   "Today {time}": "Сегодня {time}",
   "on {app}": "в {app}",
   "{h} h {mm}": "{h} ч {mm}",
-  "No heading": "Без заголовка"
+  "No heading": "Без заголовка",
+  "Glass behind the dock": "Стекло за доком",
+  "Clock font": "Часы: шрифт",
+  "Its own monospace": "Свой моноширинный",
+  "Same as the rest": "Как остальное",
+  "Glass behind the clock": "Стекло за часами"
 }

@@ -166,10 +166,10 @@ object ThemePack {
         "shade_top", "shade_top_reach", "shade_bottom", "shade_bottom_reach", "wash", "wash_reach", "font", "snow",
     )
     /** What a saved day or night look carries: a theme's keys, plus the glass and the wallpaper's place in a theme. */
-    val SAVED_LOOK_KEYS = LOOK_KEYS + listOf("tile_glass", "wallpaper_from")
+    val SAVED_LOOK_KEYS = LOOK_KEYS + listOf("tile_glass", "dock_glass", "clock_glass", "clock_font", "wallpaper_from")
     /** What each theme keeps of the owner's changes: its look, and the sizes, spacing and music bars around it. */
     val MEMORY_KEYS = (LOOK_KEYS + listOf(
-        "tile_glass", "top_space", "dock_scale", "tile_scale", "show_names", "clock",
+        "tile_glass", "dock_glass", "clock_glass", "clock_font", "top_space", "dock_scale", "tile_scale", "show_names", "clock",
         "visualiser", "viz_bars", "viz_height", "viz_opacity", "viz_sensitivity",
     )).toSet()
     /** Ids of themes saved on the TV rather than drawn by the desktop app. */

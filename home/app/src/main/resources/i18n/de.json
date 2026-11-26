@@ -834,5 +834,10 @@
   "Today {time}": "Heute {time}",
   "on {app}": "in {app}",
   "{h} h {mm}": "{h} h {mm}",
-  "No heading": "Keine Überschrift"
+  "No heading": "Keine Überschrift",
+  "Glass behind the dock": "Glas hinter dem Dock",
+  "Clock font": "Uhrschrift",
+  "Its own monospace": "Eigene Monospace",
+  "Same as the rest": "Wie der Rest",
+  "Glass behind the clock": "Glas hinter der Uhr"
 }

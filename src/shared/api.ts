@@ -391,6 +391,12 @@ export interface HomeConfig {
   tile_shape: 'wide' | 'square' | 'squircle' | 'round'
   /** Mono: percent of white in the glass behind each logo, 0 to 60 (launcher 1.7.5). */
   tile_glass: number
+  /** Shelf: percent of white in a frosted pane behind the dock; 0 is none (launcher 1.13.46). */
+  dock_glass: number
+  /** Shelf: the same glass in a capsule behind the clock; 0 is none (launcher 1.13.46). */
+  clock_glass: number
+  /** mono: the clock's own monospace; ui: Home's font (launcher 1.13.46). */
+  clock_font: 'mono' | 'ui'
   /** A new wallpaper comes in like a sunrise. */
   intro: boolean
   /** The built-in theme picture the wallpaper is, as "<theme id>:<picture>", or "" for any other. */

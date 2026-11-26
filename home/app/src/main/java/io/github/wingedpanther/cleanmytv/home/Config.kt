@@ -92,6 +92,9 @@ data class HomeConfig(
     val iconStyle: String = "banner", // banner, colour, mono, duo
     val tileShape: String = "wide", // wide, square, squircle, round; banner tiles are always wide
     val tileGlass: Int = 10, // Mono: percent of white in the glass behind each logo
+    val dockGlass: Int = 0, // Shelf: percent of white in a frosted pane behind the dock; 0 is none (#151)
+    val clockGlass: Int = 0, // Shelf: the same glass in a capsule behind the clock; 0 is none
+    val clockFont: String = "mono", // mono: the clock's own JetBrains Mono; ui: Home's font
     val intro: Boolean = true, // a new wallpaper comes in like a sunrise
     /** Which built-in theme picture the wallpaper is, as "<theme id>:<picture>", or "" for anything else. */
     val wallpaperFrom: String = "",
@@ -221,6 +224,9 @@ data class HomeConfig(
         .put("icon_style", iconStyle)
         .put("tile_shape", tileShape)
         .put("tile_glass", tileGlass)
+        .put("dock_glass", dockGlass)
+        .put("clock_glass", clockGlass)
+        .put("clock_font", clockFont)
         .put("intro", intro)
         .put("wallpaper_from", wallpaperFrom)
         .put("lock_on", lockOn)
@@ -414,6 +420,9 @@ data class HomeConfig(
                 iconStyle = choice("icon_style", base.iconStyle, setOf("banner", "colour", "mono", "duo")),
                 tileShape = choice("tile_shape", base.tileShape, setOf("wide", "square", "squircle", "round")),
                 tileGlass = int("tile_glass", base.tileGlass, 0, 60),
+                dockGlass = int("dock_glass", base.dockGlass, 0, 60),
+                clockGlass = int("clock_glass", base.clockGlass, 0, 60),
+                clockFont = choice("clock_font", base.clockFont, setOf("mono", "ui")),
                 intro = bool("intro", base.intro),
                 wallpaperFrom = if (o.has("wallpaper_from")) o.optString("wallpaper_from").takeIf { it.isEmpty() || THEME_PICTURE.matches(it) } ?: base.wallpaperFrom else base.wallpaperFrom,
                 lockOn = bool("lock_on", base.lockOn),

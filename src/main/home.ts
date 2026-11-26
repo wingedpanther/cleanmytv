@@ -26,7 +26,7 @@ export const DEFAULTS: HomeConfig = {
   accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35, snow: false,
   edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, bing_caption: true, theme_memory: true, lock_editor: false, update_check: true, keyboard_guard: true, number_keys: true, home_twice: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
   order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, focus_usual: false, tilt: false, glass_banners: false, glass_backdrop: 'slate', glass_headline: true,
-  icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, intro: true, wallpaper_from: '',
+  icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, dock_glass: 0, clock_glass: 0, clock_font: 'mono', intro: true, wallpaper_from: '',
   wifi_name: '', wifi_password: '', wifi_security: 'WPA', guest_apps: [],
   lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge',
   fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0,
@@ -42,6 +42,7 @@ const CHOICES = {
   layout: ['shelf', 'split', 'rail', 'bau', 'glass', 'teletext'],
   focus: ['lift', 'glow', 'outline', 'none'],
   clock: ['time_date', 'time', 'off'],
+  clock_font: ['mono', 'ui'],
   viz_style: ['bars', 'mirror', 'wave'],
   viz_colour: ['accent', 'rainbow', 'white'],
   weather_unit: ['c', 'f'],
@@ -74,7 +75,7 @@ const RANGES = {
   top_space: [0, 80], dock_scale: [60, 150], tile_scale: [60, 150],
   wallpaper_dim: [0, 80], dock_size: [0, 8], columns: [3, 8], idle_minutes: [0, 60],
   viz_bars: [8, 64], viz_height: [4, 40], viz_opacity: [20, 100], viz_sensitivity: [25, 300],
-  fire_volume: [0, 100], fire_timer: [0, 240], slide_minutes: [0, 240], tile_glass: [0, 60],
+  fire_volume: [0, 100], fire_timer: [0, 240], slide_minutes: [0, 240], tile_glass: [0, 60], dock_glass: [0, 60], clock_glass: [0, 60],
   day_at: [0, 24 * 60 - 1], night_at: [0, 24 * 60 - 1], bedtime_at: [0, 24 * 60 - 1], screen_goal: [0, 12 * 60], st_opacity: [0, 100],
   shade_top: [0, 100], shade_top_reach: [0, 100], shade_bottom: [0, 100], shade_bottom_reach: [0, 100], wash: [0, 100], wash_reach: [10, 100]
 } as const

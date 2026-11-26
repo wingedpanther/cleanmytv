@@ -79,6 +79,20 @@ fun WidgetCustomization(config: HomeConfig, ctx: Context) {
         )
 
         TvRadioGroup(
+            title = tr("Clock font"),
+            options = listOf("mono" to tr("Its own monospace"), "ui" to tr("Same as the rest")),
+            current = config.clockFont,
+            onSelect = { ConfigStore.update(ctx, JSONObject().put("clock_font", it)) }
+        )
+
+        if (config.layout == "shelf") TvSlider(
+            title = tr("Glass behind the clock"),
+            value = config.clockGlass,
+            min = 0, max = 60, unit = "%",
+            onChange = { ConfigStore.update(ctx, JSONObject().put("clock_glass", it)) }
+        )
+
+        TvRadioGroup(
             title = tr("Temperature"),
             options = listOf("c" to tr("Celsius (°C)"), "f" to tr("Fahrenheit (°F)")),
             current = config.weatherUnit,

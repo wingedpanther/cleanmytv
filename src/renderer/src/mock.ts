@@ -96,7 +96,7 @@ export function installMock(): void {
     accent: '#4CAF50', focus: 'lift', background: '#1C2A1F', wallpaper_dim: 35, snow: false,
     edit_on_tv: false, idle_style: 'corner', font: 'default', bing_daily: false, bing_caption: true, theme_memory: true, lock_editor: false, update_check: true, keyboard_guard: true, number_keys: true, home_twice: true, limits: {}, shade_top: 60, shade_top_reach: 40, shade_bottom: 80, shade_bottom_reach: 65, wash: 50, wash_reach: 100,
     order: [], hidden: [], dock_size: 5, columns: 6, show_names: true, name_focus: false, follow_colour: false, pin_focus: false, focus_usual: false, tilt: false, glass_banners: false, glass_backdrop: 'slate', glass_headline: true,
-    icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, intro: true, wallpaper_from: '',
+    icon_style: 'banner', tile_shape: 'wide', tile_glass: 10, dock_glass: 0, clock_glass: 0, clock_font: 'mono', intro: true, wallpaper_from: '',
     wifi_name: '', wifi_password: '', wifi_security: 'WPA', guest_apps: [],
     lock_on: false, lock_apps: [], lock_system: false, lock_for: 'sleep', lock_show: 'badge', fire_wall: false, fire_sound: true, fire_wall_sound: false, fire_volume: 40, fire_timer: 0, slide_minutes: 0, slide_from: 'mine', other_apps: false, live_tv: true, slides_on_tv: 0, note_on_tv: '', fire_on_tv: false, lock_pin_set: false, themes_on_tv: 0, can_change_settings: true,
     clock: 'time_date', greeting: '', names: {}, idle_minutes: 0,

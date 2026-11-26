@@ -1,0 +1,28 @@
+{
+  "format": "cleanmytv-theme",
+  "version": 1,
+  "name": "Glass",
+  "author": "rduttshukla",
+  "look": {
+    "accent": "#FFFFFF",
+    "focus": "lift",
+    "background": "#0B0B0F",
+    "wallpaper_dim": 10,
+    "top_space": 46,
+    "dock_scale": 100,
+    "tile_scale": 100,
+    "show_names": false,
+    "clock": "time",
+    "visualiser": false,
+    "icon_style": "banner",
+    "tile_shape": "wide",
+    "shade_top": 35,
+    "shade_top_reach": 30,
+    "shade_bottom": 80,
+    "shade_bottom_reach": 55,
+    "wash": 20,
+    "wash_reach": 100,
+    "font": "default",
+    "snow": false
+  }
+}

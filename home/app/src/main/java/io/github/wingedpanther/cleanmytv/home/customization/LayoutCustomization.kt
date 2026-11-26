@@ -96,6 +96,12 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
             min = 0, max = 80, unit = "%",
             onChange = { ConfigStore.update(ctx, JSONObject().put("top_space", it)) }
         )
+        if (config.layout == "shelf") TvSlider(
+            title = tr("Glass behind the dock"),
+            value = config.dockGlass,
+            min = 0, max = 60, unit = "%",
+            onChange = { ConfigStore.update(ctx, JSONObject().put("dock_glass", it)) }
+        )
 
         // --- Unified Info Helper Bar ---
         Alert(

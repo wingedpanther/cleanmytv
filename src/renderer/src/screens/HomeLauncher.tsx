@@ -10,6 +10,7 @@ import { fetchBingDaily } from '../lib/backgrounds'
 import { findPlaces, type Place } from '../lib/places'
 import { drawWallpaper, paintWallpaper } from '../lib/themes'
 import { t, tx } from '../lib/i18n'
+import { COMMUNITY_THEMES } from '@/lib/community'
 import { BUILT_IN_THEMES, THEME_EXT, THEME_PICTURES, parseTheme, withPicture, type BuiltInTheme, type ThemeArt, type ThemePaint } from '@shared/themes'
 
 type Tab = 'overview' | 'apps' | 'layout' | 'look' | 'widgets' | 'music' | 'buttons' | 'lock' | 'screentime'
@@ -845,6 +846,7 @@ function LayoutTab({ apps, cfg, set, sdk }: { apps: TvApp[]; cfg: HomeConfig; se
         {cfg.layout === 'shelf' && (
           <div style={{ marginTop: 14 }}>
             <Slider label={t('Space above the apps')} hint={t('Open wallpaper between the top bar and the first row.')} value={cfg.top_space} min={0} max={80} unit="%" onChange={(v) => set({ top_space: v }, 250)} />
+            <Slider label={t('Glass behind the dock')} hint={t('A pane of frosted wallpaper the width of the row, under the dock. 0 is off.')} value={cfg.dock_glass} min={0} max={60} unit="%" onChange={(v) => set({ dock_glass: v }, 250)} />
           </div>
         )}
       </div>
@@ -1040,6 +1042,17 @@ function LayoutTab({ apps, cfg, set, sdk }: { apps: TvApp[]; cfg: HomeConfig; se
               </button>
             ))}
           </div>
+          <p style={{ margin: '14px 0 8px', fontWeight: 600 }}>{t('Clock font')}</p>
+          <div className="seg">
+            {([['mono', t('Its own monospace')], ['ui', t('Same as the rest')]] as const).map(([id, label]) => (
+              <button key={id} className={cfg.clock_font === id ? 'on' : ''} onClick={() => set({ clock_font: id })}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {cfg.layout === 'shelf' && (
+            <Slider label={t('Glass behind the clock')} hint={t('A capsule of frosted wallpaper behind the time. 0 is off.')} value={cfg.clock_glass} min={0} max={60} unit="%" onChange={(v) => set({ clock_glass: v }, 250)} />
+          )}
         </div>
         <div className="card">
           <h2>{t('Greeting')}</h2>
@@ -1236,6 +1249,21 @@ function ThemesCard({ themes, busy, cfg, set }: { themes: ThemeActions; busy: bo
       <p className="small muted" style={{ marginTop: 8, marginBottom: 0 }}>
         {t("Theme files end in .{ext}. Share one and anyone can load it on their TV. Save to the TV adds this look and wallpaper to the TV's themes, or updates the one with the same name, and leaves the others alone.", { ext: THEME_EXT })}
       </p>
+      {COMMUNITY_THEMES.length > 0 && (
+        <>
+          <p style={{ margin: '16px 0 8px', fontWeight: 600 }}>{t('Community themes')}</p>
+          <div className="row">
+            {COMMUNITY_THEMES.map((c) => (
+              <button key={c.name} className="btn ghost" disabled={busy} onClick={() => themes.custom(c)}>
+                {c.author ? t('{name} by {author}', { name: c.name, author: c.author }) : c.name}
+              </button>
+            ))}
+          </div>
+          <p className="small muted" style={{ marginTop: 8, marginBottom: 0 }}>
+            {t('Looks other owners made and shared. One changes the look and keeps your wallpaper. Share yours with a pull request to themes/community on GitHub.')}
+          </p>
+        </>
+      )}
       <Toggle
         label={t('Each theme keeps its changes')}
         hint={t('Change the look on the TV while a theme is on, and that theme keeps it: colours, sizes, glass, shading, spacing and music bars. Rows, folders, App lock and buttons stay the same for every theme. Works with day and night too.')}

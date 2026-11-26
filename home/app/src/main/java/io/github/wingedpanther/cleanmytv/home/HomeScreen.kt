@@ -66,6 +66,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -163,6 +164,9 @@ private val PANEL: Color get() = HomeColours.panel
 
 // The desktop app's face, for the clock and date: tabular figures that don't jitter as the minutes turn.
 private val CLOCK = FontFamily(Font(R.font.jetbrains_mono_light, FontWeight.Light), Font(R.font.jetbrains_mono_regular, FontWeight.Normal))
+
+/** The clock's own mono, or with clock_font "ui" none, so the clock takes Home's font (#151). */
+private fun clockFamily(cfg: HomeConfig): FontFamily? = if (cfg.clockFont == "ui") null else CLOCK
 
 /** Text on an accent fill: the ground colour or off-white, whichever reads better on it. */
 private fun onAccent(c: Color): Color = if (c.luminance() > 0.36f) GROUND else TEXT
@@ -624,6 +628,11 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
             val menus = openFolder != null || menuFor != null || showInputs || showPanel || showThemes || showTimer || showUpdate || showDebugging || showGuest || watchMenu != null || showFind || showAllApps || panelPin || editPin
             Snow(running = resumed() && motion && !menus)
         }
+        // Shelf's glass panes frost a blurred copy of the wallpaper, made once per picture, off the main thread.
+        val wantFrost = cfg.layout == "shelf" && (cfg.dockGlass > 0 || cfg.clockGlass > 0) && !fireWall
+        val frost by produceState<ImageBitmap?>(null, wallpaper, wantFrost) {
+            value = wallpaper?.takeIf { wantFrost }?.let { w -> withContext(Dispatchers.Default) { runCatching { Frost.of(w) }.onFailure { Log.w(TAG, "frost: $it") }.getOrNull() } }
+        }
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = shown }) {
             // Rows sit over the lower half of the photo; a ground-tinted shade keeps their names readable.
             if (!text && !glass && cfg.shadeBottom > 0 && cfg.shadeBottomReach > 0) {
@@ -639,7 +648,7 @@ fun HomeScreen(visualiser: Visualiser, appsVersion: Int, open: androidx.compose.
                 "glass" -> GlassLayout(home, ui, listOfNotNull(all["panel"]?.copy(label = tr("Control centre")), all["find"]?.copy(label = tr("Search"), icon = Icons.Outlined.Search))
                     .filter { !guest } + quick.filter { it.id != "panel" && it.id != "find" }, onQuick, onAllApps = { showAllApps = true }, moving, appsVersion, glassOnPhoto)
                 "teletext" -> TeletextLayout(home, ui, appsVersion, moving, textPick, textActions)
-                else -> ShelfLayout(home, ui, quick, onQuick)
+                else -> CompositionLocalProvider(LocalFrost provides frost) { ShelfLayout(home, ui, quick, onQuick) }
             }
             if (!text) shownCaption?.let { BingCaption(it, visualiser, cfg, Modifier.align(Alignment.BottomEnd).padding(start = SAFE_X, end = SAFE_X, bottom = SAFE_Y)) }
             if (cfg.visualiser && !text) Bars(visualiser, cfg, accent, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
@@ -880,7 +889,10 @@ private fun ShelfLayout(home: Home, ui: Ui, quick: List<QuickAction>, onQuick: (
                 Box(Modifier.padding(top = 4.dp)) { Greeting(cfg, 20.sp) }
                 Spacer(Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.End) {
-                    Clock(cfg, 26.sp, 12.sp, Alignment.End)
+                    // A capsule of frosted glass behind the time, when the owner wants one (#151).
+                    if (cfg.clockGlass > 0 && cfg.clock != "off") Box(Modifier.frosted(cfg.clockGlass, 22.dp, dim = cfg.wallpaperDim / 100f).padding(horizontal = 18.dp, vertical = 8.dp)) {
+                        Clock(cfg, 26.sp, 12.sp, Alignment.End)
+                    } else Clock(cfg, 26.sp, 12.sp, Alignment.End)
                     WeatherLine(ui, 13.sp, Modifier.padding(top = 4.dp))
                     HourLine(ui, 13.sp, Modifier.padding(top = 6.dp))
                     DayLine(ui, 13.sp, Modifier.padding(top = 6.dp))
@@ -1339,7 +1351,10 @@ private fun Sections(home: Home, ui: Ui, modifier: Modifier, padding: PaddingVal
                 }
                 "screentime" -> if (ui.screenTimeSeen) item("screentime") { Box(still) { ScreenTimeCard(ui) } }
                 "dock" -> if (home.dock.isNotEmpty()) item("dock") {
-                    TileRow("dock", home.dock, ui, dockW, big = true, rowSpec, rowPad)
+                    // A pane of frosted glass the width of the row behind the dock, 14 dp out from the tiles (#151).
+                    val pane = if (cfg.dockGlass > 0 && cfg.layout == "shelf")
+                        Modifier.frosted(cfg.dockGlass, 26.dp, insetX = start + BLEED - 14.dp, insetY = 4.dp, dim = cfg.wallpaperDim / 100f) else Modifier
+                    Box(pane) { TileRow("dock", home.dock, ui, dockW, big = true, rowSpec, rowPad) }
                 }
                 "watchnext" -> if (home.watch.isNotEmpty()) {
                     item("watchnext-title") { SectionTitle(tr("Continue watching"), still) }
@@ -1868,7 +1883,7 @@ private fun WeatherLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifie
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Image(weatherIcon(w.code, w.day), null, Modifier.size(with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.3f }), colorFilter = ColorFilter.tint(MUTED))
         Spacer(Modifier.width(6.dp))
-        Text("${w.temp}°  ${w.high}° / ${w.low}°  ${ui.cfg.weatherPlace}${if (w.metNo) " · MET Norway" else ""}", color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text("${w.temp}°  ${w.high}° / ${w.low}°  ${ui.cfg.weatherPlace}${if (w.metNo) " · MET Norway" else ""}", color = MUTED, fontSize = size, fontFamily = clockFamily(ui.cfg), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -1886,11 +1901,11 @@ private fun HourLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: 
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         hours.forEach { h ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(format.format(Date.from(h.at)), color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+                Text(format.format(Date.from(h.at)), color = MUTED, fontSize = size, fontFamily = clockFamily(ui.cfg), maxLines = 1)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Image(weatherIcon(h.code, h.day), null, Modifier.size(icon), colorFilter = ColorFilter.tint(MUTED))
                     Spacer(Modifier.width(4.dp))
-                    Text("${h.temp}°", color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+                    Text("${h.temp}°", color = MUTED, fontSize = size, fontFamily = clockFamily(ui.cfg), maxLines = 1)
                 }
             }
         }
@@ -1906,11 +1921,11 @@ private fun DayLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: M
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         days.forEach { d ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(d.date.format(format), color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+                Text(d.date.format(format), color = MUTED, fontSize = size, fontFamily = clockFamily(ui.cfg), maxLines = 1)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Image(weatherIcon(d.code, true), null, Modifier.size(icon), colorFilter = ColorFilter.tint(MUTED))
                     Spacer(Modifier.width(4.dp))
-                    Text("${d.high}°/${d.low}°", color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+                    Text("${d.high}°/${d.low}°", color = MUTED, fontSize = size, fontFamily = clockFamily(ui.cfg), maxLines = 1)
                 }
             }
         }
@@ -1929,14 +1944,14 @@ private fun MemoryLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Image(Icons.Outlined.Memory, null, Modifier.size(icon), colorFilter = ColorFilter.tint(MUTED))
                 Spacer(Modifier.width(6.dp))
-                Text(Memory.line(it), color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+                Text(Memory.line(it), color = MUTED, fontSize = size, fontFamily = clockFamily(ui.cfg), maxLines = 1)
             }
         }
         sleepAt?.let {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Image(Icons.Outlined.Timer, null, Modifier.size(icon), colorFilter = ColorFilter.tint(MUTED))
                 Spacer(Modifier.width(6.dp))
-                Text(tr("Sleeps at {time}", "time" to DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))), color = MUTED, fontSize = size, fontFamily = CLOCK, maxLines = 1)
+                Text(tr("Sleeps at {time}", "time" to DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))), color = MUTED, fontSize = size, fontFamily = clockFamily(ui.cfg), maxLines = 1)
             }
         }
     }
@@ -2049,8 +2064,8 @@ private fun Clock(cfg: HomeConfig, timeSize: androidx.compose.ui.unit.TextUnit, 
     var now by remember { mutableStateOf(Date()) }
     LaunchedEffect(Unit) { while (true) { now = Date(); delay(1000L - System.currentTimeMillis() % 1000) } }
     Column(horizontalAlignment = align) {
-        Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(now), color = TEXT, fontSize = timeSize, fontFamily = CLOCK, fontWeight = FontWeight.Light, maxLines = 1, softWrap = false)
-        if (cfg.clock == "time_date") Text(DateFormat.getDateInstance(DateFormat.FULL).format(now), color = MUTED, fontSize = dateSize, fontFamily = CLOCK)
+        Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(now), color = TEXT, fontSize = timeSize, fontFamily = clockFamily(cfg), fontWeight = FontWeight.Light, maxLines = 1, softWrap = false)
+        if (cfg.clock == "time_date") Text(DateFormat.getDateInstance(DateFormat.FULL).format(now), color = MUTED, fontSize = dateSize, fontFamily = clockFamily(cfg))
     }
 }
 
@@ -2120,8 +2135,8 @@ internal fun SlideshowSaver() {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         IdlePhotos()
         Column(Modifier.align(Alignment.BottomStart).padding(start = SAFE_X + (minute % 5 * 4).dp, bottom = SAFE_Y + 12.dp + (minute % 3 * 4).dp)) {
-            Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(now), color = TEXT, fontSize = 64.sp, fontFamily = CLOCK, fontWeight = FontWeight.Light, maxLines = 1, softWrap = false)
-            Text(DateFormat.getDateInstance(DateFormat.FULL).format(now), color = MUTED, fontSize = 18.sp, fontFamily = CLOCK)
+            Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(now), color = TEXT, fontSize = 64.sp, fontFamily = clockFamily(ConfigStore.config.value), fontWeight = FontWeight.Light, maxLines = 1, softWrap = false)
+            Text(DateFormat.getDateInstance(DateFormat.FULL).format(now), color = MUTED, fontSize = 18.sp, fontFamily = clockFamily(ConfigStore.config.value))
             track?.takeIf { it.playing }?.let { t ->
                 Text(listOf(t.title, t.artist).filter { it.isNotBlank() }.joinToString(" · "), color = MUTED, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp).widthIn(max = 560.dp))
             }
