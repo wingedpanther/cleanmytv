@@ -3,6 +3,9 @@ package io.github.wingedpanther.cleanmytv.home
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.service.dreams.DreamService
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
@@ -83,14 +86,15 @@ object ScreenTime {
      * After an [INPUT], the TV's player counts as that input (PS5, not "Live TV") until it leaves the front.
      * Home's own screens ([self]) in between, like the tile's hand-off, don't take it. An input picked from
      * the TV's own menu while the player is up isn't seen, so that time stays with the input Home opened.
-     * Time on Home itself isn't counted: the TV sitting on Home isn't time spent watching anything.
+     * Time on Home itself isn't counted: the TV sitting on Home isn't time spent watching anything. Nor is time on
+     * the [skip] apps, the TV's screensavers.
      */
-    fun tally(events: List<Ev>, to: Long, zone: ZoneId, self: String = ""): Map<LocalDate, DayUse> {
+    fun tally(events: List<Ev>, to: Long, zone: ZoneId, self: String = "", skip: Set<String> = emptySet()): Map<LocalDate, DayUse> {
         val apps = HashMap<LocalDate, HashMap<String, Long>>()
         val hours = HashMap<LocalDate, LongArray>()
         val pieces = ArrayList<Triple<String, Long, Long>>()
         fun add(pkg: String, from: Long, until: Long) {
-            if (self.isNotEmpty() && pkg == self) return
+            if (self.isNotEmpty() && pkg == self || pkg in skip) return
             if (until > from) pieces.add(Triple(pkg, from, until))
             var t = from
             while (t < until) {
@@ -205,8 +209,20 @@ object ScreenTime {
         }
         list.addAll(marks(ctx).filter { it.time in begin..end })
         list.sortBy { it.time }
-        return tally(list, end, zone, ctx.packageName)
+        return tally(list, end, zone, ctx.packageName, screensavers(ctx))
     }
+
+    /**
+     * The TV's screensavers that come up as an app of their own, like Google TV's Ambient Mode: apps with a
+     * screensaver and nothing to open from the app list. An app that also has a screensaver, like Jellyfin, counts.
+     */
+    private fun screensavers(ctx: Context): Set<String> = runCatching {
+        val pm = ctx.packageManager
+        pm.queryIntentServices(Intent(DreamService.SERVICE_INTERFACE), PackageManager.MATCH_DISABLED_COMPONENTS)
+            .map { it.serviceInfo.packageName }
+            .filter { pm.getLeanbackLaunchIntentForPackage(it) == null && pm.getLaunchIntentForPackage(it) == null }
+            .toSet()
+    }.getOrDefault(emptySet())
 
     /**
      * Android's usage events from [begin] to before [end], oldest first. Asked for up to far ahead: a TV that starts
@@ -233,8 +249,8 @@ object ScreenTime {
         runCatching {
             val o = JSONObject(file(ctx).readText())
             // Before 3, a TV whose clock started ahead saved its days empty; before 4, days counted the time on
-            // Home itself. Those are read again from Android.
-            if (o.optInt("v") < 4) return@runCatching
+            // Home itself, and before 5 the screensaver. Those are read again from Android.
+            if (o.optInt("v") < 5) return@runCatching
             through = o.optString("through").takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) }
             val all = o.getJSONObject("days")
             for (key in all.keys()) LocalDate.parse(key).let { day -> days[day] = DayUse.from(day, all.getJSONObject(key)) }
@@ -247,7 +263,7 @@ object ScreenTime {
         val (days, through) = cache ?: return
         val all = JSONObject()
         for ((day, use) in days) all.put(day.toString(), use.json())
-        val o = JSONObject().put("v", 4).put("through", through?.toString() ?: "").put("days", all)
+        val o = JSONObject().put("v", 5).put("through", through?.toString() ?: "").put("days", all)
         runCatching {
             val tmp = File(ctx.filesDir, "screentime.json.tmp")
             tmp.writeText(o.toString())

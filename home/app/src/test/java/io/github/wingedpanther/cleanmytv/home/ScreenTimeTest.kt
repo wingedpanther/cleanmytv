@@ -72,6 +72,18 @@ class ScreenTimeTest {
         assertEquals(setOf("youtube"), d.stats.keys)
     }
 
+    @Test fun `time on the screensaver isn't counted`() {
+        val d = ScreenTime.tally(listOf(
+            Ev(at("2026-11-20T18:00"), "youtube", START),
+            Ev(at("2026-11-20T18:30"), "ambient", START),
+            Ev(at("2026-11-20T19:00"), "youtube", START),
+            Ev(at("2026-11-20T19:10"), "youtube", STOP),
+        ), at("2026-11-20T23:00"), zone, self = "home", skip = setOf("ambient"))[day]!!
+        assertEquals(mapOf("youtube" to 40 * min), d.apps)
+        assertEquals(30 * min, d.hours[18])
+        assertEquals(setOf("youtube"), d.stats.keys)
+    }
+
     @Test fun `events after the end are left for the next look`() {
         val d = ScreenTime.tally(listOf(
             Ev(at("2026-11-20T08:00"), "news", START),
