@@ -125,6 +125,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -1899,7 +1900,7 @@ private fun HourLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: 
     // "21:00" or "9 PM", as the TV keeps its clock.
     val format = remember(ctx) { hourFormat(ctx) }
     val icon = with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.2f }
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    FitRow(modifier) {
         hours.forEach { h ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(format.format(Date.from(h.at)), color = MUTED, fontSize = size, fontFamily = clockFamily(ui.cfg), maxLines = 1)
@@ -1919,7 +1920,7 @@ private fun DayLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: M
     val days = ui.weather?.days?.takeIf { ui.cfg.weatherDays && it.isNotEmpty() } ?: return
     val format = remember { java.time.format.DateTimeFormatter.ofPattern("EEE", java.util.Locale.getDefault()) }
     val icon = with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() * 1.2f }
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    FitRow(modifier) {
         days.forEach { d ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(d.date.format(format), color = MUTED, fontSize = size, fontFamily = clockFamily(ui.cfg), maxLines = 1)
@@ -1929,6 +1930,22 @@ private fun DayLine(ui: Ui, size: androidx.compose.ui.unit.TextUnit, modifier: M
                     Text("${d.high}°/${d.low}°", color = MUTED, fontSize = size, fontFamily = clockFamily(ui.cfg), maxLines = 1)
                 }
             }
+        }
+    }
+}
+
+/** A row of [gap]-spaced cells that shows only the ones that fit whole, like three days in Bauhaus's narrow column. */
+@Composable
+private fun FitRow(modifier: Modifier = Modifier, gap: Dp = 14.dp, content: @Composable () -> Unit) {
+    Layout(content, modifier) { items, c ->
+        val space = gap.roundToPx()
+        val cells = items.map { it.measure(c.copy(minWidth = 0, minHeight = 0)) }
+        var x = 0
+        val fit = cells.takeWhile { p -> (x + p.width <= c.maxWidth).also { x += p.width + space } }
+        val w = (fit.sumOf { it.width } + space * (fit.size - 1).coerceAtLeast(0)).coerceIn(c.minWidth, c.maxWidth)
+        layout(w, fit.maxOfOrNull { it.height } ?: 0) {
+            var at = 0
+            fit.forEach { it.place(at, 0); at += it.width + space }
         }
     }
 }
