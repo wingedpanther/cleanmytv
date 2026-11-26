@@ -15,24 +15,22 @@ Questions, help and home-screen setups: join the **[CleanMyTV Discord](https://d
 Bugs and feature requests go to [GitHub issues](https://github.com/wingedpanther/cleanmytv/issues).
 If CleanMyTV made your TV nicer to use, you can [buy me a coffee](https://buymeacoffee.com/wingedpanther).
 
-### New in 0.13.4
+### New in 0.14.0
 
-- **Hold a button for a second job:** each remote button can do one thing when pressed and another
-  when held down, set in Remote buttons on the TV or here.
-- **Inputs as tiles:** each HDMI port can become a tile named as the Inputs menu names it, like PS5.
-  Put it in the dock or a row, and one press switches to it.
-- **Bedtime:** the TV turns off at a set time on the days you pick. A minute before, a note says so,
-  and any button keeps it on for the night.
-- **Apps that came back:** system updates often switch the bloat back on. Clean up now says when that
-  happened and switches them off again in one click. CleanMyTV Home says so on the TV too.
-- **Storage:** TV extras lists the apps taking the most space, and can remove updates from switched-off
-  apps.
-- **Back up the TV:** save the clean-up choices and Home's settings to a file, and restore them after a
-  factory reset or on another TV.
-- **Send a report:** one button in Activity saves a text file with what a bug report needs, ready to
-  attach to a GitHub issue.
-- **Check for updates (#133):** a button in the sidebar, and the app now checks every time it starts.
-- **XGIMI projectors (#127):** picking an HDMI port switches straight to it.
+Three new home screen layouts, themes people share, and screen time. The new layouts and themes are
+fresh, so expect a few small glitches, and please [report them](https://github.com/wingedpanther/cleanmytv/issues).
+
+- **Glass, Teletext and Bauhaus:** three new layouts for CleanMyTV Home. Pictures are under
+  [CleanMyTV Home](#cleanmytv-home).
+- **Community themes:** themes shared by other people come with the app. The first is Glass.
+- **Frosted glass (#151):** the dock and the clock can sit on frosted glass made from your wallpaper.
+- **Clock font**, menus in the theme's colours (#150), and a way to hide the All apps heading.
+- **Screen time:** how long each app is on each day, with daily limits, a goal and a PIN, on the TV and
+  in a new Screen time tab here.
+- **Search this TV**, weather for the week (#143), a slideshow screensaver, notes on the TV and guest mode.
+- **Something broke**, Share my list and a Health card in the desktop app, and Spanish (#138).
+- CleanMyTV Home runs on Android 8, and fixes for YouTube TV (#140), remote buttons (#148) and the
+  fireplace (#144).
 
 Older releases: the [changelog](docs/CHANGELOG.md) or the [Releases page](https://github.com/wingedpanther/cleanmytv/releases).
 
@@ -118,21 +116,26 @@ remote: a Customize icon in the top bar opens the same settings, with a search t
 | **Shelf**, the default | **Split** |
 | ![Rail: icons down the left edge that open with labels](docs/home-rail.jpg) | ![A folder open over the home screen](docs/home-folder.jpg) |
 | **Rail**, opened | A folder |
+| ![Glass: the focused app in large type, cards for what's playing, screen time and the weather, and the dock in a glass tray](docs/home-glass.jpg) | ![Teletext: numbered pages of text on black, with the weather, screen time and what's playing on the right](docs/home-teletext.jpg) |
+| **Glass** | **Teletext** |
+| ![Bauhaus: a big bold clock and three shapes on the left, apps on the right](docs/home-bauhaus.jpg) | |
+| **Bauhaus** | |
 
 ![The Home screen step in the app, with a live preview of the TV](docs/home-editor.png)
 
-The Home screen step has eight tabs. Every change shows on the TV straight away. The Layout and Apps
+The Home screen step has nine tabs. Every change shows on the TV straight away. The Layout and Apps
 tabs have a live preview of the TV screen at the top.
 
 | Tab | What you set |
 |---|---|
 | **Overview** | Install or update Home, and how to use it. Give Home back to the stock launcher. Remove the old CleanYourTV launcher in one click if it's still on the TV. Take a snapshot of the TV screen. |
-| **Layout** | Three layouts: Shelf (the default), Split and Rail. Space above the apps. The now playing, dock, continue watching, rows, folders and all apps sections, in any order, each one can be hidden. Quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars, Quick settings, Themes, Fireplace and Settings. Icons the TV can't open are marked "not on this TV". Up to 6 apps as round icons in the same row, like a VPN. Dock and row tile sizes, apps per row, app names (always, focused app only, or off), clock and greeting. An idle screen: after a set time with no button pressed, only the wallpaper and a large clock show. |
+| **Layout** | Six layouts: Shelf (the default), Split, Rail, Glass, Teletext and Bauhaus. Space above the apps. The now playing, recently used, screen time, dock, continue watching, rows, folders and all apps sections, in any order, each one can be hidden. Quick-settings icons: Inputs, Wi-Fi, Bluetooth, Picture & sound, Apps, Screensaver, Search, Music bars, Quick settings, Themes, Fireplace and Settings. Icons the TV can't open are marked "not on this TV". Up to 6 apps as round icons in the same row, like a VPN. Dock and row tile sizes, apps per row, app names (always, focused app only, or off), clock and greeting. An idle screen: after a set time with no button pressed, only the wallpaper and a large clock show. |
 | **Apps, rows & folders** | Dock size, drag to reorder, hide apps, named rows and folders. |
-| **Look & wallpaper** | Themes: 29 looks with their own wallpaper art, three pictures each, saved to and loaded from `.cmtvtheme` files, and Put it back to undo them. Put the themes on the TV to switch them with the remote. App icons: banners, or every logo redrawn in Colour, Mono or Duotone, on wide, square, squircle or round tiles. Accent colour. Focus style (lift, glow, outline or none), with options to lean the tile toward the move, keep it in place while the row slides, and tint the background in the focused app's colour. Your own picture or Bing's picture of the day, darken, background colour, and the sunrise when it changes. Snow falling over the wallpaper, on its own switch; the Christmas theme turns it on. A slideshow of up to 12 pictures. Make your own theme from a built-in one. The fireplace: put it on the TV, show it, make it the screensaver or put it behind Home, with its crackle and a turn-off timer. |
-| **Widgets** | Now playing: what any music or video app plays, with play, pause and next. Weather next to the clock for a town you pick, in °C or °F. |
+| **Look & wallpaper** | Themes: 29 looks with their own wallpaper art, three pictures each, saved to and loaded from `.cmtvtheme` files, community themes other people made, and Put it back to undo them. Put the themes on the TV to switch them with the remote. App icons: banners, or every logo redrawn in Colour, Mono or Duotone, on wide, square, squircle or round tiles. Accent colour. Focus style (lift, glow, outline or none), with options to lean the tile toward the move, keep it in place while the row slides, and tint the background in the focused app's colour. Your own picture or Bing's picture of the day, darken, background colour, and the sunrise when it changes. Snow falling over the wallpaper, on its own switch; the Christmas theme turns it on. A slideshow of up to 12 pictures. Make your own theme from a built-in one. The fireplace: put it on the TV, show it, make it the screensaver or put it behind Home, with its crackle and a turn-off timer. |
+| **Widgets** | Now playing: what any music or video app plays, with play, pause and next. Weather next to the clock for a town you pick, in °C or °F, by the hour and for the week. Clock font, and frosted glass behind the dock and the clock. |
 | **Music bars** | On or off; bars, mirrored or wave; accent, rainbow or white; peak dots, number of bars, height, opacity and sensitivity. |
 | **Remote buttons** | Find what a remote button sends, then give it a job in every app: open Settings, Inputs, an app, Home, Back, Quick settings, Themes, the fireplace, the theme's next picture, and more. Off until you turn it on. Only the buttons you map are touched. Power, volume and the mic button are usually handled before Android sees them. On Xiaomi TVs, one click makes the Mi button go Home. |
+| **Screen time** | How long each app was on, today and on the days before, with each app's daily limit. The numbers come from the TV and stay there. |
 | **App lock** | A 4 to 6 digit PIN, kept hashed on the TV, and the apps it locks. Optionally Settings, the Play Store and Quick settings too. An unlock lasts until the TV sleeps, 15 minutes, or until another app opens. Locked apps show a small lock on Home, or stay hidden. One switch turns it all off; the PIN and the list stay. |
 
 Your settings and wallpaper stay through updates and reboots. The app also keeps a copy on your

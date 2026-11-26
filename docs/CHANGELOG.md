@@ -4,6 +4,25 @@ What changed in each CleanMyTV release, newest first. The latest one is at the t
 [README](../README.md), and every release with its downloads is on the
 [Releases page](https://github.com/wingedpanther/cleanmytv/releases).
 
+## 0.13.4
+
+- **Hold a button for a second job:** each remote button can do one thing when pressed and another
+  when held down, set in Remote buttons on the TV or here.
+- **Inputs as tiles:** each HDMI port can become a tile named as the Inputs menu names it, like PS5.
+  Put it in the dock or a row, and one press switches to it.
+- **Bedtime:** the TV turns off at a set time on the days you pick. A minute before, a note says so,
+  and any button keeps it on for the night.
+- **Apps that came back:** system updates often switch the bloat back on. Clean up now says when that
+  happened and switches them off again in one click. CleanMyTV Home says so on the TV too.
+- **Storage:** TV extras lists the apps taking the most space, and can remove updates from switched-off
+  apps.
+- **Back up the TV:** save the clean-up choices and Home's settings to a file, and restore them after a
+  factory reset or on another TV.
+- **Send a report:** one button in Activity saves a text file with what a bug report needs, ready to
+  attach to a GitHub issue.
+- **Check for updates (#133):** a button in the sidebar, and the app now checks every time it starts.
+- **XGIMI projectors (#127):** picking an HDMI port switches straight to it.
+
 ## 0.13.3
 
 - **Remote buttons and the Customize menu (#133):** with a button job set, the focus no longer jumps past
