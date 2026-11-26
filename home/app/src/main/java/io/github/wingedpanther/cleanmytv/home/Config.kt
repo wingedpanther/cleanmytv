@@ -451,7 +451,8 @@ data class HomeConfig(
                 wifiSecurity = choice("wifi_security", base.wifiSecurity, setOf("WPA", "WEP", "nopass")),
                 guestApps = pkgs("guest_apps") ?: base.guestApps,
                 names = o.optJSONObject("names")?.let { n ->
-                    n.keys().asSequence().mapNotNull { k -> n.optString(k).trim().take(24).takeIf { it.isNotEmpty() }?.let { k to it } }.toMap()
+                    // An empty All apps name hides that heading, so the grid can peek under the dock (#151).
+                    n.keys().asSequence().mapNotNull { k -> n.optString(k).trim().take(24).takeIf { it.isNotEmpty() || k == "all_apps" }?.let { k to it } }.toMap()
                 } ?: base.names,
                 weatherPlace = if (o.has("weather_place")) o.optString("weather_place").replace(Regex("[\\p{Cntrl}]"), "").trim().take(40) else base.weatherPlace,
                 weatherLat = real("weather_lat", base.weatherLat, 90.0),

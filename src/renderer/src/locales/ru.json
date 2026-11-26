@@ -1494,6 +1494,8 @@
   "Off, the dock and All apps show app names on glass, which turn white when focused.": "Если выключено, док и «Все приложения» показывают названия на стекле, белые при фокусе.",
   "{name}, not used by this layout": "{name}, не используется в этом виде",
   "Teletext always shows the date and time, so this is not used by this layout.": "Телетекст всегда показывает дату и время, поэтому здесь это не используется.",
+  "Show the All apps heading": "Показывать заголовок «Все приложения»",
+  "Off, the grid starts right under the section above it, so its first row can peek under the dock.": "Если выключено, сетка начинается сразу под разделом выше, и её первый ряд выглядывает из-под дока.",
   "Big app name": "Крупное название приложения",
   "Off, the big headline shows only something to continue watching, not the focused app.": "Если выключено, крупный заголовок показывает только то, что можно досмотреть, а не выбранное приложение.",
   "Backdrop": "Фон",

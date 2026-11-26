@@ -173,7 +173,7 @@ fun MoreCustomization(config: HomeConfig, ctx: Context) {
         for (id in nameable) {
             val usual = if (id == "all_apps") tr("All apps") else quickActions()[id]?.label ?: id
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(config.names[id]?.let { "$it  ($usual)" } ?: usual, color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text(config.names[id]?.let { "${it.ifEmpty { tr("No heading") }}  ($usual)" } ?: usual, color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
                 TvSecondaryButton(text = tr("Rename"), onClick = { naming = id })
             }
         }

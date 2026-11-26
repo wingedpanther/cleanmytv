@@ -1184,7 +1184,8 @@ private fun BauSections(home: Home, ui: Ui, modifier: Modifier) {
                 cells("folders", home.folders, cfg.columns, 82.dp) { f, m -> BauCell(f.first, "${f.second.size}", 3 to BAU_YELLOW, ui, 82.dp, 22.dp, 15.sp, m, onClick = { ui.onFolder(f) }) }
             }
             "grid" -> if (home.grid.isNotEmpty()) {
-                part("grid-title", "grid-0") { BauTitle(cfg.names["all_apps"] ?: tr("All apps"), top = 22.dp) }
+                val title = cfg.names["all_apps"] ?: tr("All apps")
+                if (title.isNotEmpty()) part("grid-title", "grid-0") { BauTitle(title, top = 22.dp) }
                 apps("grid", home.grid, columns = cfg.columns, height = 82.dp, mark = 22.dp, nameSize = 15.sp)
             }
         }
@@ -1406,7 +1407,7 @@ private fun PaddingValues.calcHorizontal(): Dp = calculateLeftPadding(LayoutDire
 
 private fun LazyListScope.grid(home: Home, ui: Ui, w: Dp, still: Modifier) {
     val label = ui.cfg.names["all_apps"] ?: if (home.dock.isEmpty() && home.rows.isEmpty()) tr("Apps") else tr("All apps")
-    item("grid-title") { SectionTitle(label, still) }
+    if (label.isNotEmpty()) item("grid-title") { SectionTitle(label, still) }
     // A square tile fills the middle 72% of its slot: the rows move left by the 14% before it, so the first
     // tile lines up with the heading and the dock above instead of sitting in from them.
     val inset = if (ui.shape == "wide") 0.dp else w * 0.14f

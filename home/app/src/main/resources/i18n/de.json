@@ -833,5 +833,6 @@
   "Now  {temp}° {sky}": "Jetzt  {temp}° {sky}",
   "Today {time}": "Heute {time}",
   "on {app}": "in {app}",
-  "{h} h {mm}": "{h} h {mm}"
+  "{h} h {mm}": "{h} h {mm}",
+  "No heading": "Keine Überschrift"
 }

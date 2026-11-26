@@ -427,7 +427,7 @@ export function clean(o: Record<string, unknown>, lenient = false): Partial<Home
     const v = o.names
     const ok = v && typeof v === 'object' && !Array.isArray(v) &&
       Object.entries(v).every(([k, s]) => ((QUICK as readonly string[]).includes(k) || k === 'all_apps') && typeof s === 'string')
-    if (ok) out.names = Object.fromEntries(Object.entries(v as Record<string, string>).map(([k, s]) => [k, plain(s, 24)]).filter(([, s]) => s !== ''))
+    if (ok) out.names = Object.fromEntries(Object.entries(v as Record<string, string>).map(([k, s]) => [k, plain(s, 24)]).filter(([k, s]) => s !== '' || k === 'all_apps'))
     else bad(`names must map ${QUICK.join(', ')} or all_apps to text`)
   }
   if (o.limits !== undefined) {

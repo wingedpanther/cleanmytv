@@ -759,6 +759,12 @@ const LAYOUTS: { id: HomeLayout; label: string; hint: string; mini: [number, num
   { id: 'bau', label: 'Bauhaus', hint: t('A big bold clock and three shapes on the left, the top bar icons listed under them. Apps on the right.'), mini: [[6, 8, 22, 20, false], [6, 32, 14, 6, true], [6, 66, 22, 24, true], [34, 8, 60, 26, false], [34, 42, 60, 18, true]] }
 ]
 
+/** The names with All apps' title set, or taken out for the usual one when [name] is empty. */
+function allAppsName(names: HomeConfig['names'], name: string): HomeConfig['names'] {
+  const { all_apps: _, ...rest } = names
+  return name === '' ? rest : { ...rest, all_apps: name }
+}
+
 /** Glass and Teletext draw the dock, Continue watching and the widgets, and leave these sections out. */
 const SIMPLE_LAYOUTS: string[] = ['glass', 'teletext']
 const UNUSED_IN_SIMPLE: HomeSection[] = ['recent', 'rows', 'folders', 'grid']
@@ -851,8 +857,10 @@ function LayoutTab({ apps, cfg, set, sdk }: { apps: TvApp[]; cfg: HomeConfig; se
           <label className="field" style={{ marginTop: 14 }}>
             <span>{t('All apps title')}</span>
             <span className="hint">{t('Your own words for the heading above the grid. Empty keeps "All apps".')}</span>
-            <input type="text" maxLength={24} value={cfg.names.all_apps ?? ''} placeholder="All apps" onChange={(e) => set({ names: { ...cfg.names, all_apps: e.target.value } }, 700)} />
+            <input type="text" maxLength={24} value={cfg.names.all_apps ?? ''} placeholder="All apps" disabled={cfg.names.all_apps === ''} onChange={(e) => set({ names: allAppsName(cfg.names, e.target.value) }, 700)} />
           </label>
+          {/* An empty name on the TV means no heading (#151); an empty field here means the usual one. */}
+          <Toggle label={t('Show the All apps heading')} hint={t('Off, the grid starts right under the section above it, so its first row can peek under the dock.')} checked={cfg.names.all_apps !== ''} onChange={(v) => set({ names: v ? allAppsName(cfg.names, '') : { ...cfg.names, all_apps: '' } })} />
           {cfg.sections.includes('recent') && (
             <p className="small muted" style={{ marginTop: 10 }}>
               {t('Recently used shows the last 8 apps the TV opened, newest first, whichever way they were opened.')}

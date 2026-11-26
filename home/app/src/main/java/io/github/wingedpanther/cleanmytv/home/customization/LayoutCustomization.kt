@@ -130,7 +130,7 @@ fun LayoutCustomization(config: HomeConfig, ctx: Context) {
                             "watchnext" -> tr("Continue watching")
                             "rows" -> tr("Rows")
                             "folders" -> tr("Folders")
-                            "grid" -> config.names["all_apps"] ?: tr("All apps")
+                            "grid" -> config.names["all_apps"]?.ifEmpty { null } ?: tr("All apps")
                             else -> id.replaceFirstChar { it.uppercase() }
                         }
                         if (simple && id in setOf("recent", "rows", "folders", "grid")) tr("{name}, not used by this layout", "name" to name) else name

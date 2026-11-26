@@ -1494,6 +1494,8 @@
   "Off, the dock and All apps show app names on glass, which turn white when focused.": "Si está apagado, el dock y Todas las apps muestran el nombre sobre cristal, que se vuelve blanco al enfocarlo.",
   "{name}, not used by this layout": "{name}, no se usa en este diseño",
   "Teletext always shows the date and time, so this is not used by this layout.": "Teletext siempre muestra la fecha y la hora, así que este diseño no lo usa.",
+  "Show the All apps heading": "Mostrar el título Todas las apps",
+  "Off, the grid starts right under the section above it, so its first row can peek under the dock.": "Si está apagado, la cuadrícula empieza justo bajo la sección de arriba, así su primera fila asoma bajo el dock.",
   "Big app name": "Nombre grande de la app",
   "Off, the big headline shows only something to continue watching, not the focused app.": "Si está apagado, el título grande solo muestra algo para seguir viendo, no la app enfocada.",
   "Backdrop": "Fondo",

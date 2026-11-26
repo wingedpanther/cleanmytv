@@ -1494,6 +1494,8 @@
   "Off, the dock and All apps show app names on glass, which turn white when focused.": "Aus zeigen das Dock und Alle Apps die App-Namen auf Glas, weiß bei Fokus.",
   "{name}, not used by this layout": "{name}, in diesem Layout nicht genutzt",
   "Teletext always shows the date and time, so this is not used by this layout.": "Teletext zeigt immer Datum und Uhrzeit, daher wird das in diesem Layout nicht genutzt.",
+  "Show the All apps heading": "Überschrift Alle Apps zeigen",
+  "Off, the grid starts right under the section above it, so its first row can peek under the dock.": "Aus beginnt das Raster direkt unter dem Abschnitt darüber, sodass seine erste Reihe unter dem Dock hervorschaut.",
   "Big app name": "Großer App-Name",
   "Off, the big headline shows only something to continue watching, not the focused app.": "Aus zeigt die große Überschrift nur, was du weiterschauen kannst, nicht die fokussierte App.",
   "Backdrop": "Hintergrund",

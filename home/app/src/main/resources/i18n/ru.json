@@ -833,5 +833,6 @@
   "Now  {temp}° {sky}": "Сейчас  {temp}° {sky}",
   "Today {time}": "Сегодня {time}",
   "on {app}": "в {app}",
-  "{h} h {mm}": "{h} ч {mm}"
+  "{h} h {mm}": "{h} ч {mm}",
+  "No heading": "Без заголовка"
 }
