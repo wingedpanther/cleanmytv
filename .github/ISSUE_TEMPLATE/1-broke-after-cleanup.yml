@@ -1,0 +1,58 @@
+name: Something stopped working after Clean up
+description: An app, sound, casting, the remote or the network broke after switching packages off.
+title: "[clean-up] "
+labels: [clean-up]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Sorry about that. Before you start: **Something broke** in Clean up turns back on only what's linked to the problem, a step at a time, and **Restore** puts every package back. Neither needs a factory reset.
+  - type: textarea
+    id: what
+    attributes:
+      label: What stopped working?
+      description: The app or feature, and what you see. "DIRECTV freezes on the first frame" helps more than "streaming is broken".
+    validations:
+      required: true
+  - type: input
+    id: tv
+    attributes:
+      label: TV or box
+      description: Make and model, like "Sony KD-55X85J" or "Fire TV Stick 4K Max (2nd gen)".
+    validations:
+      required: true
+  - type: dropdown
+    id: how
+    attributes:
+      label: How did you clean up?
+      options:
+        - Clean & launch (the one button)
+        - Clean up, ticking packages myself
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: tried
+    attributes:
+      label: What have you tried?
+      multiple: true
+      options:
+        - Something broke
+        - Restore
+        - Restarting the TV
+        - Nothing yet
+  - type: textarea
+    id: after
+    attributes:
+      label: What happened when you tried it?
+      description: Did it come back, and after which step?
+  - type: textarea
+    id: report
+    attributes:
+      label: Report file
+      description: In the app, open **Activity** at the bottom and press **Send a report**, then drag the file here. It shows the list your TV got and what's switched off. Look through it first, since logs can name your apps and network.
+  - type: input
+    id: version
+    attributes:
+      label: CleanMyTV version
+      description: Shown at the bottom of the app's sidebar, like 0.14.0.

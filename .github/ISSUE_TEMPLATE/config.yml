@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Ask a question
+    url: https://discord.gg/6hZeQkDYf9
+    about: How-to questions and help with your TV are quicker on Discord, in the help channel.
+  - name: User guide
+    url: https://github.com/wingedpanther/cleanmytv/blob/main/docs/USER-GUIDE.md
+    about: Every step, including Restore and fixing a TV after a clean-up.

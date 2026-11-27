@@ -1,0 +1,28 @@
+name: Idea
+description: Something you'd like CleanMyTV or CleanMyTV Home to do.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: How would you use it?
+      description: What you're trying to do on your TV. It helps find the simplest way to do it.
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where?
+      options:
+        - CleanMyTV Home, on the TV
+        - The desktop app
+        - Both, or not sure
+  - type: input
+    id: tv
+    attributes:
+      label: TV or box
+      description: Optional. Some ideas depend on the TV.

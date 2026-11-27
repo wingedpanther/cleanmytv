@@ -1,0 +1,51 @@
+name: Bug
+description: Something in the app or in CleanMyTV Home on the TV doesn't work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What went wrong?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where?
+      options:
+        - CleanMyTV Home, on the TV
+        - The desktop app
+        - Both, or not sure
+    validations:
+      required: true
+  - type: input
+    id: tv
+    attributes:
+      label: TV or box
+      description: Make and model, like "Sony KD-55X85J" or "Fire TV Stick 4K Max (2nd gen)".
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: The app's is at the bottom of its sidebar. Home's is on the Home screen step, under On this TV. Like "0.14.0, Home 1.13.51".
+  - type: dropdown
+    id: computer
+    attributes:
+      label: Computer
+      options:
+        - Mac
+        - Windows
+        - Linux
+  - type: textarea
+    id: pictures
+    attributes:
+      label: Screenshots or photos
+      description: A photo of the TV screen is fine. Drag it here.
+  - type: textarea
+    id: report
+    attributes:
+      label: Report file
+      description: In the app, open **Activity** at the bottom and press **Send a report**, then drag the file here. Look through it first, since logs can name your apps and network.
