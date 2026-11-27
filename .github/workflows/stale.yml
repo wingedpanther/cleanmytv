@@ -1,0 +1,31 @@
+name: Stale issues
+
+# Once a day: an issue with no activity for 14 days gets the stale label and a note, and is closed 7 days
+# later unless someone replies. Any comment takes the label off. Pull requests and issues labelled keep
+# (ideas waiting for their turn) are left alone.
+on:
+  schedule:
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+
+# Labels, comments and closes issues; nothing else.
+permissions:
+  issues: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          days-before-issue-stale: 14
+          days-before-issue-close: 7
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          stale-issue-label: stale
+          exempt-issue-labels: keep
+          close-issue-reason: not_planned
+          stale-issue-message: >
+            This has been quiet for two weeks, so it will close in a week. Reply with anything and it stays open.
+          close-issue-message: >
+            Closing since it's gone quiet. Reopen or reply anytime if it's still a problem.
